@@ -2,6 +2,9 @@
 
 Marketing & Lead Generation platform + CRM Admin Portal for **Quickupp AI Studio** — an AI video production agency offering AI UGC, AI Avatar, AI Cartoon Animation, Hyper-Realistic and AI Digital Twin video production for modern businesses, brands, and creators.
 
+🌐 **Live Domain:** [https://quickuppaistudio.com](https://quickuppaistudio.com)  
+🐙 **GitHub Repository:** [https://github.com/QSPL8080/AI-STUDIO.git](https://github.com/QSPL8080/AI-STUDIO.git)
+
 ---
 
 ## Tech Stack
@@ -10,91 +13,64 @@ Marketing & Lead Generation platform + CRM Admin Portal for **Quickupp AI Studio
 |---|---|
 | **Frontend Framework** | [TanStack Start](https://tanstack.com/start) (Fullstack SSR + React 19) |
 | **Routing** | TanStack Router (file-based type-safe routing) |
-| **Database** | [PostgreSQL](https://www.postgresql.org/) (Connection Pool via `pg`) |
+| **Database** | Dual Architecture: [Supabase](https://supabase.com) (Production HTTPS REST API) + PostgreSQL (Local `pg` Pool) |
+| **Hosting & CI/CD** | Hostinger Cloud Hosting + Automated GitHub Push Deployments |
 | **Styling & Design System** | Tailwind CSS v4 + OKLCH tokens + Custom Keyframe Animations |
-| **Typography** | Space Grotesk (Sans) + Aurora (Luxury Display Serif for Highlights) |
-| **Build Tool** | Vite 8 + `@lovable.dev/vite-tanstack-config` |
+| **Typography** | Space Grotesk (Sans) + Playfair Display / Cormorant Garamond (Serif Highlights) |
+| **Build Tool & Server** | Vite 8 + Nitro (`node-server` runtime) |
 | **Icons** | Lucide React |
-| **Package Manager** | Bun |
 | **Language** | TypeScript |
-| **Platform** | [Lovable](https://lovable.dev) |
 
 ---
 
-## Project Structure
+## Key Features
 
-```
-AI STUDIO/
-├── public/
-│   ├── images/
-│   │   ├── Hero Image .png              # High-resolution Hero visual
-│   │   ├── hero-ai-video.jpg            # Secondary format asset
-│   │   └── quickupp-mark.png            # Logo mark
-│   ├── favicon.png                      # App favicon
-│   └── robots.txt                       # Search engine crawler rules
-├── src/
-│   ├── routes/
-│   │   ├── __root.tsx                   # Root layout shell, SEO metadata, fonts & script injection
-│   │   ├── index.tsx                    # Landing page assembling all sections in conversion flow
-│   │   └── admin.tsx                    # Authenticated Admin CRM Portal for managing leads
-│   ├── components/
-│   │   └── site/
-│   │       ├── data.ts                  # Central content repository (services, pricing, FAQs, etc.)
-│   │       ├── sections.tsx             # Interactive UI sections (Hero, Samples, Services, etc.)
-│   │       └── ui.tsx                   # Base UI primitives (Section, SectionHeading, NeonButton)
-│   ├── assets/                          # Static assets and proxy metadata
-│   ├── lib/
-│   │   ├── db.ts                        # PostgreSQL connection pool, schema init & queries
-│   │   ├── lead-actions.ts              # Server functions for lead submissions & CRM operations
-│   │   ├── error-capture.ts             # SSR error capture utility
-│   │   ├── error-page.ts                # Fallback HTML error page renderer
-│   │   ├── lovable-error-reporting.ts   # Lovable platform error reporting
-│   │   └── utils.ts                     # Class merging utility (clsx + twMerge)
-│   ├── styles.css                       # Global styles, scrollbar removal, animations & tokens
-│   ├── routeTree.gen.ts                 # Auto-generated TanStack route tree
-│   ├── router.tsx                       # Router instance & QueryClient configuration
-│   ├── server.ts                        # SSR server handler
-│   └── start.ts                         # Client entry point
-├── package.json
-├── bun.lock
-├── vite.config.ts
-└── README.md
-```
+- ⚡ **High-Conversion Landing Page:** Responsive design showcasing AI video formats, pricing tiers, workflow process, video samples, client trust strips, and interactive FAQs.
+- 🎯 **Lead Capture Forms:**
+  - **Main Contact Section:** Full requirement capture form.
+  - **Timed Quote Modal:** Appears on every refresh (1.2s delay) and recurs every 5 minutes.
+- 💬 **Instant WhatsApp Integration:** One-click WhatsApp action with pre-populated lead messages.
+- 📊 **Dedicated CRM Admin Portal (`/admin`):**
+  - KPI counters (Total, Contact Form, Popup Modal, Today's New).
+  - Search, filter by source & status, inline status updates (`New`, `Contacted`, `In Progress`, `Closed`).
+  - 1-Click WhatsApp direct response & CSV Export.
+  - 🔒 **Security Auto-Logout:** Automatic logout after 5 minutes of inactivity.
 
 ---
 
 ## Admin CRM Portal
 
-The platform includes a dedicated CRM dashboard for reviewing and managing leads collected from both the **Contact Form** and the **Timed Pop-up Modal**.
-
-- **URL Route:** `/admin` (`http://localhost:8080/admin`)
-- **Admin Email:** `admin@aistudio.com`
-- **Password:** `Admin@123`
-
-### Key Admin Features:
-- **Source Categorization:** Clear tags distinguishing whether a lead originated from the `#contact` **Contact Form** or the **Popup Modal**.
-- **Real-Time KPI Summary:** Compact counts for Total Leads, Contact Form Leads, Popup Modal Leads, and New Uncontacted Leads.
-- **Search & Filter:** Instant search by name, phone, business, or email, plus filter dropdowns for Source and Status.
-- **Lead Status Management:** Easily toggle statuses (`New`, `Contacted`, `In Progress`, `Closed`).
-- **1-Click WhatsApp Direct Chat:** Instant WhatsApp conversation trigger with pre-filled greeting.
-- **CSV Data Export:** Export all filtered leads to `.csv` for Excel/Google Sheets.
+- **URL Route:** `/admin` ([https://quickuppaistudio.com/admin](https://quickuppaistudio.com/admin))
+- **Default Admin Email:** `admin@aistudio.com`
+- **Default Password:** `Admin@123`
 
 ---
 
-## Database Architecture (PostgreSQL)
+## Environment Variables Configuration
 
-Configured for **PostgreSQL** in `src/lib/db.ts` with connection pooling and automated table initialization.
+Create a `.env` file in the root directory for local development (copy from `.env.example`):
 
-### Database Credentials:
-- **Host:** `localhost:5432`
-- **User:** `postgres`
-- **Password:** `8080`
-- **Database:** `ai_studio`
-- **Table:** `public.leads`
+```env
+# PostgreSQL Database Connection (Localhost)
+DATABASE_URL=postgres://postgres:8080@localhost:5432/ai_studio
 
-### Table Schema:
+# Production Supabase Credentials (Configured in Hostinger)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_API_KEY=your-supabase-key
+
+# Server Port
+PORT=3000
+```
+
+---
+
+## Database Architecture & Schema
+
+The database automatically initializes the table upon first lead submission.
+
+### Table Schema (`leads`):
 ```sql
-CREATE TABLE public.leads (
+CREATE TABLE IF NOT EXISTS public.leads (
     id VARCHAR(64) PRIMARY KEY,
     source VARCHAR(32) NOT NULL,        -- 'Contact Form' | 'Popup Modal'
     name VARCHAR(255) NOT NULL,
@@ -106,81 +82,37 @@ CREATE TABLE public.leads (
     industry VARCHAR(128),
     requirement TEXT,
     additional TEXT,
-    status VARCHAR(32) DEFAULT 'New',  -- 'New', 'Contacted', 'In Progress', 'Closed'
+    status VARCHAR(32) DEFAULT 'New',   -- 'New' | 'Contacted' | 'In Progress' | 'Closed'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
 ---
 
-## Landing Page Flow
-
-The single-page landing flow (`/`) is structured in optimal conversion sequence:
-
-1. **Header** — Sticky brand header with logo, navigation links, and "Get AI Video Quote" CTA.
-2. **Hero** — Main value propositions, badge strip, direct quote CTA, and asset-backed hero visual with compact format pills.
-3. **Trust Strip** — 4-column trust badge bar (`5+ AI Video Formats`, `48–72 Hour Delivery`, `9:16 Reel Ready`, `Script + 1 Revision Included`).
-4. **Samples** — Filterable 9:16 video portfolio with integrated deliverables checklist and smooth continuous 15s rotation.
-5. **Services** — 5 distinct AI video service cards with features, best-for highlights, pricing, and holographic expand animations.
-6. **Why AI Video** — 6-card value proposition grid highlighting speed, cost-efficiency, and scalability.
-7. **Pricing** — Staggered comparison table covering Single Reel vs 5, 10, and 15 Reel packages, plus custom volume quote button.
-8. **Digital Twin** — Feature highlight for reusable AI avatar & voice clone configuration with dual-directional slide entrance.
-9. **Industries** — 12 industry verticals (D2C, Real Estate, Healthcare, Coaching, etc.) with recommended video formats.
-10. **Use Cases** — Interactive use-case pill tags with spring pop-in animations.
-11. **Process** — 6-step streamlined production pipeline with sequential 3D domino flip cards.
-12. **Why Us** — Quickupp AI Studio differentiators with 3D tilt float animations and turnaround stats.
-13. **Portfolio** — Curated portfolio showcase of client campaigns across industries.
-14. **FAQ** — Unified accordion panel with hover auto-expand/collapse.
-15. **WhatsApp CTA** — Fast-action WhatsApp consultation banner with direct chat link.
-16. **Lead Quote Form (`#contact`)** — Interactive 6-field quote request form with custom dropdown icons, CRM storage, and WhatsApp lead generation.
-17. **Contact Banner** — Ambient glowing CTA card with smooth scroll lift.
-18. **Footer** — Compact 4-column footer with brand logo identical to header, links, and centered copyright.
-19. **Quote Pop-up Modal** — Timed lead capture modal that triggers every 10 seconds with custom dropdown arrows and WhatsApp submission.
-20. **Floating WhatsApp Button** — Instant 1-click consultation floating button.
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) v18+
-- [Bun](https://bun.sh/) (or `npm`)
-- [PostgreSQL](https://www.postgresql.org/) (Running on port 5432)
-
-### Installation
+## Local Development & Setup
 
 ```bash
-bun install
-```
+# 1. Install dependencies
+npm install
 
-### Development Server
+# 2. Start development server
+npm run dev
 
-```bash
-bun run dev
-```
+# 3. Build for production
+npm run build
 
-The application runs locally on **http://localhost:8080/** with fast HMR.
-
-### Production Build
-
-```bash
-bun run build
+# 4. Preview / Run production build locally
+npm run preview
+# or
+npm start
 ```
 
 ---
 
-## Content Customization
+## Hostinger Deployment & Continuous Delivery
 
-All text copy, pricing, features, industry list, process steps, FAQs, terms, and contact links are centralized in:
-
-📂 **[`src/components/site/data.ts`](src/components/site/data.ts)**
-
-Edit this file directly to update any copy or numbers across the site without changing component code.
-
----
-
-## License
-
-© 2026 Quickupp AI Studio. All rights reserved.
-
+1. **Auto-Deploy on Push:** Pushing commits to the `main` branch on GitHub automatically triggers a redeploy on Hostinger.
+2. **Environment Variables on Hostinger:**
+   - `DATABASE_URL` / `SUPABASE_URL` & `SUPABASE_API_KEY`
+   - `PORT=3000`
+3. **Production Entrypoint:** `node .output/server/index.mjs` (configured via `npm start`).
