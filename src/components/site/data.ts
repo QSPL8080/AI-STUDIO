@@ -1,0 +1,518 @@
+export const heroBadges = [
+  "Script Included",
+  "5+ AI Video Formats",
+  "Up to 60-Second Videos",
+  "9:16 Reel Format",
+  "48–72 Hour Delivery",
+  "1 Revision Included",
+];
+
+export const formats = [
+  "AI UGC",
+  "AI Cartoon",
+  "AI Avatar",
+  "Hyper-Realistic",
+  "Digital Twin",
+];
+
+export const samples = [
+  {
+    format: "AI UGC",
+    industry: "Skincare",
+    description: "Creator-style product recommendation video for a skincare brand.",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-young-woman-applying-skincare-cream-41528-large.mp4",
+  },
+  {
+    format: "AI Avatar",
+    industry: "Real Estate",
+    description: "Presenter-led project walkthrough for a residential launch.",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-modern-luxury-house-and-swimming-pool-42539-large.mp4",
+  },
+  {
+    format: "Hyper-Realistic",
+    industry: "Jewellery",
+    description: "Cinematic product advertisement for a luxury jewellery collection.",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-diamond-ring-sparkling-in-the-dark-42866-large.mp4",
+  },
+  {
+    format: "AI Cartoon",
+    industry: "Education",
+    description: "Animated explainer reel for an online coaching institute.",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-animation-of-futuristic-devices-99786-large.mp4",
+  },
+  {
+    format: "Digital Twin",
+    industry: "Founder Branding",
+    description: "Founder-led update reel created from an approved digital twin.",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-man-working-with-futuristic-technology-41485-large.mp4",
+  },
+];
+
+export const services = [
+  {
+    title: "AI UGC Video Production",
+    description:
+      "Create authentic creator-style videos for your products and services without arranging a traditional influencer shoot.",
+    bestFor: "D2C brands, e-commerce, beauty, skincare, food and consumer brands.",
+    items: [
+      "Product Reviews",
+      "Product Demonstrations",
+      "Unboxing Videos",
+      "Testimonials",
+      "Product Recommendations",
+      "Problem → Solution Videos",
+      "Social Media Advertisements",
+    ],
+    price: "₹2,499 / Reel",
+    cta: "Create AI UGC Video",
+  },
+  {
+    title: "AI Cartoon Animation Services",
+    description:
+      "Turn your ideas into engaging animated videos using AI-generated characters, scenes and storytelling.",
+    bestFor: "Education, coaching, SaaS, children's brands and creative businesses.",
+    items: [
+      "Explainer Videos",
+      "Educational Content",
+      "Brand Stories",
+      "Animated Reels",
+      "Character-Based Videos",
+      "Product Explainers",
+    ],
+    price: "₹2,499 / Reel",
+    cta: "Create Cartoon Video",
+  },
+  {
+    title: "AI Avatar Video Production",
+    description:
+      "Create professional presenter-style videos using realistic AI avatars without requiring a traditional camera shoot.",
+    bestFor: "Real Estate, Clinics, Education, Finance, SaaS and professional services.",
+    items: [
+      "Business Presentations",
+      "Educational Videos",
+      "Property Videos",
+      "Doctor/Clinic Explainers",
+      "Service Explainers",
+      "Corporate Videos",
+      "Social Media Reels",
+    ],
+    price: "₹3,999 / Reel",
+    cta: "Create AI Avatar Video",
+  },
+  {
+    title: "Hyper-Realistic AI Video Production",
+    description:
+      "Create cinematic AI-generated people, environments, products and scenes for premium visual storytelling.",
+    bestFor: "Real Estate, Jewellery, Fashion, Luxury Brands and premium businesses.",
+    items: [
+      "Product Advertisements",
+      "Cinematic Brand Videos",
+      "Real Estate Videos",
+      "Product Launches",
+      "Premium Social Media Content",
+      "Advertising Campaigns",
+    ],
+    price: "₹4,999 / Reel",
+    cta: "Create Hyper-Realistic Video",
+  },
+  {
+    title: "AI Digital Twin & Clone Video Services",
+    description:
+      "Create recurring video content using an appropriately authorized digital twin and AI voice setup.",
+    bestFor:
+      "Founders, Doctors, Coaches, Consultants, Educators, Influencers and Personal Brands.",
+    items: [
+      "Founder Videos",
+      "Personal Branding",
+      "Educational Reels",
+      "Expert Content",
+      "Business Updates",
+      "Promotional Videos",
+      "Social Media Content",
+    ],
+    price: "₹5,999 / Reel",
+    cta: "Create My Digital Twin",
+  },
+];
+
+export const whyAiVideo = [
+  {
+    title: "Create More Content",
+    description:
+      "Produce more videos for social media, advertising and content marketing.",
+  },
+  {
+    title: "Faster Production",
+    description:
+      "Create professional video content through streamlined AI-powered production workflows.",
+  },
+  {
+    title: "Reduce Production Complexity",
+    description:
+      "Reduce dependency on traditional shoots, locations and repeated recording sessions.",
+  },
+  {
+    title: "Consistent Content",
+    description:
+      "Maintain consistent messaging, presentation and visual style across your videos.",
+  },
+  {
+    title: "Scalable Video Marketing",
+    description:
+      "Create one video or multiple videos every month based on your content requirements.",
+  },
+  {
+    title: "Social Media Ready",
+    description:
+      "Receive videos in vertical 9:16 format suitable for Instagram Reels, Facebook and YouTube Shorts.",
+  },
+];
+
+export const pricingRows = [
+  { service: "AI UGC Video", prices: ["₹2,499", "₹10,999", "₹20,999", "₹30,999"] },
+  {
+    service: "AI Cartoon Animation",
+    prices: ["₹2,499", "₹10,999", "₹20,999", "₹30,999"],
+  },
+  { service: "AI Avatar Video", prices: ["₹3,999", "₹18,999", "₹34,999", "₹47,999"] },
+  {
+    service: "Hyper-Realistic AI Video",
+    prices: ["₹4,999", "₹23,999", "₹44,999", "₹64,999"],
+  },
+  {
+    service: "AI Digital Twin / Clone",
+    prices: ["₹5,999", "₹28,999", "₹54,999", "₹79,999"],
+  },
+];
+
+export const twinFeatures = [
+  "Digital Twin Creation & Setup",
+  "Face/Avatar Training",
+  "Voice Clone Setup",
+  "AI Speaking Model Configuration",
+  "Lip-Sync Model Setup",
+  "Basic Expressions & Gestures",
+  "Brand-Ready Avatar Configuration",
+  "Initial Testing & Optimization",
+  "Setup for Future Digital Twin Videos",
+];
+
+export const deliverables = [
+  {
+    title: "AI UGC Video",
+    items: [
+      "Up to 60-sec Reel",
+      "Script Included",
+      "AI Creator/Influencer-Style Video",
+      "Product/Service-Focused Script",
+      "AI-Generated UGC Creator",
+      "Voiceover",
+      "Lip-Sync & Expressions",
+      "Product/Service Integration",
+      "Captions/Subtitles",
+      "Background Music",
+      "Basic Sound Effects",
+      "9:16 Reel Format",
+      "1 Revision",
+    ],
+  },
+  {
+    title: "AI Cartoon Animation",
+    items: [
+      "Up to 60-sec Reel",
+      "Script Included",
+      "Concept & Script Adaptation",
+      "AI Cartoon/Animated Characters",
+      "Scene-by-Scene Animation",
+      "AI Voiceover",
+      "Character Expressions & Movements",
+      "Backgrounds & Visual Elements",
+      "Captions/Subtitles",
+      "Background Music & Sound Effects",
+      "9:16 Reel Format",
+      "1 Revision",
+    ],
+  },
+  {
+    title: "AI Avatar Video",
+    items: [
+      "Up to 60-sec Reel",
+      "Script Included",
+      "AI Avatar Selection/Creation",
+      "Professional Script",
+      "AI Voiceover",
+      "Natural Lip-Sync",
+      "Avatar Expressions & Gestures",
+      "Brand/Product Visuals",
+      "Captions/Subtitles",
+      "Background Music",
+      "Basic Motion Graphics",
+      "9:16 Reel Format",
+      "1 Revision",
+    ],
+  },
+  {
+    title: "Hyper-Realistic AI Video",
+    items: [
+      "Up to 60-sec Reel",
+      "Script Included",
+      "Hyper-Realistic AI Characters/Scenes",
+      "Professional Concept & Script",
+      "Cinematic AI Visuals",
+      "Realistic Human/Product Movements",
+      "AI Voiceover",
+      "Lip-Sync Where Applicable",
+      "Product/Service Integration",
+      "Cinematic Transitions",
+      "Sound Design & Background Music",
+      "Captions/Subtitles",
+      "9:16 Reel Format",
+      "1 Revision",
+    ],
+  },
+  {
+    title: "AI Digital Twin / Clone",
+    items: [
+      "Up to 60-sec Reel",
+      "Script Included",
+      "Digital Twin / Clone-Based Video",
+      "Client-Approved Digital Twin",
+      "Clone Voiceover",
+      "AI Lip-Sync",
+      "Facial Expressions & Gestures",
+      "Brand/Product Integration",
+      "Captions/Subtitles",
+      "Background Music",
+      "Basic Motion Graphics",
+      "9:16 Reel Format",
+      "1 Revision",
+    ],
+  },
+];
+
+export const industries = [
+  {
+    name: "Real Estate",
+    description:
+      "AI property videos, project explainers, promotional reels and sales-focused content.",
+    recommended: "AI Avatar, Hyper-Realistic, Digital Twin",
+  },
+  {
+    name: "Clinics & Doctors",
+    description:
+      "Educational videos, treatment explainers, awareness content and doctor-led communication.",
+    recommended: "AI Avatar, Digital Twin, UGC",
+  },
+  {
+    name: "D2C & E-commerce",
+    description:
+      "Product demonstrations, reviews, UGC advertisements and product promotions.",
+    recommended: "AI UGC, Hyper-Realistic",
+  },
+  {
+    name: "Beauty & Skincare",
+    description:
+      "Product recommendations, tutorials, testimonials and creator-style content.",
+    recommended: "AI UGC, Hyper-Realistic",
+  },
+  {
+    name: "Interior Design",
+    description:
+      "Project showcases, design concepts, transformations and premium visual content.",
+    recommended: "Hyper-Realistic, AI UGC",
+  },
+  {
+    name: "Restaurants & Cafes",
+    description:
+      "Food promotions, product videos, animated content and social media reels.",
+    recommended: "AI UGC, Cartoon",
+  },
+  {
+    name: "Education & Coaching",
+    description:
+      "Educational explainers, lessons, promotional videos and presenter content.",
+    recommended: "AI Avatar, Cartoon, Digital Twin",
+  },
+  {
+    name: "IT & SaaS",
+    description:
+      "Product explainers, software demonstrations, educational content and promotional videos.",
+    recommended: "AI Avatar, Cartoon",
+  },
+  {
+    name: "Finance & Insurance",
+    description:
+      "Financial explainers, educational content and professional presenter videos.",
+    recommended: "AI Avatar, Digital Twin",
+  },
+  {
+    name: "Travel & Tourism",
+    description:
+      "Destination promotions, travel content, UGC videos and advertising creatives.",
+    recommended: "AI UGC, AI Avatar, Hyper-Realistic",
+  },
+  {
+    name: "Fitness & Wellness",
+    description:
+      "Workout content, wellness education, promotional videos and personal branding.",
+    recommended: "AI UGC, Digital Twin",
+  },
+  {
+    name: "Jewellery & Luxury",
+    description:
+      "Premium product visuals, cinematic advertisements and luxury brand storytelling.",
+    recommended: "Hyper-Realistic, AI UGC",
+  },
+];
+
+export const useCases = [
+  "Product Advertisements",
+  "Product Demonstrations",
+  "Product Reviews",
+  "Unboxing Videos",
+  "AI UGC Advertisements",
+  "Customer Testimonials",
+  "Real Estate Promotional Videos",
+  "Clinic & Doctor Explainers",
+  "Educational Videos",
+  "Service Explainer Videos",
+  "Brand Awareness Reels",
+  "Product Launch Videos",
+  "Promotional Reels",
+  "Founder Videos",
+  "Personal Branding Videos",
+  "Social Media Advertisements",
+  "AI Video Ads",
+  "Corporate Communication",
+  "Storytelling Videos",
+];
+
+export const processSteps = [
+  {
+    title: "Share Your Requirement",
+    description:
+      "Tell us about your business, product/service, audience and video objective.",
+  },
+  {
+    title: "Script & Concept",
+    description: "Our team prepares the video script and creative concept.",
+  },
+  {
+    title: "Approve the Script",
+    description: "Review and approve the script/concept before production begins.",
+  },
+  {
+    title: "AI Video Production",
+    description:
+      "We create the AI visuals, voiceover, lip-sync, animation, captions, music and editing.",
+  },
+  {
+    title: "Review & Revision",
+    description:
+      "Review the completed video and use the included revision where applicable.",
+  },
+  {
+    title: "Final Delivery",
+    description:
+      "After completion of the balance payment, the final video is delivered.",
+  },
+];
+
+export const whyUs = [
+  {
+    title: "5+ AI Video Formats",
+    description:
+      "From AI UGC and AI avatars to hyper-realistic videos and digital twins.",
+  },
+  {
+    title: "Business-Focused Content",
+    description:
+      "Scripts and concepts are created around your product, service and target audience.",
+  },
+  {
+    title: "Complete Video Production",
+    description: "Script, AI generation, voiceover, lip-sync, captions, music and editing.",
+  },
+  {
+    title: "Fast Turnaround",
+    description:
+      "Standard delivery within 48–72 working hours after script approval and receipt of required materials.",
+  },
+  {
+    title: "Scalable Packages",
+    description: "Choose from single videos or 5, 10 and 15-video packages.",
+  },
+  {
+    title: "Social Media Ready",
+    description: "Vertical 9:16 format suitable for modern social media platforms.",
+  },
+];
+
+export const faqs = [
+  {
+    question: "What AI video production services does Quickupp AI Studio offer?",
+    answer:
+      "Quickupp AI Studio offers AI UGC videos, AI cartoon animations, AI avatar videos, hyper-realistic AI videos and AI digital twin or clone videos for businesses.",
+  },
+  {
+    question: "How much does AI video production cost?",
+    answer:
+      "Our AI video production services start from ₹2,499 per reel. Pricing depends on the selected video format, production requirements and package size.",
+  },
+  {
+    question: "What is included in an AI video?",
+    answer:
+      "Depending on the selected service, the package can include scripting, AI-generated visuals, voiceover, lip-sync, expressions, captions, music, sound effects, motion graphics and final 9:16 editing.",
+  },
+  {
+    question: "How long does AI video production take?",
+    answer:
+      "Our standard delivery timeline is 48–72 working hours after script approval and receipt of all required materials.",
+  },
+  {
+    question: "Can you create AI UGC videos for my product?",
+    answer:
+      "Yes. We create AI UGC videos featuring AI-generated creators for product demonstrations, reviews, recommendations, testimonials and promotional content.",
+  },
+  {
+    question: "Can you create an AI avatar of me?",
+    answer:
+      "Yes. We can create an appropriately authorized AI avatar or digital twin for clients who want to produce recurring videos using their approved appearance and voice.",
+  },
+  {
+    question: "What is an AI digital twin?",
+    answer:
+      "An AI digital twin is a reusable digital representation of a person that can be used to create AI-powered videos using an appropriately authorized avatar and voice configuration.",
+  },
+  {
+    question: "Can I use AI videos for Instagram Reels?",
+    answer:
+      "Yes. Our standard videos are delivered in vertical 9:16 format suitable for Instagram Reels, Facebook and YouTube Shorts.",
+  },
+  {
+    question: "How many revisions are included?",
+    answer:
+      "One revision is included with the standard package, based on the approved script and concept.",
+  },
+  {
+    question: "Can I order multiple AI videos every month?",
+    answer:
+      "Yes. We offer 5, 10 and 15-reel packages and can also create customized monthly AI video production plans.",
+  },
+];
+
+export const nav = [
+  { label: "Samples", href: "#samples" },
+  { label: "Services", href: "#services" },
+  { label: "Pricing", href: "#pricing" },
+  { label: "Portfolio", href: "#portfolio" },
+  { label: "How It Works", href: "#process" },
+  { label: "FAQ", href: "#faq" },
+  { label: "Contact", href: "#contact" },
+];
+
+export const footerTagline = "AI-Powered Videos. Built for Your Business.";
+export const footerDescription =
+  "Quickupp AI Studio provides professional AI video production services for businesses, brands and creators. Create AI UGC, AI avatar, cartoon, hyper-realistic and digital twin videos for social media, advertising and digital marketing.";
+export const footerLocation = "AI Video Production Pune · India";
+export const footerCopyright = `© ${new Date().getFullYear()} Quickupp AI Studio. AI Video Production Services.`;

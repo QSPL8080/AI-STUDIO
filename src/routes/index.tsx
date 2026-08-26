@@ -1,0 +1,81 @@
+import { useEffect } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  Contact,
+  DigitalTwin,
+  Faq,
+  Footer,
+  FloatingWhatsAppButton,
+  Header,
+  Hero,
+  Industries,
+  LeadFormSection,
+  Portfolio,
+  Pricing,
+  Process,
+  QuotePopupModal,
+  Samples,
+  Services,
+  TrustStrip,
+  UseCases,
+  WhatsAppCtaSection,
+  WhyAiVideo,
+  WhyUs,
+} from "@/components/site/sections";
+
+const title = "AI Video Production Company | AI UGC, Avatar & Digital Twin Videos";
+const description =
+  "Quickupp AI Studio provides AI video production services including AI UGC, AI avatar, cartoon, hyper-realistic and digital twin videos for businesses.";
+
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title },
+      { name: "description", content: description },
+      { property: "og:title", content: title },
+      { property: "og:description", content: description },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: Index,
+});
+
+function Index() {
+  // Ensure page always starts at top when loading/refreshing
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if ("scrollRestoration" in window.history) {
+        window.history.scrollRestoration = "manual";
+      }
+      window.scrollTo(0, 0);
+    }
+  }, []);
+
+  return (
+    <div id="top" className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
+      <Header />
+      <main>
+        <Hero />
+        <TrustStrip />
+        <Samples />
+        <Services />
+        <WhyAiVideo />
+        <Pricing />
+        <DigitalTwin />
+        <Industries />
+        <UseCases />
+        <Process />
+        <WhyUs />
+        <Portfolio />
+        <Faq />
+        <WhatsAppCtaSection />
+        <LeadFormSection />
+        <Contact />
+      </main>
+      <Footer />
+      <FloatingWhatsAppButton />
+      <QuotePopupModal />
+    </div>
+  );
+}
