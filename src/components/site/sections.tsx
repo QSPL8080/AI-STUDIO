@@ -1807,38 +1807,25 @@ export function FloatingWhatsAppButton() {
 export function QuotePopupModal() {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Check if visitor has already submitted the popup form (cross-checked via localStorage & cookie)
-  const isVisitorSubmitted = () => {
-    if (typeof window === "undefined") return false;
-    try {
-      const ls = localStorage.getItem("ai_studio_popup_submitted");
-      const cookieMatch = document.cookie.includes("ai_studio_popup_submitted=true");
-      return ls === "true" || cookieMatch;
-    } catch {
-      return false;
-    }
-  };
-
   useEffect(() => {
-    if (isVisitorSubmitted()) return;
-
-    // 1. Popup immediately when website loads / user opens (1.2s smooth entrance delay)
+    // 1. Popup on every website refresh / load after 1.2s
     const initialTimer = setTimeout(() => {
-      if (!isVisitorSubmitted()) {
-        setIsOpen(true);
-      }
+      setIsOpen(true);
     }, 1200);
 
-    // 2. Set recurring 5-minute interval timer (300,000 ms)
-    const recurringInterval = setInterval(() => {
-      if (!isVisitorSubmitted()) {
-        setIsOpen(true);
-      }
+    // 2. Repeat popup every 5 minutes (300,000 ms)
+    const recurringTimer = setInterval(() => {
+      setIsOpen(true);
     }, 300000);
+
+    // 3. Listen for manual trigger events across buttons
+    const handleOpenEvent = () => setIsOpen(true);
+    window.addEventListener("open-quote-modal", handleOpenEvent);
 
     return () => {
       clearTimeout(initialTimer);
-      clearInterval(recurringInterval);
+      clearInterval(recurringTimer);
+      window.removeEventListener("open-quote-modal", handleOpenEvent);
     };
   }, []);
 
@@ -1907,22 +1894,14 @@ export function QuotePopupModal() {
               console.error("PostgreSQL modal submission error:", err);
             }
 
-            // 2. Mark visitor permanently identified & submitted in localStorage + Cookie (1 year)
-            try {
-              localStorage.setItem("ai_studio_popup_submitted", "true");
-              localStorage.setItem("ai_studio_user_lead_submitted", Date.now().toString());
-              document.cookie = "ai_studio_popup_submitted=true; max-age=31536000; path=/; SameSite=Lax";
-            } catch (err) {
-              console.error(err);
-            }
-
-            // 3. Open WhatsApp
+            // 2. Open WhatsApp
             const text = `Hi Quickupp AI Studio, I'd like a quote for AI Video Production:\n\n*Name:* ${name}\n*Phone:* ${phone}\n*Email:* ${email}\n*Video Type:* ${videoType}\n*Business:* ${business}\n*Location:* ${location}${
               additional ? `\n*Additional Notes:* ${additional}` : ""
             }`;
 
             window.open(`https://wa.me/919999999999?text=${encodeURIComponent(text)}`, "_blank");
             setIsOpen(false);
+            form.reset();
           }}
           className="mt-4 space-y-3"
         >
