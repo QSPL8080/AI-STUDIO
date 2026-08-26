@@ -40,6 +40,8 @@ function AdminPage() {
   const [filterSource, setFilterSource] = useState<string>("All");
   const [filterStatus, setFilterStatus] = useState<string>("All");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLeadForMsg, setSelectedLeadForMsg] = useState<Lead | null>(null);
+  const [copiedNotification, setCopiedNotification] = useState(false);
 
   // Check saved session & remember me on initial mount
   useEffect(() => {
@@ -198,19 +200,26 @@ function AdminPage() {
   };
 
   const handleOpenWhatsApp = (lead: Lead) => {
+    setSelectedLeadForMsg(lead);
     const text = getAdminWhatsAppPlainText(lead);
     const phone = sanitizePhoneNumber(lead.phone);
-    
-    // 1. Copy message directly to clipboard so user can always Ctrl+V / Paste if Windows app fails to populate
-    try {
-      navigator.clipboard.writeText(text);
-    } catch (e) {
-      console.error("Clipboard copy error:", e);
+
+    // Auto copy text
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
     }
 
-    // 2. Open WhatsApp Web / App with text parameter
-    const encoded = encodeURIComponent(text);
-    window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encoded}`, "_blank");
+    // Open WhatsApp Web with fallback link
+    window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`, "_blank");
+  };
+
+  const copyLeadMessage = (lead: Lead) => {
+    const text = getAdminWhatsAppPlainText(lead);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedNotification(true);
+      setTimeout(() => setCopiedNotification(false), 2500);
+    }
   };
 
   const exportCSV = () => {
@@ -763,6 +772,64 @@ function AdminPage() {
             )}
           </div>
         </div>
+
+        {/* Quick WhatsApp Message Preview & 1-Click Copy Modal */}
+        {selectedLeadForMsg ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-lg rounded-2xl border border-border bg-[#120f20] p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-emerald-400" />
+                    WhatsApp Confirmation Message
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    For {selectedLeadForMsg.name} ({selectedLeadForMsg.phone})
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedLeadForMsg(null)}
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-border/80 bg-black/60 p-4 font-mono text-xs text-white/90 whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed">
+                {getAdminWhatsAppPlainText(selectedLeadForMsg)}
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+                <button
+                  onClick={() => copyLeadMessage(selectedLeadForMsg)}
+                  className="w-full sm:flex-1 rounded-xl border border-border bg-secondary/80 py-2.5 text-xs font-semibold text-white hover:bg-secondary flex items-center justify-center gap-2"
+                >
+                  <Copy className="h-4 w-4 text-neon" />
+                  {copiedNotification ? "Copied to Clipboard!" : "Copy Full Message"}
+                </button>
+
+                <a
+                  href={`https://web.whatsapp.com/send?phone=${sanitizePhoneNumber(selectedLeadForMsg.phone)}&text=${encodeURIComponent(
+                    getAdminWhatsAppPlainText(selectedLeadForMsg)
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full sm:flex-1 rounded-xl bg-[#25D366] py-2.5 text-xs font-bold text-white hover:bg-[#20bd5a] flex items-center justify-center gap-2"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Open WhatsApp Web
+                </a>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Global Copied Toast */}
+        {copiedNotification && !selectedLeadForMsg ? (
+          <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-emerald-500 px-4 py-3 text-xs font-bold text-white shadow-2xl flex items-center gap-2">
+            ✓ Message copied! Press Ctrl+V in WhatsApp.
+          </div>
+        ) : null}
       </main>
     </div>
   );
