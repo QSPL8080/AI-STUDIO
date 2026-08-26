@@ -518,6 +518,8 @@ export const footerEmail = "info@quickuppaistudio.com";
 export const footerPhone = "+91 9975683395";
 export const footerIndiaAddress =
   "Office 411, Suratwala Mark Plazzo, Hinjewadi, Phase 1, Pune, 411057, India";
+export const footerIndiaMapUrl = "https://maps.app.goo.gl/geUWrpRet8nY8qbW6";
 export const footerUsaAddress =
   "8 The Green, Suite A, Dover, Delaware - 19901, USA";
+export const footerUsaMapUrl = "https://maps.app.goo.gl/2rLqrCN4rco2XpQr5";
 export const footerCopyright = `© ${new Date().getFullYear()} Quickupp AI Studio. All rights reserved.`;
