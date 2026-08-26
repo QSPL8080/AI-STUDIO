@@ -21,10 +21,17 @@ const connectionString =
   process.env.DATABASE_URL ||
   "postgres://postgres:8080@localhost:5432/ai_studio";
 
+const isRemoteDb =
+  connectionString.includes("supabase.co") ||
+  connectionString.includes("neon.tech") ||
+  connectionString.includes("pooler.supabase.com") ||
+  !connectionString.includes("localhost");
+
 export const pool = new Pool({
   connectionString,
   max: 10,
   idleTimeoutMillis: 30000,
+  ...(isRemoteDb ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 let isInitialized = false;
