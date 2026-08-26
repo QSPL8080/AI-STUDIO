@@ -1705,8 +1705,18 @@ export function Footer() {
   ];
 
   return (
-    <footer className="border-t border-border/80 bg-[#08070e] px-5 pt-12 pb-8 text-foreground md:pt-16">
-      <div className="mx-auto w-full max-w-6xl">
+    <footer className="relative border-t border-border/80 bg-gradient-to-b from-[#08070e] via-[#120722] to-[#28053a] px-5 pt-12 pb-8 text-foreground md:pt-16 overflow-hidden">
+      {/* Ambient background glow flares that blend across full width */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[450px] w-full opacity-60 blur-3xl select-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 100% 80% at 50% 100%, rgba(210, 40, 255, 0.4) 0%, rgba(120, 30, 255, 0.25) 50%, transparent 100%)",
+        }}
+      />
+
+      <div className="relative z-10 mx-auto w-full max-w-6xl">
         {/* Main Footer Grid: 4 Clean Columns across full width */}
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 items-start">
           {/* Col 1: Brand & Bio ONLY */}
@@ -1825,31 +1835,18 @@ export function Footer() {
           </div>
         </div>
 
-        {/* OpenArt-style Ambient Gradient Blend behind full-width logo */}
-        <div className="relative mt-16 md:mt-24 pt-8 md:pt-14 pb-4 overflow-hidden">
-          {/* Vibrant Aurora Gradient Aura in Background */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-[280px] md:h-[400px] opacity-75 blur-3xl"
-            style={{
-              background:
-                "radial-gradient(ellipse 90% 70% at 50% 100%, rgba(200, 50, 255, 0.45) 0%, rgba(130, 40, 255, 0.35) 45%, rgba(40, 100, 255, 0.2) 75%, transparent 100%)",
-            }}
+        {/* 100% Full-Width Screen Edge-to-Edge Brand Logo cleanly blended with the footer */}
+        <div className="my-12 md:my-16 flex items-center justify-center">
+          <img
+            src="/images/logo.png"
+            alt="Quickupp AI Studio"
+            className="w-full max-w-6xl h-auto max-h-[160px] sm:max-h-[220px] md:max-h-[300px] object-contain select-none"
+            loading="lazy"
           />
-
-          {/* 100% Full-Width Screen Edge-to-Edge Brand Logo with Soft Bottom Overlay Blend */}
-          <div className="relative z-10 -mx-5 sm:-mx-6 lg:-mx-[calc((100vw-72rem)/2)] w-screen max-w-[100vw] overflow-hidden flex items-end justify-center px-4">
-            <img
-              src="/images/logo.png"
-              alt="Quickupp AI Studio"
-              className="w-full max-w-6xl h-auto max-h-[220px] md:max-h-[320px] object-contain brightness-110 contrast-105 drop-shadow-[0_0_80px_rgba(200,50,255,0.4)]"
-              loading="lazy"
-            />
-          </div>
         </div>
 
         {/* Bottom Legal & Copyright Bar */}
-        <div className="relative z-10 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
           <p>{footerCopyright}</p>
           <div className="flex items-center gap-4">
             <a href="/privacy-policy" className="hover:text-neon transition-colors">
