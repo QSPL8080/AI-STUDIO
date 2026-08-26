@@ -1341,6 +1341,7 @@ export function LeadFormSection() {
             const business = String(data.get("business") || "");
             const industry = String(data.get("industry") || "");
             const videoType = String(data.get("videoType") || "");
+            const location = String(data.get("location") || "");
             const requirement = String(data.get("requirement") || "");
 
             // 1. Send directly to PostgreSQL Database
@@ -1354,6 +1355,7 @@ export function LeadFormSection() {
                   business,
                   industry,
                   videoType,
+                  location,
                   requirement,
                 },
               });
@@ -1371,6 +1373,7 @@ export function LeadFormSection() {
               business,
               industry,
               video_type: videoType,
+              location: location || undefined,
               requirement,
               status: "New",
               created_at: new Date().toISOString(),
@@ -1384,7 +1387,7 @@ export function LeadFormSection() {
             }
 
             // 3. Open WhatsApp with completely plain and clean message (No bold, no asterisks, no emojis)
-            const text = `Hello Quickupp AI Studio Team,\n\nI would like to request a quotation for AI Video Production services. Here are my project details:\n\nClient Name: ${name}\nBusiness Name: ${business}\nPhone: ${phone}\nEmail: ${email || "Not provided"}\nIndustry: ${industry}\nVideo Type: ${videoType}\nRequirement: ${requirement || "Standard requirements"}\n\nPlease share the detailed proposal and pricing options.\n\nThank you!`;
+            const text = `Hello Quickupp AI Studio Team,\n\nI would like to request a quotation for AI Video Production services. Here are my project details:\n\nClient Name: ${name}\nBusiness Name: ${business}\nPhone: ${phone}\nEmail: ${email || "Not provided"}\nLocation: ${location || "Not provided"}\nIndustry: ${industry}\nVideo Type: ${videoType}\nRequirement: ${requirement || "Standard requirements"}\n\nPlease share the detailed proposal and pricing options.\n\nThank you!`;
             window.open(`https://wa.me/919975683395?text=${encodeURIComponent(text)}`, "_blank");
             form.reset();
           }}
@@ -1485,22 +1488,14 @@ export function LeadFormSection() {
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-semibold text-foreground">How Many Videos Do You Need?*</label>
-              <div className="relative mt-1.5">
-                <select
-                  name="quantity"
-                  required
-                  className="w-full appearance-none rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer"
-                >
-                  <option value="">Select quantity</option>
-                  <option value="1 Reel (Trial)">1 Reel (Trial)</option>
-                  <option value="5 Reels Package">5 Reels Package</option>
-                  <option value="10 Reels Package">10 Reels Package</option>
-                  <option value="15 Reels Package">15 Reels Package</option>
-                  <option value="Monthly Ongoing Requirement">Monthly Ongoing Requirement</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
-              </div>
+              <label className="block text-xs font-semibold text-foreground">Location / City*</label>
+              <input
+                type="text"
+                name="location"
+                required
+                placeholder="e.g. Pune, Mumbai, Delaware"
+                className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-foreground">Approximate Budget</label>
