@@ -1383,8 +1383,8 @@ export function LeadFormSection() {
               console.error(err);
             }
 
-            // 3. Open WhatsApp with formatted professional business inquiry (No emojis)
-            const text = `Hello Quickupp AI Studio Team,\n\nI would like to request a quotation for AI Video Production services. Here are my project details:\n\n*Client Name:* ${name}\n*Business Name:* ${business}\n*Phone:* ${phone}\n*Email:* ${email || "Not provided"}\n*Industry:* ${industry}\n*Video Type:* ${videoType}\n*Requirement:* ${requirement || "Standard requirements"}\n\nPlease share the detailed proposal and pricing options.\n\nThank you!`;
+            // 3. Open WhatsApp with completely plain and clean message (No bold, no asterisks, no emojis)
+            const text = `Hello Quickupp AI Studio Team,\n\nI would like to request a quotation for AI Video Production services. Here are my project details:\n\nClient Name: ${name}\nBusiness Name: ${business}\nPhone: ${phone}\nEmail: ${email || "Not provided"}\nIndustry: ${industry}\nVideo Type: ${videoType}\nRequirement: ${requirement || "Standard requirements"}\n\nPlease share the detailed proposal and pricing options.\n\nThank you!`;
             window.open(`https://wa.me/919975683395?text=${encodeURIComponent(text)}`, "_blank");
             form.reset();
           }}
@@ -2009,9 +2009,9 @@ export function QuotePopupModal() {
               console.error("PostgreSQL modal submission error:", err);
             }
 
-            // 2. Open WhatsApp with formatted professional quote inquiry (No emojis)
-            const text = `Hello Quickupp AI Studio Team,\n\nI would like to request an instant quotation for AI Video Production. Here are my project details:\n\n*Client Name:* ${name}\n*Phone:* ${phone}\n*Email:* ${email}\n*AI Video Type:* ${videoType}\n*Business Name:* ${business}\n*Location:* ${location}${
-              additional ? `\n*Additional Notes:* ${additional}` : ""
+            // 2. Open WhatsApp with completely plain and clean message (No bold, no asterisks, no emojis)
+            const text = `Hello Quickupp AI Studio Team,\n\nI would like to request an instant quotation for AI Video Production. Here are my project details:\n\nClient Name: ${name}\nPhone: ${phone}\nEmail: ${email}\nAI Video Type: ${videoType}\nBusiness Name: ${business}\nLocation: ${location}${
+              additional ? `\nAdditional Notes: ${additional}` : ""
             }\n\nPlease share the available packages and next steps.\n\nThank you!`;
 
             window.open(`https://wa.me/919975683395?text=${encodeURIComponent(text)}`, "_blank");
