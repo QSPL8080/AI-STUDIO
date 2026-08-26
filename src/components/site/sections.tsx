@@ -1383,8 +1383,8 @@ export function LeadFormSection() {
               console.error(err);
             }
 
-            // 3. Open WhatsApp
-            const text = `Hi Quickupp, I'd like a quote for AI Video.\n\n*Name:* ${name}\n*Business:* ${business}\n*Phone:* ${phone}\n*Email:* ${email}\n*Industry:* ${industry}\n*Video Type:* ${videoType}\n*Requirement:* ${requirement}`;
+            // 3. Open WhatsApp with formatted professional business inquiry
+            const text = `Hello Quickupp AI Studio Team,\n\nI would like to request a quotation for AI Video Production services. Here are my project details:\n\n👤 *Client Name:* ${name}\n🏢 *Business Name:* ${business}\n📞 *Phone:* ${phone}\n✉️ *Email:* ${email || "Not provided"}\n🏭 *Industry:* ${industry}\n🎬 *Video Type:* ${videoType}\n📝 *Requirement:* ${requirement || "Standard requirements"}\n\nPlease share the detailed proposal and pricing options.\n\nThank you!`;
             window.open(`https://wa.me/919975683395?text=${encodeURIComponent(text)}`, "_blank");
             form.reset();
           }}
@@ -1541,6 +1541,10 @@ export function LeadFormSection() {
 }
 
 export function WhatsAppCtaSection() {
+  const professionalMessage = encodeURIComponent(
+    "Hello Quickupp AI Studio Team,\n\nI have a video project requirement for my business and would like to discuss the right AI video format and pricing options.\n\nCould you please assist me?\n\nThank you!"
+  );
+
   return (
     <section className="border-t border-border bg-surface/40 px-5 py-12 md:py-16">
       <div className="mx-auto max-w-2xl text-center">
@@ -1554,7 +1558,7 @@ export function WhatsAppCtaSection() {
         </p>
         <div className="mt-6 flex justify-center">
           <a
-            href="https://wa.me/919975683395?text=Hi%20Quickupp%20AI%20Studio%2C%20I'd%20like%20to%20know%20more%20about%20your%20AI%20Video%20Production%20services."
+            href={`https://wa.me/919975683395?text=${professionalMessage}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-6 py-2.5 text-sm font-semibold text-white shadow transition-transform hover:scale-105"
@@ -1747,6 +1751,20 @@ export function Footer() {
                 <Phone className="h-4 w-4 text-emerald-400" />
                 <span className="font-mono">{footerPhone}</span>
               </a>
+
+              {/* Direct WhatsApp Business link */}
+              <a
+                href={`https://wa.me/919975683395?text=${encodeURIComponent(
+                  "Hello Quickupp AI Studio Team,\n\nI am interested in your AI Video Production services for my business. Could you please share more details regarding video formats, packages, and pricing?\n\nThank you!"
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-emerald-400"
+                title="Chat on WhatsApp"
+              >
+                <MessageCircle className="h-4 w-4 text-[#25D366]" />
+                <span>WhatsApp Business</span>
+              </a>
             </div>
 
             <div className="mt-3">
@@ -1880,7 +1898,9 @@ export function FloatingWhatsAppButton() {
 
       {/* Official WhatsApp Floating Button */}
       <a
-        href="https://wa.me/919975683395?text=Hi%20Quickupp%20AI%20Studio%2C%20I'd%20like%20to%20know%20more%20about%20your%20AI%20Video%20Production%20services."
+        href={`https://wa.me/919975683395?text=${encodeURIComponent(
+          "Hello Quickupp AI Studio Team,\n\nI am interested in your AI Video Production services for my business. Could you please provide more information regarding your packages and pricing?\n\nThank you!"
+        )}`}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with Quickupp AI Studio on WhatsApp"
@@ -1989,10 +2009,10 @@ export function QuotePopupModal() {
               console.error("PostgreSQL modal submission error:", err);
             }
 
-            // 2. Open WhatsApp
-            const text = `Hi Quickupp AI Studio, I'd like a quote for AI Video Production:\n\n*Name:* ${name}\n*Phone:* ${phone}\n*Email:* ${email}\n*Video Type:* ${videoType}\n*Business:* ${business}\n*Location:* ${location}${
-              additional ? `\n*Additional Notes:* ${additional}` : ""
-            }`;
+            // 2. Open WhatsApp with formatted professional quote inquiry
+            const text = `Hello Quickupp AI Studio Team,\n\nI would like to request an instant quotation for AI Video Production. Here are my project details:\n\n👤 *Client Name:* ${name}\n📞 *Phone:* ${phone}\n✉️ *Email:* ${email}\n🎬 *AI Video Type:* ${videoType}\n🏢 *Business Name:* ${business}\n📍 *Location:* ${location}${
+              additional ? `\n📝 *Additional Notes:* ${additional}` : ""
+            }\n\nPlease share the available packages and next steps.\n\nThank you!`;
 
             window.open(`https://wa.me/919975683395?text=${encodeURIComponent(text)}`, "_blank");
             setIsOpen(false);
