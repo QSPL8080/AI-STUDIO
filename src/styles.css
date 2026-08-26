@@ -56,7 +56,16 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-heading: "Space Grotesk", sans-serif;
+  --font-google-sans: "Google Sans", "Product Sans", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: "Apple Garamond", "EB Garamond", "Cormorant Garamond", Garamond, Georgia, serif;
+}
+
+@font-face {
+  font-family: "Google Sans";
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+  src: local("Google Sans Bold"), local("GoogleSans-Bold"), local("Product Sans Bold"), local("ProductSans-Bold");
 }
 
 @font-face {

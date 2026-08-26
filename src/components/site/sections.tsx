@@ -156,7 +156,7 @@ export function Hero() {
             <span className="h-1.5 w-1.5 rounded-full bg-neon" />
             AI Video Production Company
           </span>
-          <h1 className="mt-6 font-heading text-4xl font-bold leading-[1.05] tracking-tight text-white md:text-6xl">
+          <h1 className="mt-6 font-[var(--font-google-sans)] text-4xl font-bold leading-[1.05] tracking-tight text-white md:text-6xl">
             AI Video Production Services for{" "}
             <span className="font-serif italic font-bold text-gradient-brand">Modern Businesses</span>
           </h1>
