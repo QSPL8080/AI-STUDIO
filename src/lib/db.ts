@@ -20,10 +20,10 @@ async function getPool() {
   if (!pgPool) {
     const pg = await import("pg");
     const Pool = pg.default?.Pool || pg.Pool;
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error("DATABASE_URL environment variable is not defined.");
-    }
+    const connectionString =
+      process.env.DATABASE_URL ||
+      process.env.VITE_DATABASE_URL ||
+      "postgres://postgres:8080@localhost:5432/ai_studio";
 
     const isRemoteDb =
       connectionString.includes("supabase.co") ||
