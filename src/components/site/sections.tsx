@@ -1825,12 +1825,12 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Full-Width Large Brand Logo Section */}
-        <div className="py-12 md:py-16 flex items-center justify-center select-none overflow-hidden">
+        {/* 100% Full-Width Screen Edge-to-Edge Brand Logo */}
+        <div className="my-10 md:my-14 -mx-5 sm:-mx-6 lg:-mx-[calc((100vw-72rem)/2)] w-screen max-w-[100vw] overflow-hidden flex items-center justify-center px-4">
           <img
             src="/images/logo.png"
             alt="Quickupp AI Studio"
-            className="w-full max-w-5xl h-auto object-contain opacity-90 transition-opacity duration-300 hover:opacity-100 drop-shadow-[0_0_50px_rgba(200,80,255,0.2)]"
+            className="w-full h-auto max-h-[220px] md:max-h-[300px] object-contain opacity-95 transition-opacity duration-300 hover:opacity-100 drop-shadow-[0_0_60px_rgba(200,80,255,0.3)]"
             loading="lazy"
           />
         </div>
