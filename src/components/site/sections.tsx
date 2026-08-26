@@ -6,9 +6,12 @@ import {
   ChevronDown,
   Clock,
   Film,
+  MapPin,
+  Mail,
   Menu,
   MessageCircle,
   Palette,
+  Phone,
   Smartphone,
   Sparkles,
   UserCheck,
@@ -24,8 +27,11 @@ import {
   formats,
   footerCopyright,
   footerDescription,
-  footerLocation,
+  footerEmail,
+  footerIndiaAddress,
+  footerPhone,
   footerTagline,
+  footerUsaAddress,
   heroBadges,
   industries,
   nav,
@@ -1376,7 +1382,7 @@ export function LeadFormSection() {
 
             // 3. Open WhatsApp
             const text = `Hi Quickupp, I'd like a quote for AI Video.\n\n*Name:* ${name}\n*Business:* ${business}\n*Phone:* ${phone}\n*Email:* ${email}\n*Industry:* ${industry}\n*Video Type:* ${videoType}\n*Requirement:* ${requirement}`;
-            window.open(`https://wa.me/919999999999?text=${encodeURIComponent(text)}`, "_blank");
+            window.open(`https://wa.me/919975683395?text=${encodeURIComponent(text)}`, "_blank");
             form.reset();
           }}
           className="space-y-5"
@@ -1545,7 +1551,7 @@ export function WhatsAppCtaSection() {
         </p>
         <div className="mt-6 flex justify-center">
           <a
-            href="https://wa.me/919999999999"
+            href="https://wa.me/919975683395?text=Hi%20Quickupp%20AI%20Studio%2C%20I'd%20like%20to%20know%20more%20about%20your%20AI%20Video%20Production%20services."
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-6 py-2.5 text-sm font-semibold text-white shadow transition-transform hover:scale-105"
@@ -1670,79 +1676,143 @@ export function Contact() {
 export function Footer() {
   const footerGroups = [
     {
-      title: "Services",
+      title: "AI Video Services",
       links: [
         { label: "AI UGC Videos", href: "#services" },
         { label: "AI Cartoon Animation", href: "#services" },
         { label: "AI Avatar Videos", href: "#services" },
         { label: "Hyper-Realistic AI Videos", href: "#services" },
         { label: "AI Digital Twin Videos", href: "#services" },
+        { label: "Bulk Reels Packages", href: "#pricing" },
       ],
     },
     {
-      title: "Company",
+      title: "Company & Links",
       links: [
-        { label: "About", href: "#top" },
-        { label: "Portfolio", href: "#portfolio" },
-        { label: "Pricing", href: "#pricing" },
-        { label: "How It Works", href: "#process" },
-        { label: "FAQ", href: "#faq" },
-        { label: "Contact", href: "#contact" },
-      ],
-    },
-    {
-      title: "Legal",
-      links: [
-        { label: "Privacy Policy", href: "/privacy-policy" },
-        { label: "Terms & Conditions", href: "/terms" },
+        { label: "About Us", href: "#top" },
+        { label: "Video Portfolio", href: "#portfolio" },
+        { label: "Pricing Tiers", href: "#pricing" },
+        { label: "Our Process", href: "#process" },
+        { label: "FAQs", href: "#faq" },
+        { label: "Get a Quote", href: "#contact" },
+        { label: "Admin CRM", href: "/admin" },
       ],
     },
   ];
 
   return (
-    <footer className="border-t border-border bg-background px-5 pt-10 pb-6 md:pt-12 md:pb-6">
-      <div className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
-        <div className="flex flex-col items-start gap-3">
-          <a href="#top" className="-ml-1.5 sm:-ml-2.5 flex items-center transition-opacity hover:opacity-90">
-            <img
-              src="/images/logo.png"
-              alt="Quickupp AI Studio logo"
-              className="h-9 md:h-10 w-auto object-contain"
-              loading="lazy"
-              width={125}
-              height={40}
-            />
-          </a>
-          <p className="mt-1 text-sm font-semibold text-neon">{footerTagline}</p>
-          <p className="max-w-sm text-xs leading-relaxed text-muted-foreground sm:text-sm">
-            {footerDescription}
-          </p>
-          <p className="text-xs text-muted-foreground sm:text-sm">{footerLocation}</p>
-          <div className="mt-2">
-            <NeonButton href="#contact">Get AI Video Quote</NeonButton>
+    <footer className="border-t border-border/80 bg-[#08070e] px-5 pt-12 pb-8 text-foreground md:pt-16">
+      <div className="mx-auto w-full max-w-6xl">
+        {/* Main Footer Grid */}
+        <div className="grid gap-10 lg:grid-cols-12">
+          {/* Brand & Value Col (4 Cols) */}
+          <div className="flex flex-col items-start gap-3.5 lg:col-span-4">
+            <a href="#top" className="-ml-1 flex items-center transition-opacity hover:opacity-90">
+              <img
+                src="/images/logo.png"
+                alt="Quickupp AI Studio logo"
+                className="h-9 md:h-10 w-auto object-contain"
+                loading="lazy"
+                width={125}
+                height={40}
+              />
+            </a>
+            <p className="text-sm font-semibold text-neon">{footerTagline}</p>
+            <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+              {footerDescription}
+            </p>
+
+            {/* Quick Contact Links */}
+            <div className="mt-2 flex flex-col gap-2 text-xs sm:text-sm">
+              <a
+                href={`mailto:${footerEmail}`}
+                className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-neon"
+              >
+                <Mail className="h-4 w-4 text-neon" />
+                <span>{footerEmail}</span>
+              </a>
+              <a
+                href={`https://wa.me/919975683395?text=Hi%20Quickupp%20AI%20Studio%2C%20I'd%20like%20to%20know%20more%20about%20your%20services.`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-emerald-400"
+              >
+                <Phone className="h-4 w-4 text-emerald-400" />
+                <span className="font-mono">{footerPhone}</span>
+              </a>
+            </div>
+
+            <div className="mt-3">
+              <NeonButton href="#contact">Get AI Video Quote</NeonButton>
+            </div>
+          </div>
+
+          {/* Navigation Links (4 Cols) */}
+          <div className="grid grid-cols-2 gap-6 lg:col-span-4">
+            {footerGroups.map((group) => (
+              <nav key={group.title} aria-label={group.title} className="flex flex-col gap-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
+                  {group.title}
+                </h4>
+                <ul className="space-y-2">
+                  {group.links.map((link) => (
+                    <li key={link.label}>
+                      <a
+                        href={link.href}
+                        className="text-xs text-muted-foreground transition-colors hover:text-neon sm:text-sm"
+                      >
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ))}
+          </div>
+
+          {/* Global Locations Col (4 Cols) */}
+          <div className="flex flex-col gap-4 lg:col-span-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
+              Our Locations
+            </h4>
+
+            {/* India Office Card */}
+            <div className="rounded-xl border border-border/80 bg-[#12101e] p-3.5 shadow-md transition-colors hover:border-neon/40">
+              <div className="flex items-center gap-2 text-xs font-bold text-neon sm:text-sm">
+                <MapPin className="h-4 w-4 text-neon shrink-0" />
+                <span>India Office</span>
+              </div>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                {footerIndiaAddress}
+              </p>
+            </div>
+
+            {/* USA Office Card */}
+            <div className="rounded-xl border border-border/80 bg-[#12101e] p-3.5 shadow-md transition-colors hover:border-neon/40">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#60a5fa] sm:text-sm">
+                <MapPin className="h-4 w-4 text-[#60a5fa] shrink-0" />
+                <span>USA Office</span>
+              </div>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                {footerUsaAddress}
+              </p>
+            </div>
           </div>
         </div>
 
-        {footerGroups.map((group) => (
-          <nav key={group.title} aria-label={group.title} className="flex flex-col gap-2.5">
-            <h4 className="text-sm font-semibold text-foreground">{group.title}</h4>
-            <ul className="space-y-2">
-              {group.links.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-xs text-muted-foreground transition-colors hover:text-neon sm:text-sm"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        ))}
-      </div>
-      <div className="mx-auto mt-8 flex max-w-6xl items-center justify-center border-t border-border/60 pt-4 text-center text-xs text-muted-foreground">
-        <p>{footerCopyright}</p>
+        {/* Bottom Legal & Copyright Bar */}
+        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
+          <p>{footerCopyright}</p>
+          <div className="flex items-center gap-4">
+            <a href="/privacy-policy" className="hover:text-neon transition-colors">
+              Privacy Policy
+            </a>
+            <span>•</span>
+            <a href="/terms" className="hover:text-neon transition-colors">
+              Terms & Conditions
+            </a>
+          </div>
+        </div>
       </div>
     </footer>
   );
@@ -1785,10 +1855,10 @@ export function FloatingWhatsAppButton() {
 
       {/* Official WhatsApp Floating Button */}
       <a
-        href="https://wa.me/919999999999?text=Hi%20Quickupp%20AI%20Studio%2C%20I'd%20like%20to%20know%20more%20about%20your%20AI%20Video%20Production%20services."
+        href="https://wa.me/919975683395?text=Hi%20Quickupp%20AI%20Studio%2C%20I'd%20like%20to%20know%20more%20about%20your%20AI%20Video%20Production%20services."
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Chat on WhatsApp"
+        aria-label="Chat with Quickupp AI Studio on WhatsApp"
         className="flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-2xl transition-all duration-300 hover:scale-110 hover:shadow-[0_0_25px_rgba(37,211,102,0.65)] active:scale-95"
       >
         {/* Official WhatsApp SVG Vector Icon */}
@@ -1899,7 +1969,7 @@ export function QuotePopupModal() {
               additional ? `\n*Additional Notes:* ${additional}` : ""
             }`;
 
-            window.open(`https://wa.me/919999999999?text=${encodeURIComponent(text)}`, "_blank");
+            window.open(`https://wa.me/919975683395?text=${encodeURIComponent(text)}`, "_blank");
             setIsOpen(false);
             form.reset();
           }}
