@@ -1765,51 +1765,63 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Col 4: Global Locations */}
-          <div className="flex flex-col gap-3.5">
-            <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
-              Our Locations
-            </h4>
+          {/* Col 4: Locations & Contact */}
+          <div className="flex flex-col gap-4">
+            <div>
+              <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
+                Our Locations
+              </h4>
+              <div className="mt-2.5 flex flex-col gap-2 text-xs sm:text-sm">
+                <a
+                  href={footerIndiaMapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-start gap-2 text-muted-foreground hover:text-neon transition-colors"
+                >
+                  <MapPin className="h-4 w-4 text-neon shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-white group-hover:text-neon">India Office: </span>
+                    <span>{footerIndiaAddress}</span>
+                  </div>
+                </a>
 
-            {/* India Office Card (Opens Google Maps) */}
-            <a
-              href={footerIndiaMapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group block rounded-xl border border-border/80 bg-[#12101e] p-3.5 shadow-md transition-all hover:border-neon/60 hover:bg-[#181428]"
-              title="View India Office on Google Maps"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-neon sm:text-sm">
-                  <MapPin className="h-4 w-4 text-neon shrink-0" />
-                  <span>India Office</span>
-                </div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 group-hover:text-neon" />
+                <a
+                  href={footerUsaMapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-start gap-2 text-muted-foreground hover:text-[#60a5fa] transition-colors"
+                >
+                  <MapPin className="h-4 w-4 text-[#60a5fa] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-white group-hover:text-[#60a5fa]">USA Office: </span>
+                    <span>{footerUsaAddress}</span>
+                  </div>
+                </a>
               </div>
-              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground group-hover:text-foreground/90">
-                {footerIndiaAddress}
-              </p>
-            </a>
+            </div>
 
-            {/* USA Office Card (Opens Google Maps) */}
-            <a
-              href={footerUsaMapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group block rounded-xl border border-border/80 bg-[#12101e] p-3.5 shadow-md transition-all hover:border-[#60a5fa]/60 hover:bg-[#141a2e]"
-              title="View USA Office on Google Maps"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#60a5fa] sm:text-sm">
-                  <MapPin className="h-4 w-4 text-[#60a5fa] shrink-0" />
-                  <span>USA Office</span>
-                </div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 group-hover:text-[#60a5fa]" />
-              </div>
-              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground group-hover:text-foreground/90">
-                {footerUsaAddress}
-              </p>
-            </a>
+            {/* Direct Email and Phone Contact Links */}
+            <div className="border-t border-white/10 pt-3 flex flex-col gap-2 text-xs sm:text-sm">
+              <a
+                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${footerEmail}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-neon"
+                title="Send email via Gmail"
+              >
+                <Mail className="h-4 w-4 text-neon shrink-0" />
+                <span>{footerEmail}</span>
+              </a>
+
+              <a
+                href={`tel:${footerPhone.replace(/\s+/g, "")}`}
+                className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-emerald-400"
+                title="Call Quickupp AI Studio"
+              >
+                <Phone className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span className="font-mono">{footerPhone}</span>
+              </a>
+            </div>
           </div>
         </div>
 
