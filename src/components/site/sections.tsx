@@ -1825,18 +1825,31 @@ export function Footer() {
           </div>
         </div>
 
-        {/* 100% Full-Width Screen Edge-to-Edge Brand Logo */}
-        <div className="my-10 md:my-14 -mx-5 sm:-mx-6 lg:-mx-[calc((100vw-72rem)/2)] w-screen max-w-[100vw] overflow-hidden flex items-center justify-center px-4">
-          <img
-            src="/images/logo.png"
-            alt="Quickupp AI Studio"
-            className="w-full h-auto max-h-[220px] md:max-h-[300px] object-contain opacity-95 transition-opacity duration-300 hover:opacity-100 drop-shadow-[0_0_60px_rgba(200,80,255,0.3)]"
-            loading="lazy"
+        {/* OpenArt-style Ambient Gradient Blend behind full-width logo */}
+        <div className="relative mt-16 md:mt-24 pt-8 md:pt-14 pb-4 overflow-hidden">
+          {/* Vibrant Aurora Gradient Aura in Background */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[280px] md:h-[400px] opacity-75 blur-3xl"
+            style={{
+              background:
+                "radial-gradient(ellipse 90% 70% at 50% 100%, rgba(200, 50, 255, 0.45) 0%, rgba(130, 40, 255, 0.35) 45%, rgba(40, 100, 255, 0.2) 75%, transparent 100%)",
+            }}
           />
+
+          {/* 100% Full-Width Screen Edge-to-Edge Brand Logo with Soft Bottom Overlay Blend */}
+          <div className="relative z-10 -mx-5 sm:-mx-6 lg:-mx-[calc((100vw-72rem)/2)] w-screen max-w-[100vw] overflow-hidden flex items-end justify-center px-4">
+            <img
+              src="/images/logo.png"
+              alt="Quickupp AI Studio"
+              className="w-full max-w-6xl h-auto max-h-[220px] md:max-h-[320px] object-contain brightness-110 contrast-105 drop-shadow-[0_0_80px_rgba(200,50,255,0.4)]"
+              loading="lazy"
+            />
+          </div>
         </div>
 
         {/* Bottom Legal & Copyright Bar */}
-        <div className="flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
+        <div className="relative z-10 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
           <p>{footerCopyright}</p>
           <div className="flex items-center gap-4">
             <a href="/privacy-policy" className="hover:text-neon transition-colors">
