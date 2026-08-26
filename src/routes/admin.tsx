@@ -204,13 +204,13 @@ function AdminPage() {
     const text = getAdminWhatsAppPlainText(lead);
     const phone = sanitizePhoneNumber(lead.phone);
 
-    // Auto copy text
+    // Auto copy text to clipboard as safety backup
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).catch(() => {});
     }
 
-    // Open WhatsApp Web with fallback link
-    window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`, "_blank");
+    // Trigger direct native WhatsApp protocol for Windows Desktop App
+    window.location.href = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`;
   };
 
   const copyLeadMessage = (lead: Lead) => {
@@ -799,14 +799,24 @@ function AdminPage() {
                 {getAdminWhatsAppPlainText(selectedLeadForMsg)}
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
                 <button
                   onClick={() => copyLeadMessage(selectedLeadForMsg)}
-                  className="w-full sm:flex-1 rounded-xl border border-border bg-secondary/80 py-2.5 text-xs font-semibold text-white hover:bg-secondary flex items-center justify-center gap-2"
+                  className="rounded-xl border border-border bg-secondary/80 py-2.5 px-3 text-xs font-semibold text-white hover:bg-secondary flex items-center justify-center gap-1.5"
                 >
                   <Copy className="h-4 w-4 text-neon" />
-                  {copiedNotification ? "Copied to Clipboard!" : "Copy Full Message"}
+                  {copiedNotification ? "Copied!" : "Copy Text"}
                 </button>
+
+                <a
+                  href={`whatsapp://send?phone=${sanitizePhoneNumber(selectedLeadForMsg.phone)}&text=${encodeURIComponent(
+                    getAdminWhatsAppPlainText(selectedLeadForMsg)
+                  )}`}
+                  className="rounded-xl bg-[#25D366] py-2.5 px-3 text-xs font-bold text-white hover:bg-[#20bd5a] flex items-center justify-center gap-1.5"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Open App
+                </a>
 
                 <a
                   href={`https://web.whatsapp.com/send?phone=${sanitizePhoneNumber(selectedLeadForMsg.phone)}&text=${encodeURIComponent(
@@ -814,10 +824,9 @@ function AdminPage() {
                   )}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full sm:flex-1 rounded-xl bg-[#25D366] py-2.5 text-xs font-bold text-white hover:bg-[#20bd5a] flex items-center justify-center gap-2"
+                  className="rounded-xl border border-border/80 bg-secondary/50 py-2.5 px-3 text-xs font-semibold text-white hover:bg-secondary flex items-center justify-center gap-1.5"
                 >
-                  <MessageSquare className="h-4 w-4" />
-                  Open WhatsApp Web
+                  Open Web
                 </a>
               </div>
             </div>
