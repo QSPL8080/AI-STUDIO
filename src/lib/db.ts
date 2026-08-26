@@ -25,14 +25,22 @@ async function getPool() {
       throw new Error("DATABASE_URL environment variable is missing. Please set DATABASE_URL in your .env file or hosting environment variables.");
     }
 
+    let cleanConnectionString = connectionString.trim();
     const isRemoteDb =
-      connectionString.includes("supabase.co") ||
-      connectionString.includes("neon.tech") ||
-      connectionString.includes("pooler.supabase.com") ||
-      !connectionString.includes("localhost");
+      cleanConnectionString.includes("supabase.co") ||
+      cleanConnectionString.includes("neon.tech") ||
+      cleanConnectionString.includes("pooler.supabase.com") ||
+      !cleanConnectionString.includes("localhost");
+
+    // Remove ?sslmode=require if present so pg SSL object configuration takes precedence cleanly
+    if (cleanConnectionString.includes("?sslmode=")) {
+      cleanConnectionString = cleanConnectionString.split("?sslmode=")[0];
+    } else if (cleanConnectionString.includes("&sslmode=")) {
+      cleanConnectionString = cleanConnectionString.replace(/&sslmode=[^&]+/, "");
+    }
 
     pgPool = new Pool({
-      connectionString,
+      connectionString: cleanConnectionString,
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
