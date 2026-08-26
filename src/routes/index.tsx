@@ -23,9 +23,9 @@ import {
   WhyUs,
 } from "@/components/site/sections";
 
-const title = "AI Video Production Company | AI UGC, Avatar & Digital Twin Videos";
+const title = "Quickupp AI Studio | AI Video Production, UGC & Digital Avatars";
 const description =
-  "Quickupp AI Studio provides AI video production services including AI UGC, AI avatar, cartoon, hyper-realistic and digital twin videos for businesses.";
+  "Quickupp AI Studio provides professional AI video production services including AI UGC, AI avatar, cartoon, hyper-realistic and digital twin videos for businesses.";
 
 export const Route = createFileRoute("/")({
   head: () => ({
