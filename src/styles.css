@@ -166,19 +166,43 @@
     background: transparent !important;
   }
 
+  body,
+  p,
+  span,
+  a,
+  li,
+  label,
+  input,
+  textarea,
+  select,
+  button,
+  div {
+    font-family: var(--font-sans);
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-weight: 300;
+    font-weight: 300 !important;
     -webkit-font-smoothing: antialiased;
     letter-spacing: -0.01em;
     position: relative;
   }
 
+  p,
+  li,
+  span:not(.eyebrow):not(.text-gradient-brand),
+  label,
+  input,
+  textarea,
+  select {
+    font-weight: 300;
+  }
+
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-heading);
-    font-weight: 700;
+    font-family: var(--font-heading) !important;
+    font-weight: 700 !important;
     letter-spacing: -0.025em;
   }
 }
@@ -187,9 +211,9 @@
   background-image: var(--gradient-brand);
   background-clip: text;
   color: transparent;
-  font-family: var(--font-serif);
-  font-weight: 700;
-  font-style: italic;
+  font-family: var(--font-serif) !important;
+  font-weight: 700 !important;
+  font-style: italic !important;
 }
 
 @utility bg-gradient-brand {

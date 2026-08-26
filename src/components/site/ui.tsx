@@ -35,10 +35,10 @@ export function SectionHeading({
         <span className="h-1.5 w-1.5 rounded-full bg-neon" />
         {eyebrow}
       </span>
-      <h2 className="mt-3.5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl">
+      <h2 className="mt-3.5 font-heading text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl text-white">
         {title}{" "}
         {highlight ? (
-          <span className="font-serif italic text-gradient-brand">{highlight}</span>
+          <span className="font-serif italic font-bold text-gradient-brand">{highlight}</span>
         ) : null}
       </h2>
       {description ? (

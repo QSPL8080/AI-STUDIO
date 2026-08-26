@@ -156,9 +156,9 @@ export function Hero() {
             <span className="h-1.5 w-1.5 rounded-full bg-neon" />
             AI Video Production Company
           </span>
-          <h1 className="mt-6 text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">
+          <h1 className="mt-6 font-heading text-4xl font-bold leading-[1.05] tracking-tight text-white md:text-6xl">
             AI Video Production Services for{" "}
-            <span className="font-serif italic text-gradient-brand">Modern Businesses</span>
+            <span className="font-serif italic font-bold text-gradient-brand">Modern Businesses</span>
           </h1>
           <p className="mt-5 max-w-xl text-base font-medium text-foreground/90 md:text-lg">
             Create AI UGC, AI Avatar, Cartoon, Hyper-Realistic &amp; Digital Twin Videos for Your
@@ -1543,9 +1543,9 @@ export function WhatsAppCtaSection() {
   return (
     <section className="border-t border-border bg-surface/40 px-5 py-12 md:py-16">
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+        <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
           Have a Video Idea? Let's Turn It Into an{" "}
-          <span className="font-serif italic text-gradient-brand">AI Reel.</span>
+          <span className="font-serif italic font-bold text-gradient-brand">AI Reel.</span>
         </h2>
         <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
           Send us your product, service or video idea on WhatsApp and our team will recommend the
