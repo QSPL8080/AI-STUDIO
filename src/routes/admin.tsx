@@ -204,13 +204,13 @@ function AdminPage() {
     const text = getAdminWhatsAppPlainText(lead);
     const phone = sanitizePhoneNumber(lead.phone);
 
-    // Auto copy text to clipboard as safety backup
+    // Auto copy text as safety backup
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).catch(() => {});
     }
 
-    // Trigger direct native WhatsApp protocol for Windows Desktop App
-    window.location.href = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`;
+    // Open exact standard wa.me link identical to public website
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const copyLeadMessage = (lead: Lead) => {
@@ -809,24 +809,15 @@ function AdminPage() {
                 </button>
 
                 <a
-                  href={`whatsapp://send?phone=${sanitizePhoneNumber(selectedLeadForMsg.phone)}&text=${encodeURIComponent(
-                    getAdminWhatsAppPlainText(selectedLeadForMsg)
-                  )}`}
-                  className="rounded-xl bg-[#25D366] py-2.5 px-3 text-xs font-bold text-white hover:bg-[#20bd5a] flex items-center justify-center gap-1.5"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  Open App
-                </a>
-
-                <a
-                  href={`https://web.whatsapp.com/send?phone=${sanitizePhoneNumber(selectedLeadForMsg.phone)}&text=${encodeURIComponent(
+                  href={`https://wa.me/${sanitizePhoneNumber(selectedLeadForMsg.phone)}?text=${encodeURIComponent(
                     getAdminWhatsAppPlainText(selectedLeadForMsg)
                   )}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-xl border border-border/80 bg-secondary/50 py-2.5 px-3 text-xs font-semibold text-white hover:bg-secondary flex items-center justify-center gap-1.5"
+                  className="rounded-xl bg-[#25D366] py-2.5 px-3 text-xs font-bold text-white hover:bg-[#20bd5a] flex items-center justify-center gap-1.5"
                 >
-                  Open Web
+                  <MessageSquare className="h-4 w-4" />
+                  Chat on WhatsApp
                 </a>
               </div>
             </div>
