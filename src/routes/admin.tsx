@@ -177,6 +177,18 @@ function AdminPage() {
     }
   };
 
+  const getAdminWhatsAppMessage = (lead: Lead) => {
+    let msg = `Hello ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio!\n\nWe have received your project inquiry with the following details:\n\nClient Name: ${lead.name}`;
+    if (lead.business) msg += `\nBusiness Name: ${lead.business}`;
+    if (lead.video_type) msg += `\nVideo Type: ${lead.video_type}`;
+    if (lead.location) msg += `\nLocation: ${lead.location}`;
+    if (lead.industry) msg += `\nIndustry: ${lead.industry}`;
+    if (lead.requirement || lead.additional) msg += `\nRequirement: ${lead.requirement || lead.additional}`;
+    
+    msg += `\n\nOur team is reviewing your requirements and will share the tailored proposal and sample concepts shortly.\n\nCould you please confirm if you have any specific deadline or additional references in mind?\n\nBest regards,\nQuickupp AI Studio Team\nhttps://quickuppaistudio.com`;
+    return encodeURIComponent(msg);
+  };
+
   const exportCSV = () => {
     if (!filteredLeads.length) return alert("No leads to export.");
     const headers = [
@@ -618,15 +630,13 @@ function AdminPage() {
                         <td className="whitespace-nowrap px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <a
-                              href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, "")}?text=Hi%20${encodeURIComponent(
-                                lead.name
-                              )},%20thank%20you%20for%20contacting%20Quickupp%20AI%20Studio!`}
+                              href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, "")}?text=${getAdminWhatsAppMessage(lead)}`}
                               target="_blank"
                               rel="noreferrer"
                               className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground transition-colors hover:border-emerald-500 hover:text-emerald-400"
-                              title="Chat on WhatsApp"
+                              title="Send WhatsApp Requirement Confirmation"
                             >
-                              <MessageSquare className="h-4 w-4" />
+                              <MessageSquare className="h-4 w-4 text-emerald-400" />
                             </a>
                             <button
                               onClick={() => deleteLeadItem(lead.id)}
@@ -711,12 +721,11 @@ function AdminPage() {
                         </select>
 
                         <a
-                          href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, "")}?text=Hi%20${encodeURIComponent(
-                            lead.name
-                          )},%20thank%20you%20for%20contacting%20Quickupp%20AI%20Studio!`}
+                          href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, "")}?text=${getAdminWhatsAppMessage(lead)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded border border-border/80 bg-secondary/50 p-1.5 text-muted-foreground hover:border-emerald-500 hover:text-emerald-400"
+                          className="rounded border border-border/80 bg-secondary/50 p-1.5 text-emerald-400 hover:border-emerald-500 hover:bg-emerald-500/10"
+                          title="Send WhatsApp Requirement Confirmation"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
                         </a>
