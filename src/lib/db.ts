@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+let pgPool: any = null;
 
 export interface Lead {
   id: string;
@@ -16,29 +16,36 @@ export interface Lead {
   status: "New" | "Contacted" | "In Progress" | "Closed";
 }
 
-// PostgreSQL connection config (User password: 8080, DB: "ai studio" / "aistudio")
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgres://postgres:8080@localhost:5432/ai_studio";
+async function getPool() {
+  if (!pgPool) {
+    const pg = await import("pg");
+    const Pool = pg.default?.Pool || pg.Pool;
+    const connectionString =
+      process.env.DATABASE_URL ||
+      "postgres://postgres:8080@localhost:5432/ai_studio";
 
-const isRemoteDb =
-  connectionString.includes("supabase.co") ||
-  connectionString.includes("neon.tech") ||
-  connectionString.includes("pooler.supabase.com") ||
-  !connectionString.includes("localhost");
+    const isRemoteDb =
+      connectionString.includes("supabase.co") ||
+      connectionString.includes("neon.tech") ||
+      connectionString.includes("pooler.supabase.com") ||
+      !connectionString.includes("localhost");
 
-export const pool = new Pool({
-  connectionString,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  ...(isRemoteDb ? { ssl: { rejectUnauthorized: false } } : {}),
-});
+    pgPool = new Pool({
+      connectionString,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      ...(isRemoteDb ? { ssl: { rejectUnauthorized: false } } : {}),
+    });
+  }
+  return pgPool;
+}
 
 let isInitialized = false;
 
 export async function initDb() {
   if (isInitialized) return;
   try {
+    const pool = await getPool();
     const client = await pool.connect();
     try {
       await client.query(`
@@ -83,9 +90,9 @@ export async function saveLead(data: {
   await initDb();
   const id = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const status = "New";
-  const now = new Date().toISOString();
 
   try {
+    const pool = await getPool();
     const res = await pool.query(
       `INSERT INTO leads (id, source, name, phone, email, video_type, business, location, industry, requirement, additional, status, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
@@ -115,6 +122,7 @@ export async function saveLead(data: {
 export async function getLeads(): Promise<Lead[]> {
   await initDb();
   try {
+    const pool = await getPool();
     const res = await pool.query("SELECT * FROM leads ORDER BY created_at DESC");
     return res.rows;
   } catch (error) {
@@ -126,6 +134,7 @@ export async function getLeads(): Promise<Lead[]> {
 export async function updateLeadStatus(id: string, status: Lead["status"]): Promise<boolean> {
   await initDb();
   try {
+    const pool = await getPool();
     const res = await pool.query("UPDATE leads SET status = $1 WHERE id = $2", [status, id]);
     return (res.rowCount ?? 0) > 0;
   } catch (error) {
@@ -137,6 +146,7 @@ export async function updateLeadStatus(id: string, status: Lead["status"]): Prom
 export async function deleteLead(id: string): Promise<boolean> {
   await initDb();
   try {
+    const pool = await getPool();
     const res = await pool.query("DELETE FROM leads WHERE id = $1", [id]);
     return (res.rowCount ?? 0) > 0;
   } catch (error) {

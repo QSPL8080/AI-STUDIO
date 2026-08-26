@@ -9,6 +9,10 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   nitro: {
     preset: "node-server",
+    externals: {
+      inline: [],
+      external: ["pg", "pg-pool", "pg-protocol", "pg-types"],
+    },
   },
   tanstackStart: {
     server: { entry: "server" },
