@@ -56,6 +56,37 @@ function AdminPage() {
     }
   }, []);
 
+  // Inactivity Auto-Logout Timer (5 minutes / 300,000 ms)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let timeoutId: NodeJS.Timeout;
+
+    const resetInactivityTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        handleLogout();
+        setAuthError("You were logged out due to 5 minutes of inactivity for security.");
+      }, 300000); // 5 minutes
+    };
+
+    // User activity events to monitor
+    const activityEvents = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, resetInactivityTimer, { passive: true });
+    });
+
+    // Start initial timer
+    resetInactivityTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      activityEvents.forEach((event) => {
+        window.removeEventListener(event, resetInactivityTimer);
+      });
+    };
+  }, [isAuthenticated]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (emailInput === "admin@aistudio.com" && passwordInput === "Admin@123") {
