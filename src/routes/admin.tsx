@@ -662,13 +662,17 @@ function AdminPage() {
                         {/* Actions */}
                         <td className="whitespace-nowrap px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleOpenWhatsApp(lead)}
-                              className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-emerald-400 transition-colors hover:border-emerald-500 hover:bg-emerald-500/10"
-                              title="Send WhatsApp Confirmation (Also auto-copied to Clipboard)"
+                            <a
+                              href={`https://wa.me/${sanitizePhoneNumber(lead.phone)}?text=${encodeURIComponent(
+                                getAdminWhatsAppPlainText(lead)
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-emerald-400 transition-colors hover:border-emerald-500 hover:bg-emerald-500/10 inline-flex items-center justify-center"
+                              title="Chat on WhatsApp (Direct Prefilled Message)"
                             >
                               <MessageSquare className="h-4 w-4" />
-                            </button>
+                            </a>
                             <button
                               onClick={() => deleteLeadItem(lead.id)}
                               className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground transition-colors hover:border-red-500 hover:text-red-400"
@@ -751,13 +755,17 @@ function AdminPage() {
                           <option value="Closed" className="bg-[#12101e]">Closed</option>
                         </select>
 
-                        <button
-                          onClick={() => handleOpenWhatsApp(lead)}
-                          className="rounded border border-border/80 bg-secondary/50 p-1.5 text-emerald-400 hover:border-emerald-500 hover:bg-emerald-500/10"
-                          title="Send WhatsApp Confirmation (Also auto-copied to Clipboard)"
+                        <a
+                          href={`https://wa.me/${sanitizePhoneNumber(lead.phone)}?text=${encodeURIComponent(
+                            getAdminWhatsAppPlainText(lead)
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded border border-border/80 bg-secondary/50 p-1.5 text-emerald-400 hover:border-emerald-500 hover:bg-emerald-500/10 inline-flex items-center justify-center"
+                          title="Chat on WhatsApp (Direct Prefilled Message)"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
-                        </button>
+                        </a>
                         <button
                           onClick={() => deleteLeadItem(lead.id)}
                           className="rounded border border-border/80 bg-secondary/50 p-1.5 text-muted-foreground hover:border-red-500 hover:text-red-400"
