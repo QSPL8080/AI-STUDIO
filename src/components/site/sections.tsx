@@ -1825,8 +1825,11 @@ export function Footer() {
           </div>
         </div>
 
+        {/* Dedicated Full-Width Open Space below columns for future custom components */}
+        <div className="py-16 md:py-24" />
+
         {/* Bottom Legal & Copyright Bar */}
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
           <p>{footerCopyright}</p>
           <div className="flex items-center gap-4">
             <a href="/privacy-policy" className="hover:text-neon transition-colors">
