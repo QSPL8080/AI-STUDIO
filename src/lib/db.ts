@@ -35,7 +35,8 @@ async function getPool() {
       connectionString,
       max: 10,
       idleTimeoutMillis: 30000,
-      ...(isRemoteDb ? { ssl: { rejectUnauthorized: false } } : {}),
+      connectionTimeoutMillis: 10000,
+      ssl: isRemoteDb ? { rejectUnauthorized: false } : undefined,
     });
   }
   return pgPool;
