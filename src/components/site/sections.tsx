@@ -1826,7 +1826,7 @@ export function Footer() {
         </div>
 
         {/* Dedicated Full-Width Open Space below columns for future custom components */}
-        <div className="py-16 md:py-24" />
+        <div className="py-28 md:py-44" />
 
         {/* Bottom Legal & Copyright Bar */}
         <div className="flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
