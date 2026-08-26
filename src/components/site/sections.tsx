@@ -1709,7 +1709,7 @@ export function Footer() {
       <div className="mx-auto w-full max-w-6xl">
         {/* Main Footer Grid: 4 Clean Columns across full width */}
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 items-start">
-          {/* Col 1: Brand & Bio */}
+          {/* Col 1: Brand & Bio ONLY */}
           <div className="flex flex-col items-start gap-3.5">
             <a href="#top" className="-ml-1 flex items-center transition-opacity hover:opacity-90">
               <img
@@ -1725,49 +1725,6 @@ export function Footer() {
             <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
               {footerDescription}
             </p>
-
-            {/* Quick Contact Links */}
-            <div className="mt-2 flex flex-col gap-2 text-xs sm:text-sm">
-              {/* Direct Gmail compose / mailto link */}
-              <a
-                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${footerEmail}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-neon"
-                title="Send email via Gmail"
-              >
-                <Mail className="h-4 w-4 text-neon" />
-                <span>{footerEmail}</span>
-              </a>
-
-              {/* Direct Phone Call link (tel:) */}
-              <a
-                href={`tel:${footerPhone.replace(/\s+/g, "")}`}
-                className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-emerald-400"
-                title="Call Quickupp AI Studio"
-              >
-                <Phone className="h-4 w-4 text-emerald-400" />
-                <span className="font-mono">{footerPhone}</span>
-              </a>
-
-              {/* Direct WhatsApp Business link */}
-              <a
-                href={`https://wa.me/919975683395?text=${encodeURIComponent(
-                  "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!"
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-emerald-400"
-                title="Chat on WhatsApp"
-              >
-                <MessageCircle className="h-4 w-4 text-[#25D366]" />
-                <span>WhatsApp Business</span>
-              </a>
-            </div>
-
-            <div className="mt-2">
-              <NeonButton href="#contact">Get AI Video Quote</NeonButton>
-            </div>
           </div>
 
           {/* Col 2: AI Video Services */}
