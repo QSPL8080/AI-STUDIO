@@ -4,7 +4,7 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "cross-env LOVABLE_PREVIEW_HOST=a7f93d3f-25b6-498b-bbef-944c662e1c41.lovableproject.com vite dev",
+    "dev": "vite dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
