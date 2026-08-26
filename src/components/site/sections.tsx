@@ -153,7 +153,10 @@ export function Hero() {
       <div className="mx-auto grid w-full max-w-6xl items-center gap-12 lg:grid-cols-2">
         <div>
           <span className="eyebrow">
-            <span className="h-1.5 w-1.5 rounded-full bg-neon" />
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-neon shadow-[0_0_8px_#c850ff]"></span>
+            </span>
             AI Video Production Company
           </span>
           <h1 className="mt-6 font-[var(--font-google-sans)] text-4xl font-bold leading-[1.05] tracking-tight text-white md:text-6xl">

@@ -32,7 +32,10 @@ export function SectionHeading({
   return (
     <div className={`mb-8 sm:mb-10 max-w-3xl ${center ? "mx-auto text-center" : ""}`}>
       <span className="eyebrow">
-        <span className="h-1.5 w-1.5 rounded-full bg-neon" />
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-neon shadow-[0_0_8px_#c850ff]"></span>
+        </span>
         {eyebrow}
       </span>
       <h2 className="mt-3.5 font-heading text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl text-white">
