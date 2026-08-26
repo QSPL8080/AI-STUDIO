@@ -1707,10 +1707,10 @@ export function Footer() {
   return (
     <footer className="border-t border-border/80 bg-[#08070e] px-5 pt-12 pb-8 text-foreground md:pt-16">
       <div className="mx-auto w-full max-w-6xl">
-        {/* Main Footer Grid */}
-        <div className="grid gap-10 lg:grid-cols-12">
-          {/* Brand & Value Col (4 Cols) */}
-          <div className="flex flex-col items-start gap-3.5 lg:col-span-4">
+        {/* Main Footer Grid: 4 Clean Columns across full width */}
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 items-start">
+          {/* Col 1: Brand & Bio */}
+          <div className="flex flex-col items-start gap-3.5">
             <a href="#top" className="-ml-1 flex items-center transition-opacity hover:opacity-90">
               <img
                 src="/images/logo.png"
@@ -1765,37 +1765,52 @@ export function Footer() {
               </a>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-2">
               <NeonButton href="#contact">Get AI Video Quote</NeonButton>
             </div>
           </div>
 
-          {/* Navigation Links (4 Cols) */}
-          <div className="grid grid-cols-2 gap-6 lg:col-span-4">
-            {footerGroups.map((group) => (
-              <nav key={group.title} aria-label={group.title} className="flex flex-col gap-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
-                  {group.title}
-                </h4>
-                <ul className="space-y-2">
-                  {group.links.map((link) => (
-                    <li key={link.label}>
-                      <a
-                        href={link.href}
-                        className="text-xs text-muted-foreground transition-colors hover:text-neon sm:text-sm"
-                      >
-                        {link.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            ))}
+          {/* Col 2: AI Video Services */}
+          <div className="flex flex-col gap-3">
+            <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
+              {footerGroups[0].title}
+            </h4>
+            <ul className="space-y-2.5">
+              {footerGroups[0].links.map((link) => (
+                <li key={link.label}>
+                  <a
+                    href={link.href}
+                    className="text-xs text-muted-foreground transition-colors hover:text-neon sm:text-sm"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          {/* Global Locations Col (4 Cols) */}
-          <div className="flex flex-col gap-4 lg:col-span-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
+          {/* Col 3: Company & Quick Links */}
+          <div className="flex flex-col gap-3">
+            <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
+              {footerGroups[1].title}
+            </h4>
+            <ul className="space-y-2.5">
+              {footerGroups[1].links.map((link) => (
+                <li key={link.label}>
+                  <a
+                    href={link.href}
+                    className="text-xs text-muted-foreground transition-colors hover:text-neon sm:text-sm"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Col 4: Global Locations */}
+          <div className="flex flex-col gap-3.5">
+            <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
               Our Locations
             </h4>
 
