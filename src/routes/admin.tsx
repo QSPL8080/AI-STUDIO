@@ -179,15 +179,13 @@ function AdminPage() {
 
   const sanitizePhoneNumber = (phone: string) => {
     let clean = phone.replace(/[^0-9]/g, "");
-    // If entered 10 digits without country code, default to India 91
     if (clean.length === 10) {
       clean = `91${clean}`;
     }
     return clean;
   };
 
-  const getAdminWhatsAppUrl = (lead: Lead) => {
-    const phone = sanitizePhoneNumber(lead.phone);
+  const getAdminWhatsAppPlainText = (lead: Lead) => {
     let msg = `Hello ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio!\n\nWe have received your project inquiry with the following details:\n\nClient Name: ${lead.name}`;
     if (lead.business) msg += `\nBusiness Name: ${lead.business}`;
     if (lead.video_type) msg += `\nVideo Type: ${lead.video_type}`;
@@ -196,9 +194,23 @@ function AdminPage() {
     if (lead.requirement || lead.additional) msg += `\nRequirement: ${lead.requirement || lead.additional}`;
     
     msg += `\n\nOur team is reviewing your requirements and will share the tailored proposal and sample concepts shortly.\n\nCould you please confirm if you have any specific deadline or additional references in mind?\n\nBest regards,\nQuickupp AI Studio Team\nhttps://quickuppaistudio.com`;
+    return msg;
+  };
+
+  const handleOpenWhatsApp = (lead: Lead) => {
+    const text = getAdminWhatsAppPlainText(lead);
+    const phone = sanitizePhoneNumber(lead.phone);
     
-    // Using api.whatsapp.com/send?phone=...&text=... guarantees reliable browser & web app prefilling
-    return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`;
+    // 1. Copy message directly to clipboard so user can always Ctrl+V / Paste if Windows app fails to populate
+    try {
+      navigator.clipboard.writeText(text);
+    } catch (e) {
+      console.error("Clipboard copy error:", e);
+    }
+
+    // 2. Open WhatsApp Web / App with text parameter
+    const encoded = encodeURIComponent(text);
+    window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encoded}`, "_blank");
   };
 
   const exportCSV = () => {
@@ -641,15 +653,13 @@ function AdminPage() {
                         {/* Actions */}
                         <td className="whitespace-nowrap px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <a
-                              href={getAdminWhatsAppUrl(lead)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground transition-colors hover:border-emerald-500 hover:text-emerald-400"
-                              title="Send WhatsApp Requirement Confirmation"
+                            <button
+                              onClick={() => handleOpenWhatsApp(lead)}
+                              className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-emerald-400 transition-colors hover:border-emerald-500 hover:bg-emerald-500/10"
+                              title="Send WhatsApp Confirmation (Also auto-copied to Clipboard)"
                             >
-                              <MessageSquare className="h-4 w-4 text-emerald-400" />
-                            </a>
+                              <MessageSquare className="h-4 w-4" />
+                            </button>
                             <button
                               onClick={() => deleteLeadItem(lead.id)}
                               className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground transition-colors hover:border-red-500 hover:text-red-400"
@@ -732,15 +742,13 @@ function AdminPage() {
                           <option value="Closed" className="bg-[#12101e]">Closed</option>
                         </select>
 
-                        <a
-                          href={getAdminWhatsAppUrl(lead)}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          onClick={() => handleOpenWhatsApp(lead)}
                           className="rounded border border-border/80 bg-secondary/50 p-1.5 text-emerald-400 hover:border-emerald-500 hover:bg-emerald-500/10"
-                          title="Send WhatsApp Requirement Confirmation"
+                          title="Send WhatsApp Confirmation (Also auto-copied to Clipboard)"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
-                        </a>
+                        </button>
                         <button
                           onClick={() => deleteLeadItem(lead.id)}
                           className="rounded border border-border/80 bg-secondary/50 p-1.5 text-muted-foreground hover:border-red-500 hover:text-red-400"
