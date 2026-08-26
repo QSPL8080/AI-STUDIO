@@ -1542,7 +1542,7 @@ export function LeadFormSection() {
 
 export function WhatsAppCtaSection() {
   const professionalMessage = encodeURIComponent(
-    "Hello Quickupp AI Studio Team,\n\nI have a video project requirement for my business and would like to discuss the right AI video format and pricing options.\n\nCould you please assist me?\n\nThank you!"
+    "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!"
   );
 
   return (
@@ -1755,7 +1755,7 @@ export function Footer() {
               {/* Direct WhatsApp Business link */}
               <a
                 href={`https://wa.me/919975683395?text=${encodeURIComponent(
-                  "Hello Quickupp AI Studio Team,\n\nI am interested in your AI Video Production services for my business. Could you please share more details regarding video formats, packages, and pricing?\n\nThank you!"
+                  "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!"
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1899,7 +1899,7 @@ export function FloatingWhatsAppButton() {
       {/* Official WhatsApp Floating Button */}
       <a
         href={`https://wa.me/919975683395?text=${encodeURIComponent(
-          "Hello Quickupp AI Studio Team,\n\nI am interested in your AI Video Production services for my business. Could you please provide more information regarding your packages and pricing?\n\nThank you!"
+          "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!"
         )}`}
         target="_blank"
         rel="noopener noreferrer"
