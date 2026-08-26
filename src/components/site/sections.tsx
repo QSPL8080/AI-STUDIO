@@ -1825,8 +1825,15 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Dedicated Full-Width Open Space below columns for future custom components */}
-        <div className="py-28 md:py-44" />
+        {/* Full-Width Large Brand Logo Section */}
+        <div className="py-12 md:py-16 flex items-center justify-center select-none overflow-hidden">
+          <img
+            src="/images/logo.png"
+            alt="Quickupp AI Studio"
+            className="w-full max-w-5xl h-auto object-contain opacity-90 transition-opacity duration-300 hover:opacity-100 drop-shadow-[0_0_50px_rgba(200,80,255,0.2)]"
+            loading="lazy"
+          />
+        </div>
 
         {/* Bottom Legal & Copyright Bar */}
         <div className="flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
