@@ -56,21 +56,39 @@ export function Header() {
     <div className="sticky top-0 z-50 flex flex-col">
       {/* Top Highlight Announcement Bar */}
       {showAnnouncement && (
-        <div className="relative border-b border-white/15 bg-gradient-to-r from-[#7c22e8] via-[#a832e6] to-[#ec1e79] px-3 py-2 text-white shadow-[0_2px_20px_rgba(168,50,230,0.45)]">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 text-xs md:text-sm font-medium">
-            <div className="flex flex-1 items-center justify-center gap-2 sm:gap-3 text-center flex-wrap sm:flex-nowrap">
-              {/* Vibrant Gold Badge */}
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] sm:text-xs font-bold text-amber-300 border border-amber-400/40 shadow-sm whitespace-nowrap">
+        <div className="relative border-b border-white/15 bg-gradient-to-r from-[#7c22e8] via-[#a832e6] to-[#ec1e79] px-3 py-1.5 sm:py-2 text-white shadow-[0_2px_15px_rgba(168,50,230,0.4)]">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 text-xs md:text-sm font-medium">
+            
+            {/* Mobile Layout (Compact Single Row) */}
+            <div className="flex flex-1 items-center justify-center gap-2 sm:hidden text-center">
+              <span className="flex items-center gap-1 font-semibold text-[11.5px] leading-tight">
+                <Sparkles className="h-3 w-3 text-amber-300 shrink-0 fill-amber-300/40" />
+                <span>Save up to</span>
+                <span className="rounded bg-black/35 px-1 py-0.2 font-extrabold text-amber-300 border border-amber-300/40 text-[11px]">
+                  20% OFF
+                </span>
+                <span>on AI Packages!</span>
+              </span>
+              <a
+                href="#pricing"
+                className="inline-flex items-center gap-0.5 rounded-full bg-white px-2.5 py-0.5 text-[10.5px] font-bold text-[#6b1cb0] shadow-sm active:scale-95 whitespace-nowrap"
+              >
+                <span>Plans</span>
+                <span className="text-[10px]">→</span>
+              </a>
+            </div>
+
+            {/* Desktop / Tablet Layout (Full SEO Row) */}
+            <div className="hidden sm:flex flex-1 items-center justify-center gap-2.5 text-center flex-nowrap">
+              <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-bold text-amber-300 border border-amber-400/40 shadow-sm whitespace-nowrap">
                 <Sparkles className="h-3.5 w-3.5 text-amber-300 shrink-0 fill-amber-300/30 animate-pulse" />
                 <span>Special Launch Offer</span>
               </span>
 
-              {/* SEO-Rich Description */}
               <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
                 Get up to <strong className="font-extrabold text-amber-300 underline decoration-amber-400/60 decoration-2 underline-offset-2">20% OFF</strong> on Professional AI Video Production & Avatar Packages!
               </span>
 
-              {/* High-Contrast Action Button */}
               <a
                 href="#pricing"
                 className="group inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1 text-xs font-bold text-[#6b1cb0] shadow-md transition-all hover:bg-amber-300 hover:text-black hover:scale-105 active:scale-95 whitespace-nowrap"
@@ -84,10 +102,10 @@ export function Header() {
             <button
               type="button"
               onClick={() => setShowAnnouncement(false)}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/20 text-white/90 border border-white/20 transition-all hover:bg-white hover:text-black"
+              className="flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full bg-black/20 text-white/90 border border-white/20 transition-all hover:bg-white hover:text-black"
               aria-label="Dismiss announcement"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             </button>
           </div>
         </div>
@@ -1348,12 +1366,9 @@ export function WhyUs() {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) {
-          setIsInView(true);
-          observer.unobserve(el);
-        }
+        setIsInView(Boolean(entry?.isIntersecting));
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.1, rootMargin: "0px 0px -20px 0px" }
     );
 
     observer.observe(el);
