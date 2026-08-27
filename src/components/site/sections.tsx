@@ -1090,21 +1090,38 @@ export function Industries() {
             ? "animate-industry-card"
             : "opacity-0 translate-y-6";
 
+          const isFirstCard = i === 0;
+
           return (
             <article
               key={industry.name}
               style={{ animationDelay: `${(i % 6) * 0.08}s` }}
-              className={`panel panel-hover p-6 transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_25px_-5px_rgba(200,80,255,0.3)] ${animationClass}`}
+              className={`panel panel-hover relative overflow-hidden p-6 transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_30px_-5px_rgba(200,80,255,0.35)] ${animationClass}`}
             >
-              <h3 className="text-lg font-bold text-white transition-colors group-hover:text-neon">
-                {industry.name}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {industry.description}
-              </p>
-              <div className="mt-4 flex items-center gap-1.5 text-xs text-neon font-semibold">
-                <span>✦ Recommended:</span>
-                <span className="text-foreground/90 font-normal">{industry.recommended}</span>
+              {isFirstCard ? (
+                <>
+                  {/* Vibrant Glassmorphic Background Image with border bleed */}
+                  <img
+                    src="/images/glassmorph-rs.png"
+                    alt="Real Estate"
+                    className="pointer-events-none absolute -inset-2 h-[calc(100%+16px)] w-[calc(100%+16px)] max-w-none object-cover object-right opacity-80 transition-transform duration-500 hover:scale-105"
+                  />
+                  {/* Subtle Directional Gradient for contrast behind text */}
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[#0b0816]/90 via-[#0b0816]/50 to-transparent" />
+                </>
+              ) : null}
+
+              <div className="relative z-10">
+                <h3 className="text-lg font-bold text-white transition-colors group-hover:text-neon drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+                  {industry.name}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/85 font-light drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
+                  {industry.description}
+                </p>
+                <div className="mt-4 flex items-center gap-1.5 text-xs text-neon font-semibold drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
+                  <span>✦ Recommended:</span>
+                  <span className="text-white/90 font-light">{industry.recommended}</span>
+                </div>
               </div>
             </article>
           );
@@ -1323,79 +1340,104 @@ export function WhyUs() {
 }
 
 export function LeadFormSection() {
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
   return (
     <Section id="contact">
       <SectionHeading
         eyebrow="Get a Quote"
         title="Let's Create Your Next"
         highlight="AI Video"
-        description="Tell us about your business and we'll recommend the right AI video format for your marketing goals."
+        description="Tell us about your business and our team will prepare and share a tailored AI video proposal."
         center={true}
       />
       <div className="panel mx-auto max-w-3xl p-6 sm:p-10">
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const form = e.currentTarget;
-            const data = new FormData(form);
-            const name = String(data.get("name") || "");
-            const phone = String(data.get("phone") || "");
-            const email = String(data.get("email") || "");
-            const business = String(data.get("business") || "");
-            const industry = String(data.get("industry") || "");
-            const videoType = String(data.get("videoType") || "");
-            const location = String(data.get("location") || "");
-            const requirement = String(data.get("requirement") || "");
+        {submitted ? (
+          <div className="py-8 text-center space-y-3 animate-in fade-in zoom-in-95 duration-300">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_25px_rgba(16,185,129,0.3)]">
+              <BadgeCheck className="h-7 w-7" />
+            </div>
+            <h3 className="font-heading text-xl sm:text-2xl font-bold text-white">
+              Thank You! Requirement Submitted
+            </h3>
+            <p className="max-w-md mx-auto text-xs sm:text-sm text-muted-foreground">
+              We have received your project details. Our production team will review your requirements and contact you directly shortly.
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setSubmitted(false)}
+                className="rounded-full border border-border bg-secondary/50 px-5 py-2 text-xs font-semibold text-white hover:border-neon hover:text-neon transition-colors"
+              >
+                Submit Another Requirement
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setLoading(true);
+              const form = e.currentTarget;
+              const data = new FormData(form);
+              const name = String(data.get("name") || "");
+              const phone = String(data.get("phone") || "");
+              const email = String(data.get("email") || "");
+              const business = String(data.get("business") || "");
+              const industry = String(data.get("industry") || "");
+              const videoType = String(data.get("videoType") || "");
+              const location = String(data.get("location") || "");
+              const requirement = String(data.get("requirement") || "");
 
-            // 1. Send directly to PostgreSQL Database
-            try {
-              await submitLeadServerFn({
-                data: {
-                  source: "Contact Form",
-                  name,
-                  phone,
-                  email,
-                  business,
-                  industry,
-                  videoType,
-                  location,
-                  requirement,
-                },
-              });
-            } catch (err) {
-              console.error("PostgreSQL submission error:", err);
-            }
+              // 1. Send directly to PostgreSQL Database
+              try {
+                await submitLeadServerFn({
+                  data: {
+                    source: "Contact Form",
+                    name,
+                    phone,
+                    email,
+                    business,
+                    industry,
+                    videoType,
+                    location,
+                    requirement,
+                  },
+                });
+              } catch (err) {
+                console.error("PostgreSQL submission error:", err);
+              }
 
-            // 2. Also keep local sync for Admin fast-cache
-            const newLead = {
-              id: `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-              source: "Contact Form",
-              name,
-              phone,
-              email: email || undefined,
-              business,
-              industry,
-              video_type: videoType,
-              location: location || undefined,
-              requirement,
-              status: "New",
-              created_at: new Date().toISOString(),
-            };
-            try {
-              const existing = JSON.parse(localStorage.getItem("ai_studio_local_leads") || "[]");
-              existing.unshift(newLead);
-              localStorage.setItem("ai_studio_local_leads", JSON.stringify(existing));
-            } catch (err) {
-              console.error(err);
-            }
+              // 2. Also keep local sync for Admin fast-cache
+              const newLead = {
+                id: `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                source: "Contact Form",
+                name,
+                phone,
+                email: email || undefined,
+                business,
+                industry,
+                video_type: videoType,
+                location: location || undefined,
+                requirement,
+                status: "New",
+                created_at: new Date().toISOString(),
+              };
+              try {
+                const existing = JSON.parse(localStorage.getItem("ai_studio_local_leads") || "[]");
+                existing.unshift(newLead);
+                localStorage.setItem("ai_studio_local_leads", JSON.stringify(existing));
+              } catch (err) {
+                console.error(err);
+              }
 
-            // 3. Open WhatsApp with completely plain and clean message (No bold, no asterisks, no emojis)
-            const text = `Hello Quickupp AI Studio Team,\n\nI would like to request a quotation for AI Video Production services. Here are my project details:\n\nClient Name: ${name}\nBusiness Name: ${business}\nPhone: ${phone}\nEmail: ${email || "Not provided"}\nLocation: ${location || "Not provided"}\nIndustry: ${industry}\nVideo Type: ${videoType}\nRequirement: ${requirement || "Standard requirements"}\n\nPlease share the detailed proposal and pricing options.\n\nThank you!`;
-            window.open(`https://wa.me/919975683395?text=${encodeURIComponent(text)}`, "_blank");
-            form.reset();
-          }}
-          className="space-y-5"
-        >
+              setLoading(false);
+              setSubmitted(true);
+              form.reset();
+            }}
+            className="space-y-5"
+          >
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-semibold text-foreground">Full Name*</label>
@@ -1528,11 +1570,13 @@ export function LeadFormSection() {
 
           <button
             type="submit"
-            className="w-full rounded-full bg-gradient-brand py-3.5 text-sm font-semibold text-neon-foreground glow-neon transition-all hover:brightness-110"
+            disabled={loading}
+            className="w-full rounded-full bg-gradient-brand py-3.5 text-sm font-semibold text-neon-foreground glow-neon transition-all hover:brightness-110 disabled:opacity-50"
           >
-            Get My AI Video Quote
+            {loading ? "Submitting..." : "Get My AI Video Quote"}
           </button>
         </form>
+        )}
       </div>
     </Section>
   );
@@ -1705,18 +1749,18 @@ export function Footer() {
   ];
 
   return (
-    <footer className="relative border-t border-border/80 bg-gradient-to-b from-[#08070e] via-[#120722] to-[#28053a] px-5 pt-12 pb-8 text-foreground md:pt-16 overflow-hidden">
-      {/* Ambient background glow flares that blend across full width */}
+    <footer className="relative border-t border-border/80 bg-[#08070e] px-5 pt-12 pb-8 text-foreground md:pt-16 overflow-hidden">
+      {/* Seamless atmospheric radial glow covering the entire bottom of the footer */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[450px] w-full opacity-60 blur-3xl select-none"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[600px] w-full select-none"
         style={{
           background:
-            "radial-gradient(ellipse 100% 80% at 50% 100%, rgba(210, 40, 255, 0.4) 0%, rgba(120, 30, 255, 0.25) 50%, transparent 100%)",
+            "radial-gradient(ellipse 110% 80% at 50% 90%, rgba(200, 50, 255, 0.35) 0%, rgba(130, 45, 255, 0.22) 40%, rgba(40, 110, 255, 0.1) 65%, transparent 100%)",
         }}
       />
 
-      <div className="relative z-10 mx-auto w-full max-w-6xl">
+      <div className="relative z-10 mx-auto w-full max-w-6xl flex flex-col">
         {/* Main Footer Grid: 4 Clean Columns across full width */}
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 items-start">
           {/* Col 1: Brand & Bio ONLY */}
@@ -1835,18 +1879,18 @@ export function Footer() {
           </div>
         </div>
 
-        {/* 100% Full-Width Screen Edge-to-Edge Brand Logo cleanly blended with the footer */}
-        <div className="my-12 md:my-16 flex items-center justify-center">
+        {/* Brand Giant Logo seamlessly integrated inside the footer */}
+        <div className="mt-10 mb-6 md:mt-12 md:mb-8 flex items-center justify-center select-none">
           <img
-            src="/images/logo.png"
+            src="/images/footer logo.png"
             alt="Quickupp AI Studio"
-            className="w-full max-w-6xl h-auto max-h-[160px] sm:max-h-[220px] md:max-h-[300px] object-contain select-none"
+            className="w-full max-w-5xl h-auto max-h-[160px] sm:max-h-[220px] md:max-h-[300px] object-contain drop-shadow-[0_0_50px_rgba(200,50,255,0.25)]"
             loading="lazy"
           />
         </div>
 
         {/* Bottom Legal & Copyright Bar */}
-        <div className="flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-4 pb-2 text-center text-xs text-muted-foreground sm:flex-row">
           <p>{footerCopyright}</p>
           <div className="flex items-center gap-4">
             <a href="/privacy-policy" className="hover:text-neon transition-colors">
@@ -1923,6 +1967,8 @@ export function FloatingWhatsAppButton() {
 
 export function QuotePopupModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // 1. Popup on every website refresh / load after 1.2s
@@ -1948,6 +1994,7 @@ export function QuotePopupModal() {
 
   const handleClose = () => {
     setIsOpen(false);
+    sessionStorage.setItem("ai_studio_modal_dismissed", "true");
   };
 
   if (!isOpen) return null;
@@ -1964,70 +2011,111 @@ export function QuotePopupModal() {
           <X className="h-4 w-4" />
         </button>
 
-        {/* Modal Header */}
-        <div className="pr-6 text-center sm:pr-0">
-          <span className="eyebrow py-1 text-[11px]">
-            <span className="h-1.5 w-1.5 rounded-full bg-neon" />
-            Get a Quote
-          </span>
-          <h3 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-2xl">
-            Let's Create Your Next{" "}
-            <span className="font-serif italic text-gradient-brand">AI Video</span>
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            Fill in your details below and our team will get in touch with a customized quote.
-          </p>
-        </div>
+        {submitted ? (
+          <div className="py-8 text-center space-y-3.5 animate-in fade-in zoom-in-95 duration-300">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_25px_rgba(16,185,129,0.3)]">
+              <BadgeCheck className="h-7 w-7" />
+            </div>
+            <h3 className="font-heading text-xl sm:text-2xl font-bold text-white">
+              Thank You!
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
+              Your video inquiry has been received. Our team will review your requirements and reach out to you directly with a proposal.
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full rounded-full bg-gradient-brand py-2.5 text-sm font-semibold text-neon-foreground shadow-md hover:brightness-110 transition-all"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Modal Header */}
+            <div className="pr-6 text-center sm:pr-0">
+              <span className="eyebrow py-1 text-[11px]">
+                <span className="h-1.5 w-1.5 rounded-full bg-neon" />
+                Get a Quote
+              </span>
+              <h3 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-2xl">
+                Let's Create Your Next{" "}
+                <span className="font-serif italic text-gradient-brand">AI Video</span>
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                Fill in your details below and our team will get in touch with a customized quote.
+              </p>
+            </div>
 
-        {/* Form */}
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const form = e.currentTarget;
-            const data = new FormData(form);
-            const name = String(data.get("name") || "");
-            const phone = String(data.get("phone") || "");
-            const email = String(data.get("email") || "");
-            const videoType = String(data.get("videoType") || "");
-            const business = String(data.get("business") || "");
-            const location = String(data.get("location") || "");
-            const additional = String(data.get("additional") || "");
+            {/* Form */}
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                const form = e.currentTarget;
+                const data = new FormData(form);
+                const name = String(data.get("name") || "");
+                const phone = String(data.get("phone") || "");
+                const email = String(data.get("email") || "");
+                const videoType = String(data.get("videoType") || "");
+                const business = String(data.get("business") || "");
+                const location = String(data.get("location") || "");
+                const additional = String(data.get("additional") || "");
 
-            // 1. Send directly to PostgreSQL Database
-            try {
-              await submitLeadServerFn({
-                data: {
+                // 1. Send directly to PostgreSQL Database
+                try {
+                  await submitLeadServerFn({
+                    data: {
+                      source: "Popup Modal",
+                      name,
+                      phone,
+                      email,
+                      videoType,
+                      business,
+                      location,
+                      additional,
+                    },
+                  });
+                } catch (err) {
+                  console.error("PostgreSQL modal submission error:", err);
+                }
+
+                // 2. Also keep local sync for Admin fast-cache
+                const newLead = {
+                  id: `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
                   source: "Popup Modal",
                   name,
                   phone,
-                  email,
-                  videoType,
+                  email: email || undefined,
                   business,
-                  location,
-                  additional,
-                },
-              });
-            } catch (err) {
-              console.error("PostgreSQL modal submission error:", err);
-            }
+                  video_type: videoType,
+                  location: location || undefined,
+                  requirement: additional || undefined,
+                  status: "New",
+                  created_at: new Date().toISOString(),
+                };
+                try {
+                  const existing = JSON.parse(localStorage.getItem("ai_studio_local_leads") || "[]");
+                  existing.unshift(newLead);
+                  localStorage.setItem("ai_studio_local_leads", JSON.stringify(existing));
+                } catch (err) {
+                  console.error(err);
+                }
 
-            // 2. Open WhatsApp with completely plain and clean message (No bold, no asterisks, no emojis)
-            const text = `Hello Quickupp AI Studio Team,\n\nI would like to request an instant quotation for AI Video Production. Here are my project details:\n\nClient Name: ${name}\nPhone: ${phone}\nEmail: ${email}\nAI Video Type: ${videoType}\nBusiness Name: ${business}\nLocation: ${location}${
-              additional ? `\nAdditional Notes: ${additional}` : ""
-            }\n\nPlease share the available packages and next steps.\n\nThank you!`;
-
-            window.open(`https://wa.me/919975683395?text=${encodeURIComponent(text)}`, "_blank");
-            setIsOpen(false);
-            form.reset();
-          }}
-          className="mt-4 space-y-3"
-        >
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            <div className="w-full">
-              <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
-                Full Name <span className="text-neon">*</span>
-              </label>
-              <input
+                setLoading(false);
+                setSubmitted(true);
+                form.reset();
+              }}
+              className="mt-4 space-y-3"
+            >
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <div className="w-full">
+                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                    Full Name <span className="text-neon">*</span>
+                  </label>
+                  <input
                 type="text"
                 name="name"
                 required
@@ -2145,13 +2233,16 @@ export function QuotePopupModal() {
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full rounded-full bg-gradient-brand py-2.5 text-xs font-bold uppercase tracking-wider text-neon-foreground shadow-lg glow-neon transition-all hover:brightness-110 sm:py-3 sm:text-sm"
-          >
-            Submit & Request Quote
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-full bg-gradient-brand py-2.5 text-xs font-bold uppercase tracking-wider text-neon-foreground shadow-lg glow-neon transition-all hover:brightness-110 disabled:opacity-50 sm:py-3 sm:text-sm"
+            >
+              {loading ? "Submitting..." : "Submit & Request Quote"}
+            </button>
+          </form>
+          </>
+        )}
       </div>
     </div>
   );
