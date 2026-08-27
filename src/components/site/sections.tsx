@@ -1183,17 +1183,13 @@ export function Industries() {
               style={{ animationDelay: `${(i % 6) * 0.08}s` }}
               className={`panel panel-hover relative overflow-hidden p-6 transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_30px_-5px_rgba(200,80,255,0.35)] ${animationClass}`}
             >
-              {isFirstCard ? (
-                <>
-                  {/* Vibrant Glassmorphic Background Image with border bleed */}
-                  <img
-                    src="/images/glassmorph-rs.png"
-                    alt="Real Estate"
-                    className="pointer-events-none absolute -inset-2 h-[calc(100%+16px)] w-[calc(100%+16px)] max-w-none object-cover object-right opacity-80 transition-transform duration-500 hover:scale-105"
-                  />
-                  {/* Subtle Directional Gradient for contrast behind text */}
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[#0b0816]/90 via-[#0b0816]/50 to-transparent" />
-                </>
+              {industry.image ? (
+                /* Vibrant Glassmorphic Background Image with 100% full clarity and border bleed */
+                <img
+                  src={industry.image}
+                  alt={industry.name}
+                  className="pointer-events-none absolute -inset-2 h-[calc(100%+16px)] w-[calc(100%+16px)] max-w-none object-cover object-right transition-transform duration-500 hover:scale-105"
+                />
               ) : null}
 
               <div className="relative z-10">
