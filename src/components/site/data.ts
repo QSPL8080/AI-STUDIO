@@ -168,20 +168,62 @@ export const whyAiVideo = [
   },
 ];
 
-export const pricingRows = [
-  { service: "AI UGC Video", prices: ["₹2,499", "₹10,999", "₹20,999", "₹30,999"] },
+export interface PricingItem {
+  discounted: string;
+  original?: string;
+  badge?: string;
+}
+
+export interface PricingRow {
+  service: string;
+  prices: PricingItem[];
+}
+
+export const pricingRows: PricingRow[] = [
+  {
+    service: "AI UGC Video",
+    prices: [
+      { discounted: "₹2,499" },
+      { discounted: "₹10,999", original: "₹12,495", badge: "SAVE 12%" },
+      { discounted: "₹20,999", original: "₹24,990", badge: "SAVE 16%" },
+      { discounted: "₹30,999", original: "₹37,485", badge: "SAVE 17%" },
+    ],
+  },
   {
     service: "AI Cartoon Animation",
-    prices: ["₹2,499", "₹10,999", "₹20,999", "₹30,999"],
+    prices: [
+      { discounted: "₹2,499" },
+      { discounted: "₹10,999", original: "₹12,495", badge: "SAVE 12%" },
+      { discounted: "₹20,999", original: "₹24,990", badge: "SAVE 16%" },
+      { discounted: "₹30,999", original: "₹37,485", badge: "SAVE 17%" },
+    ],
   },
-  { service: "AI Avatar Video", prices: ["₹3,999", "₹18,999", "₹34,999", "₹47,999"] },
+  {
+    service: "AI Avatar Video",
+    prices: [
+      { discounted: "₹3,999" },
+      { discounted: "₹18,999", original: "₹19,995", badge: "SAVE 5%" },
+      { discounted: "₹34,999", original: "₹39,990", badge: "SAVE 12%" },
+      { discounted: "₹47,999", original: "₹59,985", badge: "SAVE 20%" },
+    ],
+  },
   {
     service: "Hyper-Realistic AI Video",
-    prices: ["₹4,999", "₹23,999", "₹44,999", "₹64,999"],
+    prices: [
+      { discounted: "₹4,999" },
+      { discounted: "₹23,999", original: "₹24,995", badge: "SAVE 4%" },
+      { discounted: "₹44,999", original: "₹49,990", badge: "SAVE 10%" },
+      { discounted: "₹64,999", original: "₹74,985", badge: "SAVE 13%" },
+    ],
   },
   {
     service: "AI Digital Twin / Clone",
-    prices: ["₹5,999", "₹28,999", "₹54,999", "₹79,999"],
+    prices: [
+      { discounted: "₹5,999" },
+      { discounted: "₹28,999", original: "₹29,995", badge: "SAVE 3%" },
+      { discounted: "₹54,999", original: "₹59,990", badge: "SAVE 8%" },
+      { discounted: "₹79,999", original: "₹89,985", badge: "SAVE 11%" },
+    ],
   },
 ];
 

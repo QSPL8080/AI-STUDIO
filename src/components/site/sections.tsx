@@ -868,16 +868,41 @@ export function Pricing() {
                         <span className="whitespace-nowrap">{row.service}</span>
                       </div>
                     </td>
-                    {row.prices.map((price, i) => (
+                    {row.prices.map((item, i) => (
                       <td
-                        key={price + i}
+                        key={item.discounted + i}
                         className={
                           i === 0
-                            ? "px-5 py-4 font-extrabold text-neon tracking-wide whitespace-nowrap sm:px-6"
-                            : "px-5 py-4 font-semibold text-foreground/80 whitespace-nowrap sm:px-6"
+                            ? "px-5 py-3.5 font-extrabold text-neon tracking-wide whitespace-nowrap sm:px-6"
+                            : "px-5 py-3.5 whitespace-nowrap sm:px-6"
                         }
                       >
-                        {price}
+                        <div className="flex flex-col items-start gap-1">
+                          {/* Discounted Price (On Top) */}
+                          <span
+                            className={
+                              i === 0
+                                ? "text-base font-black text-neon drop-shadow-[0_0_8px_rgba(200,80,255,0.45)]"
+                                : "text-sm font-bold text-white tracking-wide"
+                            }
+                          >
+                            {item.discounted}
+                          </span>
+
+                          {/* Cut Price (Below) with clean normal strikethrough and badge */}
+                          {item.original ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-normal text-muted-foreground/75 line-through decoration-rose-500/70">
+                                {item.original}
+                              </span>
+                              {item.badge ? (
+                                <span className="rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rose-300 border border-rose-500/30">
+                                  {item.badge}
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
                     ))}
                   </tr>
