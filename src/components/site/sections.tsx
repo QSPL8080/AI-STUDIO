@@ -1184,7 +1184,7 @@ export function Industries() {
               className={`panel panel-hover relative overflow-hidden p-6 transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_30px_-5px_rgba(200,80,255,0.35)] ${animationClass}`}
             >
               {industry.image ? (
-                /* Vibrant Glassmorphic Background Image with 100% full clarity and border bleed */
+                /* Vibrant Glassmorphic Background Image in full glory */
                 <img
                   src={industry.image}
                   alt={industry.name}
@@ -1192,16 +1192,19 @@ export function Industries() {
                 />
               ) : null}
 
-              <div className="relative z-10">
-                <h3 className="text-lg font-bold text-white transition-colors group-hover:text-neon drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-                  {industry.name}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/85 font-light drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
-                  {industry.description}
-                </p>
-                <div className="mt-4 flex items-center gap-1.5 text-xs text-neon font-semibold drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
-                  <span>✦ Recommended:</span>
-                  <span className="text-white/90 font-light">{industry.recommended}</span>
+              <div className="relative z-10 flex flex-col justify-between h-full">
+                <div>
+                  <h3 className="text-lg font-extrabold text-white transition-colors group-hover:text-neon [text-shadow:0_2px_10px_rgba(0,0,0,1),0_0_4px_rgba(0,0,0,0.9)]">
+                    {industry.name}
+                  </h3>
+                  <p className="mt-2 text-xs sm:text-sm leading-relaxed text-white font-medium [text-shadow:0_2px_8px_rgba(0,0,0,1),0_0_3px_rgba(0,0,0,0.9)]">
+                    {industry.description}
+                  </p>
+                </div>
+                
+                <div className="mt-4 flex flex-wrap items-center gap-1.5 text-xs font-semibold [text-shadow:0_2px_8px_rgba(0,0,0,1)]">
+                  <span className="text-amber-300">✦ Recommended:</span>
+                  <span className="text-white font-medium">{industry.recommended}</span>
                 </div>
               </div>
             </article>
