@@ -338,84 +338,86 @@ export const industries = [
     description:
       "AI property videos, project explainers, promotional reels and sales-focused content.",
     recommended: "AI Avatar, Hyper-Realistic, Digital Twin",
-    image: "/images/glassmorph-rs.png",
+    image: "/images/1st card.jpeg",
+    opacityClass: "opacity-65",
   },
   {
     name: "Clinics & Doctors",
     description:
       "Educational videos, treatment explainers, awareness content and doctor-led communication.",
     recommended: "AI Avatar, Digital Twin, UGC",
-    image: "/images/2nd card.png",
+    image: "/images/2nd card.jpeg",
   },
   {
     name: "D2C & E-commerce",
     description:
       "Product demonstrations, reviews, UGC advertisements and product promotions.",
     recommended: "AI UGC, Hyper-Realistic",
-    image: "/images/3rd card.png",
+    image: "/images/3rd card.jpeg",
   },
   {
     name: "Beauty & Skincare",
     description:
       "Product recommendations, tutorials, testimonials and creator-style content.",
     recommended: "AI UGC, Hyper-Realistic",
-    image: "/images/4th card.png",
+    image: "/images/4th card.jpeg",
   },
   {
     name: "Interior Design",
     description:
       "Project showcases, design concepts, transformations and premium visual content.",
     recommended: "Hyper-Realistic, AI UGC",
-    image: "/images/5th card.png",
+    image: "/images/5th card.jpeg",
   },
   {
     name: "Restaurants & Cafes",
     description:
       "Food promotions, product videos, animated content and social media reels.",
     recommended: "AI UGC, Cartoon",
-    image: "/images/6th card.png",
+    image: "/images/6th card.jpeg",
   },
   {
     name: "Education & Coaching",
     description:
       "Educational explainers, lessons, promotional videos and presenter content.",
     recommended: "AI Avatar, Cartoon, Digital Twin",
-    image: "/images/7th card.png",
+    image: "/images/7th card.jpeg",
   },
   {
     name: "IT & SaaS",
     description:
       "Product explainers, software demonstrations, educational content and promotional videos.",
     recommended: "AI Avatar, Cartoon",
-    image: "/images/8th card.png",
+    image: "/images/8th card.jpeg",
   },
   {
     name: "Finance & Insurance",
     description:
       "Financial explainers, educational content and professional presenter videos.",
     recommended: "AI Avatar, Digital Twin",
-    image: "/images/9th card.png",
+    image: "/images/9th card.jpeg",
   },
   {
     name: "Travel & Tourism",
     description:
       "Destination promotions, travel content, UGC videos and advertising creatives.",
     recommended: "AI UGC, AI Avatar, Hyper-Realistic",
-    image: "/images/10th card.png",
+    image: "/images/10th card.jpeg",
   },
   {
     name: "Fitness & Wellness",
     description:
       "Workout content, wellness education, promotional videos and personal branding.",
     recommended: "AI UGC, Digital Twin",
-    image: "/images/11th card.png",
+    image: "/images/11th card.jpeg",
+    opacityClass: "opacity-65",
   },
   {
     name: "Jewellery & Luxury",
     description:
       "Premium product visuals, cinematic advertisements and luxury brand storytelling.",
     recommended: "Hyper-Realistic, AI UGC",
-    image: "/images/12th card.png",
+    image: "/images/12th card.jpeg",
   },
 ];
 

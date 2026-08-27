@@ -1184,25 +1184,29 @@ export function Industries() {
               className={`panel panel-hover relative overflow-hidden p-6 transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_30px_-5px_rgba(200,80,255,0.35)] ${animationClass}`}
             >
               {industry.image ? (
-                /* Vibrant Glassmorphic Background Image in full glory */
-                <img
-                  src={industry.image}
-                  alt={industry.name}
-                  className="pointer-events-none absolute -inset-2 h-[calc(100%+16px)] w-[calc(100%+16px)] max-w-none object-cover object-right transition-transform duration-500 hover:scale-105"
-                />
+                <>
+                  {/* Clearly Visible Background Image with 65% opacity */}
+                  <img
+                    src={industry.image}
+                    alt={industry.name}
+                    className="pointer-events-none absolute -inset-2 h-[calc(100%+16px)] w-[calc(100%+16px)] max-w-none object-cover object-right opacity-65 transition-all duration-500 group-hover:scale-105 group-hover:opacity-80"
+                  />
+                  {/* Balanced directional gradient: dark on bottom/left for text, transparent on top/right to see artwork */}
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[#0b0816]/90 via-[#0b0816]/55 to-[#0b0816]/15" />
+                </>
               ) : null}
 
               <div className="relative z-10 flex flex-col justify-between h-full">
                 <div>
-                  <h3 className="text-lg font-extrabold text-white transition-colors group-hover:text-neon [text-shadow:0_2px_10px_rgba(0,0,0,1),0_0_4px_rgba(0,0,0,0.9)]">
+                  <h3 className="text-lg font-bold text-white transition-colors group-hover:text-neon drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                     {industry.name}
                   </h3>
-                  <p className="mt-2 text-xs sm:text-sm leading-relaxed text-white font-medium [text-shadow:0_2px_8px_rgba(0,0,0,1),0_0_3px_rgba(0,0,0,0.9)]">
+                  <p className="mt-2 text-xs sm:text-sm leading-relaxed text-white/95 font-normal drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
                     {industry.description}
                   </p>
                 </div>
                 
-                <div className="mt-4 flex flex-wrap items-center gap-1.5 text-xs font-semibold [text-shadow:0_2px_8px_rgba(0,0,0,1)]">
+                <div className="mt-4 flex flex-wrap items-center gap-1.5 text-xs font-semibold drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
                   <span className="text-amber-300">✦ Recommended:</span>
                   <span className="text-white font-medium">{industry.recommended}</span>
                 </div>
