@@ -50,95 +50,137 @@ import {
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showAnnouncement, setShowAnnouncement] = useState(true);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/85 backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-3 md:py-3.5">
-        <a href="#top" className="-ml-3 sm:-ml-5 flex items-center transition-opacity hover:opacity-90">
-          <img
-            src="/images/logo.png"
-            alt="Quickupp AI Studio logo"
-            className="h-8 sm:h-9 md:h-10 w-auto object-contain"
-            width={125}
-            height={40}
-          />
-        </a>
+    <div className="sticky top-0 z-50 flex flex-col">
+      {/* Top Highlight Announcement Bar */}
+      {showAnnouncement && (
+        <div className="relative border-b border-white/15 bg-gradient-to-r from-[#7c22e8] via-[#a832e6] to-[#ec1e79] px-3 py-2 text-white shadow-[0_2px_20px_rgba(168,50,230,0.45)]">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 text-xs md:text-sm font-medium">
+            <div className="flex flex-1 items-center justify-center gap-2 sm:gap-3 text-center flex-wrap sm:flex-nowrap">
+              {/* Vibrant Gold Badge */}
+              <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] sm:text-xs font-bold text-amber-300 border border-amber-400/40 shadow-sm whitespace-nowrap">
+                <Sparkles className="h-3.5 w-3.5 text-amber-300 shrink-0 fill-amber-300/30 animate-pulse" />
+                <span>Special Launch Offer</span>
+              </span>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1.5 lg:flex">
-          {nav.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="rounded-full px-3.5 py-1 text-sm text-muted-foreground transition-colors hover:text-neon"
+              {/* SEO-Rich Description */}
+              <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                Get up to <strong className="font-extrabold text-amber-300 underline decoration-amber-400/60 decoration-2 underline-offset-2">20% OFF</strong> on Professional AI Video Production & Avatar Packages!
+              </span>
+
+              {/* High-Contrast Action Button */}
+              <a
+                href="#pricing"
+                className="group inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1 text-xs font-bold text-[#6b1cb0] shadow-md transition-all hover:bg-amber-300 hover:text-black hover:scale-105 active:scale-95 whitespace-nowrap"
+              >
+                <span>View Packages</span>
+                <span className="transition-transform duration-200 group-hover:translate-x-0.5 text-[12px]">→</span>
+              </a>
+            </div>
+
+            {/* Dismiss Announcement Button */}
+            <button
+              type="button"
+              onClick={() => setShowAnnouncement(false)}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/20 text-white/90 border border-white/20 transition-all hover:bg-white hover:text-black"
+              aria-label="Dismiss announcement"
             >
-              {item.label}
-            </a>
-          ))}
-        </nav>
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
-        {/* Right CTA + Mobile Menu Toggle */}
-        <div className="flex items-center gap-2.5">
-          <a
-            href="#contact"
-            className="inline-flex whitespace-nowrap items-center justify-center rounded-full bg-gradient-brand px-3.5 sm:px-5 py-2 text-xs sm:text-sm font-bold text-neon-foreground shadow-md transition-all hover:brightness-110 active:scale-95"
-          >
-            <span className="hidden sm:inline">Get AI Video Quote</span>
-            <span className="sm:hidden">Get Quote</span>
+      <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-3 md:py-3.5">
+          <a href="#top" className="-ml-3 sm:-ml-5 flex items-center transition-opacity hover:opacity-90">
+            <img
+              src="/images/logo.png"
+              alt="Quickupp AI Studio logo"
+              className="h-8 sm:h-9 md:h-10 w-auto object-contain"
+              width={125}
+              height={40}
+            />
           </a>
 
-          {/* Mobile/Tablet Menu Button */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border/80 bg-secondary/60 text-foreground transition-all hover:border-neon hover:text-neon lg:hidden cursor-pointer"
-            aria-label="Toggle navigation menu"
-            aria-expanded={mobileMenuOpen}
-          >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile & Tablet Navigation Menu Dropdown */}
-      {mobileMenuOpen && (
-        <div className="border-b border-border/70 bg-[#0c0919]/98 px-5 py-5 shadow-2xl backdrop-blur-2xl lg:hidden animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="mx-auto flex max-w-md flex-col gap-1.5">
+          {/* Desktop Navigation Links */}
+          <nav className="hidden items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1.5 lg:flex">
             {nav.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-foreground/90 transition-colors hover:bg-white/[0.05] hover:text-neon"
+                className="rounded-full px-3.5 py-1 text-sm text-muted-foreground transition-colors hover:text-neon"
               >
-                <span>{item.label}</span>
-                <span className="text-xs text-neon/60">→</span>
+                {item.label}
               </a>
             ))}
-            
-            <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-4">
-              <a
-                href="#contact"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex w-full items-center justify-center rounded-full bg-gradient-brand py-2.5 text-sm font-bold text-neon-foreground shadow-md"
-              >
-                Get AI Video Quote
-              </a>
-              <a
-                href="https://wa.me/919999999999"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-secondary/50 py-2.5 text-sm font-semibold text-white transition-colors hover:border-neon hover:text-neon"
-              >
-                <MessageCircle className="h-4 w-4 text-[#25D366]" />
-                Chat on WhatsApp
-              </a>
-            </div>
+          </nav>
+
+          {/* Right CTA + Mobile Menu Toggle */}
+          <div className="flex items-center gap-2.5">
+            <a
+              href="#contact"
+              className="inline-flex whitespace-nowrap items-center justify-center rounded-full bg-gradient-brand px-3.5 sm:px-5 py-2 text-xs sm:text-sm font-bold text-neon-foreground shadow-md transition-all hover:brightness-110 active:scale-95"
+            >
+              <span className="hidden sm:inline">Get AI Video Quote</span>
+              <span className="sm:hidden">Get Quote</span>
+            </a>
+
+            {/* Mobile/Tablet Menu Button */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border/80 bg-secondary/60 text-foreground transition-all hover:border-neon hover:text-neon lg:hidden cursor-pointer"
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
         </div>
-      )}
-    </header>
+
+        {/* Mobile & Tablet Navigation Menu Dropdown */}
+        {mobileMenuOpen && (
+          <div className="border-b border-border/70 bg-[#0c0919]/98 px-5 py-5 shadow-2xl backdrop-blur-2xl lg:hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="mx-auto flex max-w-md flex-col gap-1.5">
+              {nav.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-foreground/90 transition-colors hover:bg-white/[0.05] hover:text-neon"
+                >
+                  <span>{item.label}</span>
+                  <span className="text-xs text-neon/60">→</span>
+                </a>
+              ))}
+              
+              <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-4">
+                <a
+                  href="#contact"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex w-full items-center justify-center rounded-full bg-gradient-brand py-2.5 text-sm font-bold text-neon-foreground shadow-md"
+                >
+                  Get AI Video Quote
+                </a>
+                <a
+                  href="https://wa.me/919999999999"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-secondary/50 py-2.5 text-sm font-semibold text-white transition-colors hover:border-neon hover:text-neon"
+                >
+                  <MessageCircle className="h-4 w-4 text-[#25D366]" />
+                  Chat on WhatsApp
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </header>
+    </div>
   );
 }
 
