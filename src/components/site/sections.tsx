@@ -1367,16 +1367,19 @@ export function WhyUs() {
         title="Why Choose"
         highlight="Quickupp AI Studio?"
       />
-      <div ref={containerRef} className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      <div ref={containerRef} className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 [perspective:1200px]">
         {whyUs.map((item, idx) => {
-          const delay = `${idx * 0.12}s`;
-          const animClass = isInView ? "animate-why-card" : "opacity-0 translate-y-8";
+          const delay = `${idx * 0.1}s`;
+          // Unique trajectory for each card position: top-left, top-center, top-right, bottom-left, bottom-center, bottom-right
+          const animClass = isInView
+            ? `animate-why-${idx % 6}`
+            : "opacity-0 scale-75";
 
           return (
             <article
               key={item.title}
               style={{ animationDelay: delay }}
-              className={`panel group relative overflow-hidden p-7 transition-all duration-300 hover:-translate-y-2 hover:border-neon/60 hover:shadow-[0_0_35px_-6px_rgba(200,80,255,0.4)] ${animClass}`}
+              className={`panel group relative overflow-hidden p-7 transition-all duration-300 hover:-translate-y-2 hover:border-neon/60 hover:shadow-[0_0_35px_-6px_rgba(200,80,255,0.4)] will-change-transform ${animClass}`}
             >
               {/* Dynamic Top Bar Highlight */}
               <div className="absolute left-0 top-0 h-1 w-0 bg-gradient-brand transition-all duration-500 group-hover:w-full" />
