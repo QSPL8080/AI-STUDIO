@@ -82,7 +82,7 @@ export function Header() {
             <div className="hidden sm:flex flex-1 items-center justify-center gap-2.5 text-center flex-nowrap">
               <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-bold text-amber-300 border border-amber-400/40 shadow-sm whitespace-nowrap">
                 <Sparkles className="h-3.5 w-3.5 text-amber-300 shrink-0 fill-amber-300/30 animate-pulse" />
-                <span>Special Launch Offer</span>
+                <span>Special Offer</span>
               </span>
 
               <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
@@ -314,11 +314,10 @@ export function TrustStrip() {
 export function Samples() {
   const [activeTab, setActiveTab] = useState("All");
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFirstInView, setIsFirstInView] = useState(false);
-  const [isSecondInView, setIsSecondInView] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   
-  const firstCardRef = useRef<HTMLDivElement>(null);
-  const secondCardRef = useRef<HTMLDivElement>(null);
+  const cardsContainerRef = useRef<HTMLDivElement>(null);
 
   const filters = ["All", ...formats];
   const allFiltered =
@@ -340,38 +339,23 @@ export function Samples() {
     pairs.push(allFiltered.slice(i, i + 2));
   }
 
-  // Detect each card when it reaches user's eye level and trigger animation once
+  // Observe cards container directly so animation plays right when cards enter the viewport
   useEffect(() => {
-    const el1 = firstCardRef.current;
-    const el2 = secondCardRef.current;
+    const el = cardsContainerRef.current;
+    if (!el) return;
 
-    const observer1 = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry?.isIntersecting) {
-          setIsFirstInView(true);
-          if (el1) observer1.unobserve(el1);
+          setIsInView(true);
+          observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
     );
 
-    const observer2 = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) {
-          setIsSecondInView(true);
-          if (el2) observer2.unobserve(el2);
-        }
-      },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
-    );
-
-    if (el1) observer1.observe(el1);
-    if (el2) observer2.observe(el2);
-
-    return () => {
-      observer1.disconnect();
-      observer2.disconnect();
-    };
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   // Advance to next video pair
@@ -381,14 +365,20 @@ export function Samples() {
     }
   };
 
-  // Continuous 15s interval so videos cycle through smoothly in background even during scrolling
+  const handlePrev = () => {
+    if (pairs.length > 1) {
+      setCurrentIndex((prev) => (prev - 1 + pairs.length) % pairs.length);
+    }
+  };
+
+  // Continuous timer so videos cycle smoothly, pausing on user hover
   useEffect(() => {
-    if (pairs.length <= 1) return;
+    if (pairs.length <= 1 || isPaused) return;
     const interval = setInterval(() => {
       handleAdvance();
-    }, 15000);
+    }, 12000);
     return () => clearInterval(interval);
-  }, [pairs.length]);
+  }, [pairs.length, isPaused]);
 
   // Reset index to 0 whenever tab changes so it always starts from first video(s)
   useEffect(() => {
@@ -429,154 +419,170 @@ export function Samples() {
       </div>
 
       {/* 2 at a time Diagonal Showcase Container */}
-      <div className="mx-auto max-w-5xl space-y-6 overflow-hidden py-2 min-h-[300px]">
-        {currentPair.map((item, idx) => {
-          const isSecond = idx === 1; // Card 1 is top (left entry), Card 2 is bottom (right entry)
-          const isReversed = idx % 2 === 1; // Diagonal layout: top card left-video/right-text, bottom card right-video/left-text
-          const cardRefInView = isSecond ? isSecondInView : isFirstInView;
-          const targetRef = isSecond ? secondCardRef : firstCardRef;
+      <div
+        ref={cardsContainerRef}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        className="mx-auto max-w-5xl space-y-6 overflow-hidden py-2 min-h-[300px]"
+      >
+          {currentPair.map((item, idx) => {
+            const isSecond = idx === 1; // Card 1 is top (left entry), Card 2 is bottom (right entry)
+            const isReversed = idx % 2 === 1; // Diagonal layout: top card left-video/right-text, bottom card right-video/left-text
 
-          const slideAnimationClass = cardRefInView
-            ? isSecond
-              ? "animate-slide-in-right"
-              : "animate-slide-in-left"
-            : `opacity-0 ${isSecond ? "translate-x-10" : "-translate-x-10"}`;
+            const slideAnimationClass = isInView
+              ? isSecond
+                ? "animate-slide-in-right"
+                : "animate-slide-in-left"
+              : `opacity-0 ${isSecond ? "translate-x-10" : "-translate-x-10"}`;
 
-          return (
-            <div
-              key={`sample-card-slot-${idx}`}
-              ref={targetRef}
-              className={`relative overflow-hidden rounded-[28px] border border-neon/30 bg-[#090714]/95 p-5 shadow-[0_0_35px_-10px_rgba(200,80,255,0.25)] backdrop-blur-xl transition-all duration-500 hover:border-neon/70 hover:shadow-[0_0_45px_-5px_rgba(200,80,255,0.4)] sm:p-7 md:p-8 ${slideAnimationClass}`}
-            >
+            return (
               <div
-                className={`flex flex-col items-center gap-6 md:gap-10 ${
-                  isReversed ? "md:flex-row-reverse" : "md:flex-row"
-                }`}
+                key={`sample-card-${activeTab}-${currentIndex}-${idx}`}
+                className={`relative overflow-hidden rounded-[28px] border border-neon/30 bg-[#090714]/95 p-5 shadow-[0_0_35px_-10px_rgba(200,80,255,0.25)] backdrop-blur-xl transition-all duration-500 hover:border-neon/70 hover:shadow-[0_0_45px_-5px_rgba(200,80,255,0.4)] sm:p-7 md:p-8 ${slideAnimationClass}`}
               >
-                {/* Authentic 9:16 Vertical Reel Player with dark stylish border */}
-                <div className="relative aspect-[9/16] w-full max-w-[260px] sm:max-w-[280px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60">
-                  <video
-                    key={`${item.videoUrl}-${currentIndex}`}
-                    src={item.videoUrl}
-                    autoPlay
-                    muted
-                    loop={false}
-                    playsInline
-                    webkit-playsinline="true"
-                    preload="auto"
-                    onEnded={handleAdvance}
-                    className="h-full w-full object-cover"
-                  />
-                  <span className="absolute bottom-3 left-3 rounded-lg bg-black/80 border border-white/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-md">
-                    {item.format}
-                  </span>
-                </div>
-
-                {/* Content Side */}
-                <div className="flex flex-1 flex-col justify-between self-stretch py-1 text-left">
-                  <div>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-xs font-bold uppercase tracking-widest text-neon">
-                        Industry: {item.industry}
-                      </span>
-                      <span className="rounded-md border border-neon/30 bg-neon/10 px-2.5 py-0.5 text-[11px] font-semibold text-neon">
-                        9:16 Vertical Reel
-                      </span>
-                    </div>
-
-                    <h3 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                <div
+                  className={`flex flex-col items-center gap-6 md:gap-10 ${
+                    isReversed ? "md:flex-row-reverse" : "md:flex-row"
+                  }`}
+                >
+                  {/* Authentic 9:16 Vertical Reel Player with dark stylish border */}
+                  <div className="relative aspect-[9/16] w-full max-w-[260px] sm:max-w-[280px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60">
+                    <video
+                      key={item.videoUrl}
+                      src={item.videoUrl}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
+                    <span className="absolute bottom-3 left-3 rounded-lg bg-black/80 border border-white/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-md">
                       {item.format}
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
-                      {item.description}
-                    </p>
-
-                    {/* What's Included Deliverables Checklist - Generously sized to fill space */}
-                    {(() => {
-                      const matchedDeliverable = deliverables.find(
-                        (d) =>
-                          d.title.toLowerCase().includes(item.format.toLowerCase().replace("video", "").trim()) ||
-                          item.format.toLowerCase().includes(d.title.toLowerCase().replace("video", "").trim())
-                      ) || deliverables[0];
-
-                      return (
-                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5 backdrop-blur-sm">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-bold uppercase tracking-wider text-neon sm:text-sm">
-                              ✦ What's Included in This Package:
-                            </p>
-                            <span className="text-[11px] font-semibold text-muted-foreground">
-                              {matchedDeliverable.items.length} Deliverables
-                            </span>
-                          </div>
-                          
-                          <ul className="mt-3.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs sm:text-sm text-foreground/85">
-                            {matchedDeliverable.items.map((point) => (
-                              <li key={point} className="flex items-center gap-2.5">
-                                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neon/20 text-[10px] font-extrabold text-neon shadow-[0_0_8px_rgba(200,80,255,0.4)]">
-                                  ✓
-                                </span>
-                                <span className="leading-snug text-foreground/90">{point}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      );
-                    })()}
+                    </span>
                   </div>
 
-                  {/* Card Bottom Action & Turnaround Bar */}
-                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-neon">
+                  {/* Content Side */}
+                  <div className="flex flex-1 flex-col justify-between self-stretch py-1 text-left">
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-bold uppercase tracking-widest text-neon">
+                          Industry: {item.industry}
+                        </span>
+                        <span className="rounded-md border border-neon/30 bg-neon/10 px-2.5 py-0.5 text-[11px] font-semibold text-neon">
+                          9:16 Vertical Reel
+                        </span>
+                      </div>
+
+                      <h3 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
                         {item.format}
-                      </span>
-                      <span className="text-muted-foreground/30">•</span>
-                      <span className="text-xs text-muted-foreground">
-                        ⚡ 48–72h Turnaround
-                      </span>
+                      </h3>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                        {item.description}
+                      </p>
+
+                      {/* What's Included Deliverables Checklist */}
+                      {(() => {
+                        const matchedDeliverable = deliverables.find(
+                          (d) =>
+                            d.title.toLowerCase().includes(item.format.toLowerCase().replace("video", "").trim()) ||
+                            item.format.toLowerCase().includes(d.title.toLowerCase().replace("video", "").trim())
+                        ) || deliverables[0];
+
+                        return (
+                          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5 backdrop-blur-sm">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-bold uppercase tracking-wider text-neon sm:text-sm">
+                                ✦ What's Included in This Package:
+                              </p>
+                              <span className="text-[11px] font-semibold text-muted-foreground">
+                                {matchedDeliverable.items.length} Deliverables
+                              </span>
+                            </div>
+                            
+                            <ul className="mt-3.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs sm:text-sm text-foreground/85">
+                              {matchedDeliverable.items.map((point) => (
+                                <li key={point} className="flex items-center gap-2.5">
+                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neon/20 text-[10px] font-extrabold text-neon shadow-[0_0_8px_rgba(200,80,255,0.4)]">
+                                    ✓
+                                  </span>
+                                  <span className="leading-snug text-foreground/90">{point}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })()}
                     </div>
-                    
-                    <a
-                      href="#contact"
-                      className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1 text-xs font-semibold text-white transition-all hover:bg-neon hover:text-black hover:scale-105"
-                    >
-                      <span>Create Similar Video</span>
-                      <span>→</span>
-                    </a>
+
+                    {/* Card Bottom Action & Turnaround Bar */}
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-neon">
+                          {item.format}
+                        </span>
+                        <span className="text-muted-foreground/30">•</span>
+                        <span className="text-xs text-muted-foreground">
+                          ⚡ 48–72h Turnaround
+                        </span>
+                      </div>
+                      
+                      <a
+                        href="#contact"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1 text-xs font-semibold text-white transition-all hover:bg-neon hover:text-black hover:scale-105"
+                      >
+                        <span>Create Similar Video</span>
+                        <span>→</span>
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Pagination Indicators & Next/Prev Controls */}
-      {pairs.length > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-2">
-          {pairs.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentIndex(i)}
-              className={`h-2.5 rounded-full transition-all duration-300 ${
-                currentIndex === i
-                  ? "w-8 bg-gradient-brand shadow-sm glow-neon"
-                  : "w-2.5 bg-secondary hover:bg-muted-foreground"
-              }`}
-              aria-label={`Slide ${i + 1}`}
-            />
-          ))}
+            );
+          })}
         </div>
-      )}
 
-      {/* Bottom CTA */}
-      <div className="mt-12 text-center">
-        <p className="mb-4 text-xl font-semibold text-white">
-          Want a Similar Video for Your Business?
-        </p>
-        <NeonButton href="#contact">Get Your AI Video Quote</NeonButton>
-      </div>
+        {/* Pagination Indicators & Next/Prev Controls */}
+        {pairs.length > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-3">
+            <button
+              onClick={handlePrev}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-xs text-white/80 transition-all hover:bg-white/15 hover:text-white"
+              aria-label="Previous samples"
+            >
+              ←
+            </button>
+            <div className="flex items-center gap-2">
+              {pairs.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentIndex(i)}
+                  className={`h-2.5 rounded-full transition-all duration-300 ${
+                    currentIndex === i
+                      ? "w-8 bg-gradient-brand shadow-sm glow-neon"
+                      : "w-2.5 bg-secondary hover:bg-muted-foreground"
+                  }`}
+                  aria-label={`Slide ${i + 1}`}
+                />
+              ))}
+            </div>
+            <button
+              onClick={handleAdvance}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-xs text-white/80 transition-all hover:bg-white/15 hover:text-white"
+              aria-label="Next samples"
+            >
+              →
+            </button>
+          </div>
+        )}
+
+        {/* Bottom CTA */}
+        <div className="mt-12 text-center">
+          <p className="mb-4 text-xl font-semibold text-white">
+            Want a Similar Video for Your Business?
+          </p>
+          <NeonButton href="#contact">Get Your AI Video Quote</NeonButton>
+        </div>
     </Section>
   );
 }
@@ -1700,10 +1706,10 @@ export function WhatsAppCtaSection() {
 
   return (
     <section className="border-t border-border bg-surface/40 px-5 py-12 md:py-16">
-      <div className="mx-auto max-w-2xl text-center">
+      <div className="mx-auto max-w-4xl text-center">
         <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
           Have a Video Idea? Let's Turn It Into an{" "}
-          <span className="font-serif italic font-bold text-gradient-brand">AI Reel.</span>
+          <span className="font-serif italic font-bold text-gradient-brand whitespace-nowrap">AI Reel.</span>
         </h2>
         <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
           Send us your product, service or video idea on WhatsApp and our team will recommend the
