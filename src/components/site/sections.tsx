@@ -758,7 +758,7 @@ export function Services() {
                 <div className="mt-4 pt-1">
                   <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-amber-400">
                     <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Best For Target Audience</span>
+                    <span>Best For</span>
                   </div>
                   <p className="mt-1 text-xs leading-relaxed text-amber-200/90 font-medium">
                     {service.bestFor}
