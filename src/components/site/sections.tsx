@@ -1065,6 +1065,7 @@ export function Deliverables() {
 export function DigitalTwin() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
+  const twinSample = samples.find((s) => s.format === "Digital Twin") || samples[4];
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -1086,10 +1087,10 @@ export function DigitalTwin() {
 
   return (
     <Section id="digital-twin" className="bg-surface/40 overflow-hidden">
-      <div ref={sectionRef} className="grid gap-12 lg:grid-cols-2 lg:items-center">
+      <div ref={sectionRef} className="grid gap-12 lg:grid-cols-12 lg:items-center">
         {/* Content Side: Enters from RIGHT */}
         <div
-          className={`transition-all duration-700 ${
+          className={`lg:col-span-5 transition-all duration-700 ${
             isInView ? "animate-item-right" : "opacity-0 translate-x-12"
           }`}
         >
@@ -1121,19 +1122,41 @@ export function DigitalTwin() {
           </p>
         </div>
 
-        {/* Card Side: Enters from LEFT */}
-        <ul
-          className={`panel flex flex-col justify-between gap-4 p-8 shadow-2xl transition-all duration-700 md:p-10 ${
+        {/* Card Side: Enters from LEFT with points and Reel Player side-by-side */}
+        <div
+          className={`panel lg:col-span-7 flex flex-col items-center justify-between gap-6 p-6 shadow-2xl transition-all duration-700 sm:flex-row sm:p-8 md:p-9 ${
             isInView ? "animate-item-left" : "opacity-0 -translate-x-12"
           }`}
         >
-          {twinFeatures.map((feature) => (
-            <li key={feature} className="flex items-center gap-3.5 text-sm md:text-base">
-              <span className="text-base font-bold text-neon md:text-lg">✓</span>
-              <span className="text-muted-foreground">{feature}</span>
-            </li>
-          ))}
-        </ul>
+          {/* Checklist Points */}
+          <ul className="flex flex-1 flex-col justify-between gap-3 self-stretch sm:gap-3.5">
+            {twinFeatures.map((feature) => (
+              <li key={feature} className="flex items-center gap-3 text-xs md:text-sm">
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neon/20 text-[10px] font-bold text-neon shadow-[0_0_8px_rgba(200,80,255,0.4)]">
+                  ✓
+                </span>
+                <span className="font-medium text-muted-foreground">{feature}</span>
+              </li>
+            ))}
+          </ul>
+
+          {/* Reel Card from Right Side beside the points */}
+          <div className="relative aspect-[9/16] w-full max-w-[200px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60 sm:max-w-[210px] md:max-w-[220px]">
+            <video
+              src={twinSample?.videoUrl}
+              autoPlay
+              muted
+              loop
+              playsInline
+              webkit-playsinline="true"
+              preload="auto"
+              className="h-full w-full object-cover"
+            />
+            <span className="absolute bottom-3 left-3 rounded-lg border border-white/10 bg-black/80 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-md backdrop-blur-md">
+              Digital Twin Reel
+            </span>
+          </div>
+        </div>
       </div>
     </Section>
   );
