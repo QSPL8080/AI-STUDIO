@@ -1373,15 +1373,11 @@ export function Process() {
         </ol>
 
         {/* Turnaround Time Pill */}
-        <div className="panel mx-auto mt-8 flex max-w-fit flex-wrap items-center justify-center gap-2 rounded-full border border-neon/30 bg-secondary/30 px-6 py-3 text-center shadow-lg transition-all duration-700">
-          <div className="flex items-center gap-2 text-xs font-bold text-gradient-brand sm:text-sm whitespace-nowrap">
-            <Clock className="h-4 w-4 text-neon shrink-0" />
+        <div className="panel mx-auto mt-8 flex max-w-fit items-center justify-center gap-2 rounded-full border border-amber-400/40 bg-black/40 px-6 py-3 text-center shadow-lg transition-all duration-700">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-300 sm:text-sm whitespace-nowrap">
+            <Clock className="h-4 w-4 text-amber-400 shrink-0" />
             <span>48–72 Working Hours Delivery</span>
           </div>
-          <span className="text-muted-foreground/40 hidden sm:inline">|</span>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            After script approval and materials
-          </span>
         </div>
       </div>
     </Section>
