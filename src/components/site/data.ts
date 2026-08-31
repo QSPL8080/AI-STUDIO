@@ -571,7 +571,7 @@ export const footerTagline = "AI-Powered Videos. Built for Your Business.";
 export const footerDescription =
   "Quickupp AI Studio provides professional AI video production services for businesses, brands and creators. Create AI UGC, AI avatar, cartoon, hyper-realistic and digital twin videos for social media, advertising and digital marketing.";
 export const footerEmail = "info@quickuppaistudio.com";
-export const footerPhone = "+91 9975683395";
+export const footerPhone = "+91 9970344139";
 export const footerIndiaAddress =
   "Office 411, Suratwala Mark Plazzo, Hinjewadi, Phase 1, Pune, 411057, India";
 export const footerIndiaMapUrl = "https://maps.app.goo.gl/geUWrpRet8nY8qbW6";
