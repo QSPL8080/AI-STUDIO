@@ -160,7 +160,6 @@
   body {
     max-width: 100%;
     overflow-x: hidden;
-    scroll-behavior: smooth;
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE and Edge */
   }

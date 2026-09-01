@@ -42,14 +42,33 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  // Ensure page always starts at top when loading/refreshing
+  // Ensure page always starts at top when loading/refreshing and handle smooth anchor clicks
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      if ("scrollRestoration" in window.history) {
-        window.history.scrollRestoration = "manual";
-      }
-      window.scrollTo(0, 0);
+    if (typeof window === "undefined") return;
+
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
     }
+    window.scrollTo(0, 0);
+
+    const handleAnchorClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement)?.closest('a[href^="#"]');
+      if (!target) return;
+
+      const href = target.getAttribute("href");
+      if (!href || href === "#") return;
+
+      const targetId = href.slice(1);
+      const targetElement = document.getElementById(targetId);
+      if (targetElement) {
+        e.preventDefault();
+        targetElement.scrollIntoView({ behavior: "smooth" });
+        window.history.pushState(null, "", href);
+      }
+    };
+
+    document.addEventListener("click", handleAnchorClick);
+    return () => document.removeEventListener("click", handleAnchorClick);
   }, []);
 
   return (
