@@ -48,6 +48,39 @@ export const samples = [
   },
 ];
 
+export const portfolioItems = [
+  {
+    format: "AI Cartoon",
+    industry: "Cartoon Animation",
+    description: "Animated AI cartoon storytelling reel with vibrant characters and engaging visuals.",
+    videoUrl: "/videos/Cartoon Portfolio.mp4",
+  },
+  {
+    format: "AI UGC",
+    industry: "Skincare",
+    description: "Creator-style product recommendation video for a skincare brand.",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-young-woman-applying-skincare-cream-41528-large.mp4",
+  },
+  {
+    format: "AI Avatar",
+    industry: "Real Estate",
+    description: "Presenter-led project walkthrough for a residential launch.",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-modern-luxury-house-and-swimming-pool-42539-large.mp4",
+  },
+  {
+    format: "Hyper-Realistic",
+    industry: "Jewellery",
+    description: "Cinematic product advertisement for a luxury jewellery collection.",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-diamond-ring-sparkling-in-the-dark-42866-large.mp4",
+  },
+  {
+    format: "Digital Twin",
+    industry: "Founder Branding",
+    description: "Founder-led update reel created from an approved digital twin.",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-man-working-with-futuristic-technology-41485-large.mp4",
+  },
+];
+
 export const services = [
   {
     title: "AI UGC Video Production",

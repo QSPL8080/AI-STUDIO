@@ -12,11 +12,15 @@ import {
   Menu,
   MessageCircle,
   Palette,
+  Pause,
   Phone,
+  Play,
   Smartphone,
   Sparkles,
   UserCheck,
   Video,
+  Volume2,
+  VolumeX,
   Wand2,
   X,
 } from "lucide-react";
@@ -40,6 +44,7 @@ import {
   nav,
   pricingRows,
   processSteps,
+  portfolioItems,
   samples,
   services,
   twinFeatures,
@@ -587,6 +592,99 @@ export function Samples() {
   );
 }
 
+function PortfolioCard({
+  sample,
+}: {
+  sample: (typeof portfolioItems)[number];
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play();
+      setIsPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!videoRef.current) return;
+    videoRef.current.muted = !videoRef.current.muted;
+    setIsMuted(videoRef.current.muted);
+  };
+
+  return (
+    <article
+      onClick={togglePlay}
+      className="group relative flex aspect-[9/15] w-full flex-col justify-between overflow-hidden rounded-[24px] border border-border/80 bg-black p-5 shadow-2xl transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_35px_-5px_rgba(217,70,239,0.35)] sm:w-[calc(50%-0.875rem)] lg:w-[calc(33.333%-1.25rem)] cursor-pointer"
+    >
+      {/* Background Video */}
+      {sample.videoUrl && (
+        <video
+          ref={videoRef}
+          src={sample.videoUrl}
+          autoPlay
+          muted={isMuted}
+          loop
+          playsInline
+          preload="metadata"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      )}
+
+      {/* Cinematic Dark Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-black/60 pointer-events-none" />
+
+      {/* Top Badge & Sound Toggle */}
+      <div className="z-10 flex items-center justify-between">
+        <span className="rounded-md border border-white/15 bg-black/60 px-3 py-1 text-xs font-semibold text-white/95 backdrop-blur-md shadow">
+          {sample.format}
+        </span>
+        <button
+          type="button"
+          onClick={toggleMute}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white/90 border border-white/15 backdrop-blur-md transition-all hover:scale-110 hover:bg-neon hover:text-black shadow"
+          title={isMuted ? "Unmute sound" : "Mute sound"}
+          aria-label={isMuted ? "Unmute video" : "Mute video"}
+        >
+          {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
+      </div>
+
+      {/* Center Play/Pause indicator on hover or when paused */}
+      <div
+        className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${
+          !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        }`}
+      >
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-brand text-neon-foreground shadow-[0_0_20px_rgba(217,70,239,0.6)] backdrop-blur-md">
+          {isPlaying ? (
+            <Pause className="h-6 w-6 text-white" />
+          ) : (
+            <Play className="ml-0.5 h-6 w-6 text-white fill-white" />
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Industry & Description Info */}
+      <div className="z-10 space-y-1.5 pointer-events-none">
+        <div className="text-xs font-bold text-neon sm:text-sm">
+          Industry: {sample.industry}
+        </div>
+        <p className="text-xs text-white/80 line-clamp-2 leading-relaxed font-normal">
+          {sample.description}
+        </p>
+      </div>
+    </article>
+  );
+}
+
 export function Portfolio() {
   const [active, setActive] = useState("All Videos");
   const filters = [
@@ -599,8 +697,8 @@ export function Portfolio() {
   ];
   const visible =
     active === "All Videos"
-      ? samples
-      : samples.filter(
+      ? portfolioItems
+      : portfolioItems.filter(
           (s) =>
             s.format.toLowerCase().trim() === active.toLowerCase().trim() ||
             (active === "AI UGC" && s.format.includes("UGC")) ||
@@ -643,34 +741,10 @@ export function Portfolio() {
       {/* Video Cards Grid - Centered Flex Layout with wider cards (3 per row on desktop, 2 centered on row 2) */}
       <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 md:gap-7">
         {visible.map((sample) => (
-          <article
+          <PortfolioCard
             key={`portfolio-${sample.format}-${sample.industry}`}
-            className="group relative flex aspect-[9/15] w-full flex-col justify-between overflow-hidden rounded-[24px] border border-border/80 bg-gradient-to-b from-[#151224] via-[#0f0c1c] to-[#090712] p-6 shadow-2xl transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_35px_-5px_rgba(217,70,239,0.25)] sm:w-[calc(50%-0.875rem)] lg:w-[calc(33.333%-1.25rem)]"
-          >
-            {/* Top-Left Category Badge */}
-            <div className="z-10 flex items-center justify-start">
-              <span className="rounded-md border border-white/10 bg-[#1e1a30]/85 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-md">
-                {sample.format}
-              </span>
-            </div>
-
-            {/* Centered Play Button (Brand Neon Glow) */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-brand text-neon-foreground shadow-[0_0_20px_rgba(217,70,239,0.5)] transition-all duration-300 group-hover:scale-115 group-hover:shadow-[0_0_30px_rgba(217,70,239,0.8)] cursor-pointer">
-                <span className="ml-1 text-xl font-black text-white">▶</span>
-              </div>
-            </div>
-
-            {/* Bottom Industry & Description Info */}
-            <div className="z-10 space-y-1">
-              <div className="text-xs font-bold text-neon sm:text-sm">
-                Industry: {sample.industry}
-              </div>
-              <p className="text-xs text-white/60 line-clamp-2 leading-relaxed">
-                {sample.description}
-              </p>
-            </div>
-          </article>
+            sample={sample}
+          />
         ))}
       </div>
 
