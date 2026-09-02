@@ -622,9 +622,9 @@ function PortfolioCard({
   return (
     <article
       onClick={togglePlay}
-      className="group relative flex aspect-[9/15] w-full flex-col justify-between overflow-hidden rounded-[24px] border border-border/80 bg-black p-5 shadow-2xl transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_35px_-5px_rgba(217,70,239,0.35)] sm:w-[calc(50%-0.875rem)] lg:w-[calc(33.333%-1.25rem)] cursor-pointer"
+      className="group relative flex aspect-[9/16] w-full flex-col justify-between overflow-hidden rounded-[24px] border border-border/80 bg-black p-4 sm:p-5 shadow-2xl transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_35px_-5px_rgba(217,70,239,0.35)] sm:w-[calc(50%-0.875rem)] lg:w-[calc(33.333%-1.25rem)] cursor-pointer"
     >
-      {/* Background Video */}
+      {/* Background Video (True 9:16 Reel Fit - No Crop) */}
       {sample.videoUrl && (
         <video
           ref={videoRef}
@@ -634,12 +634,12 @@ function PortfolioCard({
           loop
           playsInline
           preload="metadata"
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="absolute inset-0 h-full w-full object-cover"
         />
       )}
 
-      {/* Cinematic Dark Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-black/60 pointer-events-none" />
+      {/* Cinematic Soft Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/50 pointer-events-none" />
 
       {/* Top Badge & Sound Toggle */}
       <div className="z-10 flex items-center justify-between">
@@ -672,12 +672,12 @@ function PortfolioCard({
         </div>
       </div>
 
-      {/* Bottom Industry & Description Info */}
-      <div className="z-10 space-y-1.5 pointer-events-none">
+      {/* Bottom Industry & Description Info with subtle frosted backing */}
+      <div className="z-10 space-y-1 rounded-xl bg-black/40 p-2.5 backdrop-blur-sm pointer-events-none border border-white/5">
         <div className="text-xs font-bold text-neon sm:text-sm">
           Industry: {sample.industry}
         </div>
-        <p className="text-xs text-white/80 line-clamp-2 leading-relaxed font-normal">
+        <p className="text-xs text-white/90 line-clamp-2 leading-relaxed font-normal">
           {sample.description}
         </p>
       </div>
