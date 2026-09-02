@@ -18,26 +18,26 @@ export const formats = [
 export const samples = [
   {
     format: "AI UGC",
-    industry: "Skincare",
-    description: "Creator-style product recommendation video for a skincare brand.",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-young-woman-applying-skincare-cream-41528-large.mp4",
+    industry: "E-Commerce & Fashion",
+    description: "Dynamic creator-style AI UGC video with energetic hooks and product showcase.",
+    videoUrl: "/videos/UGC Sample.mp4",
   },
   {
     format: "AI Avatar",
-    industry: "Real Estate",
-    description: "Presenter-led project walkthrough for a residential launch.",
+    industry: "Healthcare & Real Estate",
+    description: "Professional presenter-led explainer reel for clinics, property, and corporate services.",
     videoUrl: "/videos/Avtar Sample.mp4",
   },
   {
     format: "Hyper-Realistic",
-    industry: "Jewellery",
+    industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-diamond-ring-sparkling-in-the-dark-42866-large.mp4",
   },
   {
     format: "AI Cartoon",
-    industry: "Education",
-    description: "Animated explainer reel for an online coaching institute.",
+    industry: "Food & Confectionery",
+    description: "Engaging animated brand storytelling reel with custom characters for Chitale Kesar Modak.",
     videoUrl: "/videos/Cartoon Sample.mp4",
   },
   {
@@ -51,25 +51,25 @@ export const samples = [
 export const portfolioItems = [
   {
     format: "AI Cartoon",
-    industry: "Cartoon Animation",
-    description: "Animated AI cartoon storytelling reel with vibrant characters and engaging visuals.",
+    industry: "3D Character Animation",
+    description: "Expressive 3D character animation and storytelling reel for creative brands and entertainment.",
     videoUrl: "/videos/Cartoon Portfolio.mp4",
   },
   {
     format: "AI UGC",
-    industry: "Skincare & D2C",
-    description: "Authentic creator-style AI UGC video reel for product demonstration and marketing.",
+    industry: "D2C & Consumer Brands",
+    description: "Authentic creator-led AI UGC product review and demonstration reel designed for high conversions.",
     videoUrl: "/videos/UGC Porfolio.mp4",
   },
   {
     format: "AI Avatar",
-    industry: "Real Estate",
-    description: "Presenter-led project walkthrough for a residential launch.",
+    industry: "Real Estate & Corporate",
+    description: "Presenter-led project walkthrough and service explainer for business launches.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-modern-luxury-house-and-swimming-pool-42539-large.mp4",
   },
   {
     format: "Hyper-Realistic",
-    industry: "Jewellery",
+    industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-diamond-ring-sparkling-in-the-dark-42866-large.mp4",
   },
