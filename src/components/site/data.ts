@@ -57,9 +57,9 @@ export const portfolioItems = [
   },
   {
     format: "AI UGC",
-    industry: "Skincare",
-    description: "Creator-style product recommendation video for a skincare brand.",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-young-woman-applying-skincare-cream-41528-large.mp4",
+    industry: "Skincare & D2C",
+    description: "Authentic creator-style AI UGC video reel for product demonstration and marketing.",
+    videoUrl: "/videos/UGC Porfolio.mp4",
   },
   {
     format: "AI Avatar",
