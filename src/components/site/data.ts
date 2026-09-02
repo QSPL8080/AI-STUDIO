@@ -26,7 +26,7 @@ export const samples = [
     format: "AI Avatar",
     industry: "Real Estate",
     description: "Presenter-led project walkthrough for a residential launch.",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-modern-luxury-house-and-swimming-pool-42539-large.mp4",
+    videoUrl: "/videos/Avtar Sample.mp4",
   },
   {
     format: "Hyper-Realistic",
@@ -38,7 +38,7 @@ export const samples = [
     format: "AI Cartoon",
     industry: "Education",
     description: "Animated explainer reel for an online coaching institute.",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-animation-of-futuristic-devices-99786-large.mp4",
+    videoUrl: "/videos/Cartoon Sample.mp4",
   },
   {
     format: "Digital Twin",
