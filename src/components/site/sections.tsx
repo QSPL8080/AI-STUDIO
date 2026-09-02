@@ -376,15 +376,6 @@ export function Samples() {
     }
   };
 
-  // Continuous timer so videos cycle smoothly, pausing on user hover
-  useEffect(() => {
-    if (pairs.length <= 1 || isPaused) return;
-    const interval = setInterval(() => {
-      handleAdvance();
-    }, 12000);
-    return () => clearInterval(interval);
-  }, [pairs.length, isPaused]);
-
   // Reset index to 0 whenever tab changes so it always starts from first video(s)
   useEffect(() => {
     setCurrentIndex(0);
@@ -457,9 +448,13 @@ export function Samples() {
                       src={item.videoUrl}
                       autoPlay
                       muted
-                      loop
                       playsInline
                       preload="metadata"
+                      onEnded={() => {
+                        if (idx === 0) {
+                          handleAdvance();
+                        }
+                      }}
                       className="h-full w-full object-cover"
                     />
                     <span className="absolute bottom-3 left-3 rounded-lg bg-black/80 border border-white/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-md">
