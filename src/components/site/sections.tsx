@@ -15,6 +15,7 @@ import {
   Pause,
   Phone,
   Play,
+  RotateCcw,
   Smartphone,
   Sparkles,
   UserCheck,
@@ -321,8 +322,10 @@ export function Samples() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isInView, setIsInView] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [completedMap, setCompletedMap] = useState<Record<number, boolean>>({});
   
   const cardsContainerRef = useRef<HTMLDivElement>(null);
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   const filters = ["All", ...formats];
   const allFiltered =
@@ -366,22 +369,52 @@ export function Samples() {
   // Advance to next video pair
   const handleAdvance = () => {
     if (pairs.length > 1) {
+      setCompletedMap({});
       setCurrentIndex((prev) => (prev + 1) % pairs.length);
     }
   };
 
   const handlePrev = () => {
     if (pairs.length > 1) {
+      setCompletedMap({});
       setCurrentIndex((prev) => (prev - 1 + pairs.length) % pairs.length);
     }
   };
 
-  // Reset index to 0 whenever tab changes so it always starts from first video(s)
+  // Reset index and completion state whenever tab changes so it always starts from first video(s)
   useEffect(() => {
     setCurrentIndex(0);
+    setCompletedMap({});
   }, [activeTab]);
 
   const currentPair = pairs[currentIndex] || pairs[0] || [];
+
+  const handleVideoEnded = (idx: number) => {
+    setCompletedMap((prev) => {
+      const updated = { ...prev, [idx]: true };
+      const totalInPair = currentPair.length;
+      const allDone = totalInPair > 0 && currentPair.every((_, i) => updated[i] === true);
+
+      if (allDone && pairs.length > 1) {
+        setTimeout(() => {
+          handleAdvance();
+        }, 700);
+      }
+      return updated;
+    });
+  };
+
+  const handleReplay = (idx: number) => {
+    setCompletedMap((prev) => ({ ...prev, [idx]: false }));
+    const video = videoRefs.current[idx];
+    if (video) {
+      video.currentTime = 0;
+      video.play();
+    }
+  };
+
+  const allPairCompleted =
+    currentPair.length > 0 && currentPair.every((_, i) => completedMap[i] === true);
 
   return (
     <Section id="samples">
@@ -431,6 +464,9 @@ export function Samples() {
                 : "animate-slide-in-left"
               : `opacity-0 ${isSecond ? "translate-x-10" : "-translate-x-10"}`;
 
+            const isEnded = Boolean(completedMap[idx]);
+            const showWatchAgain = (isEnded && !allPairCompleted) || (isEnded && pairs.length <= 1);
+
             return (
               <div
                 key={`sample-card-${activeTab}-${currentIndex}-${idx}`}
@@ -444,20 +480,40 @@ export function Samples() {
                   {/* Authentic 9:16 Vertical Reel Player with dark stylish border */}
                   <div className="relative aspect-[9/16] w-full max-w-[260px] sm:max-w-[280px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60">
                     <video
+                      ref={(el) => {
+                        videoRefs.current[idx] = el;
+                      }}
                       key={item.videoUrl}
                       src={item.videoUrl}
                       autoPlay
                       muted
                       playsInline
                       preload="metadata"
-                      onEnded={() => {
-                        if (idx === 0) {
-                          handleAdvance();
-                        }
-                      }}
+                      onEnded={() => handleVideoEnded(idx)}
                       className="h-full w-full object-cover"
                     />
-                    <span className="absolute bottom-3 left-3 rounded-lg bg-black/80 border border-white/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-md">
+
+                    {/* "Watch Again" Overlay if this video finished before other video in the pair */}
+                    {showWatchAgain && (
+                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/65 p-3 text-center backdrop-blur-[2px] animate-in fade-in duration-300">
+                        <button
+                          type="button"
+                          onClick={() => handleReplay(idx)}
+                          className="group/btn inline-flex items-center gap-1.5 rounded-full bg-gradient-brand px-4 py-2 text-xs font-bold text-neon-foreground shadow-lg transition-all hover:scale-105 active:scale-95 glow-neon cursor-pointer"
+                          aria-label={`Watch ${item.format} video again`}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5 transition-transform duration-300 group-hover/btn:-rotate-45" />
+                          <span>Watch Again</span>
+                        </button>
+                        {pairs.length > 1 && !allPairCompleted && (
+                          <span className="mt-2 text-[10px] text-white/70 font-medium tracking-wide">
+                            Waiting for next video to finish...
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <span className="absolute bottom-3 left-3 rounded-lg bg-black/80 border border-white/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-md z-10">
                       {item.format}
                     </span>
                   </div>
