@@ -308,12 +308,16 @@ export function Hero() {
       setHeaderHeight(h);
 
       const w = window.innerWidth;
+      const vh = window.innerHeight;
       if (w < 640) {
-        setHeroPaddingTop(h + 20); // Mobile: compact gap
+        // Mobile: position logo so it sits in upper-middle, eliminating empty void
+        setHeroPaddingTop(Math.max(h + 65, Math.round(vh * 0.22)));
       } else if (w < 1024) {
-        setHeroPaddingTop(h + 75); // Tablet: balanced gap
+        // Tablet: balanced positioning
+        setHeroPaddingTop(Math.max(h + 90, Math.round(vh * 0.26)));
       } else {
-        setHeroPaddingTop(h + 195); // Desktop & Laptop: 195px gap
+        // Desktop & Laptop: exact approved spacing
+        setHeroPaddingTop(h + 195);
       }
     };
 
@@ -387,30 +391,30 @@ export function Hero() {
         const isTablet = width >= 640 && width < 1024;
 
         if (isMobile) {
-          // Mobile (< 640px): Starting card is 54% width, 32% height
-          const startW = 54;
-          const startH = 32;
-          const currentW = startW + (100 - startW) * expandP;
-          const currentH = startH + (100 - startH) * expandP;
-          const currentRadius = 16 * (1 - expandP);
-          mediaCardRef.current.style.width = expandP >= 0.98 ? "100%" : `${currentW}%`;
-          mediaCardRef.current.style.height = expandP >= 0.98 ? "100%" : `${currentH}%`;
-          mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2}vw`;
-          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2}vh`;
-          mediaCardRef.current.style.borderRadius = `${currentRadius}px`;
-          mediaCardRef.current.style.border =
-            expandP >= 0.98 ? "none" : "1px solid rgba(255, 255, 255, 0.2)";
-        } else if (isTablet) {
-          // Tablet (640px - 1023px): Starting card is 44% width, 36% height
-          const startW = 44;
-          const startH = 36;
+          // Mobile (< 640px): Starting card is 56% width, 40% height, bottom 9vh
+          const startW = 56;
+          const startH = 40;
           const currentW = startW + (100 - startW) * expandP;
           const currentH = startH + (100 - startH) * expandP;
           const currentRadius = 18 * (1 - expandP);
           mediaCardRef.current.style.width = expandP >= 0.98 ? "100%" : `${currentW}%`;
           mediaCardRef.current.style.height = expandP >= 0.98 ? "100%" : `${currentH}%`;
           mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2.5}vw`;
-          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2.5}vh`;
+          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 9}vh`;
+          mediaCardRef.current.style.borderRadius = `${currentRadius}px`;
+          mediaCardRef.current.style.border =
+            expandP >= 0.98 ? "none" : "1px solid rgba(255, 255, 255, 0.2)";
+        } else if (isTablet) {
+          // Tablet (640px - 1023px): Starting card is 46% width, 40% height, bottom 7vh
+          const startW = 46;
+          const startH = 40;
+          const currentW = startW + (100 - startW) * expandP;
+          const currentH = startH + (100 - startH) * expandP;
+          const currentRadius = 18 * (1 - expandP);
+          mediaCardRef.current.style.width = expandP >= 0.98 ? "100%" : `${currentW}%`;
+          mediaCardRef.current.style.height = expandP >= 0.98 ? "100%" : `${currentH}%`;
+          mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2.5}vw`;
+          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 7}vh`;
           mediaCardRef.current.style.borderRadius = `${currentRadius}px`;
           mediaCardRef.current.style.border =
             expandP >= 0.98 ? "none" : "1px solid rgba(255, 255, 255, 0.2)";
@@ -482,7 +486,7 @@ export function Hero() {
         {/* Top & Left Content: Shifted lower down so bottom of logo extends behind the video card */}
         <div
           ref={heroBrandRef}
-          className="absolute inset-0 pb-6 sm:pb-10 md:pb-16 lg:pb-20 px-4 sm:px-8 md:px-12 lg:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
+          className="absolute inset-0 pb-16 sm:pb-16 md:pb-16 lg:pb-20 px-4 sm:px-8 md:px-12 lg:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
           style={{ paddingTop: `${heroPaddingTop}px` }}
         >
           {/* Top: Giant "AI Studio" Title spanning across the screen */}
@@ -491,7 +495,7 @@ export function Hero() {
               src="/images/ai studio logo hero.png"
               alt="Quickupp AI Studio - Tech-Enabled AI Video Production Studio"
               title="Quickupp AI Studio"
-              className="w-[98vw] max-w-none h-auto max-h-[26vh] sm:max-h-[38vh] md:max-h-[46vh] lg:max-h-[52vh] object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
+              className="w-auto h-[12vh] min-h-[75px] max-h-[16vh] sm:h-[18vh] md:h-[24vh] lg:h-auto lg:w-[98vw] max-w-none object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
               width={4267}
               height={730}
               loading="eager"
@@ -500,8 +504,8 @@ export function Hero() {
           </div>
 
           {/* Bottom Row: Primary Semantic H1 Headline on the left (SEO-optimized and responsive) */}
-          <div className="w-full max-w-[46%] sm:max-w-[48%] md:max-w-xl lg:max-w-2xl mb-1.5 sm:mb-4 md:mb-8 pl-1 sm:pl-[2.5vw] md:pl-[4.5vw] lg:pl-[5vw]">
-            <h1 className="text-sm sm:text-xl md:text-3xl lg:text-4xl xl:text-[2.65rem] font-medium leading-[1.18] tracking-tight text-white/95">
+          <div className="w-full max-w-[42%] sm:max-w-[48%] md:max-w-xl lg:max-w-2xl mb-1 sm:mb-4 md:mb-8 pl-1 sm:pl-[2.5vw] md:pl-[4.5vw] lg:pl-[5vw]">
+            <h1 className="text-xs xs:text-sm sm:text-xl md:text-3xl lg:text-4xl xl:text-[2.65rem] font-medium leading-[1.22] tracking-tight text-white/95">
               <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
               video production studio.
             </h1>
@@ -515,7 +519,7 @@ export function Hero() {
         >
           <div
             ref={mediaCardRef}
-            className="pointer-events-auto absolute bg-[#0e081e] shadow-[0_0_60px_-10px_rgba(200,80,255,0.45)] will-change-transform glow-neon border border-white/20 overflow-hidden w-[54%] sm:w-[44%] lg:w-[36%] h-[32%] sm:h-[36%] lg:h-[42%] right-[2vw] sm:right-[2.5vw] bottom-[2vh] sm:bottom-[2.5vh] lg:bottom-[3vh] rounded-[16px] sm:rounded-[18px] lg:rounded-[20px]"
+            className="pointer-events-auto absolute bg-[#0e081e] shadow-[0_0_60px_-10px_rgba(200,80,255,0.45)] will-change-transform glow-neon border border-white/20 overflow-hidden w-[56%] sm:w-[46%] lg:w-[36%] h-[40%] sm:h-[40%] lg:h-[42%] right-[2.5vw] bottom-[9vh] sm:bottom-[7vh] lg:bottom-[3vh] rounded-[18px] sm:rounded-[18px] lg:rounded-[20px]"
           >
             {/* Active autoplaying video with audio default */}
             <video
