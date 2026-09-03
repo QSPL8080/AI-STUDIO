@@ -164,6 +164,25 @@ function RootShell({ children }: { children: ReactNode }) {
             __html: `if(typeof window!=="undefined"&&window.location.hostname==="www.quickuppaistudio.com"){window.location.replace("https://quickuppaistudio.com"+window.location.pathname+window.location.search+window.location.hash);}`,
           }}
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Quickupp AI Studio",
+              url: "https://quickuppaistudio.com/",
+              description:
+                "AI video production services for businesses: AI UGC, avatar, cartoon, hyper-realistic and digital twin videos.",
+              publisher: {
+                "@type": "Organization",
+                name: "Quickupp AI Studio",
+                url: "https://quickuppaistudio.com/",
+                logo: "https://quickuppaistudio.com/images/logo.png",
+              },
+            }),
+          }}
+        />
         <HeadContent />
       </head>
       <body>
