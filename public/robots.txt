@@ -1,4 +1,4 @@
-﻿User-agent: Googlebot
+User-agent: Googlebot
 Allow: /
 
 User-agent: Bingbot
@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://www.quickuppaistudio.com/sitemap.xml
+Sitemap: https://quickuppaistudio.com/sitemap.xml

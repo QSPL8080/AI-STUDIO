@@ -106,8 +106,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "AI video production services for businesses: AI UGC, avatar, cartoon, hyper-realistic and digital twin videos.",
       },
-      { property: "og:url", content: "https://www.quickuppaistudio.com/" },
-      { property: "og:image", content: "https://www.quickuppaistudio.com/images/logo.png" },
+      { property: "og:url", content: "https://quickuppaistudio.com/" },
+      { property: "og:image", content: "https://quickuppaistudio.com/images/logo.png" },
       { name: "twitter:card", content: "summary_large_image" },
       {
         name: "twitter:title",
@@ -118,7 +118,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "AI video production services for businesses: AI UGC, avatar, cartoon, hyper-realistic and digital twin videos.",
       },
-      { name: "twitter:image", content: "https://www.quickuppaistudio.com/images/logo.png" },
+      { name: "twitter:image", content: "https://quickuppaistudio.com/images/logo.png" },
     ],
     links: [
       {
@@ -159,6 +159,11 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if(typeof window!=="undefined"&&window.location.hostname==="www.quickuppaistudio.com"){window.location.replace("https://quickuppaistudio.com"+window.location.pathname+window.location.search+window.location.hash);}`,
+          }}
+        />
         <HeadContent />
       </head>
       <body>
@@ -174,14 +179,21 @@ function RootComponent() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const currentFullUrl = `${window.location.origin}${window.location.pathname}`;
+      if (window.location.hostname === "www.quickuppaistudio.com") {
+        window.location.replace(
+          `https://quickuppaistudio.com${window.location.pathname}${window.location.search}${window.location.hash}`,
+        );
+        return;
+      }
+      const path = window.location.pathname === "/" ? "" : window.location.pathname;
+      const canonicalUrl = `https://quickuppaistudio.com${path}`;
       const canonicalTag = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
       if (canonicalTag) {
-        canonicalTag.href = currentFullUrl;
+        canonicalTag.href = canonicalUrl;
       }
       const ogUrlTag = document.querySelector<HTMLMetaElement>('meta[property="og:url"]');
       if (ogUrlTag) {
-        ogUrlTag.content = currentFullUrl;
+        ogUrlTag.content = canonicalUrl;
       }
     }
   }, []);
