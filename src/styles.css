@@ -55,8 +55,12 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-heading: "Google Sans", "Product Sans", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-google-sans: "Google Sans", "Product Sans", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading:
+    "Google Sans", "Product Sans", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  --font-google-sans:
+    "Google Sans", "Product Sans", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
   --font-serif: "Apple Garamond", "EB Garamond", "Cormorant Garamond", Garamond, Georgia, serif;
 }
 
@@ -65,7 +69,9 @@
   font-style: normal;
   font-weight: 700 900;
   font-display: swap;
-  src: local("Google Sans Bold"), local("GoogleSans-Bold"), local("Product Sans Bold"), local("ProductSans-Bold");
+  src:
+    local("Google Sans Bold"), local("GoogleSans-Bold"), local("Product Sans Bold"),
+    local("ProductSans-Bold");
 }
 
 @font-face {
@@ -73,7 +79,9 @@
   font-style: italic;
   font-weight: 700 900;
   font-display: swap;
-  src: local("Apple Garamond Bold Italic"), local("Apple Garamond BoldItalic"), local("EB Garamond Bold Italic"), local("EBGaramond-BoldItalic");
+  src:
+    local("Apple Garamond Bold Italic"), local("Apple Garamond BoldItalic"),
+    local("EB Garamond Bold Italic"), local("EBGaramond-BoldItalic");
 }
 
 @font-face {
@@ -105,7 +113,7 @@
   --secondary: oklch(22% 0.025 295);
   --secondary-foreground: oklch(98% 0.004 300);
   --muted: oklch(22% 0.025 295);
-  --muted-foreground: oklch(74% 0.025 300);
+  --muted-foreground: oklch(84% 0.015 300);
   --accent: oklch(26% 0.055 310);
   --accent-foreground: oklch(95% 0.03 320);
   --destructive: oklch(60% 0.22 25);
@@ -127,12 +135,7 @@
   --sidebar-border: oklch(100% 0 0 / 0.1);
   --sidebar-ring: var(--neon);
 
-  --gradient-brand: linear-gradient(
-    120deg,
-    var(--neon-blue),
-    var(--neon),
-    var(--neon-magenta)
-  );
+  --gradient-brand: linear-gradient(120deg, var(--neon-blue), var(--neon), var(--neon-magenta));
   --gradient-glow: radial-gradient(
     circle at 50% 60%,
     color-mix(in oklab, var(--neon) 35%, transparent),
@@ -208,7 +211,12 @@
     font-weight: 300;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-heading) !important;
     font-weight: 700 !important;
     letter-spacing: -0.025em;
@@ -256,7 +264,9 @@
   gap: 0.55rem;
   border: 1px solid color-mix(in oklab, var(--neon) 60%, var(--color-border));
   background: linear-gradient(135deg, rgba(200, 80, 255, 0.15), rgba(70, 140, 255, 0.08));
-  box-shadow: 0 0 20px -3px rgba(200, 80, 255, 0.35), inset 0 0 12px rgba(200, 80, 255, 0.1);
+  box-shadow:
+    0 0 20px -3px rgba(200, 80, 255, 0.35),
+    inset 0 0 12px rgba(200, 80, 255, 0.1);
   border-radius: 9999px;
   padding: 0.4rem 1.1rem;
   font-size: 0.76rem;
@@ -268,7 +278,9 @@
   transition: all 0.3s ease;
   &:hover {
     border-color: var(--neon);
-    box-shadow: 0 0 25px rgba(200, 80, 255, 0.55), inset 0 0 15px rgba(200, 80, 255, 0.2);
+    box-shadow:
+      0 0 25px rgba(200, 80, 255, 0.55),
+      inset 0 0 15px rgba(200, 80, 255, 0.2);
     transform: translateY(-1px);
   }
 }
@@ -321,11 +333,11 @@
 }
 
 .animate-slide-in-left {
-  animation: slideInLeft 2.0s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: slideInLeft 2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .animate-slide-in-right {
-  animation: slideInRight 2.0s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+  animation: slideInRight 2s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
 }
 
 /* Accordion Alternating Left / Right Entrance Animations (Slow & Smooth) */
@@ -613,8 +625,3 @@
   border-color: color-mix(in oklab, var(--neon) 45%, transparent) !important;
   box-shadow: 0 0 25px -8px color-mix(in oklab, var(--neon) 35%, transparent);
 }
-
-
-
-
-

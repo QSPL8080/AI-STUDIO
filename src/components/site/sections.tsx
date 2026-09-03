@@ -142,10 +142,12 @@ export function Header() {
             <button
               type="button"
               onClick={() => setShowAnnouncement(false)}
-              className="flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full bg-black/20 text-white/90 border border-white/20 transition-all hover:bg-white hover:text-black"
+              className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-2 text-white/90 transition-all hover:text-white"
               aria-label="Dismiss announcement"
             >
-              <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-black/40 border border-white/20 transition-all hover:bg-white hover:text-black">
+                <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              </span>
             </button>
           </div>
         </div>
@@ -590,11 +592,12 @@ export function Hero() {
               loop
               muted={isMuted}
               playsInline
-              preload="auto"
+              preload="metadata"
               onClick={toggleAudio}
               className="relative z-10 h-full w-full object-cover object-center cursor-pointer"
             >
               <source src="/images/Hero Video.mp4" type="video/mp4" />
+              <track kind="captions" src="" label="English" default />
             </video>
 
             {/* Audio Voice Toggle Button */}
@@ -602,7 +605,7 @@ export function Hero() {
               <button
                 type="button"
                 onClick={toggleAudio}
-                className="group inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/80 px-2.5 py-1 text-[10px] sm:text-xs font-semibold text-white shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105 active:scale-95 cursor-pointer"
+                className="group inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full border border-white/20 bg-black/80 px-3.5 py-2 text-[10px] sm:text-xs font-semibold text-white shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105 active:scale-95 cursor-pointer"
                 title={isMuted ? "Click to Unmute Voice" : "Click to Mute Audio"}
                 aria-label={isMuted ? "Unmute video voice" : "Mute video audio"}
               >
@@ -677,12 +680,12 @@ export function Hero() {
               />
             </div>
 
-            {/* Bottom Row: Primary Semantic H1 Headline on the left */}
+            {/* Bottom Row: Primary Headline on the left */}
             <div className="w-full max-w-md lg:max-w-lg xl:max-w-xl mb-3 lg:mb-5 pl-[3vw] lg:pl-[4vw]">
-              <h1 className="text-xl lg:text-2xl xl:text-3xl font-medium leading-snug tracking-tight text-white/95">
+              <p className="text-xl lg:text-2xl xl:text-3xl font-medium leading-snug tracking-tight text-white/95">
                 <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
                 video production studio.
-              </h1>
+              </p>
             </div>
           </div>
 
@@ -710,11 +713,12 @@ export function Hero() {
                 loop
                 muted={isMuted}
                 playsInline
-                preload="auto"
+                preload="metadata"
                 onClick={toggleAudio}
                 className="relative z-10 h-full w-full object-cover object-center cursor-pointer"
               >
                 <source src="/images/Hero Video.mp4" type="video/mp4" />
+                <track kind="captions" src="" label="English" default />
               </video>
 
               {/* Audio Voice Toggle Button */}
@@ -722,7 +726,7 @@ export function Hero() {
                 <button
                   type="button"
                   onClick={toggleAudio}
-                  className="group inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/80 px-2.5 py-1 sm:px-3 sm:py-1 text-[9px] sm:text-xs font-semibold text-white shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105 active:scale-95 cursor-pointer"
+                  className="group inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full border border-white/20 bg-black/80 px-2.5 py-1 sm:px-3 sm:py-1 text-[9px] sm:text-xs font-semibold text-white shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105 active:scale-95 cursor-pointer"
                   title={isMuted ? "Click to Unmute Voice" : "Click to Mute Audio"}
                   aria-label={isMuted ? "Unmute video voice" : "Mute video audio"}
                 >
@@ -1176,10 +1180,12 @@ export function Samples() {
                     autoPlay
                     muted
                     playsInline
-                    preload="auto"
+                    preload="none"
                     onEnded={() => handleVideoEnded(idx)}
                     className="h-full w-full object-cover"
-                  />
+                  >
+                    <track kind="captions" src="" label="English" default />
+                  </video>
 
                   {/* "Watch Again" Overlay if this video finished before other video in the pair */}
                   {showWatchAgain && (
@@ -1294,28 +1300,32 @@ export function Samples() {
         <div className="mt-8 flex items-center justify-center gap-3">
           <button
             onClick={handlePrev}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-xs text-white/80 transition-all hover:bg-white/15 hover:text-white"
+            className="flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm text-white/90 transition-all hover:bg-white/15 hover:text-white"
             aria-label="Previous samples"
           >
             ←
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {pairs.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrentIndex(i)}
-                className={`h-2.5 rounded-full transition-all duration-300 ${
-                  currentIndex === i
-                    ? "w-8 bg-gradient-brand shadow-sm glow-neon"
-                    : "w-2.5 bg-secondary hover:bg-muted-foreground"
-                }`}
+                className="flex min-h-[44px] min-w-[32px] items-center justify-center p-1 cursor-pointer"
                 aria-label={`Slide ${i + 1}`}
-              />
+              >
+                <span
+                  className={`h-2.5 rounded-full transition-all duration-300 block ${
+                    currentIndex === i
+                      ? "w-8 bg-gradient-brand shadow-sm glow-neon"
+                      : "w-2.5 bg-secondary hover:bg-muted-foreground"
+                  }`}
+                />
+              </button>
             ))}
           </div>
           <button
             onClick={handleAdvance}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-xs text-white/80 transition-all hover:bg-white/15 hover:text-white"
+            className="flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm text-white/90 transition-all hover:bg-white/15 hover:text-white"
             aria-label="Next samples"
           >
             →
@@ -1430,9 +1440,11 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
           muted={isMuted}
           loop
           playsInline
-          preload="metadata"
+          preload="none"
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-        />
+        >
+          <track kind="captions" src="" label="English" default />
+        </video>
       )}
 
       {/* Video Interactive Tap Area */}
@@ -1454,7 +1466,7 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
         <button
           type="button"
           onClick={toggleMute}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white/90 border border-white/15 backdrop-blur-md transition-all hover:scale-110 hover:bg-neon hover:text-black shadow"
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-2 bg-black/60 text-white/90 border border-white/15 backdrop-blur-md transition-all hover:scale-110 hover:bg-neon hover:text-black shadow"
           title={isMuted ? "Unmute sound" : "Mute sound"}
           aria-label={isMuted ? "Unmute video" : "Mute video"}
         >
@@ -2083,9 +2095,11 @@ export function DigitalTwin() {
               loop
               playsInline
               webkit-playsinline="true"
-              preload="metadata"
+              preload="none"
               className="h-full w-full object-cover"
-            />
+            >
+              <track kind="captions" src="" label="English" default />
+            </video>
             <span className="absolute bottom-3 left-3 rounded-lg border border-white/10 bg-black/80 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-md backdrop-blur-md">
               Digital Twin Reel
             </span>
@@ -2482,8 +2496,14 @@ export function LeadFormSection() {
           >
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-semibold text-foreground">Full Name*</label>
+                <label
+                  htmlFor="contactFullName"
+                  className="block text-xs font-semibold text-foreground"
+                >
+                  Full Name*
+                </label>
                 <input
+                  id="contactFullName"
                   type="text"
                   name="name"
                   required
@@ -2492,10 +2512,14 @@ export function LeadFormSection() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-foreground">
+                <label
+                  htmlFor="contactBusinessName"
+                  className="block text-xs font-semibold text-foreground"
+                >
                   Business Name*
                 </label>
                 <input
+                  id="contactBusinessName"
                   type="text"
                   name="business"
                   required
@@ -2507,10 +2531,14 @@ export function LeadFormSection() {
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-semibold text-foreground">
+                <label
+                  htmlFor="contactPhone"
+                  className="block text-xs font-semibold text-foreground"
+                >
                   WhatsApp Number*
                 </label>
                 <input
+                  id="contactPhone"
                   type="tel"
                   name="phone"
                   required
@@ -2519,8 +2547,14 @@ export function LeadFormSection() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-foreground">Email Address</label>
+                <label
+                  htmlFor="contactEmail"
+                  className="block text-xs font-semibold text-foreground"
+                >
+                  Email Address
+                </label>
                 <input
+                  id="contactEmail"
                   type="email"
                   name="email"
                   placeholder="you@company.com"
@@ -2531,11 +2565,15 @@ export function LeadFormSection() {
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-semibold text-foreground">
+                <label
+                  htmlFor="contactIndustry"
+                  className="block text-xs font-semibold text-foreground"
+                >
                   Business Industry*
                 </label>
                 <div className="relative mt-1.5">
                   <select
+                    id="contactIndustry"
                     name="industry"
                     required
                     className="w-full appearance-none rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer"
@@ -2559,11 +2597,15 @@ export function LeadFormSection() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-foreground">
+                <label
+                  htmlFor="contactVideoType"
+                  className="block text-xs font-semibold text-foreground"
+                >
                   Which AI Video Are You Interested In?*
                 </label>
                 <div className="relative mt-1.5">
                   <select
+                    id="contactVideoType"
                     name="videoType"
                     required
                     className="w-full appearance-none rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer"
@@ -2583,10 +2625,14 @@ export function LeadFormSection() {
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-semibold text-foreground">
+                <label
+                  htmlFor="contactLocation"
+                  className="block text-xs font-semibold text-foreground"
+                >
                   Location / City*
                 </label>
                 <input
+                  id="contactLocation"
                   type="text"
                   name="location"
                   required
@@ -2595,10 +2641,14 @@ export function LeadFormSection() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-foreground">
+                <label
+                  htmlFor="contactBudget"
+                  className="block text-xs font-semibold text-foreground"
+                >
                   Approximate Budget
                 </label>
                 <select
+                  id="contactBudget"
                   name="budget"
                   className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground focus:border-neon focus:outline-none"
                 >
@@ -2613,10 +2663,14 @@ export function LeadFormSection() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground">
+              <label
+                htmlFor="contactRequirement"
+                className="block text-xs font-semibold text-foreground"
+              >
                 Tell Us About Your Requirement
               </label>
               <textarea
+                id="contactRequirement"
                 name="requirement"
                 rows={3}
                 placeholder="Product, service, audience or video idea"
@@ -2847,9 +2901,9 @@ export function Footer() {
 
           {/* Col 2: AI Video Services */}
           <div className="flex flex-col gap-3">
-            <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
+            <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
               {footerGroups[0].title}
-            </h4>
+            </h3>
             <ul className="space-y-2.5">
               {footerGroups[0].links.map((link) => (
                 <li key={link.label}>
@@ -2866,9 +2920,9 @@ export function Footer() {
 
           {/* Col 3: Company & Quick Links */}
           <div className="flex flex-col gap-3">
-            <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
+            <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
               {footerGroups[1].title}
-            </h4>
+            </h3>
             <ul className="space-y-2.5">
               {footerGroups[1].links.map((link) => (
                 <li key={link.label}>
@@ -2886,9 +2940,9 @@ export function Footer() {
           {/* Col 4: Locations & Contact */}
           <div className="flex flex-col gap-4">
             <div>
-              <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
+              <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
                 Our Locations
-              </h4>
+              </h3>
               <div className="mt-2.5 flex flex-col gap-2 text-xs sm:text-sm">
                 <a
                   href={footerIndiaMapUrl}
@@ -3177,10 +3231,14 @@ export function QuotePopupModal() {
             >
               <div className="grid gap-2.5 sm:grid-cols-2">
                 <div className="w-full">
-                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                  <label
+                    htmlFor="modalFullName"
+                    className="block text-[11px] font-semibold text-foreground sm:text-xs"
+                  >
                     Full Name <span className="text-neon">*</span>
                   </label>
                   <input
+                    id="modalFullName"
                     type="text"
                     name="name"
                     required
@@ -3189,10 +3247,14 @@ export function QuotePopupModal() {
                   />
                 </div>
                 <div className="w-full">
-                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                  <label
+                    htmlFor="modalPhone"
+                    className="block text-[11px] font-semibold text-foreground sm:text-xs"
+                  >
                     Phone Number <span className="text-neon">*</span>
                   </label>
                   <input
+                    id="modalPhone"
                     type="tel"
                     name="phone"
                     required
@@ -3204,10 +3266,14 @@ export function QuotePopupModal() {
 
               <div className="grid gap-2.5 sm:grid-cols-2">
                 <div className="w-full">
-                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                  <label
+                    htmlFor="modalEmail"
+                    className="block text-[11px] font-semibold text-foreground sm:text-xs"
+                  >
                     Email Address <span className="text-neon">*</span>
                   </label>
                   <input
+                    id="modalEmail"
                     type="email"
                     name="email"
                     required
@@ -3216,11 +3282,15 @@ export function QuotePopupModal() {
                   />
                 </div>
                 <div className="w-full">
-                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                  <label
+                    htmlFor="modalVideoType"
+                    className="block text-[11px] font-semibold text-foreground sm:text-xs"
+                  >
                     Type of AI Video <span className="text-neon">*</span>
                   </label>
                   <div className="relative mt-1">
                     <select
+                      id="modalVideoType"
                       name="videoType"
                       required
                       defaultValue=""
@@ -3264,10 +3334,14 @@ export function QuotePopupModal() {
 
               <div className="grid gap-2.5 sm:grid-cols-2">
                 <div className="w-full">
-                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                  <label
+                    htmlFor="modalBusiness"
+                    className="block text-[11px] font-semibold text-foreground sm:text-xs"
+                  >
                     Your Business / Brand <span className="text-neon">*</span>
                   </label>
                   <input
+                    id="modalBusiness"
                     type="text"
                     name="business"
                     required
@@ -3276,10 +3350,14 @@ export function QuotePopupModal() {
                   />
                 </div>
                 <div className="w-full">
-                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                  <label
+                    htmlFor="modalLocation"
+                    className="block text-[11px] font-semibold text-foreground sm:text-xs"
+                  >
                     Location (City / Country) <span className="text-neon">*</span>
                   </label>
                   <input
+                    id="modalLocation"
                     type="text"
                     name="location"
                     required
@@ -3291,12 +3369,16 @@ export function QuotePopupModal() {
 
               <div className="w-full">
                 <div className="flex items-center justify-between">
-                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                  <label
+                    htmlFor="modalAdditional"
+                    className="block text-[11px] font-semibold text-foreground sm:text-xs"
+                  >
                     Additional Notes
                   </label>
                   <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
                 </div>
                 <textarea
+                  id="modalAdditional"
                   name="additional"
                   rows={2}
                   placeholder="Any specific duration, language, script ideas..."

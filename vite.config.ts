@@ -9,6 +9,13 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   nitro: {
     preset: "node-server",
+    routeRules: {
+      "/**": {
+        headers: {
+          "X-Robots-Tag": "index, follow",
+        },
+      },
+    },
     externals: {
       inline: [],
       external: ["pg", "pg-pool", "pg-protocol", "pg-types"],

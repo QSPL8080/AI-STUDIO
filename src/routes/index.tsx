@@ -75,7 +75,8 @@ function Index() {
   return (
     <div id="top" className="min-h-screen w-full overflow-x-clip bg-background text-foreground">
       <Header />
-      <main>
+      <main id="main-content">
+        <h1 className="sr-only">Quickupp AI Studio - Tech-Enabled AI Video Production Studio</h1>
         <Hero />
         <HeroOverview />
         <TrustStrip />
