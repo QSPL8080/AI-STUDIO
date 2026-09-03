@@ -4,40 +4,84 @@
 [![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/QSPL8080/AI-STUDIO.git)
 [![React 19](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react)](https://react.dev)
 [![TanStack Start](https://img.shields.io/badge/TanStack-Start-FF4154?style=for-the-badge&logo=tanstack)](https://tanstack.com/start)
+[![Tailwind CSS v4](https://img.shields.io/badge/Tailwind-CSS%20v4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com)
 [![Supabase](https://img.shields.io/badge/Database-Supabase%20%2F%20Postgres-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com)
 [![Hostinger](https://img.shields.io/badge/Host-Hostinger%20Cloud-673DE6?style=for-the-badge&logo=hostinger)](https://hostinger.com)
 
-A high-conversion marketing platform and built-in CRM Admin Lead Management Portal for **Quickupp AI Studio** — an agency providing AI UGC videos, AI avatars, cartoon animations, hyper-realistic cinematic reels, and digital twin clones for modern businesses, brands, and creators.
+A premier, high-conversion marketing platform and built-in CRM Admin Lead Management Portal for **Quickupp AI Studio** — an agency producing AI UGC videos, AI avatars, cartoon animations, hyper-realistic cinematic reels, and digital twin clones for high-growth businesses, brands, and creators.
 
 ---
 
 ## 📑 Table of Contents
+
 1. [Architecture & Tech Stack](#-architecture--tech-stack)
-2. [Key Website Features & Conversion Funnel](#-key-website-features--conversion-funnel)
-3. [Lead Capture & Dual Database Engine](#-lead-capture--dual-database-engine)
-4. [Admin CRM Portal (`/admin`)](#-admin-crm-portal-admin)
-5. [Project Directory Tree](#-project-directory-tree)
-6. [Environment Variables Setup](#-environment-variables-setup)
-7. [Database Schema (PostgreSQL / Supabase)](#-database-schema-postgresql--supabase)
-8. [Local Development Guide](#-local-development-guide)
-9. [Deployment on Hostinger & Auto-Deploy CI/CD](#-deployment-on-hostinger--auto-deploy-cicd)
-10. [Security & Performance Optimizations](#-security--performance-optimizations)
+2. [Advanced Hero Cinema Scroll Engine](#-advanced-hero-cinema-scroll-engine)
+3. [Key Website Features & Conversion Funnel](#-key-website-features--conversion-funnel)
+4. [Lead Capture & Dual Database Engine](#-lead-capture--dual-database-engine)
+5. [Admin CRM Portal (`/admin`)](#-admin-crm-portal-admin)
+6. [Project Directory Tree](#-project-directory-tree)
+7. [Environment Variables Setup](#-environment-variables-setup)
+8. [Database Schema (PostgreSQL / Supabase)](#-database-schema-postgresql--supabase)
+9. [Local Development Guide](#-local-development-guide)
+10. [Deployment on Hostinger & Auto-Deploy CI/CD](#-deployment-on-hostinger--auto-deploy-cicd)
+11. [Security, Performance & SEO Optimizations](#-security-performance--seo-optimizations)
+12. [Authors & Credits](#-authors--credits)
 
 ---
 
 ## 🛠 Architecture & Tech Stack
 
-| Layer | Technology | Description |
-|---|---|---|
-| **Frontend Framework** | [TanStack Start](https://tanstack.com/start) + React 19 | Fullstack Server-Side Rendering (SSR), lightning-fast hydration, and full SEO support. |
-| **Routing** | TanStack Router | File-based, 100% type-safe routing with nested layouts and route caching. |
-| **Production Database** | [Supabase](https://supabase.com) (PostgreSQL) | Managed cloud PostgreSQL accessed via reliable HTTPS REST API to bypass cloud firewall/TCP blocks. |
-| **Local Database** | PostgreSQL (`pg` pool) | Direct connection pool for offline local development and quick testing. |
-| **Hosting & Web Server** | Hostinger Cloud Hosting + Nitro | High-performance `node-server` engine managed automatically. |
-| **Styling & CSS Engine** | Tailwind CSS v4 | OKLCH modern color tokens, glow effects, backdrop filters, and responsive layouts. |
-| **Typography** | Space Grotesk + Playfair Display | High-contrast modern typography with luxury serif highlight spans. |
-| **Icons & Media** | Lucide React | Clean, scalable feather-style icon library. |
-| **Language & Tooling** | TypeScript + Vite 8 | End-to-end type safety, modern asset bundling, and ultra-fast build times. |
+| Layer                    | Technology                                              | Description                                                                                        |
+| ------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Frontend Framework**   | [TanStack Start](https://tanstack.com/start) + React 19 | Fullstack Server-Side Rendering (SSR), instant hydration, and complete SEO metadata control.       |
+| **Routing**              | TanStack Router                                         | File-based, 100% type-safe routing with automatic route tree generation and caching.               |
+| **Styling & CSS Engine** | Tailwind CSS v4                                         | OKLCH modern color tokens, neon glow drops, backdrop blurs, and mobile-first responsive utilities. |
+| **Production Database**  | [Supabase](https://supabase.com) (PostgreSQL)           | Managed cloud PostgreSQL accessed via reliable HTTPS REST API to bypass cloud firewall/TCP blocks. |
+| **Local Database**       | PostgreSQL (`pg` pool)                                  | Direct connection pool for offline local development and quick testing.                            |
+| **Hosting & Web Server** | Hostinger Cloud Hosting + Nitro                         | High-performance `node-server` engine managed automatically.                                       |
+| **Icons & Media**        | Lucide React                                            | Clean, scalable feather-style icons with animated states.                                          |
+| **Language & Tooling**   | TypeScript + Vite 8                                     | End-to-end type safety, modern asset bundling, and ultra-fast build times.                         |
+
+---
+
+## 🎬 Advanced Hero Cinema Scroll Engine
+
+The landing page features a custom-engineered, GPU-accelerated **Cinema Scroll Showcase** inspired by world-class creative agencies:
+
+### 1. Dynamic Navigation Height Tracking
+
+- Integrated a `ResizeObserver` listener on the top navigation container (`#site-nav-container`).
+- Dynamically measures navbar pixel height whether the announcement promo banner is open (~116px) or dismissed (~72px).
+- Anchors the video showcase container precisely below the header (`style={{ top: `${headerHeight}px` }}`), preventing top clipping on any screen resolution.
+
+### 2. High-Impact Layered Composition
+
+- **Screen-Spanning Brand Header:** Giant "AI Studio" banner image spanning `98vw` with neon violet drop-shadows.
+- **Natural Cutting Overlap:** The compact video showcase card sits at `z-20` in front of the logo (`z-10`). Its top edge overlaps and cuts cleanly across the bottom ~70px–80px of the letters "S t u d i o", creating depth and a modern editorial aesthetic.
+- **Pixel-Perfect Left Alignment:** The primary headline is indented (`pl-2 sm:pl-[4vw] md:pl-[4.8vw] lg:pl-[5vw]`) so its left edge aligns with the letter "A" in the "AI Studio" logo.
+
+### 3. Smooth Full-Screen Expansion & Cinema Hold
+
+- **Extended Track:** Operates within a `280vh` track using a 3-phase absolute/fixed pinning engine immune to scroll-chain glitches.
+- **Expansion Phase (`0% -> 65% scroll`):** The video card expands from compact resting dimensions (`width: 36%, height: 42%, borderRadius: 20px`) into **100% edge-to-edge full screen** with zero gaps and `borderRadius: 0px`.
+- **Locked Cinema Hold (`65% -> 100% scroll`):** The video remains **100% locked at full screen** while the user continues scrolling, preventing the next section from cutting the viewing experience short prematurely.
+
+### 4. Interactive Audio & Voice Controls
+
+- Features `/images/Hero Video.mp4` with a full-fidelity AAC voice track.
+- **Browser-Compliant Autoplay:** Starts muted to comply with browser autoplay restrictions.
+- **Interactive Unmute Toggle:** Includes a floating glassmorphic **"Unmute Voice" / "Voice Active"** button (`VolumeX` / `Volume2`) and click-to-unmute interaction directly on the video.
+
+### 5. SEO-Optimized Semantic Headline
+
+- Wrapped in a semantic `<h1>` tag:
+  ```html
+  <h1>
+    <span class="sr-only">Quickupp AI Studio - </span>
+    a world-class, tech-enabled AI video production studio.
+  </h1>
+  ```
+- Screen-reader accessible branding with Core Web Vitals optimizations (`fetchPriority="high"`, `loading="eager"`).
 
 ---
 
@@ -61,9 +105,10 @@ The application captures inquiries from two primary sources and syncs them autom
 2. **Interactive Timed Quote Modal:**
    - Automatically opens after **1.2 seconds** on every visit or page refresh.
    - Recurs automatically every **5 minutes (300,000 ms)** for ongoing sessions.
-   - Clean form validation with instant WhatsApp redirect.
+   - Form validation with instant WhatsApp redirect.
 
 ### Dual Database Synchronization
+
 - **In Production (Hostinger):** Sends leads over Supabase HTTPS REST API (`SUPABASE_URL` + `SUPABASE_API_KEY`). This avoids PostgreSQL TCP port 5432/6543 blocks by cloud firewalls.
 - **In Local Development:** Direct connection to local PostgreSQL (`postgres://postgres:8080@localhost:5432/ai_studio`).
 
@@ -78,6 +123,7 @@ An authenticated, mobile-responsive dashboard designed for real-time lead tracki
 - **Default Password:** `Admin@123`
 
 ### Features:
+
 - 📈 **Real-Time KPI Counters:** Total Leads, Contact Form count, Popup Modal count, and New Leads Today.
 - 🔍 **Instant Search & Multi-Filters:** Search by client name, business, phone, or email; filter by source category or lead status.
 - 🔄 **Lead Status Toggling:** Update leads to `New`, `Contacted`, `In Progress`, or `Closed` with real-time database sync.
@@ -95,7 +141,10 @@ AI STUDIO/
 │   └── workflows/
 │       └── deploy.yml              # CI/CD deployment workflow
 ├── public/
-│   ├── images/                     # Logos, hero images, and branding assets
+│   ├── images/                     # Hero video, logos, hero images, and branding assets
+│   │   ├── Hero Video.mp4          # High-definition showcase hero video with AAC audio
+│   │   ├── ai studio logo hero.png # High-resolution hero title logo
+│   │   └── Hero Image .png         # Poster artwork fallback
 │   ├── favicon.png                 # Browser favicon
 │   └── robots.txt                  # Search engine crawl rules
 ├── src/
@@ -109,7 +158,8 @@ AI STUDIO/
 │   │   └── site/
 │   │       ├── data.ts             # Static content (pricing, services, FAQs, reviews)
 │   │       ├── sections.tsx        # UI components (Hero, Pricing, Form, Modal, FAQ)
-│   │       └── ui.tsx              # Base design components (Button, Section, Cards)
+│   │       ├── custom-cursor.tsx   # Atmospheric glow cursor follower
+│   │       └── ui.tsx              # Base design components (NeonButton, Section, Cards)
 │   ├── lib/
 │   │   ├── db.ts                   # Supabase REST + PostgreSQL dual database engine
 │   │   ├── lead-actions.ts         # TanStack Start server functions (create, fetch, update, delete)
@@ -177,10 +227,12 @@ CREATE TABLE IF NOT EXISTS public.leads (
 ## 💻 Local Development Guide
 
 ### Prerequisites
+
 - Node.js 20+ installed
 - PostgreSQL installed and running on port `5432`
 
 ### Commands
+
 ```bash
 # 1. Install dependencies
 npm install
@@ -214,12 +266,13 @@ npm start
 
 ---
 
-## 🛡 Security & Performance Optimizations
+## 🛡 Security, Performance & SEO Optimizations
 
-- **Zero Hardcoded Secrets:** All database passwords and keys are strictly isolated in environment variables.
-- **Session Auto-Timeout:** Admin panel automatically logs out inactive sessions after 5 minutes.
-- **Lightweight Asset Bundling:** Critical styles and scripts are code-split and compressed with gzip/brotli.
-- **SSL Handshake Protection:** Supabase HTTPS REST interface bypasses firewall handshake blocks.
+- **Zero Hardcoded Secrets:** All database credentials, tokens, and keys are isolated in environment variables.
+- **Session Auto-Timeout:** Inactivity listener logs out admin sessions automatically after 5 minutes.
+- **Semantic SEO Structure:** Complete semantic `<h1>`, descriptive `alt` tags, and OpenGraph/Twitter card metadata.
+- **Core Web Vitals Optimized:** Hero brand assets use `fetchPriority="high"` and `loading="eager"` for sub-second Largest Contentful Paint (LCP).
+- **Firewall Bypass:** Supabase HTTPS REST interface guarantees zero connection drops from cloud TCP port blocks.
 
 ---
 

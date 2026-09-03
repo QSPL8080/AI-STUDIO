@@ -3,6 +3,7 @@ import {
   ArrowUp,
   BadgeCheck,
   Bot,
+  Check,
   ChevronDown,
   Clock,
   ExternalLink,
@@ -57,14 +58,41 @@ import {
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(true);
+  const [isLogoDocked, setIsLogoDocked] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const heroTrack = document.getElementById("hero-scroll-track");
+      if (!heroTrack) {
+        setIsLogoDocked(true);
+        return;
+      }
+      const rect = heroTrack.getBoundingClientRect();
+      const scrollableDistance = heroTrack.offsetHeight - window.innerHeight;
+      if (scrollableDistance <= 0) {
+        setIsLogoDocked(true);
+        return;
+      }
+      const scrolled = -rect.top;
+      const progress = scrolled / scrollableDistance;
+      setIsLogoDocked(progress >= 0.94);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
+    handleScroll();
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, []);
 
   return (
-    <div className="sticky top-0 z-50 flex flex-col">
+    <div id="site-nav-container" className="fixed top-0 left-0 right-0 z-50 flex flex-col">
       {/* Top Highlight Announcement Bar */}
       {showAnnouncement && (
         <div className="relative border-b border-white/15 bg-gradient-to-r from-[#7c22e8] via-[#a832e6] to-[#ec1e79] px-3 py-1.5 sm:py-2 text-white shadow-[0_2px_15px_rgba(168,50,230,0.4)]">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 text-xs md:text-sm font-medium">
-            
             {/* Mobile Layout (Compact Single Row) */}
             <div className="flex flex-1 items-center justify-center gap-2 sm:hidden text-center">
               <span className="flex items-center gap-1 font-semibold text-[11.5px] leading-tight">
@@ -92,7 +120,11 @@ export function Header() {
               </span>
 
               <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                Get up to <strong className="font-extrabold text-amber-300 underline decoration-amber-400/60 decoration-2 underline-offset-2">20% OFF</strong> on Professional AI Video Production & Avatar Packages!
+                Get up to{" "}
+                <strong className="font-extrabold text-amber-300 underline decoration-amber-400/60 decoration-2 underline-offset-2">
+                  20% OFF
+                </strong>{" "}
+                on Professional AI Video Production & Avatar Packages!
               </span>
 
               <a
@@ -100,7 +132,9 @@ export function Header() {
                 className="group inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1 text-xs font-bold text-[#6b1cb0] shadow-md transition-all hover:bg-amber-300 hover:text-black hover:scale-105 active:scale-95 whitespace-nowrap"
               >
                 <span>View Packages</span>
-                <span className="transition-transform duration-200 group-hover:translate-x-0.5 text-[12px]">→</span>
+                <span className="transition-transform duration-200 group-hover:translate-x-0.5 text-[12px]">
+                  →
+                </span>
               </a>
             </div>
 
@@ -119,7 +153,12 @@ export function Header() {
 
       <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-3 md:py-3.5">
-          <a href="#top" className="-ml-3 sm:-ml-5 flex items-center transition-opacity hover:opacity-90">
+          <a
+            href="#top"
+            id="navbar-logo-anchor"
+            className="-ml-3 sm:-ml-5 flex items-center transition-opacity hover:opacity-90"
+            aria-label="Quickupp AI Studio Home"
+          >
             <img
               src="/images/logo.png"
               alt="Quickupp AI Studio logo"
@@ -180,7 +219,7 @@ export function Header() {
                   <span className="text-xs text-neon/60">→</span>
                 </a>
               ))}
-              
+
               <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-4">
                 <a
                   href="#contact"
@@ -209,84 +248,452 @@ export function Header() {
 }
 
 export function Hero() {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const heroBrandRef = useRef<HTMLDivElement>(null);
+  const mediaCardRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isMuted, setIsMuted] = useState(true);
+  const [headerHeight, setHeaderHeight] = useState(116);
+
+  const toggleAudio = (e?: { stopPropagation?: () => void }) => {
+    if (e?.stopPropagation) e.stopPropagation();
+    if (videoRef.current) {
+      const nextMuted = !videoRef.current.muted;
+      videoRef.current.muted = nextMuted;
+      setIsMuted(nextMuted);
+      if (!nextMuted) {
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  };
+
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      const nav = document.getElementById("site-nav-container");
+      if (nav) {
+        setHeaderHeight(nav.offsetHeight);
+      }
+    };
+
+    updateHeaderHeight();
+    window.addEventListener("resize", updateHeaderHeight);
+
+    let observer: ResizeObserver | null = null;
+    const nav = document.getElementById("site-nav-container");
+    if (nav && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(updateHeaderHeight);
+      observer.observe(nav);
+    }
+
+    return () => {
+      window.removeEventListener("resize", updateHeaderHeight);
+      if (observer) observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const handleScroll = () => {
+      if (!trackRef.current || !containerRef.current) return;
+
+      const trackRect = trackRef.current.getBoundingClientRect();
+      const trackHeight = trackRef.current.offsetHeight;
+      const windowHeight = window.innerHeight;
+      const scrollableDistance = trackHeight - windowHeight;
+
+      if (scrollableDistance <= 0) return;
+
+      const scrolled = -trackRect.top;
+      const rawP = scrolled / scrollableDistance;
+      const p = Math.min(Math.max(rawP, 0), 1);
+
+      // Expansion completes smoothly at p = 0.65, followed by a generous locked cinema hold from 0.65 to 1.0
+      const expandP = Math.min(p / 0.65, 1);
+
+      // --- 3-PHASE PINNING ENGINE: 100% immune to ancestor overflow / sticky cancellation ---
+      if (scrolled <= 0) {
+        // Phase 1: At top of track
+        containerRef.current.style.position = "absolute";
+        containerRef.current.style.top = "0px";
+        containerRef.current.style.bottom = "auto";
+      } else if (scrolled >= scrollableDistance) {
+        // Phase 3: Scrolled past hero hold, rolling up cleanly into the next section
+        containerRef.current.style.position = "absolute";
+        containerRef.current.style.top = "auto";
+        containerRef.current.style.bottom = "0px";
+      } else {
+        // Phase 2: Active Scroll & Locked Hold — FIXED TO VIEWPORT, NEVER SCROLLS OFF OR DISAPPEARS!
+        containerRef.current.style.position = "fixed";
+        containerRef.current.style.top = "0px";
+        containerRef.current.style.bottom = "auto";
+      }
+
+      // 1. Hero Brand Logo & Subtitle: Glides smoothly UPWARDS and disappears slowly as video expands
+      if (heroBrandRef.current) {
+        const brandOpacity = Math.max(0, 1 - expandP * 1.5);
+        const brandTransY = -expandP * 140; // Rises up smoothly as the video screen gets big
+        heroBrandRef.current.style.opacity = brandOpacity.toString();
+        heroBrandRef.current.style.transform = `translate3d(0, ${brandTransY}px, 0)`;
+        heroBrandRef.current.style.pointerEvents = expandP > 0.5 ? "none" : "auto";
+      }
+
+      // 2. Expand Media Video Card: Starts small/compact cutting into logo, smoothly expands to TRUE 100% FULL SCREEN
+      if (mediaCardRef.current) {
+        const isMobile = window.innerWidth < 768;
+        if (isMobile) {
+          const currentH = 38 + (100 - 38) * expandP;
+          const currentRadius = 18 * (1 - expandP);
+          mediaCardRef.current.style.width =
+            expandP >= 0.98 ? "100%" : `${44 + (100 - 44) * expandP}%`;
+          mediaCardRef.current.style.height = expandP >= 0.98 ? "100%" : `${currentH}%`;
+          mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2}vw`;
+          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2}vh`;
+          mediaCardRef.current.style.borderRadius = `${currentRadius}px`;
+        } else {
+          // Desktop: compact (36% width, 42% height), cleanly cutting into the bottom of the logo
+          // Smoothly expands to TRUE 100% FULL SCREEN with ZERO space and NO top gaps!
+          const currentW = 36 + (100 - 36) * expandP;
+          const currentH = 42 + (100 - 42) * expandP;
+          const currentRight = (1 - expandP) * 2.5;
+          const currentBottom = (1 - expandP) * 3;
+          const currentRadius = 20 * (1 - expandP);
+
+          mediaCardRef.current.style.width = expandP >= 0.98 ? "100%" : `${currentW}%`;
+          mediaCardRef.current.style.height = expandP >= 0.98 ? "100%" : `${currentH}%`;
+          mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${currentRight}vw`;
+          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${currentBottom}vh`;
+          mediaCardRef.current.style.borderRadius = `${currentRadius}px`;
+          mediaCardRef.current.style.border =
+            expandP >= 0.98 ? "none" : "1px solid rgba(255, 255, 255, 0.2)";
+        }
+      }
+    };
+
+    const onScroll = () => {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(handleScroll);
+    };
+
+    const onResize = () => {
+      handleScroll();
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize, { passive: true });
+
+    handleScroll();
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
   return (
-    <section id="top" className="relative overflow-hidden px-5 pb-10 pt-10 md:pb-12 md:pt-14">
+    <section
+      id="hero-scroll-track"
+      ref={trackRef}
+      className="relative w-full h-[280vh] bg-background"
+    >
+      <div
+        ref={containerRef}
+        className="absolute top-0 left-0 w-full h-screen overflow-hidden bg-background pointer-events-none"
+      >
+        {/* Ambient atmospheric background glows */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-40 top-10 h-[520px] w-[520px] rounded-full opacity-35 blur-3xl"
+          style={{ backgroundImage: "var(--gradient-glow)" }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-40 bottom-10 h-[450px] w-[450px] rounded-full opacity-25 blur-3xl"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 50% 50%, rgba(90, 160, 255, 0.25), transparent 60%)",
+          }}
+        />
+
+        {/* Top & Left Content: Shifted lower down so bottom of logo extends behind the video card */}
+        <div
+          ref={heroBrandRef}
+          className="absolute inset-0 pb-12 sm:pb-16 md:pb-20 px-6 sm:px-12 md:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
+          style={{ paddingTop: `${headerHeight + 195}px` }}
+        >
+          {/* Top: Giant "AI Studio" Title spanning across the screen */}
+          <div className="w-full flex-shrink-0">
+            <img
+              src="/images/ai studio logo hero.png"
+              alt="Quickupp AI Studio - Tech-Enabled AI Video Production Studio"
+              title="Quickupp AI Studio"
+              className="w-[98vw] max-w-none h-auto max-h-[50vh] object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
+              width={4267}
+              height={730}
+              loading="eager"
+              fetchPriority="high"
+            />
+          </div>
+
+          {/* Bottom Row: Primary Semantic H1 Headline on the left (SEO-optimized and aligned with logo from left) */}
+          <div className="w-full max-w-xl lg:max-w-2xl mb-3 sm:mb-6 md:mb-8 pl-2 sm:pl-[4vw] md:pl-[4.8vw] lg:pl-[5vw]">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.65rem] font-medium leading-[1.14] tracking-tight text-white/95">
+              <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
+              video production studio.
+            </h1>
+          </div>
+        </div>
+
+        {/* Media Video Showcase: Aligned directly below navigation bar to avoid cutting */}
+        <div
+          className="absolute bottom-0 inset-x-0 z-20 pointer-events-none overflow-hidden"
+          style={{ top: `${headerHeight}px` }}
+        >
+          <div
+            ref={mediaCardRef}
+            className="pointer-events-auto absolute bg-[#0e081e] shadow-[0_0_60px_-10px_rgba(200,80,255,0.45)] will-change-transform glow-neon border border-white/20 overflow-hidden"
+            style={{
+              width: "36%",
+              height: "42%",
+              right: "2.5vw",
+              bottom: "3vh",
+              borderRadius: "20px",
+            }}
+          >
+            {/* Base showcase artwork fallback */}
+            <img
+              src="/images/Hero Image .png"
+              alt="Quickupp AI Studio Showcase Artwork"
+              className="absolute inset-0 h-full w-full object-cover object-center z-0"
+              width={1200}
+              height={1008}
+            />
+
+            {/* Active autoplaying video */}
+            <video
+              ref={videoRef}
+              src="/images/Hero Video.mp4"
+              poster="/images/Hero Image .png"
+              autoPlay
+              loop
+              muted={isMuted}
+              playsInline
+              preload="auto"
+              onClick={toggleAudio}
+              className="relative z-10 h-full w-full object-cover object-center cursor-pointer"
+            >
+              <source src="/images/Hero Video.mp4" type="video/mp4" />
+            </video>
+
+            {/* Audio Voice Toggle Button */}
+            <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 z-30">
+              <button
+                type="button"
+                onClick={toggleAudio}
+                className="group inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/80 px-2.5 py-1 sm:px-3 sm:py-1 text-[9px] sm:text-xs font-semibold text-white shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105 active:scale-95 cursor-pointer"
+                title={isMuted ? "Click to Unmute Voice" : "Click to Mute Audio"}
+                aria-label={isMuted ? "Unmute video voice" : "Mute video audio"}
+              >
+                {isMuted ? (
+                  <>
+                    <VolumeX className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-400 group-hover:text-neon" />
+                    <span className="text-white/90">Unmute Voice</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-neon animate-pulse" />
+                    <span className="text-neon font-bold">Voice Active</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Floating Formats Pills */}
+            <div className="absolute bottom-2.5 sm:bottom-3 inset-x-2 sm:inset-x-4 flex flex-nowrap items-center justify-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar py-1 z-20">
+              {formats.map((format) => (
+                <span
+                  key={format}
+                  className="whitespace-nowrap rounded-full border border-white/20 bg-black/80 px-2 sm:px-3 py-0.5 sm:py-1 text-[9px] sm:text-xs font-semibold text-white/95 shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105"
+                >
+                  {format}
+                </span>
+              ))}
+            </div>
+
+            {/* Showcase Badge */}
+            <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-20">
+              <span className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-neon/50 bg-black/75 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[9px] sm:text-xs font-bold text-white shadow-md backdrop-blur-md">
+                <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-neon animate-pulse" />
+                <span>AI Video Showcase</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function HeroOverview() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.15 },
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  const checklistItems = [
+    "Script Included",
+    "5+ AI Video Formats",
+    "Up to 60-Second Videos",
+    "9:16 Reel Format",
+    "48–72 Hour Delivery",
+    "1 Revision Included",
+  ];
+
+  return (
+    <section
+      id="overview"
+      ref={sectionRef}
+      className="relative overflow-hidden px-5 sm:px-8 lg:px-12 py-10 sm:py-14 md:py-16 border-b border-border/60 bg-background"
+    >
+      {/* Ambient background brand glow */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-40 top-10 h-[520px] w-[520px] rounded-full opacity-40 blur-3xl"
+        className={`pointer-events-none absolute -right-20 top-0 h-[450px] w-[450px] rounded-full blur-3xl transition-all duration-1000 ease-out ${
+          isVisible ? "opacity-25" : "opacity-0"
+        }`}
         style={{ backgroundImage: "var(--gradient-glow)" }}
       />
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-12 lg:grid-cols-2">
-        <div>
-          <span className="eyebrow">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-neon shadow-[0_0_8px_#c850ff]"></span>
-            </span>
-            AI Video Production Company
-          </span>
-          <h1 className="mt-6 font-[var(--font-google-sans)] text-4xl font-bold leading-[1.05] tracking-tight text-white md:text-6xl">
-            AI Video Production Services for{" "}
-            <span className="font-serif italic font-bold text-gradient-brand">Modern Businesses</span>
-          </h1>
-          <p className="mt-5 max-w-xl text-base font-medium text-foreground/90 md:text-lg">
-            Create AI UGC, AI Avatar, Cartoon, Hyper-Realistic &amp; Digital Twin Videos for Your
-            Brand
-          </p>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
-            Create engaging and professional video content without traditional production
-            complexity. Quickupp AI Studio provides professional AI video production services for
-            businesses, brands, founders and marketing teams - from AI UGC videos and AI avatar
-            reels to hyper-realistic AI advertisements and digital twin videos, customized around
-            your brand, product and marketing objectives.
-          </p>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
-            Our AI video production includes scripting, AI-generated visuals, voiceover, lip-sync,
-            captions, background music and editing, delivered in social-media-ready 9:16 format.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <NeonButton href="#contact">Get Your AI Video Quote</NeonButton>
-            <NeonButton href="#samples" variant="ghost">
-              View Video Samples
-            </NeonButton>
-          </div>
-          <div className="mt-8 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-            {heroBadges.map((badge) => (
-              <div
-                key={badge}
-                className="group flex items-center gap-2 rounded-full border border-neon/35 bg-[#140e24]/90 px-3.5 py-2 text-xs font-semibold text-white shadow-[0_0_15px_-4px_rgba(200,80,255,0.25)] transition-all duration-300 hover:border-neon hover:bg-neon/15 hover:text-neon hover:shadow-[0_0_20px_-2px_rgba(200,80,255,0.45)] hover:-translate-y-0.5 sm:text-xs"
-              >
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neon text-[10px] font-black text-black">
-                  ✓
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute -left-20 bottom-0 h-[380px] w-[380px] rounded-full blur-3xl transition-all duration-1000 ease-out ${
+          isVisible ? "opacity-20" : "opacity-0"
+        }`}
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 50% 50%, rgba(90, 160, 255, 0.22), transparent 60%)",
+        }}
+      />
+
+      <div className="mx-auto w-full max-w-6xl relative z-10">
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          {/* Left Column: Heading, Value Prop, Paragraphs & CTAs (7 cols) */}
+          <div className="lg:col-span-7 flex flex-col items-start text-left">
+            {/* Brand Eyebrow Badge */}
+            <div
+              className={`transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isVisible
+                  ? "opacity-100 translate-y-0 scale-100 blur-0"
+                  : "opacity-0 -translate-y-3 scale-95 blur-sm"
+              }`}
+            >
+              <span className="eyebrow">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-neon shadow-[0_0_8px_#c850ff]"></span>
                 </span>
-                <span className="truncate tracking-wide">{badge}</span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-8 text-sm text-muted-foreground">
-            Starting at <span className="font-semibold text-neon">₹2,499 / Reel</span> ·
-            AI-Powered Videos. Built for Your Business.
-          </p>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl border border-border glow-neon shadow-2xl">
-          <img
-            src="/images/Hero Image .png"
-            alt="Quickupp AI Studio Video Production Showcase"
-            className="w-full object-cover"
-            loading="eager"
-            width={1200}
-            height={1008}
-          />
-          
-          {/* Floating Formats Pills at Bottom-most Edge in Clean Single Line */}
-          <div className="absolute bottom-2 sm:bottom-2.5 inset-x-2 flex flex-nowrap items-center justify-center gap-1 sm:gap-1.5">
-            {formats.map((format) => (
-              <span
-                key={format}
-                className="whitespace-nowrap rounded-full border border-white/15 bg-black/75 px-2.5 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold text-white/90 shadow-md backdrop-blur-md transition-all duration-200 hover:border-neon/70 hover:bg-neon/20 hover:text-white hover:scale-105"
-              >
-                {format}
+                AI Video Production Company
               </span>
+            </div>
+
+            {/* Headline */}
+            <h2
+              className={`mt-4 font-[var(--font-google-sans)] text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight text-white transition-all duration-800 delay-100 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isVisible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-6 blur-sm"
+              }`}
+            >
+              AI Video Production Services for{" "}
+              <span className="font-serif italic font-bold text-gradient-brand">
+                Modern Businesses
+              </span>
+            </h2>
+
+            {/* Subheading */}
+            <h3
+              className={`mt-3 text-sm sm:text-base md:text-lg font-semibold text-foreground/90 leading-snug transition-all duration-800 delay-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isVisible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
+              }`}
+            >
+              Create AI UGC, AI Avatar, Cartoon, Hyper-Realistic &amp; Digital Twin Videos for Your
+              Brand
+            </h3>
+
+            {/* Paragraph 1 & 2 */}
+            <p
+              className={`mt-3 text-xs sm:text-sm md:text-base leading-relaxed text-muted-foreground transition-all duration-800 delay-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isVisible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
+              }`}
+            >
+              Create engaging and professional video content without traditional production
+              complexity. Quickupp AI Studio provides professional AI video production services for
+              businesses, brands, founders and marketing teams — from AI UGC videos and AI avatar
+              reels to hyper-realistic AI advertisements and digital twin videos.
+            </p>
+
+            <p
+              className={`mt-2 text-xs sm:text-sm leading-relaxed text-muted-foreground transition-all duration-800 delay-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isVisible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
+              }`}
+            >
+              Our AI video production includes scripting, AI-generated visuals, voiceover, lip-sync,
+              captions, background music and editing, delivered in social-media-ready 9:16 format.
+            </p>
+
+            {/* Action Buttons */}
+            <div
+              className={`mt-6 flex flex-wrap items-center gap-3 transition-all duration-800 delay-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isVisible
+                  ? "opacity-100 translate-y-0 scale-100"
+                  : "opacity-0 translate-y-4 scale-95"
+              }`}
+            >
+              <NeonButton href="#contact">Get Your AI Video Quote</NeonButton>
+              <NeonButton
+                href="#samples"
+                variant="ghost"
+                className="inline-flex items-center gap-2"
+              >
+                <span className="flex h-4 w-4 items-center justify-center rounded-full border border-neon/60 bg-neon/10">
+                  <Play className="h-2 w-2 fill-neon text-neon ml-0.5" />
+                </span>
+                <span>View Video Samples</span>
+              </NeonButton>
+            </div>
+          </div>
+
+          {/* Right Column: 6 Feature Cards spread in a sleek 2-column glass grid (5 cols) */}
+          <div
+            className={`lg:col-span-5 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5 sm:gap-3 transition-all duration-800 delay-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95"
+            }`}
+          >
+            {checklistItems.map((item, idx) => (
+              <div
+                key={item}
+                className="group flex items-center gap-3 rounded-xl border border-white/10 bg-[#140e24]/80 px-4 py-3 text-sm font-semibold text-white/95 backdrop-blur-md shadow-md transition-all duration-300 hover:border-neon/60 hover:bg-neon/15 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(200,80,255,0.3)]"
+                style={{ transitionDelay: isVisible ? `${450 + idx * 70}ms` : "0ms" }}
+              >
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neon/20 text-neon border border-neon/50 shadow-[0_0_10px_rgba(200,80,255,0.35)] group-hover:scale-110 group-hover:bg-neon group-hover:text-black transition-all duration-200">
+                  <Check className="h-3 w-3 stroke-[3]" />
+                </span>
+                <span className="tracking-wide">{item}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -323,7 +730,7 @@ export function Samples() {
   const [isInView, setIsInView] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [completedMap, setCompletedMap] = useState<Record<number, boolean>>({});
-  
+
   const cardsContainerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
@@ -338,7 +745,7 @@ export function Samples() {
             (activeTab === "AI Cartoon" && s.format.includes("Cartoon")) ||
             (activeTab === "AI Avatar" && s.format.includes("Avatar")) ||
             (activeTab === "Hyper-Realistic" && s.format.includes("Realistic")) ||
-            (activeTab === "Digital Twin" && s.format.includes("Twin"))
+            (activeTab === "Digital Twin" && s.format.includes("Twin")),
         );
 
   // Group filtered samples into pairs of 2
@@ -359,7 +766,7 @@ export function Samples() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
+      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" },
     );
 
     observer.observe(el);
@@ -454,200 +861,199 @@ export function Samples() {
         onMouseLeave={() => setIsPaused(false)}
         className="mx-auto max-w-5xl space-y-6 overflow-hidden py-2 min-h-[300px]"
       >
-          {currentPair.map((item, idx) => {
-            const isSecond = idx === 1; // Card 1 is top (left entry), Card 2 is bottom (right entry)
-            const isReversed = idx % 2 === 1; // Diagonal layout: top card left-video/right-text, bottom card right-video/left-text
+        {currentPair.map((item, idx) => {
+          const isSecond = idx === 1; // Card 1 is top (left entry), Card 2 is bottom (right entry)
+          const isReversed = idx % 2 === 1; // Diagonal layout: top card left-video/right-text, bottom card right-video/left-text
 
-            const slideAnimationClass = isInView
-              ? isSecond
-                ? "animate-slide-in-right"
-                : "animate-slide-in-left"
-              : `opacity-0 ${isSecond ? "translate-x-10" : "-translate-x-10"}`;
+          const slideAnimationClass = isInView
+            ? isSecond
+              ? "animate-slide-in-right"
+              : "animate-slide-in-left"
+            : `opacity-0 ${isSecond ? "translate-x-10" : "-translate-x-10"}`;
 
-            const isEnded = Boolean(completedMap[idx]);
-            const showWatchAgain = (isEnded && !allPairCompleted) || (isEnded && pairs.length <= 1);
+          const isEnded = Boolean(completedMap[idx]);
+          const showWatchAgain = (isEnded && !allPairCompleted) || (isEnded && pairs.length <= 1);
 
-            return (
+          return (
+            <div
+              key={`sample-card-${activeTab}-${currentIndex}-${idx}`}
+              className={`relative overflow-hidden rounded-[28px] border border-neon/30 bg-[#090714]/95 p-5 shadow-[0_0_35px_-10px_rgba(200,80,255,0.25)] backdrop-blur-xl transition-all duration-500 hover:border-neon/70 hover:shadow-[0_0_45px_-5px_rgba(200,80,255,0.4)] sm:p-7 md:p-8 ${slideAnimationClass}`}
+            >
               <div
-                key={`sample-card-${activeTab}-${currentIndex}-${idx}`}
-                className={`relative overflow-hidden rounded-[28px] border border-neon/30 bg-[#090714]/95 p-5 shadow-[0_0_35px_-10px_rgba(200,80,255,0.25)] backdrop-blur-xl transition-all duration-500 hover:border-neon/70 hover:shadow-[0_0_45px_-5px_rgba(200,80,255,0.4)] sm:p-7 md:p-8 ${slideAnimationClass}`}
+                className={`flex flex-col items-center gap-6 md:gap-10 ${
+                  isReversed ? "md:flex-row-reverse" : "md:flex-row"
+                }`}
               >
-                <div
-                  className={`flex flex-col items-center gap-6 md:gap-10 ${
-                    isReversed ? "md:flex-row-reverse" : "md:flex-row"
-                  }`}
-                >
-                  {/* Authentic 9:16 Vertical Reel Player with dark stylish border */}
-                  <div className="relative aspect-[9/16] w-full max-w-[260px] sm:max-w-[280px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60">
-                    <video
-                      ref={(el) => {
-                        videoRefs.current[idx] = el;
-                      }}
-                      key={item.videoUrl}
-                      src={item.videoUrl}
-                      autoPlay
-                      muted
-                      playsInline
-                      preload="metadata"
-                      onEnded={() => handleVideoEnded(idx)}
-                      className="h-full w-full object-cover"
-                    />
+                {/* Authentic 9:16 Vertical Reel Player with dark stylish border */}
+                <div className="relative aspect-[9/16] w-full max-w-[260px] sm:max-w-[280px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60">
+                  <video
+                    ref={(el) => {
+                      videoRefs.current[idx] = el;
+                    }}
+                    key={item.videoUrl}
+                    src={item.videoUrl}
+                    autoPlay
+                    muted
+                    playsInline
+                    preload="metadata"
+                    onEnded={() => handleVideoEnded(idx)}
+                    className="h-full w-full object-cover"
+                  />
 
-                    {/* "Watch Again" Overlay if this video finished before other video in the pair */}
-                    {showWatchAgain && (
-                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/65 p-3 text-center backdrop-blur-[2px] animate-in fade-in duration-300">
-                        <button
-                          type="button"
-                          onClick={() => handleReplay(idx)}
-                          className="group/btn inline-flex items-center gap-1.5 rounded-full bg-gradient-brand px-4 py-2 text-xs font-bold text-neon-foreground shadow-lg transition-all hover:scale-105 active:scale-95 glow-neon cursor-pointer"
-                          aria-label={`Watch ${item.format} video again`}
-                        >
-                          <RotateCcw className="h-3.5 w-3.5 transition-transform duration-300 group-hover/btn:-rotate-45" />
-                          <span>Watch Again</span>
-                        </button>
-                        {pairs.length > 1 && !allPairCompleted && (
-                          <span className="mt-2 text-[10px] text-white/70 font-medium tracking-wide">
-                            Waiting for next video to finish...
-                          </span>
-                        )}
-                      </div>
-                    )}
+                  {/* "Watch Again" Overlay if this video finished before other video in the pair */}
+                  {showWatchAgain && (
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/65 p-3 text-center backdrop-blur-[2px] animate-in fade-in duration-300">
+                      <button
+                        type="button"
+                        onClick={() => handleReplay(idx)}
+                        className="group/btn inline-flex items-center gap-1.5 rounded-full bg-gradient-brand px-4 py-2 text-xs font-bold text-neon-foreground shadow-lg transition-all hover:scale-105 active:scale-95 glow-neon cursor-pointer"
+                        aria-label={`Watch ${item.format} video again`}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 transition-transform duration-300 group-hover/btn:-rotate-45" />
+                        <span>Watch Again</span>
+                      </button>
+                      {pairs.length > 1 && !allPairCompleted && (
+                        <span className="mt-2 text-[10px] text-white/70 font-medium tracking-wide">
+                          Waiting for next video to finish...
+                        </span>
+                      )}
+                    </div>
+                  )}
 
-                    <span className="absolute bottom-3 left-3 rounded-lg bg-black/80 border border-white/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-md z-10">
+                  <span className="absolute bottom-3 left-3 rounded-lg bg-black/80 border border-white/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-md z-10">
+                    {item.format}
+                  </span>
+                </div>
+
+                {/* Content Side */}
+                <div className="flex flex-1 flex-col justify-between self-stretch py-1 text-left">
+                  <div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-bold uppercase tracking-widest text-neon">
+                        Industry: {item.industry}
+                      </span>
+                      <span className="rounded-md border border-neon/30 bg-neon/10 px-2.5 py-0.5 text-[11px] font-semibold text-neon">
+                        9:16 Vertical Reel
+                      </span>
+                    </div>
+
+                    <h3 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
                       {item.format}
-                    </span>
-                  </div>
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                      {item.description}
+                    </p>
 
-                  {/* Content Side */}
-                  <div className="flex flex-1 flex-col justify-between self-stretch py-1 text-left">
-                    <div>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-xs font-bold uppercase tracking-widest text-neon">
-                          Industry: {item.industry}
-                        </span>
-                        <span className="rounded-md border border-neon/30 bg-neon/10 px-2.5 py-0.5 text-[11px] font-semibold text-neon">
-                          9:16 Vertical Reel
-                        </span>
-                      </div>
-
-                      <h3 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                        {item.format}
-                      </h3>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
-                        {item.description}
-                      </p>
-
-                      {/* What's Included Deliverables Checklist */}
-                      {(() => {
-                        const matchedDeliverable = deliverables.find(
+                    {/* What's Included Deliverables Checklist */}
+                    {(() => {
+                      const matchedDeliverable =
+                        deliverables.find(
                           (d) =>
-                            d.title.toLowerCase().includes(item.format.toLowerCase().replace("video", "").trim()) ||
-                            item.format.toLowerCase().includes(d.title.toLowerCase().replace("video", "").trim())
+                            d.title
+                              .toLowerCase()
+                              .includes(item.format.toLowerCase().replace("video", "").trim()) ||
+                            item.format
+                              .toLowerCase()
+                              .includes(d.title.toLowerCase().replace("video", "").trim()),
                         ) || deliverables[0];
 
-                        return (
-                          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5 backdrop-blur-sm">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold uppercase tracking-wider text-neon sm:text-sm">
-                                ✦ What's Included in This Package:
-                              </p>
-                              <span className="text-[11px] font-semibold text-muted-foreground">
-                                {matchedDeliverable.items.length} Deliverables
-                              </span>
-                            </div>
-                            
-                            <ul className="mt-3.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs sm:text-sm text-foreground/85">
-                              {matchedDeliverable.items.map((point) => (
-                                <li key={point} className="flex items-center gap-2.5">
-                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neon/20 text-[10px] font-extrabold text-neon shadow-[0_0_8px_rgba(200,80,255,0.4)]">
-                                    ✓
-                                  </span>
-                                  <span className="leading-snug text-foreground/90">{point}</span>
-                                </li>
-                              ))}
-                            </ul>
+                      return (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5 backdrop-blur-sm">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold uppercase tracking-wider text-neon sm:text-sm">
+                              ✦ What's Included in This Package:
+                            </p>
+                            <span className="text-[11px] font-semibold text-muted-foreground">
+                              {matchedDeliverable.items.length} Deliverables
+                            </span>
                           </div>
-                        );
-                      })()}
+
+                          <ul className="mt-3.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs sm:text-sm text-foreground/85">
+                            {matchedDeliverable.items.map((point) => (
+                              <li key={point} className="flex items-center gap-2.5">
+                                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neon/20 text-[10px] font-extrabold text-neon shadow-[0_0_8px_rgba(200,80,255,0.4)]">
+                                  ✓
+                                </span>
+                                <span className="leading-snug text-foreground/90">{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Card Bottom Action & Turnaround Bar */}
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-neon">
+                        {item.format}
+                      </span>
+                      <span className="text-muted-foreground/30">•</span>
+                      <span className="text-xs text-muted-foreground">⚡ 48–72h Turnaround</span>
                     </div>
 
-                    {/* Card Bottom Action & Turnaround Bar */}
-                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-neon">
-                          {item.format}
-                        </span>
-                        <span className="text-muted-foreground/30">•</span>
-                        <span className="text-xs text-muted-foreground">
-                          ⚡ 48–72h Turnaround
-                        </span>
-                      </div>
-                      
-                      <a
-                        href="#contact"
-                        className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1 text-xs font-semibold text-white transition-all hover:bg-neon hover:text-black hover:scale-105"
-                      >
-                        <span>Create Similar Video</span>
-                        <span>→</span>
-                      </a>
-                    </div>
+                    <a
+                      href="#contact"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1 text-xs font-semibold text-white transition-all hover:bg-neon hover:text-black hover:scale-105"
+                    >
+                      <span>Create Similar Video</span>
+                      <span>→</span>
+                    </a>
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Pagination Indicators & Next/Prev Controls */}
-        {pairs.length > 1 && (
-          <div className="mt-8 flex items-center justify-center gap-3">
-            <button
-              onClick={handlePrev}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-xs text-white/80 transition-all hover:bg-white/15 hover:text-white"
-              aria-label="Previous samples"
-            >
-              ←
-            </button>
-            <div className="flex items-center gap-2">
-              {pairs.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentIndex(i)}
-                  className={`h-2.5 rounded-full transition-all duration-300 ${
-                    currentIndex === i
-                      ? "w-8 bg-gradient-brand shadow-sm glow-neon"
-                      : "w-2.5 bg-secondary hover:bg-muted-foreground"
-                  }`}
-                  aria-label={`Slide ${i + 1}`}
-                />
-              ))}
             </div>
-            <button
-              onClick={handleAdvance}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-xs text-white/80 transition-all hover:bg-white/15 hover:text-white"
-              aria-label="Next samples"
-            >
-              →
-            </button>
-          </div>
-        )}
+          );
+        })}
+      </div>
 
-        {/* Bottom CTA */}
-        <div className="mt-12 text-center">
-          <p className="mb-4 text-xl font-semibold text-white">
-            Want a Similar Video for Your Business?
-          </p>
-          <NeonButton href="#contact">Get Your AI Video Quote</NeonButton>
+      {/* Pagination Indicators & Next/Prev Controls */}
+      {pairs.length > 1 && (
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <button
+            onClick={handlePrev}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-xs text-white/80 transition-all hover:bg-white/15 hover:text-white"
+            aria-label="Previous samples"
+          >
+            ←
+          </button>
+          <div className="flex items-center gap-2">
+            {pairs.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentIndex(i)}
+                className={`h-2.5 rounded-full transition-all duration-300 ${
+                  currentIndex === i
+                    ? "w-8 bg-gradient-brand shadow-sm glow-neon"
+                    : "w-2.5 bg-secondary hover:bg-muted-foreground"
+                }`}
+                aria-label={`Slide ${i + 1}`}
+              />
+            ))}
+          </div>
+          <button
+            onClick={handleAdvance}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-xs text-white/80 transition-all hover:bg-white/15 hover:text-white"
+            aria-label="Next samples"
+          >
+            →
+          </button>
         </div>
+      )}
+
+      {/* Bottom CTA */}
+      <div className="mt-12 text-center">
+        <p className="mb-4 text-xl font-semibold text-white">
+          Want a Similar Video for Your Business?
+        </p>
+        <NeonButton href="#contact">Get Your AI Video Quote</NeonButton>
+      </div>
     </Section>
   );
 }
 
-function PortfolioCard({
-  sample,
-}: {
-  sample: (typeof portfolioItems)[number];
-}) {
+function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
@@ -725,9 +1131,7 @@ function PortfolioCard({
 
       {/* Bottom Industry & Description Info with subtle frosted backing */}
       <div className="z-10 space-y-1 rounded-xl bg-black/40 p-2.5 backdrop-blur-sm pointer-events-none border border-white/5">
-        <div className="text-xs font-bold text-neon sm:text-sm">
-          Industry: {sample.industry}
-        </div>
+        <div className="text-xs font-bold text-neon sm:text-sm">Industry: {sample.industry}</div>
         <p className="text-xs text-white/90 line-clamp-2 leading-relaxed font-normal">
           {sample.description}
         </p>
@@ -756,7 +1160,7 @@ export function Portfolio() {
             (active === "AI Cartoon" && s.format.includes("Cartoon")) ||
             (active === "AI Avatar" && s.format.includes("Avatar")) ||
             (active === "Hyper-Realistic" && s.format.includes("Realistic")) ||
-            (active === "Digital Twin" && s.format.includes("Twin"))
+            (active === "Digital Twin" && s.format.includes("Twin")),
         );
 
   return (
@@ -792,10 +1196,7 @@ export function Portfolio() {
       {/* Video Cards Grid - Centered Flex Layout with wider cards (3 per row on desktop, 2 centered on row 2) */}
       <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 md:gap-7">
         {visible.map((sample) => (
-          <PortfolioCard
-            key={`portfolio-${sample.format}-${sample.industry}`}
-            sample={sample}
-          />
+          <PortfolioCard key={`portfolio-${sample.format}-${sample.industry}`} sample={sample} />
         ))}
       </div>
 
@@ -841,7 +1242,7 @@ export function Services() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
     );
 
     observer.observe(el);
@@ -856,7 +1257,10 @@ export function Services() {
         highlight="Services"
         description="Choose the AI video format that best fits your business and marketing goals."
       />
-      <div ref={sectionRef} className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 lg:gap-7">
+      <div
+        ref={sectionRef}
+        className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 lg:gap-7"
+      >
         {services.map((service, idx) => {
           const Icon = serviceIcons[service.title] || Sparkles;
           const isFeatured = idx === 0 || idx === 3;
@@ -899,7 +1303,10 @@ export function Services() {
                 {/* Bullet Points Checklist */}
                 <div className="mt-4 space-y-2">
                   {service.items.map((item) => (
-                    <div key={item} className="flex items-center gap-2.5 text-xs text-foreground/80">
+                    <div
+                      key={item}
+                      className="flex items-center gap-2.5 text-xs text-foreground/80"
+                    >
                       <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-neon/15 text-[9px] font-bold text-neon">
                         ✓
                       </span>
@@ -941,7 +1348,7 @@ export function WhyAiVideo() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
     );
 
     observer.observe(el);
@@ -958,9 +1365,7 @@ export function WhyAiVideo() {
       />
       <div ref={sectionRef} className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {whyAiVideo.map((item, i) => {
-          const animationClass = isInView
-            ? "animate-cyber-wave"
-            : "opacity-0 translate-y-8";
+          const animationClass = isInView ? "animate-cyber-wave" : "opacity-0 translate-y-8";
 
           return (
             <article
@@ -984,7 +1389,7 @@ export function WhyAiVideo() {
               <h3 className="mt-4 text-lg font-bold text-white transition-colors duration-200 group-hover:text-neon">
                 {item.title}
               </h3>
-              
+
               <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
                 {item.description}
               </p>
@@ -1011,7 +1416,7 @@ export function Pricing() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
     );
 
     observer.observe(el);
@@ -1043,9 +1448,7 @@ export function Pricing() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {pricingRows.map((row, idx) => {
-                const animationClass = isInView
-                  ? "animate-pricing-row"
-                  : "opacity-0 translate-y-3";
+                const animationClass = isInView ? "animate-pricing-row" : "opacity-0 translate-y-3";
 
                 return (
                   <tr
@@ -1134,7 +1537,7 @@ export function Deliverables() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
     );
 
     observer.observe(el);
@@ -1171,13 +1574,18 @@ export function Deliverables() {
                 aria-expanded={open === i}
               >
                 <span>{item.title}</span>
-                <span className="text-neon transition-transform duration-200">{open === i ? "−" : "+"}</span>
+                <span className="text-neon transition-transform duration-200">
+                  {open === i ? "−" : "+"}
+                </span>
               </button>
               {open === i ? (
                 <div className="border-t border-border/60 bg-secondary/20 px-6 py-5">
                   <ul className="grid gap-3 sm:grid-cols-2">
                     {item.items.map((line) => (
-                      <li key={line} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                      <li
+                        key={line}
+                        className="flex items-start gap-2.5 text-sm text-muted-foreground"
+                      >
                         <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-neon" />
                         <span>{line}</span>
                       </li>
@@ -1209,7 +1617,7 @@ export function DigitalTwin() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
     );
 
     observer.observe(el);
@@ -1236,10 +1644,15 @@ export function DigitalTwin() {
             </span>
           </h2>
           <p className="mt-4 text-base font-medium text-foreground/90 md:text-lg">
-            Turn your approved appearance and voice into a reusable AI video asset for future content.
+            Turn your approved appearance and voice into a reusable AI video asset for future
+            content.
           </p>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground md:text-base">
-            Our AI digital twin video service helps founders, doctors, coaches, consultants, educators and personal brands create recurring video content using an appropriately authorized and client-approved digital twin. Once your digital twin is configured, it can be used for future AI video production without requiring you to record every individual video.
+            Our AI digital twin video service helps founders, doctors, coaches, consultants,
+            educators and personal brands create recurring video content using an appropriately
+            authorized and client-approved digital twin. Once your digital twin is configured, it
+            can be used for future AI video production without requiring you to record every
+            individual video.
           </p>
           <p className="mt-6 text-2xl font-bold text-gradient-brand md:text-3xl">
             ₹15,000 One-Time Setup
@@ -1248,8 +1661,8 @@ export function DigitalTwin() {
             <NeonButton href="#contact">Create My Digital Twin</NeonButton>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Digital twin and voice cloning services require appropriate client
-            authorization and consent.
+            Digital twin and voice cloning services require appropriate client authorization and
+            consent.
           </p>
         </div>
 
@@ -1308,7 +1721,7 @@ export function Industries() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
     );
 
     observer.observe(el);
@@ -1325,9 +1738,7 @@ export function Industries() {
       />
       <div ref={sectionRef} className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {industries.map((industry, i) => {
-          const animationClass = isInView
-            ? "animate-industry-card"
-            : "opacity-0 translate-y-6";
+          const animationClass = isInView ? "animate-industry-card" : "opacity-0 translate-y-6";
 
           const isFirstCard = i === 0;
 
@@ -1359,7 +1770,7 @@ export function Industries() {
                     {industry.description}
                   </p>
                 </div>
-                
+
                 <div className="mt-4 flex flex-wrap items-center gap-1.5 text-xs font-semibold drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
                   <span className="text-amber-300">✦ Recommended:</span>
                   <span className="text-white font-medium">{industry.recommended}</span>
@@ -1388,7 +1799,7 @@ export function UseCases() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
     );
 
     observer.observe(el);
@@ -1404,11 +1815,12 @@ export function UseCases() {
         description="From product promotions to educational content, AI videos can be adapted for multiple marketing and communication objectives."
         center={true}
       />
-      <div ref={sectionRef} className="mx-auto flex max-w-5xl flex-wrap justify-center gap-2.5 sm:gap-3">
+      <div
+        ref={sectionRef}
+        className="mx-auto flex max-w-5xl flex-wrap justify-center gap-2.5 sm:gap-3"
+      >
         {useCases.map((useCase, i) => {
-          const animationClass = isInView
-            ? "animate-pill-pop"
-            : "opacity-0 scale-75";
+          const animationClass = isInView ? "animate-pill-pop" : "opacity-0 scale-75";
 
           return (
             <span
@@ -1440,7 +1852,7 @@ export function Process() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
     );
 
     observer.observe(el);
@@ -1471,7 +1883,7 @@ export function Process() {
               >
                 {/* Step Top Bar Scanner Line */}
                 <div className="absolute left-0 top-0 h-1 w-0 bg-gradient-brand transition-all duration-500 group-hover:w-full" />
-                
+
                 {/* Ambient Step Number Watermark */}
                 <span className="pointer-events-none absolute right-4 top-2 text-5xl font-black text-white/[0.03] transition-all duration-300 group-hover:text-neon/15 group-hover:scale-110">
                   0{i + 1}
@@ -1521,7 +1933,7 @@ export function WhyUs() {
       ([entry]) => {
         setIsInView(Boolean(entry?.isIntersecting));
       },
-      { threshold: 0.1, rootMargin: "0px 0px -20px 0px" }
+      { threshold: 0.1, rootMargin: "0px 0px -20px 0px" },
     );
 
     observer.observe(el);
@@ -1535,13 +1947,14 @@ export function WhyUs() {
         title="Why Choose"
         highlight="Quickupp AI Studio?"
       />
-      <div ref={containerRef} className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 [perspective:1200px]">
+      <div
+        ref={containerRef}
+        className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 [perspective:1200px]"
+      >
         {whyUs.map((item, idx) => {
           const delay = `${idx * 0.1}s`;
           // Unique trajectory for each card position: top-left, top-center, top-right, bottom-left, bottom-center, bottom-right
-          const animClass = isInView
-            ? `animate-why-${idx % 6}`
-            : "opacity-0 scale-75";
+          const animClass = isInView ? `animate-why-${idx % 6}` : "opacity-0 scale-75";
 
           return (
             <article
@@ -1554,7 +1967,7 @@ export function WhyUs() {
 
               {/* Ambient Glowing Corner Orb */}
               <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-gradient-brand opacity-10 blur-xl transition-all duration-500 group-hover:scale-150 group-hover:opacity-25" />
-              
+
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-neon shadow-[0_0_8px_rgba(200,80,255,0.8)]" />
                 <span className="text-[11px] font-bold uppercase tracking-widest text-neon/90">
@@ -1565,7 +1978,7 @@ export function WhyUs() {
               <h3 className="mt-4 text-lg font-bold text-white transition-colors duration-200 group-hover:text-neon sm:text-xl">
                 {item.title}
               </h3>
-              
+
               <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
                 {item.description}
               </p>
@@ -1600,7 +2013,8 @@ export function LeadFormSection() {
               Thank You! Requirement Submitted
             </h3>
             <p className="max-w-md mx-auto text-xs sm:text-sm text-muted-foreground">
-              We have received your project details. Our production team will review your requirements and contact you directly shortly.
+              We have received your project details. Our production team will review your
+              requirements and contact you directly shortly.
             </p>
             <div className="pt-2">
               <button
@@ -1676,144 +2090,158 @@ export function LeadFormSection() {
             }}
             className="space-y-5"
           >
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-foreground">Full Name*</label>
-              <input
-                type="text"
-                name="name"
-                required
-                placeholder="Your name"
-                className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground">Business Name*</label>
-              <input
-                type="text"
-                name="business"
-                required
-                placeholder="Your business"
-                className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-foreground">WhatsApp Number*</label>
-              <input
-                type="tel"
-                name="phone"
-                required
-                placeholder="+91"
-                className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground">Email Address</label>
-              <input
-                type="email"
-                name="email"
-                placeholder="you@company.com"
-                className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-foreground">Business Industry*</label>
-              <div className="relative mt-1.5">
-                <select
-                  name="industry"
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-semibold text-foreground">Full Name*</label>
+                <input
+                  type="text"
+                  name="name"
                   required
-                  className="w-full appearance-none rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer"
-                >
-                  <option value="">Select industry</option>
-                  <option value="Real Estate">Real Estate</option>
-                  <option value="Clinics & Doctors">Clinics & Doctors</option>
-                  <option value="D2C & E-commerce">D2C & E-commerce</option>
-                  <option value="Beauty & Skincare">Beauty & Skincare</option>
-                  <option value="Interior Design">Interior Design</option>
-                  <option value="Restaurants & Cafes">Restaurants & Cafes</option>
-                  <option value="Education & Coaching">Education & Coaching</option>
-                  <option value="IT & SaaS">IT & SaaS</option>
-                  <option value="Finance & Insurance">Finance & Insurance</option>
-                  <option value="Travel & Tourism">Travel & Tourism</option>
-                  <option value="Fitness & Wellness">Fitness & Wellness</option>
-                  <option value="Jewellery & Luxury">Jewellery & Luxury</option>
-                  <option value="Other">Other</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
+                  placeholder="Your name"
+                  className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground">
+                  Business Name*
+                </label>
+                <input
+                  type="text"
+                  name="business"
+                  required
+                  placeholder="Your business"
+                  className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+                />
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground">Which AI Video Are You Interested In?*</label>
-              <div className="relative mt-1.5">
-                <select
-                  name="videoType"
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-semibold text-foreground">
+                  WhatsApp Number*
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
                   required
-                  className="w-full appearance-none rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer"
-                >
-                  <option value="">Select video type</option>
-                  <option value="AI UGC Video">AI UGC Video</option>
-                  <option value="AI Cartoon Animation">AI Cartoon Animation</option>
-                  <option value="AI Avatar Video">AI Avatar Video</option>
-                  <option value="Hyper-Realistic AI Video">Hyper-Realistic AI Video</option>
-                  <option value="AI Digital Twin / Clone">AI Digital Twin / Clone</option>
-                  <option value="Not Sure - Need Guidance">Not Sure - Need Guidance</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
+                  placeholder="+91"
+                  className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground">Email Address</label>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="you@company.com"
+                  className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+                />
               </div>
             </div>
-          </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-semibold text-foreground">
+                  Business Industry*
+                </label>
+                <div className="relative mt-1.5">
+                  <select
+                    name="industry"
+                    required
+                    className="w-full appearance-none rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Select industry</option>
+                    <option value="Real Estate">Real Estate</option>
+                    <option value="Clinics & Doctors">Clinics & Doctors</option>
+                    <option value="D2C & E-commerce">D2C & E-commerce</option>
+                    <option value="Beauty & Skincare">Beauty & Skincare</option>
+                    <option value="Interior Design">Interior Design</option>
+                    <option value="Restaurants & Cafes">Restaurants & Cafes</option>
+                    <option value="Education & Coaching">Education & Coaching</option>
+                    <option value="IT & SaaS">IT & SaaS</option>
+                    <option value="Finance & Insurance">Finance & Insurance</option>
+                    <option value="Travel & Tourism">Travel & Tourism</option>
+                    <option value="Fitness & Wellness">Fitness & Wellness</option>
+                    <option value="Jewellery & Luxury">Jewellery & Luxury</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground">
+                  Which AI Video Are You Interested In?*
+                </label>
+                <div className="relative mt-1.5">
+                  <select
+                    name="videoType"
+                    required
+                    className="w-full appearance-none rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Select video type</option>
+                    <option value="AI UGC Video">AI UGC Video</option>
+                    <option value="AI Cartoon Animation">AI Cartoon Animation</option>
+                    <option value="AI Avatar Video">AI Avatar Video</option>
+                    <option value="Hyper-Realistic AI Video">Hyper-Realistic AI Video</option>
+                    <option value="AI Digital Twin / Clone">AI Digital Twin / Clone</option>
+                    <option value="Not Sure - Need Guidance">Not Sure - Need Guidance</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-semibold text-foreground">
+                  Location / City*
+                </label>
+                <input
+                  type="text"
+                  name="location"
+                  required
+                  placeholder="e.g. Pune, Mumbai, Delaware"
+                  className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground">
+                  Approximate Budget
+                </label>
+                <select
+                  name="budget"
+                  className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground focus:border-neon focus:outline-none"
+                >
+                  <option value="">Select budget</option>
+                  <option value="₹2,500 - ₹5,000">₹2,500 - ₹5,000</option>
+                  <option value="₹5,000 - ₹15,000">₹5,000 - ₹15,000</option>
+                  <option value="₹15,000 - ₹35,000">₹15,000 - ₹35,000</option>
+                  <option value="₹35,000 - ₹75,000">₹35,000 - ₹75,000</option>
+                  <option value="₹75,000+">₹75,000+</option>
+                </select>
+              </div>
+            </div>
+
             <div>
-              <label className="block text-xs font-semibold text-foreground">Location / City*</label>
-              <input
-                type="text"
-                name="location"
-                required
-                placeholder="e.g. Pune, Mumbai, Delaware"
+              <label className="block text-xs font-semibold text-foreground">
+                Tell Us About Your Requirement
+              </label>
+              <textarea
+                name="requirement"
+                rows={3}
+                placeholder="Product, service, audience or video idea"
                 className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground">Approximate Budget</label>
-              <select
-                name="budget"
-                className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground focus:border-neon focus:outline-none"
-              >
-                <option value="">Select budget</option>
-                <option value="₹2,500 - ₹5,000">₹2,500 - ₹5,000</option>
-                <option value="₹5,000 - ₹15,000">₹5,000 - ₹15,000</option>
-                <option value="₹15,000 - ₹35,000">₹15,000 - ₹35,000</option>
-                <option value="₹35,000 - ₹75,000">₹35,000 - ₹75,000</option>
-                <option value="₹75,000+">₹75,000+</option>
-              </select>
-            </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-foreground">Tell Us About Your Requirement</label>
-            <textarea
-              name="requirement"
-              rows={3}
-              placeholder="Product, service, audience or video idea"
-              className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-full bg-gradient-brand py-3.5 text-sm font-semibold text-neon-foreground glow-neon transition-all hover:brightness-110 disabled:opacity-50"
-          >
-            {loading ? "Submitting..." : "Get My AI Video Quote"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-full bg-gradient-brand py-3.5 text-sm font-semibold text-neon-foreground glow-neon transition-all hover:brightness-110 disabled:opacity-50"
+            >
+              {loading ? "Submitting..." : "Get My AI Video Quote"}
+            </button>
+          </form>
         )}
       </div>
     </Section>
@@ -1822,7 +2250,7 @@ export function LeadFormSection() {
 
 export function WhatsAppCtaSection() {
   const professionalMessage = encodeURIComponent(
-    "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!"
+    "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!",
   );
 
   return (
@@ -1830,7 +2258,9 @@ export function WhatsAppCtaSection() {
       <div className="mx-auto max-w-4xl text-center">
         <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
           Have a Video Idea? Let's Turn It Into an{" "}
-          <span className="font-serif italic font-bold text-gradient-brand whitespace-nowrap">AI Reel.</span>
+          <span className="font-serif italic font-bold text-gradient-brand whitespace-nowrap">
+            AI Reel.
+          </span>
         </h2>
         <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
           Send us your product, service or video idea on WhatsApp and our team will recommend the
@@ -1911,7 +2341,7 @@ export function Contact() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
     );
 
     observer.observe(el);
@@ -1946,7 +2376,13 @@ export function Contact() {
             Turn your product, service or idea into engaging AI-powered video content.
           </p>
           <p className="mx-auto mt-2 max-w-2xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
-            Whether you need an <span className="text-foreground font-medium">AI UGC video</span>, <span className="text-foreground font-medium">AI avatar reel</span>, <span className="text-foreground font-medium">cartoon animation</span>, <span className="text-foreground font-medium">hyper-realistic AI advertisement</span> or <span className="text-foreground font-medium">digital twin video</span>, Quickupp AI Studio can help you create professional video content for social media, advertising and brand communication.
+            Whether you need an <span className="text-foreground font-medium">AI UGC video</span>,{" "}
+            <span className="text-foreground font-medium">AI avatar reel</span>,{" "}
+            <span className="text-foreground font-medium">cartoon animation</span>,{" "}
+            <span className="text-foreground font-medium">hyper-realistic AI advertisement</span> or{" "}
+            <span className="text-foreground font-medium">digital twin video</span>, Quickupp AI
+            Studio can help you create professional video content for social media, advertising and
+            brand communication.
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
             <NeonButton href="#contact">Get Your AI Video Quote</NeonButton>
@@ -2072,7 +2508,9 @@ export function Footer() {
                 >
                   <MapPin className="h-4 w-4 text-neon shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-semibold text-white group-hover:text-neon">India Office: </span>
+                    <span className="font-semibold text-white group-hover:text-neon">
+                      India Office:{" "}
+                    </span>
                     <span>{footerIndiaAddress}</span>
                   </div>
                 </a>
@@ -2085,7 +2523,9 @@ export function Footer() {
                 >
                   <MapPin className="h-4 w-4 text-[#60a5fa] shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-semibold text-white group-hover:text-[#60a5fa]">USA Office: </span>
+                    <span className="font-semibold text-white group-hover:text-[#60a5fa]">
+                      USA Office:{" "}
+                    </span>
                     <span>{footerUsaAddress}</span>
                   </div>
                 </a>
@@ -2183,7 +2623,7 @@ export function FloatingWhatsAppButton() {
       {/* Official WhatsApp Floating Button */}
       <a
         href={`https://wa.me/919970344139?text=${encodeURIComponent(
-          "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!"
+          "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!",
         )}`}
         target="_blank"
         rel="noopener noreferrer"
@@ -2191,11 +2631,7 @@ export function FloatingWhatsAppButton() {
         className="flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-2xl transition-all duration-300 hover:scale-110 hover:shadow-[0_0_25px_rgba(37,211,102,0.65)] active:scale-95"
       >
         {/* Official WhatsApp SVG Vector Icon */}
-        <svg
-          viewBox="0 0 24 24"
-          className="h-8 w-8 fill-white"
-          xmlns="http://www.w3.org/2000/svg"
-        >
+        <svg viewBox="0 0 24 24" className="h-8 w-8 fill-white" xmlns="http://www.w3.org/2000/svg">
           <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24zm-3.6 3.63c-.2 0-.42.01-.6.04-.24.04-.52.14-.72.37-.25.28-.97.95-.97 2.32s.99 2.69 1.13 2.87c.14.19 1.95 2.98 4.73 4.18.66.29 1.18.46 1.58.59.66.21 1.27.18 1.75.11.53-.08 1.63-.67 1.86-1.31.23-.65.23-1.2.16-1.31-.07-.12-.25-.19-.53-.33-.28-.14-1.63-.8-1.88-.89-.25-.09-.44-.14-.62.14-.19.28-.72.89-.88 1.07-.16.19-.33.21-.61.07-.28-.14-1.18-.44-2.25-1.39-.83-.74-1.4-1.66-1.56-1.94-.16-.28-.02-.43.12-.57.13-.13.28-.33.42-.5.14-.16.19-.28.28-.47.09-.19.05-.35-.02-.49-.07-.14-.62-1.5-.86-2.05-.22-.53-.46-.46-.62-.47z" />
         </svg>
       </a>
@@ -2254,11 +2690,10 @@ export function QuotePopupModal() {
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_25px_rgba(16,185,129,0.3)]">
               <BadgeCheck className="h-7 w-7" />
             </div>
-            <h3 className="font-heading text-xl sm:text-2xl font-bold text-white">
-              Thank You!
-            </h3>
+            <h3 className="font-heading text-xl sm:text-2xl font-bold text-white">Thank You!</h3>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
-              Your video inquiry has been received. Our team will review your requirements and reach out to you directly with a proposal.
+              Your video inquiry has been received. Our team will review your requirements and reach
+              out to you directly with a proposal.
             </p>
             <div className="pt-2">
               <button
@@ -2335,7 +2770,9 @@ export function QuotePopupModal() {
                   created_at: new Date().toISOString(),
                 };
                 try {
-                  const existing = JSON.parse(localStorage.getItem("ai_studio_local_leads") || "[]");
+                  const existing = JSON.parse(
+                    localStorage.getItem("ai_studio_local_leads") || "[]",
+                  );
                   existing.unshift(newLead);
                   localStorage.setItem("ai_studio_local_leads", JSON.stringify(existing));
                 } catch (err) {
@@ -2354,131 +2791,137 @@ export function QuotePopupModal() {
                     Full Name <span className="text-neon">*</span>
                   </label>
                   <input
-                type="text"
-                name="name"
-                required
-                placeholder="e.g. John Doe"
-                className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
-              />
-            </div>
-            <div className="w-full">
-              <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
-                Phone Number <span className="text-neon">*</span>
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                required
-                placeholder="+91 98765 43210"
-                className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            <div className="w-full">
-              <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
-                Email Address <span className="text-neon">*</span>
-              </label>
-              <input
-                type="email"
-                name="email"
-                required
-                placeholder="you@company.com"
-                className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
-              />
-            </div>
-            <div className="w-full">
-              <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
-                Type of AI Video <span className="text-neon">*</span>
-              </label>
-              <div className="relative mt-1">
-                <select
-                  name="videoType"
-                  required
-                  defaultValue=""
-                  className="w-full appearance-none rounded-lg border border-border bg-secondary/40 px-3 py-2 pr-9 text-xs text-foreground focus:border-neon focus:outline-none sm:text-sm cursor-pointer"
-                >
-                  <option value="" disabled className="bg-[#121019] text-muted-foreground">
-                    Select video type...
-                  </option>
-                  <option value="AI UGC Video" className="bg-[#121019] text-foreground">
-                    AI UGC Video
-                  </option>
-                  <option value="AI Cartoon Animation" className="bg-[#121019] text-foreground">
-                    AI Cartoon Animation
-                  </option>
-                  <option value="AI Avatar Video" className="bg-[#121019] text-foreground">
-                    AI Avatar Video
-                  </option>
-                  <option value="Hyper-Realistic AI Video" className="bg-[#121019] text-foreground">
-                    Hyper-Realistic AI Video
-                  </option>
-                  <option value="AI Digital Twin / Clone" className="bg-[#121019] text-foreground">
-                    AI Digital Twin / Clone
-                  </option>
-                  <option value="Monthly Bulk Package" className="bg-[#121019] text-foreground">
-                    Monthly Package (5-15 Reels)
-                  </option>
-                  <option value="Custom Requirement" className="bg-[#121019] text-foreground">
-                    Custom AI Video
-                  </option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
+                    type="text"
+                    name="name"
+                    required
+                    placeholder="e.g. John Doe"
+                    className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
+                  />
+                </div>
+                <div className="w-full">
+                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                    Phone Number <span className="text-neon">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    required
+                    placeholder="+91 98765 43210"
+                    className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
+                  />
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            <div className="w-full">
-              <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
-                Your Business / Brand <span className="text-neon">*</span>
-              </label>
-              <input
-                type="text"
-                name="business"
-                required
-                placeholder="e.g. Skincare, Real Estate..."
-                className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
-              />
-            </div>
-            <div className="w-full">
-              <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
-                Location (City / Country) <span className="text-neon">*</span>
-              </label>
-              <input
-                type="text"
-                name="location"
-                required
-                placeholder="e.g. Pune, India"
-                className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
-              />
-            </div>
-          </div>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <div className="w-full">
+                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                    Email Address <span className="text-neon">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    placeholder="you@company.com"
+                    className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
+                  />
+                </div>
+                <div className="w-full">
+                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                    Type of AI Video <span className="text-neon">*</span>
+                  </label>
+                  <div className="relative mt-1">
+                    <select
+                      name="videoType"
+                      required
+                      defaultValue=""
+                      className="w-full appearance-none rounded-lg border border-border bg-secondary/40 px-3 py-2 pr-9 text-xs text-foreground focus:border-neon focus:outline-none sm:text-sm cursor-pointer"
+                    >
+                      <option value="" disabled className="bg-[#121019] text-muted-foreground">
+                        Select video type...
+                      </option>
+                      <option value="AI UGC Video" className="bg-[#121019] text-foreground">
+                        AI UGC Video
+                      </option>
+                      <option value="AI Cartoon Animation" className="bg-[#121019] text-foreground">
+                        AI Cartoon Animation
+                      </option>
+                      <option value="AI Avatar Video" className="bg-[#121019] text-foreground">
+                        AI Avatar Video
+                      </option>
+                      <option
+                        value="Hyper-Realistic AI Video"
+                        className="bg-[#121019] text-foreground"
+                      >
+                        Hyper-Realistic AI Video
+                      </option>
+                      <option
+                        value="AI Digital Twin / Clone"
+                        className="bg-[#121019] text-foreground"
+                      >
+                        AI Digital Twin / Clone
+                      </option>
+                      <option value="Monthly Bulk Package" className="bg-[#121019] text-foreground">
+                        Monthly Package (5-15 Reels)
+                      </option>
+                      <option value="Custom Requirement" className="bg-[#121019] text-foreground">
+                        Custom AI Video
+                      </option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
+                  </div>
+                </div>
+              </div>
 
-          <div className="w-full">
-            <div className="flex items-center justify-between">
-              <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
-                Additional Notes
-              </label>
-              <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
-            </div>
-            <textarea
-              name="additional"
-              rows={2}
-              placeholder="Any specific duration, language, script ideas..."
-              className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
-            />
-          </div>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <div className="w-full">
+                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                    Your Business / Brand <span className="text-neon">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="business"
+                    required
+                    placeholder="e.g. Skincare, Real Estate..."
+                    className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
+                  />
+                </div>
+                <div className="w-full">
+                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                    Location (City / Country) <span className="text-neon">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="location"
+                    required
+                    placeholder="e.g. Pune, India"
+                    className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
+                  />
+                </div>
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-full bg-gradient-brand py-2.5 text-xs font-bold uppercase tracking-wider text-neon-foreground shadow-lg glow-neon transition-all hover:brightness-110 disabled:opacity-50 sm:py-3 sm:text-sm"
-            >
-              {loading ? "Submitting..." : "Submit & Request Quote"}
-            </button>
-          </form>
+              <div className="w-full">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-semibold text-foreground sm:text-xs">
+                    Additional Notes
+                  </label>
+                  <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
+                </div>
+                <textarea
+                  name="additional"
+                  rows={2}
+                  placeholder="Any specific duration, language, script ideas..."
+                  className="mt-1 w-full rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-neon focus:outline-none sm:text-sm"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-full bg-gradient-brand py-2.5 text-xs font-bold uppercase tracking-wider text-neon-foreground shadow-lg glow-neon transition-all hover:brightness-110 disabled:opacity-50 sm:py-3 sm:text-sm"
+              >
+                {loading ? "Submitting..." : "Submit & Request Quote"}
+              </button>
+            </form>
           </>
         )}
       </div>

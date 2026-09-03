@@ -63,9 +63,9 @@ export const portfolioItems = [
   },
   {
     format: "AI Avatar",
-    industry: "Real Estate & Corporate",
-    description: "Presenter-led project walkthrough and service explainer for business launches.",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-modern-luxury-house-and-swimming-pool-42539-large.mp4",
+    industry: "Corporate & Commercial",
+    description: "Hyper-realistic AI avatar presenter reel delivering high-impact business communication and project overviews.",
+    videoUrl: "/videos/Avtar Portfolio.mp4?v=2",
   },
   {
     format: "Hyper-Realistic",

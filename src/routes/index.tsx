@@ -8,6 +8,7 @@ import {
   FloatingWhatsAppButton,
   Header,
   Hero,
+  HeroOverview,
   Industries,
   LeadFormSection,
   Portfolio,
@@ -72,10 +73,11 @@ function Index() {
   }, []);
 
   return (
-    <div id="top" className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
+    <div id="top" className="min-h-screen w-full overflow-x-clip bg-background text-foreground">
       <Header />
       <main>
         <Hero />
+        <HeroOverview />
         <TrustStrip />
         <Samples />
         <Services />
