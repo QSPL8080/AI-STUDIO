@@ -640,11 +640,11 @@ export function Hero() {
             }}
           />
 
-          {/* Top & Left Content: Shifted lower down so bottom of logo extends behind the video card */}
+          {/* Top & Left Content: Cleanly positioned below navigation bar without excessive top offset */}
           <div
             ref={heroBrandRef}
-            className="absolute inset-0 pb-20 px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
-            style={{ paddingTop: `${headerHeight + 195}px` }}
+            className="absolute inset-0 pb-8 xl:pb-12 px-8 lg:px-12 xl:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
+            style={{ paddingTop: `${headerHeight + 20}px` }}
           >
             {/* Top: Giant "AI Studio" Title spanning across the screen */}
             <div className="w-full flex-shrink-0">
@@ -652,7 +652,7 @@ export function Hero() {
                 src="/images/ai studio logo hero.png"
                 alt="Quickupp AI Studio - Tech-Enabled AI Video Production Studio"
                 title="Quickupp AI Studio"
-                className="w-[98vw] max-w-none h-auto max-h-[52vh] object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
+                className="w-[98vw] max-w-none h-auto max-h-[38vh] xl:max-h-[46vh] object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
                 width={4267}
                 height={730}
                 loading="eager"
@@ -661,8 +661,8 @@ export function Hero() {
             </div>
 
             {/* Bottom Row: Primary Semantic H1 Headline on the left */}
-            <div className="w-full max-w-xl lg:max-w-2xl mb-8 pl-[5vw]">
-              <h1 className="text-3xl lg:text-4xl xl:text-[2.65rem] font-medium leading-[1.14] tracking-tight text-white/95">
+            <div className="w-full max-w-xl lg:max-w-2xl mb-4 xl:mb-6 pl-[4vw] lg:pl-[5vw]">
+              <h1 className="text-2xl lg:text-3xl xl:text-4xl font-medium leading-[1.18] tracking-tight text-white/95">
                 <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
                 video production studio.
               </h1>
@@ -1416,7 +1416,7 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
           muted={isMuted}
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
           className="absolute inset-0 h-full w-full object-cover"
         />
       )}
@@ -2061,7 +2061,7 @@ export function DigitalTwin() {
               loop
               playsInline
               webkit-playsinline="true"
-              preload="auto"
+              preload="metadata"
               className="h-full w-full object-cover"
             />
             <span className="absolute bottom-3 left-3 rounded-lg border border-white/10 bg-black/80 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-md backdrop-blur-md">
