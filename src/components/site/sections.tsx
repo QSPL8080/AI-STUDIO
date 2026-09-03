@@ -521,7 +521,7 @@ export function Hero() {
           mediaCardRef.current.style.width = expandP >= 0.98 ? "100%" : `${currentW}%`;
           mediaCardRef.current.style.height = expandP >= 0.98 ? "100%" : `${currentH}%`;
           mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2.5}vw`;
-          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 16}vh`;
+          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 10}vh`;
           mediaCardRef.current.style.borderRadius = `${currentRadius}px`;
           mediaCardRef.current.style.border =
             expandP >= 0.98 ? "none" : "1px solid rgba(255, 255, 255, 0.2)";
@@ -698,7 +698,7 @@ export function Hero() {
                 width: "36%",
                 height: "42%",
                 right: "2.5vw",
-                bottom: "16vh",
+                bottom: "10vh",
                 borderRadius: "20px",
               }}
             >
