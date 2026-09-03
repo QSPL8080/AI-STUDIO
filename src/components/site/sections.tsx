@@ -521,7 +521,7 @@ export function Hero() {
           mediaCardRef.current.style.width = expandP >= 0.98 ? "100%" : `${currentW}%`;
           mediaCardRef.current.style.height = expandP >= 0.98 ? "100%" : `${currentH}%`;
           mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2.5}vw`;
-          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 3}vh`;
+          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 16}vh`;
           mediaCardRef.current.style.borderRadius = `${currentRadius}px`;
           mediaCardRef.current.style.border =
             expandP >= 0.98 ? "none" : "1px solid rgba(255, 255, 255, 0.2)";
@@ -661,7 +661,7 @@ export function Hero() {
           <div
             ref={heroBrandRef}
             className="absolute inset-0 pb-6 lg:pb-8 xl:pb-10 px-6 lg:px-12 xl:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
-            style={{ paddingTop: `${headerHeight + 16}px` }}
+            style={{ paddingTop: `calc(${headerHeight}px + clamp(24px, 4.5vh, 52px))` }}
           >
             {/* Top: Giant "AI Studio" Title spanning across the screen and extending behind video card */}
             <div className="w-full flex-shrink-0">
@@ -669,7 +669,7 @@ export function Hero() {
                 src="/images/ai studio logo hero.png"
                 alt="Quickupp AI Studio - Tech-Enabled AI Video Production Studio"
                 title="Quickupp AI Studio"
-                className="h-[clamp(270px,44vh,500px)] w-auto max-w-none object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
+                className="w-full max-w-[96vw] lg:max-w-[95vw] xl:max-w-[94vw] 2xl:max-w-[1720px] h-auto object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
                 width={4267}
                 height={730}
                 loading="eager"
@@ -698,7 +698,7 @@ export function Hero() {
                 width: "36%",
                 height: "42%",
                 right: "2.5vw",
-                bottom: "3vh",
+                bottom: "16vh",
                 borderRadius: "20px",
               }}
             >
