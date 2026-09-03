@@ -88,7 +88,7 @@ export function Header() {
   }, []);
 
   return (
-    <div id="site-nav-container" className="fixed top-0 left-0 right-0 z-50 flex flex-col">
+    <header id="site-nav-container" className="fixed top-0 left-0 right-0 z-50 flex flex-col">
       {/* Top Highlight Announcement Bar */}
       {showAnnouncement && (
         <div className="relative border-b border-white/15 bg-gradient-to-r from-[#7c22e8] via-[#a832e6] to-[#ec1e79] px-3 py-1.5 sm:py-2 text-white shadow-[0_2px_15px_rgba(168,50,230,0.4)]">
@@ -151,7 +151,7 @@ export function Header() {
         </div>
       )}
 
-      <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
+      <div className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-3 md:py-3.5">
           <a
             href="#top"
@@ -169,34 +169,38 @@ export function Header() {
           </a>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1.5 lg:flex">
+          <nav
+            aria-label="Main Navigation"
+            className="hidden items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1.5 lg:flex"
+          >
             {nav.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
-                className="rounded-full px-3.5 py-1 text-sm text-muted-foreground transition-colors hover:text-neon"
+                className="rounded-full px-3.5 py-1.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:bg-white/10 hover:text-foreground active:scale-95"
               >
                 {item.label}
               </a>
             ))}
           </nav>
 
-          {/* Right CTA + Mobile Menu Toggle */}
-          <div className="flex items-center gap-2.5">
-            <a
+          {/* Right CTA */}
+          <div className="flex items-center gap-3">
+            <NeonButton
               href="#contact"
-              className="inline-flex whitespace-nowrap items-center justify-center rounded-full bg-gradient-brand px-3.5 sm:px-5 py-2 text-xs sm:text-sm font-bold text-neon-foreground shadow-md transition-all hover:brightness-110 active:scale-95"
+              variant="primary"
+              size="sm"
+              className="hidden sm:inline-flex"
             >
-              <span className="hidden sm:inline">Get AI Video Quote</span>
-              <span className="sm:hidden">Get Quote</span>
-            </a>
+              Get AI Video Quote
+            </NeonButton>
 
-            {/* Mobile/Tablet Menu Button */}
+            {/* Mobile / Tablet Menu Button */}
             <button
               type="button"
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-border/80 bg-secondary/60 text-foreground transition-all hover:border-neon hover:text-neon lg:hidden cursor-pointer"
-              aria-label="Toggle navigation menu"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-secondary/50 text-foreground transition-colors hover:border-neon hover:text-neon lg:hidden"
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -206,7 +210,10 @@ export function Header() {
 
         {/* Mobile & Tablet Navigation Menu Dropdown */}
         {mobileMenuOpen && (
-          <div className="border-b border-border/70 bg-[#0c0919]/98 px-5 py-5 shadow-2xl backdrop-blur-2xl lg:hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          <nav
+            aria-label="Mobile Navigation"
+            className="border-b border-border/70 bg-[#0c0919]/98 px-5 py-5 shadow-2xl backdrop-blur-2xl lg:hidden animate-in fade-in slide-in-from-top-2 duration-200"
+          >
             <div className="mx-auto flex max-w-md flex-col gap-1.5">
               {nav.map((item) => (
                 <a
@@ -240,10 +247,10 @@ export function Header() {
                 </a>
               </div>
             </div>
-          </div>
+          </nav>
         )}
-      </header>
-    </div>
+      </div>
+    </header>
   );
 }
 
@@ -257,6 +264,14 @@ export function Hero() {
   const mobileVideoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(116);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const checkScreen = () => setIsDesktop(window.innerWidth >= 1024);
+    checkScreen();
+    window.addEventListener("resize", checkScreen);
+    return () => window.removeEventListener("resize", checkScreen);
+  }, []);
 
   const toggleAudio = (e?: { stopPropagation?: () => void }) => {
     if (e?.stopPropagation) e.stopPropagation();
@@ -546,6 +561,7 @@ export function Hero() {
       <section
         id="hero-mobile-section"
         ref={mobileHeroRef}
+        aria-hidden={isDesktop}
         className="block lg:hidden relative overflow-hidden bg-background w-full min-h-[calc(100vh-60px)] px-4 sm:px-6 pb-12 flex flex-col items-center justify-center text-center"
         style={{ paddingTop: `${headerHeight + 20}px` }}
       >
@@ -619,6 +635,7 @@ export function Hero() {
       <section
         id="hero-scroll-track"
         ref={trackRef}
+        aria-hidden={!isDesktop}
         className="hidden lg:block relative w-full h-[280vh] bg-background"
       >
         <div
@@ -640,19 +657,19 @@ export function Hero() {
             }}
           />
 
-          {/* Top & Left Content: Cleanly positioned below navigation bar without excessive top offset */}
+          {/* Top & Left Content: Cleanly positioned below navigation bar, spanning across and behind video card */}
           <div
             ref={heroBrandRef}
-            className="absolute inset-0 pb-8 xl:pb-12 px-8 lg:px-12 xl:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
-            style={{ paddingTop: `${headerHeight + 20}px` }}
+            className="absolute inset-0 pb-6 lg:pb-8 xl:pb-10 px-6 lg:px-12 xl:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
+            style={{ paddingTop: `${headerHeight + 16}px` }}
           >
-            {/* Top: Giant "AI Studio" Title spanning across the screen */}
+            {/* Top: Giant "AI Studio" Title spanning across the screen and extending behind video card */}
             <div className="w-full flex-shrink-0">
               <img
                 src="/images/ai studio logo hero.png"
                 alt="Quickupp AI Studio - Tech-Enabled AI Video Production Studio"
                 title="Quickupp AI Studio"
-                className="w-[98vw] max-w-none h-auto max-h-[38vh] xl:max-h-[46vh] object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
+                className="h-[clamp(270px,44vh,500px)] w-auto max-w-none object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
                 width={4267}
                 height={730}
                 loading="eager"
@@ -661,8 +678,8 @@ export function Hero() {
             </div>
 
             {/* Bottom Row: Primary Semantic H1 Headline on the left */}
-            <div className="w-full max-w-xl lg:max-w-2xl mb-4 xl:mb-6 pl-[4vw] lg:pl-[5vw]">
-              <h1 className="text-2xl lg:text-3xl xl:text-4xl font-medium leading-[1.18] tracking-tight text-white/95">
+            <div className="w-full max-w-md lg:max-w-lg xl:max-w-xl mb-3 lg:mb-5 pl-[3vw] lg:pl-[4vw]">
+              <h1 className="text-xl lg:text-2xl xl:text-3xl font-medium leading-snug tracking-tight text-white/95">
                 <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
                 video production studio.
               </h1>
@@ -1396,10 +1413,7 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
   };
 
   return (
-    <article
-      onClick={togglePlay}
-      className="group relative flex aspect-[9/16] w-full flex-col justify-between overflow-hidden rounded-[24px] border border-border/80 bg-black p-4 sm:p-5 shadow-2xl transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_35px_-5px_rgba(217,70,239,0.35)] sm:w-[calc(50%-0.875rem)] lg:w-[calc(33.333%-1.25rem)] cursor-pointer"
-    >
+    <article className="group relative flex aspect-[9/16] w-full flex-col justify-between overflow-hidden rounded-[24px] border border-border/80 bg-black p-4 sm:p-5 shadow-2xl transition-all duration-300 hover:border-neon/60 hover:shadow-[0_0_35px_-5px_rgba(217,70,239,0.35)] sm:w-[calc(50%-0.875rem)] lg:w-[calc(33.333%-1.25rem)]">
       {/* Background Video (True 9:16 Reel Fit - No Crop) */}
       {sample.videoUrl && (
         <video
@@ -1417,9 +1431,17 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
           loop
           playsInline
           preload="metadata"
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover pointer-events-none"
         />
       )}
+
+      {/* Video Interactive Tap Area */}
+      <button
+        type="button"
+        onClick={togglePlay}
+        className="absolute inset-0 h-full w-full cursor-pointer z-0 border-none bg-transparent p-0 text-left"
+        aria-label={isPlaying ? `Pause ${sample.format} video` : `Play ${sample.format} video`}
+      />
 
       {/* Cinematic Soft Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/50 pointer-events-none" />
