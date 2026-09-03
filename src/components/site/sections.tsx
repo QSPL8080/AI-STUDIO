@@ -249,6 +249,7 @@ export function Header() {
 
 export function Hero() {
   const trackRef = useRef<HTMLDivElement>(null);
+  const mobileHeroRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const heroBrandRef = useRef<HTMLDivElement>(null);
   const mediaCardRef = useRef<HTMLDivElement>(null);
@@ -318,6 +319,45 @@ export function Hero() {
     return () => window.removeEventListener("resize", handleAutoplay);
   }, []);
 
+  // IntersectionObserver: automatically stop and mute when hero section is not in view
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const isMobile = window.innerWidth < 1024;
+          const targetVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
+          if (!targetVideo) return;
+
+          if (entry.isIntersecting && entry.intersectionRatio > 0.05) {
+            // User is on the hero section -> play
+            targetVideo.play().catch(() => {});
+          } else {
+            // User scrolled away from hero section -> STOP AND MUTE!
+            if (mobileVideoRef.current) {
+              mobileVideoRef.current.pause();
+              mobileVideoRef.current.muted = true;
+            }
+            if (desktopVideoRef.current) {
+              desktopVideoRef.current.pause();
+              desktopVideoRef.current.muted = true;
+            }
+            setIsMuted(true);
+          }
+        });
+      },
+      { threshold: [0, 0.05, 0.2] },
+    );
+
+    if (mobileHeroRef.current) {
+      observer.observe(mobileHeroRef.current);
+    }
+    if (trackRef.current) {
+      observer.observe(trackRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     const updateHeaderHeight = () => {
       const nav = document.getElementById("site-nav-container");
@@ -345,6 +385,25 @@ export function Hero() {
   useEffect(() => {
     let animationFrameId: number;
 
+    const handleMobileScroll = () => {
+      if (window.innerWidth >= 1024) return;
+      if (!mobileHeroRef.current || !mobileVideoRef.current) return;
+
+      const rect = mobileHeroRef.current.getBoundingClientRect();
+      // If mobile hero section has scrolled past top (leaving screen) or is below view:
+      if (rect.bottom <= 60 || rect.top >= window.innerHeight) {
+        if (!mobileVideoRef.current.paused) {
+          mobileVideoRef.current.pause();
+          mobileVideoRef.current.muted = true;
+          setIsMuted(true);
+        }
+      } else {
+        if (mobileVideoRef.current.paused) {
+          mobileVideoRef.current.play().catch(() => {});
+        }
+      }
+    };
+
     const handleScroll = () => {
       if (window.innerWidth < 1024) return; // Desktop cinema engine only
       if (!trackRef.current || !containerRef.current) return;
@@ -369,16 +428,28 @@ export function Hero() {
         containerRef.current.style.position = "absolute";
         containerRef.current.style.top = "0px";
         containerRef.current.style.bottom = "auto";
+        if (desktopVideoRef.current && desktopVideoRef.current.paused) {
+          desktopVideoRef.current.play().catch(() => {});
+        }
       } else if (scrolled >= scrollableDistance) {
         // Phase 3: Scrolled past hero hold, rolling up cleanly into the next section
         containerRef.current.style.position = "absolute";
         containerRef.current.style.top = "auto";
         containerRef.current.style.bottom = "0px";
+        // User scrolled past hero section: STOP AND MUTE!
+        if (desktopVideoRef.current && !desktopVideoRef.current.paused) {
+          desktopVideoRef.current.pause();
+          desktopVideoRef.current.muted = true;
+          setIsMuted(true);
+        }
       } else {
         // Phase 2: Active Scroll & Locked Hold — FIXED TO VIEWPORT, NEVER SCROLLS OFF OR DISAPPEARS!
         containerRef.current.style.position = "fixed";
         containerRef.current.style.top = "0px";
         containerRef.current.style.bottom = "auto";
+        if (desktopVideoRef.current && desktopVideoRef.current.paused) {
+          desktopVideoRef.current.play().catch(() => {});
+        }
       }
 
       // 1. Hero Brand Logo & Subtitle: Glides smoothly UPWARDS and disappears slowly as video expands
@@ -445,17 +516,22 @@ export function Hero() {
 
     const onScroll = () => {
       cancelAnimationFrame(animationFrameId);
-      animationFrameId = requestAnimationFrame(handleScroll);
+      animationFrameId = requestAnimationFrame(() => {
+        handleScroll();
+        handleMobileScroll();
+      });
     };
 
     const onResize = () => {
       handleScroll();
+      handleMobileScroll();
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize, { passive: true });
 
     handleScroll();
+    handleMobileScroll();
 
     return () => {
       window.removeEventListener("scroll", onScroll);
@@ -469,6 +545,7 @@ export function Hero() {
       {/* 1. MOBILE & TABLET VIEW (< 1024px): Video centered in between, sentence below it */}
       <section
         id="hero-mobile-section"
+        ref={mobileHeroRef}
         className="block lg:hidden relative overflow-hidden bg-background w-full min-h-[calc(100vh-60px)] px-4 sm:px-6 pb-12 flex flex-col items-center justify-center text-center"
         style={{ paddingTop: `${headerHeight + 20}px` }}
       >
