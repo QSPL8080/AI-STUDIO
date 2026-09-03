@@ -84,12 +84,51 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "AI video production services for businesses: AI UGC, avatar, cartoon, hyper-realistic and digital twin videos.",
       },
+      {
+        name: "keywords",
+        content:
+          "AI video production, AI video production studio, AI UGC videos, AI avatar videos, digital twin videos, AI cartoon animation, hyper-realistic AI video, Quickupp AI Studio",
+      },
       { name: "author", content: "Quickupp AI Studio" },
+      { name: "publisher", content: "Quickupp AI Studio" },
+      {
+        name: "robots",
+        content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
+      },
       { property: "og:site_name", content: "Quickupp AI Studio" },
       { property: "og:type", content: "website" },
+      {
+        property: "og:title",
+        content: "Quickupp AI Studio | AI Video Production, UGC & Digital Avatars",
+      },
+      {
+        property: "og:description",
+        content:
+          "AI video production services for businesses: AI UGC, avatar, cartoon, hyper-realistic and digital twin videos.",
+      },
+      { property: "og:url", content: "https://www.quickuppaistudio.com/" },
+      { property: "og:image", content: "https://www.quickuppaistudio.com/images/logo.png" },
       { name: "twitter:card", content: "summary_large_image" },
+      {
+        name: "twitter:title",
+        content: "Quickupp AI Studio | AI Video Production, UGC & Digital Avatars",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "AI video production services for businesses: AI UGC, avatar, cartoon, hyper-realistic and digital twin videos.",
+      },
+      { name: "twitter:image", content: "https://www.quickuppaistudio.com/images/logo.png" },
     ],
     links: [
+      {
+        rel: "canonical",
+        href: "https://www.quickuppaistudio.com/",
+      },
+      {
+        rel: "publisher",
+        href: "https://www.quickuppaistudio.com/",
+      },
       {
         rel: "stylesheet",
         href: appCss,

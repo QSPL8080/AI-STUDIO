@@ -623,10 +623,10 @@ export function Hero() {
 
           {/* Below that: The Sentence (Nothing else than that) */}
           <div className="mt-5 sm:mt-6 w-full px-2">
-            <h1 className="text-lg sm:text-2xl font-medium leading-snug tracking-tight text-white/95">
+            <p className="text-lg sm:text-2xl font-medium leading-snug tracking-tight text-white/95">
               <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
               video production studio.
-            </h1>
+            </p>
           </div>
         </div>
       </section>
