@@ -7,13 +7,7 @@ export const heroBadges = [
   "1 Revision Included",
 ];
 
-export const formats = [
-  "AI UGC",
-  "AI Cartoon",
-  "AI Avatar",
-  "Hyper-Realistic",
-  "Digital Twin",
-];
+export const formats = ["AI UGC", "AI Cartoon", "AI Avatar", "Hyper-Realistic", "Digital Twin"];
 
 export const samples = [
   {
@@ -25,26 +19,30 @@ export const samples = [
   {
     format: "AI Avatar",
     industry: "Healthcare & Real Estate",
-    description: "Professional presenter-led explainer reel for clinics, property, and corporate services.",
+    description:
+      "Professional presenter-led explainer reel for clinics, property, and corporate services.",
     videoUrl: "/videos/Avtar Sample.mp4?v=2",
   },
   {
     format: "Hyper-Realistic",
     industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-diamond-ring-sparkling-in-the-dark-42866-large.mp4",
+    videoUrl:
+      "https://assets.mixkit.co/videos/preview/mixkit-diamond-ring-sparkling-in-the-dark-42866-large.mp4",
   },
   {
     format: "AI Cartoon",
     industry: "Food & Confectionery",
-    description: "Engaging animated brand storytelling reel with custom characters for Chitale Kesar Modak.",
+    description:
+      "Engaging animated brand storytelling reel with custom characters for Chitale Kesar Modak.",
     videoUrl: "/videos/Cartoon Sample.mp4?v=2",
   },
   {
     format: "Digital Twin",
     industry: "Founder Branding",
     description: "Founder-led update reel created from an approved digital twin.",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-man-working-with-futuristic-technology-41485-large.mp4",
+    videoUrl:
+      "https://assets.mixkit.co/videos/preview/mixkit-man-working-with-futuristic-technology-41485-large.mp4",
   },
 ];
 
@@ -52,32 +50,37 @@ export const portfolioItems = [
   {
     format: "AI Cartoon",
     industry: "3D Character Animation",
-    description: "Expressive 3D character animation and storytelling reel for creative brands and entertainment.",
+    description:
+      "Expressive 3D character animation and storytelling reel for creative brands and entertainment.",
     videoUrl: "/videos/Cartoon Portfolio.mp4?v=2",
   },
   {
     format: "AI UGC",
     industry: "D2C & Consumer Brands",
-    description: "Authentic creator-led AI UGC product review and demonstration reel designed for high conversions.",
+    description:
+      "Authentic creator-led AI UGC product review and demonstration reel designed for high conversions.",
     videoUrl: "/videos/UGC Porfolio.mp4?v=2",
   },
   {
     format: "AI Avatar",
     industry: "Corporate & Commercial",
-    description: "Hyper-realistic AI avatar presenter reel delivering high-impact business communication and project overviews.",
-    videoUrl: "/videos/Avtar Portfolio.mp4?v=2",
+    description:
+      "Hyper-realistic AI avatar presenter reel delivering high-impact business communication and project overviews.",
+    videoUrl: "/videos/Avtar Sample.mp4?v=2",
   },
   {
     format: "Hyper-Realistic",
     industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-diamond-ring-sparkling-in-the-dark-42866-large.mp4",
+    videoUrl:
+      "https://assets.mixkit.co/videos/preview/mixkit-diamond-ring-sparkling-in-the-dark-42866-large.mp4",
   },
   {
     format: "Digital Twin",
     industry: "Founder Branding",
     description: "Founder-led update reel created from an approved digital twin.",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-man-working-with-futuristic-technology-41485-large.mp4",
+    videoUrl:
+      "https://assets.mixkit.co/videos/preview/mixkit-man-working-with-futuristic-technology-41485-large.mp4",
   },
 ];
 
@@ -152,8 +155,7 @@ export const services = [
     title: "AI Digital Twin & Clone Video Services",
     description:
       "Create recurring video content using an appropriately authorized digital twin and AI voice setup.",
-    bestFor:
-      "Founders, Doctors, Coaches, Consultants, Educators, Influencers and Personal Brands.",
+    bestFor: "Founders, Doctors, Coaches, Consultants, Educators, Influencers and Personal Brands.",
     items: [
       "Founder Videos",
       "Personal Branding",
@@ -171,8 +173,7 @@ export const services = [
 export const whyAiVideo = [
   {
     title: "Create More Content",
-    description:
-      "Produce more videos for social media, advertising and content marketing.",
+    description: "Produce more videos for social media, advertising and content marketing.",
   },
   {
     title: "Faster Production",
@@ -186,8 +187,7 @@ export const whyAiVideo = [
   },
   {
     title: "Consistent Content",
-    description:
-      "Maintain consistent messaging, presentation and visual style across your videos.",
+    description: "Maintain consistent messaging, presentation and visual style across your videos.",
   },
   {
     title: "Scalable Video Marketing",
@@ -383,36 +383,31 @@ export const industries = [
   },
   {
     name: "D2C & E-commerce",
-    description:
-      "Product demonstrations, reviews, UGC advertisements and product promotions.",
+    description: "Product demonstrations, reviews, UGC advertisements and product promotions.",
     recommended: "AI UGC, Hyper-Realistic",
     image: "/images/3rd card.jpeg",
   },
   {
     name: "Beauty & Skincare",
-    description:
-      "Product recommendations, tutorials, testimonials and creator-style content.",
+    description: "Product recommendations, tutorials, testimonials and creator-style content.",
     recommended: "AI UGC, Hyper-Realistic",
     image: "/images/4th card.jpeg",
   },
   {
     name: "Interior Design",
-    description:
-      "Project showcases, design concepts, transformations and premium visual content.",
+    description: "Project showcases, design concepts, transformations and premium visual content.",
     recommended: "Hyper-Realistic, AI UGC",
     image: "/images/5th card.jpeg",
   },
   {
     name: "Restaurants & Cafes",
-    description:
-      "Food promotions, product videos, animated content and social media reels.",
+    description: "Food promotions, product videos, animated content and social media reels.",
     recommended: "AI UGC, Cartoon",
     image: "/images/6th card.jpeg",
   },
   {
     name: "Education & Coaching",
-    description:
-      "Educational explainers, lessons, promotional videos and presenter content.",
+    description: "Educational explainers, lessons, promotional videos and presenter content.",
     recommended: "AI Avatar, Cartoon, Digital Twin",
     image: "/images/7th card.jpeg",
   },
@@ -425,30 +420,26 @@ export const industries = [
   },
   {
     name: "Finance & Insurance",
-    description:
-      "Financial explainers, educational content and professional presenter videos.",
+    description: "Financial explainers, educational content and professional presenter videos.",
     recommended: "AI Avatar, Digital Twin",
     image: "/images/9th card.jpeg",
   },
   {
     name: "Travel & Tourism",
-    description:
-      "Destination promotions, travel content, UGC videos and advertising creatives.",
+    description: "Destination promotions, travel content, UGC videos and advertising creatives.",
     recommended: "AI UGC, AI Avatar, Hyper-Realistic",
     image: "/images/10th card.jpeg",
   },
   {
     name: "Fitness & Wellness",
-    description:
-      "Workout content, wellness education, promotional videos and personal branding.",
+    description: "Workout content, wellness education, promotional videos and personal branding.",
     recommended: "AI UGC, Digital Twin",
     image: "/images/11th card.jpeg",
     opacityClass: "opacity-65",
   },
   {
     name: "Jewellery & Luxury",
-    description:
-      "Premium product visuals, cinematic advertisements and luxury brand storytelling.",
+    description: "Premium product visuals, cinematic advertisements and luxury brand storytelling.",
     recommended: "Hyper-Realistic, AI UGC",
     image: "/images/12th card.jpeg",
   },
@@ -479,8 +470,7 @@ export const useCases = [
 export const processSteps = [
   {
     title: "Share Your Requirement",
-    description:
-      "Tell us about your business, product/service, audience and video objective.",
+    description: "Tell us about your business, product/service, audience and video objective.",
   },
   {
     title: "Script & Concept",
@@ -497,21 +487,18 @@ export const processSteps = [
   },
   {
     title: "Review & Revision",
-    description:
-      "Review the completed video and use the included revision where applicable.",
+    description: "Review the completed video and use the included revision where applicable.",
   },
   {
     title: "Final Delivery",
-    description:
-      "After completion of the balance payment, the final video is delivered.",
+    description: "After completion of the balance payment, the final video is delivered.",
   },
 ];
 
 export const whyUs = [
   {
     title: "5+ AI Video Formats",
-    description:
-      "From AI UGC and AI avatars to hyper-realistic videos and digital twins.",
+    description: "From AI UGC and AI avatars to hyper-realistic videos and digital twins.",
   },
   {
     title: "Business-Focused Content",
@@ -608,7 +595,6 @@ export const footerPhone = "+91 9970344139";
 export const footerIndiaAddress =
   "Office 411, Suratwala Mark Plazzo, Hinjewadi, Phase 1, Pune, 411057, India";
 export const footerIndiaMapUrl = "https://maps.app.goo.gl/geUWrpRet8nY8qbW6";
-export const footerUsaAddress =
-  "8 The Green, Suite A, Dover, Delaware - 19901, USA";
+export const footerUsaAddress = "8 The Green, Suite A, Dover, Delaware - 19901, USA";
 export const footerUsaMapUrl = "https://maps.app.goo.gl/2rLqrCN4rco2XpQr5";
 export const footerCopyright = `© ${new Date().getFullYear()} Quickupp AI Studio. All rights reserved.`;

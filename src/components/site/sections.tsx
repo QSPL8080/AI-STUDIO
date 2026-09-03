@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp,
   BadgeCheck,
@@ -951,8 +951,8 @@ export function Samples() {
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   const filters = ["All", ...formats];
-  const allFiltered =
-    activeTab === "All"
+  const allFiltered = useMemo(() => {
+    return activeTab === "All"
       ? samples
       : samples.filter(
           (s) =>
@@ -963,12 +963,16 @@ export function Samples() {
             (activeTab === "Hyper-Realistic" && s.format.includes("Realistic")) ||
             (activeTab === "Digital Twin" && s.format.includes("Twin")),
         );
+  }, [activeTab]);
 
   // Group filtered samples into pairs of 2
-  const pairs: (typeof samples)[] = [];
-  for (let i = 0; i < allFiltered.length; i += 2) {
-    pairs.push(allFiltered.slice(i, i + 2));
-  }
+  const pairs = useMemo(() => {
+    const list: (typeof samples)[] = [];
+    for (let i = 0; i < allFiltered.length; i += 2) {
+      list.push(allFiltered.slice(i, i + 2));
+    }
+    return list;
+  }, [allFiltered]);
 
   // Observe cards container directly so animation plays right when cards enter the viewport
   useEffect(() => {
@@ -979,10 +983,9 @@ export function Samples() {
       ([entry]) => {
         if (entry?.isIntersecting) {
           setIsInView(true);
-          observer.unobserve(el);
         }
       },
-      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" },
+      { threshold: 0.05, rootMargin: "60px 0px 60px 0px" },
     );
 
     observer.observe(el);
@@ -1010,7 +1013,38 @@ export function Samples() {
     setCompletedMap({});
   }, [activeTab]);
 
-  const currentPair = pairs[currentIndex] || pairs[0] || [];
+  const currentPair = useMemo(() => pairs[currentIndex] || pairs[0] || [], [pairs, currentIndex]);
+
+  // Autoplay active video pair smoothly across mobile and desktop
+  useEffect(() => {
+    if (!isInView) return;
+
+    currentPair.forEach((_, idx) => {
+      const video = videoRefs.current[idx];
+      if (video) {
+        video.defaultMuted = true;
+        video.muted = true;
+        video.playsInline = true;
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            const onGesture = () => {
+              const v = videoRefs.current[idx];
+              if (v) {
+                v.defaultMuted = true;
+                v.muted = true;
+                v.play().catch(() => {});
+              }
+              window.removeEventListener("touchstart", onGesture);
+              window.removeEventListener("scroll", onGesture);
+            };
+            window.addEventListener("touchstart", onGesture, { once: true, passive: true });
+            window.addEventListener("scroll", onGesture, { once: true, passive: true });
+          });
+        }
+      }
+    });
+  }, [isInView, currentIndex, activeTab, currentPair]);
 
   const handleVideoEnded = (idx: number) => {
     setCompletedMap((prev) => {
@@ -1032,7 +1066,7 @@ export function Samples() {
     const video = videoRefs.current[idx];
     if (video) {
       video.currentTime = 0;
-      video.play();
+      video.play().catch(() => {});
     }
   };
 
@@ -1101,17 +1135,31 @@ export function Samples() {
                 }`}
               >
                 {/* Authentic 9:16 Vertical Reel Player with dark stylish border */}
-                <div className="relative aspect-[9/16] w-full max-w-[260px] sm:max-w-[280px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60">
+                <div
+                  onClick={() => {
+                    const v = videoRefs.current[idx];
+                    if (v) {
+                      if (v.paused) v.play().catch(() => {});
+                      else v.pause();
+                    }
+                  }}
+                  className="relative aspect-[9/16] w-full max-w-[260px] sm:max-w-[280px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60 cursor-pointer"
+                >
                   <video
                     ref={(el) => {
                       videoRefs.current[idx] = el;
+                      if (el) {
+                        el.defaultMuted = true;
+                        el.muted = true;
+                        el.playsInline = true;
+                      }
                     }}
                     key={item.videoUrl}
                     src={item.videoUrl}
                     autoPlay
                     muted
                     playsInline
-                    preload="metadata"
+                    preload="auto"
                     onEnded={() => handleVideoEnded(idx)}
                     className="h-full w-full object-cover"
                   />
@@ -1274,11 +1322,59 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.defaultMuted = true;
+    video.muted = true;
+    video.playsInline = true;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => setIsPlaying(true))
+              .catch(() => {
+                video.defaultMuted = true;
+                video.muted = true;
+                video
+                  .play()
+                  .then(() => setIsPlaying(true))
+                  .catch(() => {});
+                const onInteract = () => {
+                  video
+                    .play()
+                    .then(() => setIsPlaying(true))
+                    .catch(() => {});
+                  window.removeEventListener("touchstart", onInteract);
+                  window.removeEventListener("scroll", onInteract);
+                };
+                window.addEventListener("touchstart", onInteract, { once: true, passive: true });
+                window.addEventListener("scroll", onInteract, { once: true, passive: true });
+              });
+          }
+        } else {
+          video.pause();
+          setIsPlaying(false);
+        }
+      },
+      { threshold: 0.08, rootMargin: "40px 0px 40px 0px" },
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [sample.videoUrl]);
+
   const togglePlay = () => {
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
-      videoRef.current.play();
-      setIsPlaying(true);
+      videoRef.current
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {});
     } else {
       videoRef.current.pause();
       setIsPlaying(false);
@@ -1288,8 +1384,15 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
   const toggleMute = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!videoRef.current) return;
-    videoRef.current.muted = !videoRef.current.muted;
-    setIsMuted(videoRef.current.muted);
+    const nextMuted = !videoRef.current.muted;
+    videoRef.current.muted = nextMuted;
+    setIsMuted(nextMuted);
+    if (!nextMuted && videoRef.current.paused) {
+      videoRef.current
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {});
+    }
   };
 
   return (
@@ -1300,13 +1403,20 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
       {/* Background Video (True 9:16 Reel Fit - No Crop) */}
       {sample.videoUrl && (
         <video
-          ref={videoRef}
+          ref={(el) => {
+            videoRef.current = el;
+            if (el) {
+              el.defaultMuted = true;
+              el.muted = isMuted;
+              el.playsInline = true;
+            }
+          }}
           src={sample.videoUrl}
           autoPlay
           muted={isMuted}
           loop
           playsInline
-          preload="metadata"
+          preload="auto"
           className="absolute inset-0 h-full w-full object-cover"
         />
       )}
@@ -1819,6 +1929,7 @@ export function Deliverables() {
 
 export function DigitalTwin() {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const twinVideoRef = useRef<HTMLVideoElement>(null);
   const [isInView, setIsInView] = useState(false);
   const twinSample = samples.find((s) => s.format === "Digital Twin") || samples[4];
 
@@ -1830,15 +1941,40 @@ export function DigitalTwin() {
       ([entry]) => {
         if (entry?.isIntersecting) {
           setIsInView(true);
-          observer.unobserve(el);
         }
       },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
+      { threshold: 0.05, rootMargin: "50px 0px 50px 0px" },
     );
 
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const video = twinVideoRef.current;
+    if (!video || !isInView) return;
+
+    video.defaultMuted = true;
+    video.muted = true;
+    video.playsInline = true;
+
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        const onTouch = () => {
+          if (twinVideoRef.current) {
+            twinVideoRef.current.defaultMuted = true;
+            twinVideoRef.current.muted = true;
+            twinVideoRef.current.play().catch(() => {});
+          }
+          window.removeEventListener("touchstart", onTouch);
+          window.removeEventListener("scroll", onTouch);
+        };
+        window.addEventListener("touchstart", onTouch, { once: true, passive: true });
+        window.addEventListener("scroll", onTouch, { once: true, passive: true });
+      });
+    }
+  }, [isInView, twinSample?.videoUrl]);
 
   return (
     <Section id="digital-twin" className="bg-surface/40 overflow-hidden">
@@ -1901,8 +2037,24 @@ export function DigitalTwin() {
           </ul>
 
           {/* Reel Card from Right Side beside the points */}
-          <div className="relative aspect-[9/16] w-full max-w-[200px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60 sm:max-w-[210px] md:max-w-[220px]">
+          <div
+            onClick={() => {
+              if (twinVideoRef.current) {
+                if (twinVideoRef.current.paused) twinVideoRef.current.play().catch(() => {});
+                else twinVideoRef.current.pause();
+              }
+            }}
+            className="relative aspect-[9/16] w-full max-w-[200px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60 sm:max-w-[210px] md:max-w-[220px] cursor-pointer"
+          >
             <video
+              ref={(el) => {
+                twinVideoRef.current = el;
+                if (el) {
+                  el.defaultMuted = true;
+                  el.muted = true;
+                  el.playsInline = true;
+                }
+              }}
               src={twinSample?.videoUrl}
               autoPlay
               muted
