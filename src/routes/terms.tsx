@@ -85,7 +85,10 @@ export function TermsPage() {
       {/* Top Header */}
       <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3.5">
-          <Link to="/" className="-ml-3 sm:-ml-5 flex items-center transition-opacity hover:opacity-90">
+          <Link
+            to="/"
+            className="-ml-3 sm:-ml-5 flex items-center transition-opacity hover:opacity-90"
+          >
             <img
               src="/images/logo.png"
               alt="Quickupp AI Studio logo"
@@ -114,10 +117,13 @@ export function TermsPage() {
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
             Terms, Conditions &amp;{" "}
-            <span className="font-serif italic text-gradient-brand">Privacy Policy</span>
+            <span className="font-serif italic text-gradient-brand inline-block pr-1.5">
+              Privacy Policy
+            </span>
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Please review the following terms, operational policies, and guidelines applicable to all AI video production services provided by Quickupp AI Studio.
+            Please review the following terms, operational policies, and guidelines applicable to
+            all AI video production services provided by Quickupp AI Studio.
           </p>
         </div>
 
@@ -151,7 +157,8 @@ export function TermsPage() {
                 Have questions about these terms or a custom project?
               </h3>
               <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                Our team is available to clarify any project requirements, custom scopes, or turnaround schedules.
+                Our team is available to clarify any project requirements, custom scopes, or
+                turnaround schedules.
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-3">

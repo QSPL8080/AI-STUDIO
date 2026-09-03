@@ -973,7 +973,7 @@ export function HeroOverview() {
               }`}
             >
               AI Video Production Services for{" "}
-              <span className="font-serif italic font-bold text-gradient-brand">
+              <span className="font-serif italic font-bold text-gradient-brand inline-block pr-1.5">
                 Modern Businesses
               </span>
             </h2>
@@ -2147,7 +2147,7 @@ export function DigitalTwin() {
           </span>
           <h2 className="mt-4 text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl">
             Build Your AI Digital Twin Once.{" "}
-            <span className="font-serif italic text-gradient-brand">
+            <span className="font-serif italic text-gradient-brand inline-block pr-1.5">
               Create Videos Again and Again.
             </span>
           </h2>
@@ -2825,7 +2825,7 @@ export function WhatsAppCtaSection() {
       <div className="mx-auto max-w-4xl text-center">
         <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
           Have a Video Idea? Let's Turn It Into an{" "}
-          <span className="font-serif italic font-bold text-gradient-brand whitespace-nowrap">
+          <span className="font-serif italic font-bold text-gradient-brand whitespace-nowrap inline-block pr-1.5">
             AI Reel.
           </span>
         </h2>
@@ -2937,7 +2937,9 @@ export function Contact() {
           </span>
           <h2 className="mx-auto mt-3.5 max-w-xl text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
             Ready to Create Your Next{" "}
-            <span className="font-serif italic text-gradient-brand">AI Video?</span>
+            <span className="font-serif italic text-gradient-brand inline-block pr-1.5">
+              AI Video?
+            </span>
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm font-normal leading-relaxed text-foreground/90 md:text-base">
             Turn your product, service or idea into engaging AI-powered video content.
@@ -3282,7 +3284,9 @@ export function QuotePopupModal() {
               </span>
               <h3 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-2xl">
                 Let's Create Your Next{" "}
-                <span className="font-serif italic text-gradient-brand">AI Video</span>
+                <span className="font-serif italic text-gradient-brand inline-block pr-1.5">
+                  AI Video
+                </span>
               </h3>
               <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                 Fill in your details below and our team will get in touch with a customized quote.

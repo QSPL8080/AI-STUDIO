@@ -10,7 +10,10 @@ export function Section({
   className?: string;
 }) {
   return (
-    <section id={id} className={`scroll-mt-[72px] px-4 py-8 sm:px-6 sm:py-10 md:py-12 lg:py-14 ${className}`}>
+    <section
+      id={id}
+      className={`scroll-mt-[72px] px-4 py-8 sm:px-6 sm:py-10 md:py-12 lg:py-14 ${className}`}
+    >
       <div className="mx-auto w-full max-w-6xl">{children}</div>
     </section>
   );
@@ -41,7 +44,9 @@ export function SectionHeading({
       <h2 className="mt-3.5 font-heading text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl text-white">
         {title}{" "}
         {highlight ? (
-          <span className="font-serif italic font-bold text-gradient-brand">{highlight}</span>
+          <span className="font-serif italic font-bold text-gradient-brand inline-block pr-1.5">
+            {highlight}
+          </span>
         ) : null}
       </h2>
       {description ? (

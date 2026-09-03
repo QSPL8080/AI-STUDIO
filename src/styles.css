@@ -224,12 +224,20 @@
 }
 
 @utility text-gradient-brand {
+  display: inline-block;
   background-image: var(--gradient-brand);
   background-clip: text;
+  -webkit-background-clip: text;
   color: transparent;
+  -webkit-text-fill-color: transparent;
   font-family: var(--font-serif) !important;
   font-weight: 700 !important;
   font-style: italic !important;
+  padding-right: 0.28em;
+  padding-left: 0.04em;
+  padding-bottom: 0.06em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 @utility bg-gradient-brand {
