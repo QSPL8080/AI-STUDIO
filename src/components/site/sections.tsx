@@ -264,6 +264,8 @@ export function Hero() {
   const mediaCardRef = useRef<HTMLDivElement>(null);
   const desktopVideoRef = useRef<HTMLVideoElement>(null);
   const mobileVideoRef = useRef<HTMLVideoElement>(null);
+  const userExplicitlyMutedRef = useRef(false);
+  const cleanupInteractionRef = useRef<(() => void) | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(116);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -279,15 +281,28 @@ export function Hero() {
     if (e?.stopPropagation) e.stopPropagation();
     const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
     const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
-    if (activeVideo) {
-      const nextMuted = !activeVideo.muted;
-      activeVideo.muted = nextMuted;
-      if (mobileVideoRef.current) mobileVideoRef.current.muted = nextMuted;
-      if (desktopVideoRef.current) desktopVideoRef.current.muted = nextMuted;
-      setIsMuted(nextMuted);
-      if (!nextMuted) {
-        activeVideo.play().catch(() => {});
+    if (!activeVideo) return;
+
+    const nextMuted = !activeVideo.muted;
+    userExplicitlyMutedRef.current = nextMuted;
+
+    // Immediately teardown any pending autoplay interaction listeners so they can never fire
+    if (cleanupInteractionRef.current) {
+      cleanupInteractionRef.current();
+      cleanupInteractionRef.current = null;
+    }
+
+    // Apply to both desktop and mobile video nodes
+    [mobileVideoRef.current, desktopVideoRef.current].forEach((v) => {
+      if (v) {
+        v.muted = nextMuted;
+        v.volume = nextMuted ? 0 : 1;
       }
+    });
+
+    setIsMuted(nextMuted);
+    if (!nextMuted) {
+      activeVideo.play().catch(() => {});
     }
   };
 
@@ -299,30 +314,53 @@ export function Hero() {
 
       if (inactiveVideo) {
         inactiveVideo.pause();
+        inactiveVideo.muted = true;
+        inactiveVideo.volume = 0;
       }
 
       if (!activeVideo) return;
+
+      // If user has explicitly chosen to mute, NEVER attempt unmuted playback
+      if (userExplicitlyMutedRef.current) {
+        activeVideo.muted = true;
+        activeVideo.volume = 0;
+        setIsMuted(true);
+        activeVideo.play().catch(() => {});
+        return;
+      }
+
       activeVideo.muted = false;
+      activeVideo.volume = 1;
 
       const playPromise = activeVideo.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => {
           activeVideo.muted = true;
+          activeVideo.volume = 0;
           setIsMuted(true);
           activeVideo.play().catch(() => {});
 
           const unmuteOnInteraction = () => {
+            // If user explicitly muted in the meantime, NEVER unmute!
+            if (userExplicitlyMutedRef.current) return;
+
             const currentActive =
               window.innerWidth < 1024 ? mobileVideoRef.current : desktopVideoRef.current;
-            if (currentActive) {
+            if (currentActive && !userExplicitlyMutedRef.current) {
               currentActive.muted = false;
+              currentActive.volume = 1;
               setIsMuted(false);
               currentActive.play().catch(() => {});
             }
+            cleanup();
+          };
+
+          const cleanup = () => {
             window.removeEventListener("pointerdown", unmuteOnInteraction);
             window.removeEventListener("keydown", unmuteOnInteraction);
             window.removeEventListener("scroll", unmuteOnInteraction);
           };
+          cleanupInteractionRef.current = cleanup;
 
           window.addEventListener("pointerdown", unmuteOnInteraction, { once: true });
           window.addEventListener("keydown", unmuteOnInteraction, { once: true });
@@ -333,7 +371,13 @@ export function Hero() {
 
     handleAutoplay();
     window.addEventListener("resize", handleAutoplay);
-    return () => window.removeEventListener("resize", handleAutoplay);
+    return () => {
+      window.removeEventListener("resize", handleAutoplay);
+      if (cleanupInteractionRef.current) {
+        cleanupInteractionRef.current();
+        cleanupInteractionRef.current = null;
+      }
+    };
   }, []);
 
   // IntersectionObserver: automatically stop and mute when hero section is not in view
@@ -346,17 +390,23 @@ export function Hero() {
           if (!targetVideo) return;
 
           if (entry.isIntersecting && entry.intersectionRatio > 0.05) {
-            // User is on the hero section -> play
+            // User is on the hero section -> play only, preserving explicit mute state
+            if (userExplicitlyMutedRef.current) {
+              targetVideo.muted = true;
+              targetVideo.volume = 0;
+            }
             targetVideo.play().catch(() => {});
           } else {
             // User scrolled away from hero section -> STOP AND MUTE!
             if (mobileVideoRef.current) {
               mobileVideoRef.current.pause();
               mobileVideoRef.current.muted = true;
+              mobileVideoRef.current.volume = 0;
             }
             if (desktopVideoRef.current) {
               desktopVideoRef.current.pause();
               desktopVideoRef.current.muted = true;
+              desktopVideoRef.current.volume = 0;
             }
             setIsMuted(true);
           }
@@ -594,6 +644,16 @@ export function Hero() {
               playsInline
               preload="metadata"
               onClick={toggleAudio}
+              onVolumeChange={(e) => {
+                if (
+                  userExplicitlyMutedRef.current &&
+                  (!e.currentTarget.muted || e.currentTarget.volume > 0)
+                ) {
+                  e.currentTarget.muted = true;
+                  e.currentTarget.volume = 0;
+                  setIsMuted(true);
+                }
+              }}
               className="relative z-10 h-full w-full object-cover object-center cursor-pointer"
             >
               <source src="/images/Hero Video.mp4" type="video/mp4" />
@@ -715,6 +775,16 @@ export function Hero() {
                 playsInline
                 preload="metadata"
                 onClick={toggleAudio}
+                onVolumeChange={(e) => {
+                  if (
+                    userExplicitlyMutedRef.current &&
+                    (!e.currentTarget.muted || e.currentTarget.volume > 0)
+                  ) {
+                    e.currentTarget.muted = true;
+                    e.currentTarget.volume = 0;
+                    setIsMuted(true);
+                  }
+                }}
                 className="relative z-10 h-full w-full object-cover object-center cursor-pointer"
               >
                 <source src="/images/Hero Video.mp4" type="video/mp4" />

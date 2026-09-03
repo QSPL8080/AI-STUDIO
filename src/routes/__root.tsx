@@ -123,11 +123,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       {
         rel: "canonical",
-        href: "https://www.quickuppaistudio.com/",
+        href: "https://quickuppaistudio.com/",
       },
       {
         rel: "publisher",
-        href: "https://www.quickuppaistudio.com/",
+        href: "https://quickuppaistudio.com/",
       },
       {
         rel: "stylesheet",
@@ -171,6 +171,20 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const currentFullUrl = `${window.location.origin}${window.location.pathname}`;
+      const canonicalTag = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+      if (canonicalTag) {
+        canonicalTag.href = currentFullUrl;
+      }
+      const ogUrlTag = document.querySelector<HTMLMetaElement>('meta[property="og:url"]');
+      if (ogUrlTag) {
+        ogUrlTag.content = currentFullUrl;
+      }
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
