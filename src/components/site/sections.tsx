@@ -269,18 +269,19 @@ export function Hero() {
   const [isMuted, setIsMuted] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(116);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const checkScreen = () => setIsDesktop(window.innerWidth >= 1024);
     checkScreen();
+    setMounted(true);
     window.addEventListener("resize", checkScreen);
     return () => window.removeEventListener("resize", checkScreen);
   }, []);
 
   const toggleAudio = (e?: { stopPropagation?: () => void }) => {
     if (e?.stopPropagation) e.stopPropagation();
-    const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
-    const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
+    const activeVideo = isDesktop ? desktopVideoRef.current : mobileVideoRef.current;
     if (!activeVideo) return;
 
     const nextMuted = !activeVideo.muted;
@@ -292,13 +293,9 @@ export function Hero() {
       cleanupInteractionRef.current = null;
     }
 
-    // Apply to both desktop and mobile video nodes
-    [mobileVideoRef.current, desktopVideoRef.current].forEach((v) => {
-      if (v) {
-        v.muted = nextMuted;
-        v.volume = nextMuted ? 0 : 1;
-      }
-    });
+    // Apply strictly to active video
+    activeVideo.muted = nextMuted;
+    activeVideo.volume = nextMuted ? 0 : 1;
 
     setIsMuted(nextMuted);
     if (!nextMuted) {
@@ -307,10 +304,11 @@ export function Hero() {
   };
 
   useEffect(() => {
+    if (!mounted) return;
+
     const handleAutoplay = () => {
-      const isMobile = window.innerWidth < 1024;
-      const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
-      const inactiveVideo = isMobile ? desktopVideoRef.current : mobileVideoRef.current;
+      const activeVideo = isDesktop ? desktopVideoRef.current : mobileVideoRef.current;
+      const inactiveVideo = isDesktop ? mobileVideoRef.current : desktopVideoRef.current;
 
       if (inactiveVideo) {
         inactiveVideo.pause();
@@ -344,8 +342,7 @@ export function Hero() {
             // If user explicitly muted in the meantime, NEVER unmute!
             if (userExplicitlyMutedRef.current) return;
 
-            const currentActive =
-              window.innerWidth < 1024 ? mobileVideoRef.current : desktopVideoRef.current;
+            const currentActive = isDesktop ? desktopVideoRef.current : mobileVideoRef.current;
             if (currentActive && !userExplicitlyMutedRef.current) {
               currentActive.muted = false;
               currentActive.volume = 1;
@@ -378,52 +375,40 @@ export function Hero() {
         cleanupInteractionRef.current = null;
       }
     };
-  }, []);
+  }, [mounted, isDesktop]);
 
   // IntersectionObserver: automatically stop and mute when hero section is not in view
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const isMobile = window.innerWidth < 1024;
-          const targetVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
-          if (!targetVideo) return;
+    const isMobile = window.innerWidth < 1024;
+    const targetElement = isMobile ? mobileHeroRef.current : trackRef.current;
+    if (!targetElement) return;
 
-          if (entry.isIntersecting && entry.intersectionRatio > 0.05) {
-            // User is on the hero section -> play only, preserving explicit mute state
-            if (userExplicitlyMutedRef.current) {
-              targetVideo.muted = true;
-              targetVideo.volume = 0;
-            }
-            targetVideo.play().catch(() => {});
-          } else {
-            // User scrolled away from hero section -> STOP AND MUTE!
-            if (mobileVideoRef.current) {
-              mobileVideoRef.current.pause();
-              mobileVideoRef.current.muted = true;
-              mobileVideoRef.current.volume = 0;
-            }
-            if (desktopVideoRef.current) {
-              desktopVideoRef.current.pause();
-              desktopVideoRef.current.muted = true;
-              desktopVideoRef.current.volume = 0;
-            }
-            setIsMuted(true);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return;
+        const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
+        if (!activeVideo) return;
+
+        if (entry.isIntersecting && entry.intersectionRatio > 0.05) {
+          // User is on the active hero section -> play only, strictly honoring mute
+          if (userExplicitlyMutedRef.current) {
+            activeVideo.muted = true;
+            activeVideo.volume = 0;
           }
-        });
+          activeVideo.play().catch(() => {});
+        } else {
+          // User scrolled away from hero section -> STOP AND MUTE!
+          activeVideo.pause();
+          activeVideo.muted = true;
+          activeVideo.volume = 0;
+        }
       },
       { threshold: [0, 0.05, 0.2] },
     );
 
-    if (mobileHeroRef.current) {
-      observer.observe(mobileHeroRef.current);
-    }
-    if (trackRef.current) {
-      observer.observe(trackRef.current);
-    }
-
+    observer.observe(targetElement);
     return () => observer.disconnect();
-  }, []);
+  }, [isDesktop]);
 
   useEffect(() => {
     const updateHeaderHeight = () => {
@@ -462,11 +447,7 @@ export function Hero() {
         if (!mobileVideoRef.current.paused) {
           mobileVideoRef.current.pause();
           mobileVideoRef.current.muted = true;
-          setIsMuted(true);
-        }
-      } else {
-        if (mobileVideoRef.current.paused) {
-          mobileVideoRef.current.play().catch(() => {});
+          mobileVideoRef.current.volume = 0;
         }
       }
     };
@@ -495,9 +476,6 @@ export function Hero() {
         containerRef.current.style.position = "absolute";
         containerRef.current.style.top = "0px";
         containerRef.current.style.bottom = "auto";
-        if (desktopVideoRef.current && desktopVideoRef.current.paused) {
-          desktopVideoRef.current.play().catch(() => {});
-        }
       } else if (scrolled >= scrollableDistance) {
         // Phase 3: Scrolled past hero hold, rolling up cleanly into the next section
         containerRef.current.style.position = "absolute";
@@ -507,16 +485,13 @@ export function Hero() {
         if (desktopVideoRef.current && !desktopVideoRef.current.paused) {
           desktopVideoRef.current.pause();
           desktopVideoRef.current.muted = true;
-          setIsMuted(true);
+          desktopVideoRef.current.volume = 0;
         }
       } else {
         // Phase 2: Active Scroll & Locked Hold — FIXED TO VIEWPORT, NEVER SCROLLS OFF OR DISAPPEARS!
         containerRef.current.style.position = "fixed";
         containerRef.current.style.top = "0px";
         containerRef.current.style.bottom = "auto";
-        if (desktopVideoRef.current && desktopVideoRef.current.paused) {
-          desktopVideoRef.current.play().catch(() => {});
-        }
       }
 
       // 1. Hero Brand Logo & Subtitle: Glides smoothly UPWARDS and disappears slowly as video expands
@@ -637,8 +612,7 @@ export function Hero() {
           <div className="relative w-full max-w-[310px] xs:max-w-[340px] sm:max-w-[390px] aspect-[9/16] max-h-[58vh] rounded-2xl overflow-hidden border border-white/20 bg-[#0e081e] shadow-[0_0_50px_rgba(200,80,255,0.35)] glow-neon">
             <video
               ref={mobileVideoRef}
-              src="/images/Hero Video.mp4"
-              autoPlay
+              src={mounted && !isDesktop ? "/images/Hero Video.mp4" : undefined}
               loop
               muted={isMuted}
               playsInline
@@ -656,7 +630,7 @@ export function Hero() {
               }}
               className="relative z-10 h-full w-full object-cover object-center cursor-pointer"
             >
-              <source src="/images/Hero Video.mp4" type="video/mp4" />
+              {mounted && !isDesktop && <source src="/images/Hero Video.mp4" type="video/mp4" />}
               <track kind="captions" src="" label="English" default />
             </video>
 
@@ -768,8 +742,7 @@ export function Hero() {
               {/* Active autoplaying video with audio default */}
               <video
                 ref={desktopVideoRef}
-                src="/images/Hero Video.mp4"
-                autoPlay
+                src={mounted && isDesktop ? "/images/Hero Video.mp4" : undefined}
                 loop
                 muted={isMuted}
                 playsInline
@@ -787,7 +760,7 @@ export function Hero() {
                 }}
                 className="relative z-10 h-full w-full object-cover object-center cursor-pointer"
               >
-                <source src="/images/Hero Video.mp4" type="video/mp4" />
+                {mounted && isDesktop && <source src="/images/Hero Video.mp4" type="video/mp4" />}
                 <track kind="captions" src="" label="English" default />
               </video>
 
@@ -1242,6 +1215,7 @@ export function Samples() {
                       if (el) {
                         el.defaultMuted = true;
                         el.muted = true;
+                        el.volume = 0;
                         el.playsInline = true;
                       }
                     }}
@@ -1483,6 +1457,7 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
     if (!videoRef.current) return;
     const nextMuted = !videoRef.current.muted;
     videoRef.current.muted = nextMuted;
+    videoRef.current.volume = nextMuted ? 0 : 1;
     setIsMuted(nextMuted);
     if (!nextMuted && videoRef.current.paused) {
       videoRef.current
@@ -1502,6 +1477,7 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
             if (el) {
               el.defaultMuted = true;
               el.muted = isMuted;
+              el.volume = isMuted ? 0 : 1;
               el.playsInline = true;
             }
           }}
@@ -2156,6 +2132,7 @@ export function DigitalTwin() {
                 if (el) {
                   el.defaultMuted = true;
                   el.muted = true;
+                  el.volume = 0;
                   el.playsInline = true;
                 }
               }}
