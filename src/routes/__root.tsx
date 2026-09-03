@@ -78,6 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      {
+        name: "google-site-verification",
+        content: "zfeSLWyrUuUc7rvfgVn3m-11TOOpDzq5RJBQ61o0GRE",
+      },
       { title: "Quickupp AI Studio | AI Video Production, UGC & Digital Avatars" },
       {
         name: "description",
@@ -182,6 +186,10 @@ function RootShell({ children }: { children: ReactNode }) {
               },
             }),
           }}
+        />
+        <meta
+          name="google-site-verification"
+          content="zfeSLWyrUuUc7rvfgVn3m-11TOOpDzq5RJBQ61o0GRE"
         />
         <HeadContent />
       </head>
