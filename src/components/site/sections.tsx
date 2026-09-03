@@ -255,6 +255,7 @@ export function Hero() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(116);
+  const [heroPaddingTop, setHeroPaddingTop] = useState(116 + 195);
 
   const toggleAudio = (e?: { stopPropagation?: () => void }) => {
     if (e?.stopPropagation) e.stopPropagation();
@@ -303,8 +304,16 @@ export function Hero() {
   useEffect(() => {
     const updateHeaderHeight = () => {
       const nav = document.getElementById("site-nav-container");
-      if (nav) {
-        setHeaderHeight(nav.offsetHeight);
+      const h = nav ? nav.offsetHeight : 116;
+      setHeaderHeight(h);
+
+      const w = window.innerWidth;
+      if (w < 640) {
+        setHeroPaddingTop(h + 20); // Mobile: compact gap
+      } else if (w < 1024) {
+        setHeroPaddingTop(h + 75); // Tablet: balanced gap
+      } else {
+        setHeroPaddingTop(h + 195); // Desktop & Laptop: 195px gap
       }
     };
 
@@ -373,29 +382,50 @@ export function Hero() {
 
       // 2. Expand Media Video Card: Starts small/compact cutting into logo, smoothly expands to TRUE 100% FULL SCREEN
       if (mediaCardRef.current) {
-        const isMobile = window.innerWidth < 768;
+        const width = window.innerWidth;
+        const isMobile = width < 640;
+        const isTablet = width >= 640 && width < 1024;
+
         if (isMobile) {
-          const currentH = 38 + (100 - 38) * expandP;
-          const currentRadius = 18 * (1 - expandP);
-          mediaCardRef.current.style.width =
-            expandP >= 0.98 ? "100%" : `${44 + (100 - 44) * expandP}%`;
+          // Mobile (< 640px): Starting card is 54% width, 32% height
+          const startW = 54;
+          const startH = 32;
+          const currentW = startW + (100 - startW) * expandP;
+          const currentH = startH + (100 - startH) * expandP;
+          const currentRadius = 16 * (1 - expandP);
+          mediaCardRef.current.style.width = expandP >= 0.98 ? "100%" : `${currentW}%`;
           mediaCardRef.current.style.height = expandP >= 0.98 ? "100%" : `${currentH}%`;
           mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2}vw`;
           mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2}vh`;
           mediaCardRef.current.style.borderRadius = `${currentRadius}px`;
+          mediaCardRef.current.style.border =
+            expandP >= 0.98 ? "none" : "1px solid rgba(255, 255, 255, 0.2)";
+        } else if (isTablet) {
+          // Tablet (640px - 1023px): Starting card is 44% width, 36% height
+          const startW = 44;
+          const startH = 36;
+          const currentW = startW + (100 - startW) * expandP;
+          const currentH = startH + (100 - startH) * expandP;
+          const currentRadius = 18 * (1 - expandP);
+          mediaCardRef.current.style.width = expandP >= 0.98 ? "100%" : `${currentW}%`;
+          mediaCardRef.current.style.height = expandP >= 0.98 ? "100%" : `${currentH}%`;
+          mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2.5}vw`;
+          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2.5}vh`;
+          mediaCardRef.current.style.borderRadius = `${currentRadius}px`;
+          mediaCardRef.current.style.border =
+            expandP >= 0.98 ? "none" : "1px solid rgba(255, 255, 255, 0.2)";
         } else {
-          // Desktop: compact (36% width, 42% height), cleanly cutting into the bottom of the logo
-          // Smoothly expands to TRUE 100% FULL SCREEN with ZERO space and NO top gaps!
-          const currentW = 36 + (100 - 36) * expandP;
-          const currentH = 42 + (100 - 42) * expandP;
-          const currentRight = (1 - expandP) * 2.5;
-          const currentBottom = (1 - expandP) * 3;
+          // Desktop & Laptop (1024px+): Starting card is 36% width, 42% height
+          const startW = 36;
+          const startH = 42;
+          const currentW = startW + (100 - startW) * expandP;
+          const currentH = startH + (100 - startH) * expandP;
           const currentRadius = 20 * (1 - expandP);
 
           mediaCardRef.current.style.width = expandP >= 0.98 ? "100%" : `${currentW}%`;
           mediaCardRef.current.style.height = expandP >= 0.98 ? "100%" : `${currentH}%`;
-          mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${currentRight}vw`;
-          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${currentBottom}vh`;
+          mediaCardRef.current.style.right = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 2.5}vw`;
+          mediaCardRef.current.style.bottom = expandP >= 0.98 ? "0px" : `${(1 - expandP) * 3}vh`;
           mediaCardRef.current.style.borderRadius = `${currentRadius}px`;
           mediaCardRef.current.style.border =
             expandP >= 0.98 ? "none" : "1px solid rgba(255, 255, 255, 0.2)";
@@ -452,8 +482,8 @@ export function Hero() {
         {/* Top & Left Content: Shifted lower down so bottom of logo extends behind the video card */}
         <div
           ref={heroBrandRef}
-          className="absolute inset-0 pb-12 sm:pb-16 md:pb-20 px-6 sm:px-12 md:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
-          style={{ paddingTop: `${headerHeight + 195}px` }}
+          className="absolute inset-0 pb-6 sm:pb-10 md:pb-16 lg:pb-20 px-4 sm:px-8 md:px-12 lg:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
+          style={{ paddingTop: `${heroPaddingTop}px` }}
         >
           {/* Top: Giant "AI Studio" Title spanning across the screen */}
           <div className="w-full flex-shrink-0">
@@ -461,7 +491,7 @@ export function Hero() {
               src="/images/ai studio logo hero.png"
               alt="Quickupp AI Studio - Tech-Enabled AI Video Production Studio"
               title="Quickupp AI Studio"
-              className="w-[98vw] max-w-none h-auto max-h-[50vh] object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
+              className="w-[98vw] max-w-none h-auto max-h-[26vh] sm:max-h-[38vh] md:max-h-[46vh] lg:max-h-[52vh] object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
               width={4267}
               height={730}
               loading="eager"
@@ -469,9 +499,9 @@ export function Hero() {
             />
           </div>
 
-          {/* Bottom Row: Primary Semantic H1 Headline on the left (SEO-optimized and aligned with logo from left) */}
-          <div className="w-full max-w-xl lg:max-w-2xl mb-3 sm:mb-6 md:mb-8 pl-2 sm:pl-[4vw] md:pl-[4.8vw] lg:pl-[5vw]">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.65rem] font-medium leading-[1.14] tracking-tight text-white/95">
+          {/* Bottom Row: Primary Semantic H1 Headline on the left (SEO-optimized and responsive) */}
+          <div className="w-full max-w-[46%] sm:max-w-[48%] md:max-w-xl lg:max-w-2xl mb-1.5 sm:mb-4 md:mb-8 pl-1 sm:pl-[2.5vw] md:pl-[4.5vw] lg:pl-[5vw]">
+            <h1 className="text-sm sm:text-xl md:text-3xl lg:text-4xl xl:text-[2.65rem] font-medium leading-[1.18] tracking-tight text-white/95">
               <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
               video production studio.
             </h1>
@@ -485,14 +515,7 @@ export function Hero() {
         >
           <div
             ref={mediaCardRef}
-            className="pointer-events-auto absolute bg-[#0e081e] shadow-[0_0_60px_-10px_rgba(200,80,255,0.45)] will-change-transform glow-neon border border-white/20 overflow-hidden"
-            style={{
-              width: "36%",
-              height: "42%",
-              right: "2.5vw",
-              bottom: "3vh",
-              borderRadius: "20px",
-            }}
+            className="pointer-events-auto absolute bg-[#0e081e] shadow-[0_0_60px_-10px_rgba(200,80,255,0.45)] will-change-transform glow-neon border border-white/20 overflow-hidden w-[54%] sm:w-[44%] lg:w-[36%] h-[32%] sm:h-[36%] lg:h-[42%] right-[2vw] sm:right-[2.5vw] bottom-[2vh] sm:bottom-[2.5vh] lg:bottom-[3vh] rounded-[16px] sm:rounded-[18px] lg:rounded-[20px]"
           >
             {/* Active autoplaying video with audio default */}
             <video
@@ -614,9 +637,9 @@ export function HeroOverview() {
       />
 
       <div className="mx-auto w-full max-w-6xl relative z-10">
-        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-          {/* Left Column: Heading, Value Prop, Paragraphs & CTAs (7 cols) */}
-          <div className="lg:col-span-7 flex flex-col items-start text-left">
+        <div className="grid md:grid-cols-12 gap-8 md:gap-10 lg:gap-12 items-center">
+          {/* Left Column: Heading, Value Prop, Paragraphs & CTAs (7 cols on tablet/desktop) */}
+          <div className="md:col-span-7 flex flex-col items-start text-left">
             {/* Brand Eyebrow Badge */}
             <div
               className={`transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
@@ -625,7 +648,7 @@ export function HeroOverview() {
                   : "opacity-0 -translate-y-3 scale-95 blur-sm"
               }`}
             >
-              <span className="eyebrow">
+              <span className="eyebrow text-[11px] sm:text-xs">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-neon shadow-[0_0_8px_#c850ff]"></span>
@@ -636,7 +659,7 @@ export function HeroOverview() {
 
             {/* Headline */}
             <h2
-              className={`mt-4 font-[var(--font-google-sans)] text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight text-white transition-all duration-800 delay-100 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              className={`mt-3 sm:mt-4 font-[var(--font-google-sans)] text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight text-white transition-all duration-800 delay-100 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                 isVisible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-6 blur-sm"
               }`}
             >
@@ -648,7 +671,7 @@ export function HeroOverview() {
 
             {/* Subheading */}
             <h3
-              className={`mt-3 text-sm sm:text-base md:text-lg font-semibold text-foreground/90 leading-snug transition-all duration-800 delay-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              className={`mt-2.5 sm:mt-3 text-sm sm:text-base md:text-lg font-semibold text-foreground/90 leading-snug transition-all duration-800 delay-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                 isVisible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
               }`}
             >
@@ -658,7 +681,7 @@ export function HeroOverview() {
 
             {/* Paragraph 1 & 2 */}
             <p
-              className={`mt-3 text-xs sm:text-sm md:text-base leading-relaxed text-muted-foreground transition-all duration-800 delay-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              className={`mt-2.5 sm:mt-3 text-xs sm:text-sm md:text-base leading-relaxed text-muted-foreground transition-all duration-800 delay-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                 isVisible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
               }`}
             >
@@ -679,17 +702,19 @@ export function HeroOverview() {
 
             {/* Action Buttons */}
             <div
-              className={`mt-6 flex flex-wrap items-center gap-3 transition-all duration-800 delay-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              className={`mt-5 sm:mt-6 flex flex-wrap items-center gap-3 transition-all duration-800 delay-550 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                 isVisible
                   ? "opacity-100 translate-y-0 scale-100"
                   : "opacity-0 translate-y-4 scale-95"
               }`}
             >
-              <NeonButton href="#contact">Get Your AI Video Quote</NeonButton>
+              <NeonButton href="#contact" className="text-xs sm:text-sm">
+                Get Your AI Video Quote
+              </NeonButton>
               <NeonButton
                 href="#samples"
                 variant="ghost"
-                className="inline-flex items-center gap-2"
+                className="text-xs sm:text-sm inline-flex items-center gap-2"
               >
                 <span className="flex h-4 w-4 items-center justify-center rounded-full border border-neon/60 bg-neon/10">
                   <Play className="h-2 w-2 fill-neon text-neon ml-0.5" />
@@ -699,20 +724,20 @@ export function HeroOverview() {
             </div>
           </div>
 
-          {/* Right Column: 6 Feature Cards spread in a sleek 2-column glass grid (5 cols) */}
+          {/* Right Column: 6 Feature Cards (2 cols on mobile, 1 col on tablet/desktop) */}
           <div
-            className={`lg:col-span-5 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5 sm:gap-3 transition-all duration-800 delay-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            className={`md:col-span-5 w-full grid grid-cols-2 md:grid-cols-1 gap-2 sm:gap-2.5 lg:gap-3 transition-all duration-800 delay-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95"
             }`}
           >
             {checklistItems.map((item, idx) => (
               <div
                 key={item}
-                className="group flex items-center gap-3 rounded-xl border border-white/10 bg-[#140e24]/80 px-4 py-3 text-sm font-semibold text-white/95 backdrop-blur-md shadow-md transition-all duration-300 hover:border-neon/60 hover:bg-neon/15 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(200,80,255,0.3)]"
+                className="group flex items-center gap-2 sm:gap-3 rounded-xl border border-white/10 bg-[#140e24]/80 px-2.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white/95 backdrop-blur-md shadow-md transition-all duration-300 hover:border-neon/60 hover:bg-neon/15 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(200,80,255,0.3)]"
                 style={{ transitionDelay: isVisible ? `${450 + idx * 70}ms` : "0ms" }}
               >
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neon/20 text-neon border border-neon/50 shadow-[0_0_10px_rgba(200,80,255,0.35)] group-hover:scale-110 group-hover:bg-neon group-hover:text-black transition-all duration-200">
-                  <Check className="h-3 w-3 stroke-[3]" />
+                <span className="flex h-4 w-4 sm:h-5 sm:w-5 shrink-0 items-center justify-center rounded-full bg-neon/20 text-neon border border-neon/50 shadow-[0_0_10px_rgba(200,80,255,0.35)] group-hover:scale-110 group-hover:bg-neon group-hover:text-black transition-all duration-200">
+                  <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[3]" />
                 </span>
                 <span className="tracking-wide">{item}</span>
               </div>
