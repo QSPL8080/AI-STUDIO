@@ -252,68 +252,77 @@ export function Hero() {
   const containerRef = useRef<HTMLDivElement>(null);
   const heroBrandRef = useRef<HTMLDivElement>(null);
   const mediaCardRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const desktopVideoRef = useRef<HTMLVideoElement>(null);
+  const mobileVideoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(116);
-  const [heroPaddingTop, setHeroPaddingTop] = useState(116 + 195);
 
   const toggleAudio = (e?: { stopPropagation?: () => void }) => {
     if (e?.stopPropagation) e.stopPropagation();
-    if (videoRef.current) {
-      const nextMuted = !videoRef.current.muted;
-      videoRef.current.muted = nextMuted;
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+    const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
+    if (activeVideo) {
+      const nextMuted = !activeVideo.muted;
+      activeVideo.muted = nextMuted;
+      if (mobileVideoRef.current) mobileVideoRef.current.muted = nextMuted;
+      if (desktopVideoRef.current) desktopVideoRef.current.muted = nextMuted;
       setIsMuted(nextMuted);
       if (!nextMuted) {
-        videoRef.current.play().catch(() => {});
+        activeVideo.play().catch(() => {});
       }
     }
   };
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    const handleAutoplay = () => {
+      const isMobile = window.innerWidth < 1024;
+      const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
+      const inactiveVideo = isMobile ? desktopVideoRef.current : mobileVideoRef.current;
 
-    video.muted = false;
+      if (inactiveVideo) {
+        inactiveVideo.pause();
+      }
 
-    const playPromise = video.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // If the browser enforces autoplay restriction before user interaction:
-        video.muted = true;
-        setIsMuted(true);
-        video.play().catch(() => {});
+      if (!activeVideo) return;
+      activeVideo.muted = false;
 
-        const unmuteOnInteraction = () => {
-          if (videoRef.current) {
-            videoRef.current.muted = false;
-            setIsMuted(false);
-            videoRef.current.play().catch(() => {});
-          }
-          window.removeEventListener("pointerdown", unmuteOnInteraction);
-          window.removeEventListener("keydown", unmuteOnInteraction);
-          window.removeEventListener("scroll", unmuteOnInteraction);
-        };
+      const playPromise = activeVideo.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          activeVideo.muted = true;
+          setIsMuted(true);
+          activeVideo.play().catch(() => {});
 
-        window.addEventListener("pointerdown", unmuteOnInteraction, { once: true });
-        window.addEventListener("keydown", unmuteOnInteraction, { once: true });
-        window.addEventListener("scroll", unmuteOnInteraction, { once: true });
-      });
-    }
+          const unmuteOnInteraction = () => {
+            const currentActive =
+              window.innerWidth < 1024 ? mobileVideoRef.current : desktopVideoRef.current;
+            if (currentActive) {
+              currentActive.muted = false;
+              setIsMuted(false);
+              currentActive.play().catch(() => {});
+            }
+            window.removeEventListener("pointerdown", unmuteOnInteraction);
+            window.removeEventListener("keydown", unmuteOnInteraction);
+            window.removeEventListener("scroll", unmuteOnInteraction);
+          };
+
+          window.addEventListener("pointerdown", unmuteOnInteraction, { once: true });
+          window.addEventListener("keydown", unmuteOnInteraction, { once: true });
+          window.addEventListener("scroll", unmuteOnInteraction, { once: true });
+        });
+      }
+    };
+
+    handleAutoplay();
+    window.addEventListener("resize", handleAutoplay);
+    return () => window.removeEventListener("resize", handleAutoplay);
   }, []);
 
   useEffect(() => {
     const updateHeaderHeight = () => {
       const nav = document.getElementById("site-nav-container");
-      const h = nav ? nav.offsetHeight : 116;
-      setHeaderHeight(h);
-
-      const w = window.innerWidth;
-      if (w < 640) {
-        setHeroPaddingTop(h + 20); // Mobile: compact gap
-      } else if (w < 1024) {
-        setHeroPaddingTop(h + 75); // Tablet: balanced gap
-      } else {
-        setHeroPaddingTop(h + 195); // Desktop & Laptop: 195px gap
+      if (nav) {
+        setHeaderHeight(nav.offsetHeight);
       }
     };
 
@@ -337,6 +346,7 @@ export function Hero() {
     let animationFrameId: number;
 
     const handleScroll = () => {
+      if (window.innerWidth < 1024) return; // Desktop cinema engine only
       if (!trackRef.current || !containerRef.current) return;
 
       const trackRect = trackRef.current.getBoundingClientRect();
@@ -455,71 +465,33 @@ export function Hero() {
   }, []);
 
   return (
-    <section
-      id="hero-scroll-track"
-      ref={trackRef}
-      className="relative w-full h-[280vh] bg-background"
-    >
-      <div
-        ref={containerRef}
-        className="absolute top-0 left-0 w-full h-screen overflow-hidden bg-background pointer-events-none"
+    <>
+      {/* 1. MOBILE & TABLET VIEW (< 1024px): Video centered in between, sentence below it */}
+      <section
+        id="hero-mobile-section"
+        className="block lg:hidden relative overflow-hidden bg-background w-full min-h-[calc(100vh-60px)] px-4 sm:px-6 pb-12 flex flex-col items-center justify-center text-center"
+        style={{ paddingTop: `${headerHeight + 20}px` }}
       >
-        {/* Ambient atmospheric background glows */}
+        {/* Ambient atmospheric brand glows */}
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-40 top-10 h-[520px] w-[520px] rounded-full opacity-35 blur-3xl"
+          className="pointer-events-none absolute -right-20 top-10 h-[360px] w-[360px] rounded-full opacity-35 blur-3xl"
           style={{ backgroundImage: "var(--gradient-glow)" }}
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -left-40 bottom-10 h-[450px] w-[450px] rounded-full opacity-25 blur-3xl"
+          className="pointer-events-none absolute -left-20 bottom-10 h-[300px] w-[300px] rounded-full opacity-25 blur-3xl"
           style={{
             backgroundImage:
               "radial-gradient(circle at 50% 50%, rgba(90, 160, 255, 0.25), transparent 60%)",
           }}
         />
 
-        {/* Top & Left Content: Shifted lower down so bottom of logo extends behind the video card */}
-        <div
-          ref={heroBrandRef}
-          className="absolute inset-0 pb-6 sm:pb-10 md:pb-16 lg:pb-20 px-4 sm:px-8 md:px-12 lg:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
-          style={{ paddingTop: `${heroPaddingTop}px` }}
-        >
-          {/* Top: Giant "AI Studio" Title spanning across the screen */}
-          <div className="w-full flex-shrink-0">
-            <img
-              src="/images/ai studio logo hero.png"
-              alt="Quickupp AI Studio - Tech-Enabled AI Video Production Studio"
-              title="Quickupp AI Studio"
-              className="w-[98vw] max-w-none h-auto max-h-[26vh] sm:max-h-[38vh] md:max-h-[46vh] lg:max-h-[52vh] object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
-              width={4267}
-              height={730}
-              loading="eager"
-              fetchPriority="high"
-            />
-          </div>
-
-          {/* Bottom Row: Primary Semantic H1 Headline on the left (SEO-optimized and responsive) */}
-          <div className="w-full max-w-[46%] sm:max-w-[48%] md:max-w-xl lg:max-w-2xl mb-1.5 sm:mb-4 md:mb-8 pl-1 sm:pl-[2.5vw] md:pl-[4.5vw] lg:pl-[5vw]">
-            <h1 className="text-sm sm:text-xl md:text-3xl lg:text-4xl xl:text-[2.65rem] font-medium leading-[1.18] tracking-tight text-white/95">
-              <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
-              video production studio.
-            </h1>
-          </div>
-        </div>
-
-        {/* Media Video Showcase: Aligned directly below navigation bar to avoid cutting */}
-        <div
-          className="absolute bottom-0 inset-x-0 z-20 pointer-events-none overflow-hidden"
-          style={{ top: `${headerHeight}px` }}
-        >
-          <div
-            ref={mediaCardRef}
-            className="pointer-events-auto absolute bg-[#0e081e] shadow-[0_0_60px_-10px_rgba(200,80,255,0.45)] will-change-transform glow-neon border border-white/20 overflow-hidden w-[54%] sm:w-[44%] lg:w-[36%] h-[32%] sm:h-[36%] lg:h-[42%] right-[2vw] sm:right-[2.5vw] bottom-[2vh] sm:bottom-[2.5vh] lg:bottom-[3vh] rounded-[16px] sm:rounded-[18px] lg:rounded-[20px]"
-          >
-            {/* Active autoplaying video with audio default */}
+        <div className="relative z-10 flex flex-col items-center w-full max-w-md mx-auto my-auto">
+          {/* Video in between (centered, high-impact vertical format) */}
+          <div className="relative w-full max-w-[310px] xs:max-w-[340px] sm:max-w-[390px] aspect-[9/16] max-h-[58vh] rounded-2xl overflow-hidden border border-white/20 bg-[#0e081e] shadow-[0_0_50px_rgba(200,80,255,0.35)] glow-neon">
             <video
-              ref={videoRef}
+              ref={mobileVideoRef}
               src="/images/Hero Video.mp4"
               autoPlay
               loop
@@ -533,51 +505,171 @@ export function Hero() {
             </video>
 
             {/* Audio Voice Toggle Button */}
-            <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 z-30">
+            <div className="absolute top-2.5 left-2.5 z-30">
               <button
                 type="button"
                 onClick={toggleAudio}
-                className="group inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/80 px-2.5 py-1 sm:px-3 sm:py-1 text-[9px] sm:text-xs font-semibold text-white shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105 active:scale-95 cursor-pointer"
+                className="group inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/80 px-2.5 py-1 text-[10px] sm:text-xs font-semibold text-white shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105 active:scale-95 cursor-pointer"
                 title={isMuted ? "Click to Unmute Voice" : "Click to Mute Audio"}
                 aria-label={isMuted ? "Unmute video voice" : "Mute video audio"}
               >
                 {isMuted ? (
                   <>
-                    <VolumeX className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-400 group-hover:text-neon" />
+                    <VolumeX className="h-3.5 w-3.5 text-red-400 group-hover:text-neon" />
                     <span className="text-white/90">Unmute Voice</span>
                   </>
                 ) : (
                   <>
-                    <Volume2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-neon animate-pulse" />
+                    <Volume2 className="h-3.5 w-3.5 text-neon animate-pulse" />
                     <span className="text-neon font-bold">Voice Active</span>
                   </>
                 )}
               </button>
             </div>
+          </div>
 
-            {/* Floating Formats Pills */}
-            <div className="absolute bottom-2.5 sm:bottom-3 inset-x-2 sm:inset-x-4 flex flex-nowrap items-center justify-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar py-1 z-20">
-              {formats.map((format) => (
-                <span
-                  key={format}
-                  className="whitespace-nowrap rounded-full border border-white/20 bg-black/80 px-2 sm:px-3 py-0.5 sm:py-1 text-[9px] sm:text-xs font-semibold text-white/95 shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105"
-                >
-                  {format}
-                </span>
-              ))}
+          {/* Below that: The Sentence (Nothing else than that) */}
+          <div className="mt-5 sm:mt-6 w-full px-2">
+            <h1 className="text-lg sm:text-2xl font-medium leading-snug tracking-tight text-white/95">
+              <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
+              video production studio.
+            </h1>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. DESKTOP VIEW (lg: 1024px+): Full Cinema Scroll & Expansion Engine */}
+      <section
+        id="hero-scroll-track"
+        ref={trackRef}
+        className="hidden lg:block relative w-full h-[280vh] bg-background"
+      >
+        <div
+          ref={containerRef}
+          className="absolute top-0 left-0 w-full h-screen overflow-hidden bg-background pointer-events-none"
+        >
+          {/* Ambient atmospheric background glows */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-40 top-10 h-[520px] w-[520px] rounded-full opacity-35 blur-3xl"
+            style={{ backgroundImage: "var(--gradient-glow)" }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-40 bottom-10 h-[450px] w-[450px] rounded-full opacity-25 blur-3xl"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 50% 50%, rgba(90, 160, 255, 0.25), transparent 60%)",
+            }}
+          />
+
+          {/* Top & Left Content: Shifted lower down so bottom of logo extends behind the video card */}
+          <div
+            ref={heroBrandRef}
+            className="absolute inset-0 pb-20 px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
+            style={{ paddingTop: `${headerHeight + 195}px` }}
+          >
+            {/* Top: Giant "AI Studio" Title spanning across the screen */}
+            <div className="w-full flex-shrink-0">
+              <img
+                src="/images/ai studio logo hero.png"
+                alt="Quickupp AI Studio - Tech-Enabled AI Video Production Studio"
+                title="Quickupp AI Studio"
+                className="w-[98vw] max-w-none h-auto max-h-[52vh] object-contain object-left drop-shadow-[0_4px_45px_rgba(200,80,255,0.4)] select-none"
+                width={4267}
+                height={730}
+                loading="eager"
+                fetchPriority="high"
+              />
             </div>
 
-            {/* Showcase Badge */}
-            <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-20">
-              <span className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-neon/50 bg-black/75 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[9px] sm:text-xs font-bold text-white shadow-md backdrop-blur-md">
-                <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-neon animate-pulse" />
-                <span>AI Video Showcase</span>
-              </span>
+            {/* Bottom Row: Primary Semantic H1 Headline on the left */}
+            <div className="w-full max-w-xl lg:max-w-2xl mb-8 pl-[5vw]">
+              <h1 className="text-3xl lg:text-4xl xl:text-[2.65rem] font-medium leading-[1.14] tracking-tight text-white/95">
+                <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
+                video production studio.
+              </h1>
+            </div>
+          </div>
+
+          {/* Media Video Showcase: Aligned directly below navigation bar to avoid cutting */}
+          <div
+            className="absolute bottom-0 inset-x-0 z-20 pointer-events-none overflow-hidden"
+            style={{ top: `${headerHeight}px` }}
+          >
+            <div
+              ref={mediaCardRef}
+              className="pointer-events-auto absolute bg-[#0e081e] shadow-[0_0_60px_-10px_rgba(200,80,255,0.45)] will-change-transform glow-neon border border-white/20 overflow-hidden"
+              style={{
+                width: "36%",
+                height: "42%",
+                right: "2.5vw",
+                bottom: "3vh",
+                borderRadius: "20px",
+              }}
+            >
+              {/* Active autoplaying video with audio default */}
+              <video
+                ref={desktopVideoRef}
+                src="/images/Hero Video.mp4"
+                autoPlay
+                loop
+                muted={isMuted}
+                playsInline
+                preload="auto"
+                onClick={toggleAudio}
+                className="relative z-10 h-full w-full object-cover object-center cursor-pointer"
+              >
+                <source src="/images/Hero Video.mp4" type="video/mp4" />
+              </video>
+
+              {/* Audio Voice Toggle Button */}
+              <div className="absolute top-2.5 left-2.5 sm:top-3 sm:right-auto z-30">
+                <button
+                  type="button"
+                  onClick={toggleAudio}
+                  className="group inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/80 px-2.5 py-1 sm:px-3 sm:py-1 text-[9px] sm:text-xs font-semibold text-white shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105 active:scale-95 cursor-pointer"
+                  title={isMuted ? "Click to Unmute Voice" : "Click to Mute Audio"}
+                  aria-label={isMuted ? "Unmute video voice" : "Mute video audio"}
+                >
+                  {isMuted ? (
+                    <>
+                      <VolumeX className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-400 group-hover:text-neon" />
+                      <span className="text-white/90">Unmute Voice</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-neon animate-pulse" />
+                      <span className="text-neon font-bold">Voice Active</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Floating Formats Pills */}
+              <div className="absolute bottom-2.5 sm:bottom-3 inset-x-2 sm:inset-x-4 flex flex-nowrap items-center justify-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar py-1 z-20">
+                {formats.map((format) => (
+                  <span
+                    key={format}
+                    className="whitespace-nowrap rounded-full border border-white/20 bg-black/80 px-2 sm:px-3 py-0.5 sm:py-1 text-[9px] sm:text-xs font-semibold text-white/95 shadow-lg backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/20 hover:scale-105"
+                  >
+                    {format}
+                  </span>
+                ))}
+              </div>
+
+              {/* Showcase Badge */}
+              <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-20">
+                <span className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-neon/50 bg-black/75 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[9px] sm:text-xs font-bold text-white shadow-md backdrop-blur-md">
+                  <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-neon animate-pulse" />
+                  <span>AI Video Showcase</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
 
