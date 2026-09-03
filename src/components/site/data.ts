@@ -63,10 +63,10 @@ export const portfolioItems = [
   },
   {
     format: "AI Avatar",
-    industry: "Corporate & Commercial",
+    industry: "Interior Design & Architecture",
     description:
-      "Hyper-realistic AI avatar presenter reel delivering high-impact business communication and project overviews.",
-    videoUrl: "/videos/Avtar Sample.mp4?v=2",
+      "High-impact AI avatar presenter reel showcasing 360° growth solutions and premium client acquisition for interior designers.",
+    videoUrl: "/videos/Avtar Portfolio.mp4",
   },
   {
     format: "Hyper-Realistic",
