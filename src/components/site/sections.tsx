@@ -661,7 +661,7 @@ export function Hero() {
           <div
             ref={heroBrandRef}
             className="absolute inset-0 pb-6 lg:pb-8 xl:pb-10 px-6 lg:px-12 xl:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
-            style={{ paddingTop: `calc(${headerHeight}px + clamp(24px, 4.5vh, 52px))` }}
+            style={{ paddingTop: `calc(${headerHeight}px + clamp(75px, 11vh, 115px))` }}
           >
             {/* Top: Giant "AI Studio" Title spanning across the screen and extending behind video card */}
             <div className="w-full flex-shrink-0">
