@@ -367,7 +367,6 @@ export function Hero() {
             const cleanup = () => {
               window.removeEventListener("pointerdown", unmuteOnFirstInteraction);
               window.removeEventListener("keydown", unmuteOnFirstInteraction);
-              window.removeEventListener("scroll", unmuteOnFirstInteraction);
               window.removeEventListener("touchstart", unmuteOnFirstInteraction);
             };
             cleanupInteractionRef.current = cleanup;
@@ -377,10 +376,6 @@ export function Hero() {
               passive: true,
             });
             window.addEventListener("keydown", unmuteOnFirstInteraction, {
-              once: true,
-              passive: true,
-            });
-            window.addEventListener("scroll", unmuteOnFirstInteraction, {
               once: true,
               passive: true,
             });
@@ -420,10 +415,13 @@ export function Hero() {
           if (userExplicitlyMutedRef.current) {
             activeVideo.muted = true;
             activeVideo.volume = 0;
+          } else {
+            activeVideo.muted = false;
+            activeVideo.volume = 1;
           }
           activeVideo.play().catch(() => {});
         } else {
-          // User scrolled away from hero section -> STOP AND MUTE!
+          // User scrolled away from hero section -> STOP AND MUTE automatically!
           activeVideo.pause();
           activeVideo.muted = true;
           activeVideo.volume = 0;
@@ -475,6 +473,18 @@ export function Hero() {
           mobileVideoRef.current.muted = true;
           mobileVideoRef.current.volume = 0;
         }
+      } else {
+        // User is back on the mobile hero section:
+        if (mobileVideoRef.current.paused) {
+          if (userExplicitlyMutedRef.current) {
+            mobileVideoRef.current.muted = true;
+            mobileVideoRef.current.volume = 0;
+          } else {
+            mobileVideoRef.current.muted = false;
+            mobileVideoRef.current.volume = 1;
+          }
+          mobileVideoRef.current.play().catch(() => {});
+        }
       }
     };
 
@@ -502,12 +512,22 @@ export function Hero() {
         containerRef.current.style.position = "absolute";
         containerRef.current.style.top = "0px";
         containerRef.current.style.bottom = "auto";
+        if (desktopVideoRef.current && desktopVideoRef.current.paused) {
+          if (userExplicitlyMutedRef.current) {
+            desktopVideoRef.current.muted = true;
+            desktopVideoRef.current.volume = 0;
+          } else {
+            desktopVideoRef.current.muted = false;
+            desktopVideoRef.current.volume = 1;
+          }
+          desktopVideoRef.current.play().catch(() => {});
+        }
       } else if (scrolled >= scrollableDistance) {
         // Phase 3: Scrolled past hero hold, rolling up cleanly into the next section
         containerRef.current.style.position = "absolute";
         containerRef.current.style.top = "auto";
         containerRef.current.style.bottom = "0px";
-        // User scrolled past hero section: STOP AND MUTE!
+        // User scrolled past hero section: STOP AND MUTE automatically by itself!
         if (desktopVideoRef.current && !desktopVideoRef.current.paused) {
           desktopVideoRef.current.pause();
           desktopVideoRef.current.muted = true;
@@ -518,6 +538,16 @@ export function Hero() {
         containerRef.current.style.position = "fixed";
         containerRef.current.style.top = "0px";
         containerRef.current.style.bottom = "auto";
+        if (desktopVideoRef.current && desktopVideoRef.current.paused) {
+          if (userExplicitlyMutedRef.current) {
+            desktopVideoRef.current.muted = true;
+            desktopVideoRef.current.volume = 0;
+          } else {
+            desktopVideoRef.current.muted = false;
+            desktopVideoRef.current.volume = 1;
+          }
+          desktopVideoRef.current.play().catch(() => {});
+        }
       }
 
       // 1. Hero Brand Logo & Subtitle: Glides smoothly UPWARDS and disappears slowly as video expands
