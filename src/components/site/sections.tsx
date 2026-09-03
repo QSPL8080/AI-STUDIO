@@ -253,7 +253,7 @@ export function Hero() {
   const heroBrandRef = useRef<HTMLDivElement>(null);
   const mediaCardRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(116);
 
   const toggleAudio = (e?: { stopPropagation?: () => void }) => {
@@ -267,6 +267,38 @@ export function Hero() {
       }
     }
   };
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = false;
+
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // If the browser enforces autoplay restriction before user interaction:
+        video.muted = true;
+        setIsMuted(true);
+        video.play().catch(() => {});
+
+        const unmuteOnInteraction = () => {
+          if (videoRef.current) {
+            videoRef.current.muted = false;
+            setIsMuted(false);
+            videoRef.current.play().catch(() => {});
+          }
+          window.removeEventListener("pointerdown", unmuteOnInteraction);
+          window.removeEventListener("keydown", unmuteOnInteraction);
+          window.removeEventListener("scroll", unmuteOnInteraction);
+        };
+
+        window.addEventListener("pointerdown", unmuteOnInteraction, { once: true });
+        window.addEventListener("keydown", unmuteOnInteraction, { once: true });
+        window.addEventListener("scroll", unmuteOnInteraction, { once: true });
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const updateHeaderHeight = () => {
@@ -462,20 +494,10 @@ export function Hero() {
               borderRadius: "20px",
             }}
           >
-            {/* Base showcase artwork fallback */}
-            <img
-              src="/images/Hero Image .png"
-              alt="Quickupp AI Studio Showcase Artwork"
-              className="absolute inset-0 h-full w-full object-cover object-center z-0"
-              width={1200}
-              height={1008}
-            />
-
-            {/* Active autoplaying video */}
+            {/* Active autoplaying video with audio default */}
             <video
               ref={videoRef}
               src="/images/Hero Video.mp4"
-              poster="/images/Hero Image .png"
               autoPlay
               loop
               muted={isMuted}

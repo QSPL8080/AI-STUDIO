@@ -69,8 +69,9 @@ The landing page features a custom-engineered, GPU-accelerated **Cinema Scroll S
 ### 4. Interactive Audio & Voice Controls
 
 - Features `/images/Hero Video.mp4` with a full-fidelity AAC voice track.
-- **Browser-Compliant Autoplay:** Starts muted to comply with browser autoplay restrictions.
-- **Interactive Unmute Toggle:** Includes a floating glassmorphic **"Unmute Voice" / "Voice Active"** button (`VolumeX` / `Volume2`) and click-to-unmute interaction directly on the video.
+- **Audio Enabled by Default:** Configured with audio enabled (`muted={false}`) by default.
+- **Intelligent Autoplay Fallback:** If browser security blocks unmuted autoplay before user engagement, it seamlessly un-mutes the audio upon the first user interaction (touch, click, or scroll).
+- **Interactive Audio Controls:** Includes a floating glassmorphic **"Voice Active" / "Unmute Voice"** button (`Volume2` / `VolumeX`) and click-to-toggle interaction directly on the video card.
 
 ### 5. SEO-Optimized Semantic Headline
 
@@ -141,10 +142,9 @@ AI STUDIO/
 │   └── workflows/
 │       └── deploy.yml              # CI/CD deployment workflow
 ├── public/
-│   ├── images/                     # Hero video, logos, hero images, and branding assets
+│   ├── images/                     # Hero video, logos, and branding assets
 │   │   ├── Hero Video.mp4          # High-definition showcase hero video with AAC audio
-│   │   ├── ai studio logo hero.png # High-resolution hero title logo
-│   │   └── Hero Image .png         # Poster artwork fallback
+│   │   └── ai studio logo hero.png # High-resolution hero title logo
 │   ├── favicon.png                 # Browser favicon
 │   └── robots.txt                  # Search engine crawl rules
 ├── src/
