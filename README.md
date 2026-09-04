@@ -75,12 +75,10 @@ The landing page features a custom-engineered, GPU-accelerated **Cinema Scroll S
 
 ### 5. SEO-Optimized Semantic Headline
 
-- Wrapped in a semantic `<h1>` tag:
+- Wrapped in a semantic `<h1>` tag with accompanying subheading:
   ```html
-  <h1>
-    <span class="sr-only">Quickupp AI Studio - </span>
-    a world-class, tech-enabled AI video production studio.
-  </h1>
+  <h1>AI Video Creation for Businesses That Want to Stand Out</h1>
+  <p>Turn your ideas into engaging, professional videos with AI - faster, smarter, and more cost-effectively.</p>
   ```
 - Screen-reader accessible branding with Core Web Vitals optimizations (`fetchPriority="high"`, `loading="eager"`).
 

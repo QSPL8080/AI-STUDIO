@@ -724,11 +724,16 @@ export function Hero() {
             </div>
           </div>
 
-          {/* Below that: The Sentence (Nothing else than that) */}
-          <div className="mt-5 sm:mt-6 w-full px-2">
-            <p className="text-lg sm:text-2xl font-medium leading-snug tracking-tight text-white/95">
-              <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
-              video production studio.
+          {/* Below that: Hero Headline & Subheading */}
+          <div className="mt-4 sm:mt-6 w-full max-w-lg px-2 text-center">
+            <h1 className="font-[var(--font-google-sans)] text-2xl sm:text-3xl md:text-4xl font-bold leading-tight tracking-tight text-white">
+              <span className="font-serif italic font-bold text-gradient-brand inline-block pr-1.5">
+                AI Video Creation
+              </span>{" "}
+              for Businesses That Want to Stand Out
+            </h1>
+            <p className="mt-2.5 sm:mt-3 text-sm sm:text-base text-white/85 leading-relaxed font-normal">
+              Turn your ideas into engaging, professional videos with AI - faster, smarter, and more cost-effectively.
             </p>
           </div>
         </div>
@@ -763,8 +768,11 @@ export function Hero() {
           {/* Top & Left Content: Cleanly positioned below navigation bar, spanning across and behind video card */}
           <div
             ref={heroBrandRef}
-            className="absolute inset-0 pb-6 lg:pb-8 xl:pb-10 px-6 lg:px-12 xl:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
-            style={{ paddingTop: `calc(${headerHeight}px + clamp(75px, 11vh, 115px))` }}
+            className="absolute inset-0 px-6 lg:px-12 xl:px-16 flex flex-col justify-between pointer-events-auto will-change-transform z-10"
+            style={{
+              paddingTop: `calc(${headerHeight}px + clamp(75px, 11vh, 115px))`,
+              paddingBottom: "10vh",
+            }}
           >
             {/* Top: Giant "AI Studio" Title spanning across the screen and extending behind video card */}
             <div className="w-full flex-shrink-0">
@@ -780,11 +788,19 @@ export function Hero() {
               />
             </div>
 
-            {/* Bottom Row: Primary Headline on the left */}
-            <div className="w-full max-w-md lg:max-w-lg xl:max-w-xl mb-3 lg:mb-5 pl-[3vw] lg:pl-[4vw]">
-              <p className="text-xl lg:text-2xl xl:text-3xl font-medium leading-snug tracking-tight text-white/95">
-                <span className="sr-only">Quickupp AI Studio - </span>a world-class, tech-enabled AI
-                video production studio.
+            {/* Bottom Row: Primary Headline on the left - perfectly aligned with logo above and bottom baseline of video card */}
+            <div
+              className="w-full max-w-lg lg:max-w-xl xl:max-w-[48vw] 2xl:max-w-[50vw] mb-0 pb-0"
+              style={{ paddingLeft: "min(3.21%, 55px)" }}
+            >
+              <h1 className="font-[var(--font-google-sans)] text-3xl lg:text-[2.35rem] xl:text-[2.85rem] 2xl:text-[3.35rem] font-bold leading-[1.12] tracking-tight text-white">
+                <span className="font-serif italic font-bold text-gradient-brand inline-block pr-1.5">
+                  AI Video Creation
+                </span>{" "}
+                for Businesses That Want to Stand Out
+              </h1>
+              <p className="mt-3 lg:mt-4 xl:mt-5 text-base lg:text-[1.05rem] xl:text-[1.2rem] 2xl:text-[1.3rem] text-white/85 leading-relaxed font-normal max-w-lg lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
+                Turn your ideas into engaging, professional videos with AI - faster, smarter, and more cost-effectively.
               </p>
             </div>
           </div>
