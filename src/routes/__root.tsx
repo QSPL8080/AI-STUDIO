@@ -159,6 +159,19 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
+        {/* Google tag (gtag.js) */}
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-TGFHQZB6EP"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-TGFHQZB6EP');`,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `if(typeof window!=="undefined"&&window.location.hostname==="www.quickuppaistudio.com"){window.location.replace("https://quickuppaistudio.com"+window.location.pathname+window.location.search+window.location.hash);}`,
