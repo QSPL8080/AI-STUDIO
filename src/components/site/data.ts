@@ -48,42 +48,36 @@ export const samples = [
 
 export const portfolioItems = [
   {
-    format: "AI Cartoon",
     industry: "3D Character Animation",
     description:
       "Expressive 3D character animation and storytelling reel for creative brands and entertainment.",
     videoUrl: "/videos/Cartoon Portfolio.mp4?v=2",
   },
   {
-    format: "AI UGC",
     industry: "D2C & Consumer Brands",
     description:
       "Authentic creator-led AI UGC product review and demonstration reel designed for high conversions.",
     videoUrl: "/videos/UGC Porfolio.mp4?v=2",
   },
   {
-    format: "AI Avatar",
     industry: "Interior Design & Architecture",
     description:
       "High-impact AI avatar presenter reel showcasing 360° growth solutions and premium client acquisition for interior designers.",
     videoUrl: "/videos/Avtar Portfolio.mp4",
   },
   {
-    format: "Hyper-Realistic",
     industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
     videoUrl:
       "https://assets.mixkit.co/videos/preview/mixkit-diamond-ring-sparkling-in-the-dark-42866-large.mp4",
   },
   {
-    format: "Digital Twin",
     industry: "Founder Branding",
     description: "Founder-led update reel created from an approved digital twin.",
     videoUrl:
       "https://assets.mixkit.co/videos/preview/mixkit-man-working-with-futuristic-technology-41485-large.mp4",
   },
   {
-    format: "AI Commercial",
     industry: "E-Commerce & Retail",
     description:
       "High-energy commercial advertisement reel showcasing modern product styles and viral hooks.",

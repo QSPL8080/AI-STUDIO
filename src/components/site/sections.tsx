@@ -1590,17 +1590,14 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
         type="button"
         onClick={togglePlay}
         className="absolute inset-0 h-full w-full cursor-pointer z-0 border-none bg-transparent p-0 text-left"
-        aria-label={isPlaying ? `Pause ${sample.format} video` : `Play ${sample.format} video`}
+        aria-label={isPlaying ? "Pause video" : "Play video"}
       />
 
       {/* Cinematic Soft Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/50 pointer-events-none" />
 
-      {/* Top Badge & Sound Toggle */}
-      <div className="z-10 flex items-center justify-between">
-        <span className="rounded-md border border-white/15 bg-black/60 px-3 py-1 text-xs font-semibold text-white/95 backdrop-blur-md shadow">
-          {sample.format}
-        </span>
+      {/* Sound Toggle (Top Right) */}
+      <div className="z-10 flex items-center justify-end">
         <button
           type="button"
           onClick={toggleMute}
@@ -1652,7 +1649,7 @@ export function Portfolio() {
       {/* Video Cards Grid - 6 cards (3 per row on desktop) */}
       <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 md:gap-7">
         {portfolioItems.map((sample, idx) => (
-          <PortfolioCard key={`portfolio-${sample.format}-${sample.industry}-${idx}`} sample={sample} />
+          <PortfolioCard key={`portfolio-${sample.industry}-${idx}`} sample={sample} />
         ))}
       </div>
 
