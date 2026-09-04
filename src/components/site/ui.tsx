@@ -62,19 +62,27 @@ export function NeonButton({
   href,
   children,
   variant = "solid",
+  size = "md",
   className = "",
 }: {
   href: string;
   children: ReactNode;
-  variant?: "solid" | "ghost";
+  variant?: "solid" | "ghost" | "primary";
+  size?: "sm" | "md" | "lg";
   className?: string;
 }) {
+  const sizeClasses =
+    size === "sm"
+      ? "px-4 py-2 text-xs"
+      : size === "lg"
+      ? "px-8 py-3.5 text-base"
+      : "px-6 py-3 text-sm";
   const base =
-    "inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200";
+    `inline-flex items-center justify-center rounded-full font-semibold transition-all duration-200 cursor-pointer ${sizeClasses}`;
   const styles =
-    variant === "solid"
-      ? "bg-gradient-brand text-neon-foreground glow-neon hover:brightness-110"
-      : "border border-border text-foreground hover:border-neon hover:text-neon";
+    variant === "ghost"
+      ? "border border-border text-foreground hover:border-neon hover:text-neon"
+      : "bg-gradient-brand text-neon-foreground glow-neon hover:brightness-110 active:scale-95";
   return (
     <a href={href} className={`${base} ${styles} ${className}`}>
       {children}
