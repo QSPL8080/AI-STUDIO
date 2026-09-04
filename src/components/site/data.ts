@@ -82,6 +82,13 @@ export const portfolioItems = [
     videoUrl:
       "https://assets.mixkit.co/videos/preview/mixkit-man-working-with-futuristic-technology-41485-large.mp4",
   },
+  {
+    format: "AI Commercial",
+    industry: "E-Commerce & Retail",
+    description:
+      "High-energy commercial advertisement reel showcasing modern product styles and viral hooks.",
+    videoUrl: "/videos/UGC Sample.mp4?v=2",
+  },
 ];
 
 export const services = [
@@ -591,7 +598,7 @@ export const footerTagline = "AI-Powered Videos. Built for Your Business.";
 export const footerDescription =
   "Quickupp AI Studio provides professional AI video production services for businesses, brands and creators. Create AI UGC, AI avatar, cartoon, hyper-realistic and digital twin videos for social media, advertising and digital marketing.";
 export const footerEmail = "info@quickuppaistudio.com";
-export const footerPhone = "+91 9970344139";
+export const footerPhone = "+91 9172785916";
 export const footerIndiaAddress =
   "Office 411, Suratwala Mark Plazzo, Hinjewadi, Phase 1, Pune, 411057, India";
 export const footerIndiaMapUrl = "https://maps.app.goo.gl/geUWrpRet8nY8qbW6";

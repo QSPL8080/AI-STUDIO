@@ -163,7 +163,7 @@ export function TermsPage() {
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-3">
               <a
-                href="https://wa.me/919970344139?text=Hi%20Quickupp%20AI%20Studio%2C%20I%20have%20a%20question%20regarding%20the%20Terms%20and%20Policies."
+                href="https://wa.me/919172785916?text=Hi%20Quickupp%20AI%20Studio%2C%20I%20have%20a%20question%20regarding%20the%20Terms%20and%20Policies."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-brand px-5 py-2 text-xs font-bold text-neon-foreground shadow-md transition-all hover:brightness-110 sm:text-sm"

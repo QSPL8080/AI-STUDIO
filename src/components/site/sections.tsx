@@ -238,7 +238,7 @@ export function Header() {
                   Get AI Video Quote
                 </a>
                 <a
-                  href="https://wa.me/919970344139"
+                  href="https://wa.me/919172785916"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMobileMenuOpen(false)}
@@ -1639,28 +1639,6 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
 }
 
 export function Portfolio() {
-  const [active, setActive] = useState("All Videos");
-  const filters = [
-    "All Videos",
-    "AI UGC",
-    "AI Cartoon",
-    "AI Avatar",
-    "Hyper-Realistic",
-    "Digital Twin",
-  ];
-  const visible =
-    active === "All Videos"
-      ? portfolioItems
-      : portfolioItems.filter(
-          (s) =>
-            s.format.toLowerCase().trim() === active.toLowerCase().trim() ||
-            (active === "AI UGC" && s.format.includes("UGC")) ||
-            (active === "AI Cartoon" && s.format.includes("Cartoon")) ||
-            (active === "AI Avatar" && s.format.includes("Avatar")) ||
-            (active === "Hyper-Realistic" && s.format.includes("Realistic")) ||
-            (active === "Digital Twin" && s.format.includes("Twin")),
-        );
-
   return (
     <Section id="portfolio" className="bg-surface/30">
       <SectionHeading
@@ -1671,30 +1649,10 @@ export function Portfolio() {
         center={true}
       />
 
-      {/* Filter Tabs */}
-      <div className="mb-10 flex flex-wrap justify-center gap-2 sm:gap-3">
-        {filters.map((filter) => {
-          const isActive = active === filter;
-          return (
-            <button
-              key={filter}
-              onClick={() => setActive(filter)}
-              className={`rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-200 sm:text-sm ${
-                isActive
-                  ? "border-neon bg-neon/15 text-neon shadow-sm glow-neon"
-                  : "border-border/80 bg-secondary/30 text-muted-foreground hover:border-border hover:text-white"
-              }`}
-            >
-              {filter}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Video Cards Grid - Centered Flex Layout with wider cards (3 per row on desktop, 2 centered on row 2) */}
+      {/* Video Cards Grid - 6 cards (3 per row on desktop) */}
       <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 md:gap-7">
-        {visible.map((sample) => (
-          <PortfolioCard key={`portfolio-${sample.format}-${sample.industry}`} sample={sample} />
+        {portfolioItems.map((sample, idx) => (
+          <PortfolioCard key={`portfolio-${sample.format}-${sample.industry}-${idx}`} sample={sample} />
         ))}
       </div>
 
@@ -2851,7 +2809,7 @@ export function WhatsAppCtaSection() {
         </p>
         <div className="mt-6 flex justify-center">
           <a
-            href={`https://wa.me/919970344139?text=${professionalMessage}`}
+            href={`https://wa.me/919172785916?text=${professionalMessage}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-6 py-2.5 text-sm font-semibold text-white shadow transition-transform hover:scale-105"
@@ -3207,7 +3165,7 @@ export function FloatingWhatsAppButton() {
 
       {/* Official WhatsApp Floating Button */}
       <a
-        href={`https://wa.me/919970344139?text=${encodeURIComponent(
+        href={`https://wa.me/919172785916?text=${encodeURIComponent(
           "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!",
         )}`}
         target="_blank"
