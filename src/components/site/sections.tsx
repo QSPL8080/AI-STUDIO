@@ -1661,12 +1661,14 @@ export function Portfolio() {
         >
           Create a Similar Video
         </a>
-        <button
-          type="button"
+        <a
+          href="https://www.youtube.com/@QuickuppAiStudio"
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex items-center justify-center rounded-full border border-border/80 bg-secondary/40 px-8 py-3.5 text-sm font-semibold tracking-wide text-foreground shadow-md transition-all duration-200 hover:border-neon hover:bg-neon/10 hover:text-neon"
         >
           See More
-        </button>
+        </a>
       </div>
     </Section>
   );
