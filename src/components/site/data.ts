@@ -78,7 +78,7 @@ export const portfolioItems = [
   {
     industry: "Coming Soon",
     description: "New AI video sample dropping soon. Stay tuned!",
-    videoUrl: "",
+    videoUrl: "/videos/Portflio 6.mp4",
   },
 ];
 
