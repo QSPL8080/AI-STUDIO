@@ -2226,40 +2226,14 @@ export function DigitalTwin() {
             ))}
           </ul>
 
-          {/* Reel Card from Right Side beside the points */}
-          <div
-            onClick={() => {
-              if (twinVideoRef.current) {
-                if (twinVideoRef.current.paused) twinVideoRef.current.play().catch(() => {});
-                else twinVideoRef.current.pause();
-              }
-            }}
-            className="relative aspect-[9/16] w-full max-w-[200px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60 sm:max-w-[210px] md:max-w-[220px] cursor-pointer"
-          >
-            <video
-              ref={(el) => {
-                twinVideoRef.current = el;
-                if (el) {
-                  el.defaultMuted = true;
-                  el.muted = true;
-                  el.volume = 0;
-                  el.playsInline = true;
-                }
-              }}
-              src={twinSample?.videoUrl}
-              autoPlay
-              muted
-              loop
-              playsInline
-              webkit-playsinline="true"
-              preload="none"
+          {/* Digital Twin Image Card */}
+          <div className="relative aspect-[9/16] w-full max-w-[200px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] sm:max-w-[210px] md:max-w-[220px]">
+            <img
+              src="/images/digital twin image .png"
+              alt="Digital Twin Sample Reel"
               className="h-full w-full object-cover"
-            >
-              <track kind="captions" src="" label="English" default />
-            </video>
-            <span className="absolute bottom-3 left-3 rounded-lg border border-white/10 bg-black/80 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-md backdrop-blur-md">
-              Digital Twin Reel
-            </span>
+              loading="lazy"
+            />
           </div>
         </div>
       </div>
@@ -2887,41 +2861,61 @@ export function Faq() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <Section id="faq">
-      <SectionHeading
-        eyebrow="AI Video Production"
-        title="Frequently Asked Questions About AI Video Production"
-        center={true}
-      />
-      <div className="panel mx-auto max-w-4xl divide-y divide-border/60 overflow-hidden shadow-card">
-        {faqs.map((faq, i) => (
-          <div
-            key={faq.question}
-            onMouseEnter={() => setOpen(i)}
-            onMouseLeave={() => setOpen(null)}
-            className={`transition-colors duration-200 ${
-              open === i ? "bg-secondary/30" : "hover:bg-secondary/15"
-            }`}
-          >
-            <button
-              onClick={() => setOpen(open === i ? null : i)}
-              className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left text-sm font-semibold text-foreground transition-colors hover:text-neon md:text-base cursor-pointer"
-              aria-expanded={open === i}
+    <Section id="faq" className="relative overflow-hidden">
+      {/* Giant left-scrolling 'FAQ' watermark */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 overflow-hidden select-none z-0"
+      >
+        <div className="animate-watermark-scroll flex whitespace-nowrap">
+          {[0, 1].map((i) => (
+            <span
+              key={i}
+              className="flex shrink-0 items-center font-extrabold uppercase text-white/[0.045]"
+              style={{ fontSize: "clamp(5rem, 18vw, 14rem)", letterSpacing: "0.2em" }}
             >
-              <span className={open === i ? "text-neon" : ""}>{faq.question}</span>
-              <ChevronDown
-                className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 ${
-                  open === i ? "rotate-180 text-neon" : ""
-                }`}
-              />
-            </button>
-            {open === i ? (
-              <div className="animate-in fade-in slide-in-from-top-1 duration-200 px-6 pb-5 pt-1 text-sm leading-relaxed text-muted-foreground">
-                {faq.answer}
-              </div>
-            ) : null}
-          </div>
-        ))}
+              FAQ&nbsp;&nbsp;•&nbsp;&nbsp;FAQ&nbsp;&nbsp;•&nbsp;&nbsp;FAQ&nbsp;&nbsp;•&nbsp;&nbsp;FAQ&nbsp;&nbsp;•&nbsp;&nbsp;
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative z-10">
+        <SectionHeading
+          eyebrow="AI Video Production"
+          title="Frequently Asked Questions About AI Video Production"
+          center={true}
+        />
+        <div className="panel mx-auto max-w-4xl divide-y divide-border/60 overflow-hidden shadow-card">
+          {faqs.map((faq, i) => (
+            <div
+              key={faq.question}
+              onMouseEnter={() => setOpen(i)}
+              onMouseLeave={() => setOpen(null)}
+              className={`transition-colors duration-200 ${
+                open === i ? "bg-secondary/30" : "hover:bg-secondary/15"
+              }`}
+            >
+              <button
+                onClick={() => setOpen(open === i ? null : i)}
+                className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left text-sm font-semibold text-foreground transition-colors hover:text-neon md:text-base cursor-pointer"
+                aria-expanded={open === i}
+              >
+                <span className={open === i ? "text-neon" : ""}>{faq.question}</span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 ${
+                    open === i ? "rotate-180 text-neon" : ""
+                  }`}
+                />
+              </button>
+              {open === i ? (
+                <div className="animate-in fade-in slide-in-from-top-1 duration-200 px-6 pb-5 pt-1 text-sm leading-relaxed text-muted-foreground">
+                  {faq.answer}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
       </div>
     </Section>
   );
