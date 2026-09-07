@@ -1316,7 +1316,7 @@ export function Samples() {
                     autoPlay
                     muted
                     playsInline
-                    preload="none"
+                    preload="metadata"
                     onEnded={() => handleVideoEnded(idx)}
                     className="h-full w-full object-cover"
                   >
@@ -1578,7 +1578,7 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
           muted={isMuted}
           loop
           playsInline
-          preload="none"
+          preload="metadata"
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
         >
           <track kind="captions" src="" label="English" default />

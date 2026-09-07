@@ -14,33 +14,33 @@ export const samples = [
     format: "AI UGC",
     industry: "E-Commerce & Fashion",
     description: "Dynamic creator-style AI UGC video with energetic hooks and product showcase.",
-    videoUrl: "/videos/UGC Sample.mp4?v=2",
+    videoUrl: "/videos/UGC%20Sample.mp4?v=2",
   },
   {
     format: "AI Avatar",
     industry: "Healthcare & Real Estate",
     description:
       "Professional presenter-led explainer reel for clinics, property, and corporate services.",
-    videoUrl: "/videos/Avtar Sample.mp4?v=2",
+    videoUrl: "/videos/Avtar%20Sample.mp4?v=2",
   },
   {
     format: "Hyper-Realistic",
     industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
-    videoUrl: "/videos/Hyper Realistic Sample.mp4",
+    videoUrl: "/videos/Hyper%20Realistic%20Sample.mp4?v=2",
   },
   {
     format: "AI Cartoon",
     industry: "Food & Confectionery",
     description:
       "Engaging animated brand storytelling reel with custom characters for Chitale Kesar Modak.",
-    videoUrl: "/videos/Cartoon Sample.mp4?v=2",
+    videoUrl: "/videos/Cartoon%20Sample.mp4?v=2",
   },
   {
     format: "Digital Twin",
     industry: "Founder Branding",
     description: "Founder-led update reel created from an approved digital twin.",
-    videoUrl: "/videos/Digital Twin Sample .mp4",
+    videoUrl: "/videos/Digital%20Twin%20Sample.mp4?v=2",
   },
 ];
 
@@ -49,36 +49,36 @@ export const portfolioItems = [
     industry: "3D Character Animation",
     description:
       "Expressive 3D character animation and storytelling reel for creative brands and entertainment.",
-    videoUrl: "/videos/Cartoon Portfolio.mp4?v=2",
+    videoUrl: "/videos/Cartoon%20Portfolio.mp4?v=2",
   },
   {
     industry: "D2C & Consumer Brands",
     description:
       "Authentic creator-led AI UGC product review and demonstration reel designed for high conversions.",
-    videoUrl: "/videos/UGC Porfolio.mp4?v=2",
+    videoUrl: "/videos/UGC%20Porfolio.mp4?v=2",
   },
   {
     industry: "Interior Design & Architecture",
     description:
       "High-impact AI avatar presenter reel showcasing 360° growth solutions and premium client acquisition for interior designers.",
-    videoUrl: "/videos/Avtar Portfolio.mp4",
+    videoUrl: "/videos/Avtar%20Portfolio.mp4?v=2",
   },
   {
     industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
-    videoUrl:
-      "https://assets.mixkit.co/videos/preview/mixkit-diamond-ring-sparkling-in-the-dark-42866-large.mp4",
+    videoUrl: "/videos/Hyper%20Realistic%20Sample.mp4?v=2",
   },
   {
     industry: "Digital Twin",
     description:
       "Founder-led brand update reel powered by a hyper-realistic digital twin — no camera, no studio needed.",
-    videoUrl: "/videos/Digital Twin Sample .mp4",
+    videoUrl: "/videos/Digital%20Twin%20Sample.mp4?v=2",
   },
   {
-    industry: "Coming Soon",
-    description: "New AI video sample dropping soon. Stay tuned!",
-    videoUrl: "/videos/Portflio 6.mp4",
+    industry: "AI Video Production",
+    description:
+      "Professional AI-powered video production reel showcasing cinematic quality and brand storytelling.",
+    videoUrl: "/videos/Portflio%206.mp4?v=2",
   },
 ];
 
