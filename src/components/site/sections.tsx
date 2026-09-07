@@ -1585,44 +1585,66 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
         </video>
       )}
 
-      {/* Video Interactive Tap Area */}
-      <button
-        type="button"
-        onClick={togglePlay}
-        className="absolute inset-0 h-full w-full cursor-pointer z-0 border-none bg-transparent p-0 text-left"
-        aria-label={isPlaying ? "Pause video" : "Play video"}
-      />
+      {/* Blank / Coming Soon state */}
+      {!sample.videoUrl && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-black via-[#1a0a2e] to-black pointer-events-none">
+          {/* Pulsing ring */}
+          <div className="relative flex items-center justify-center">
+            <span className="absolute inline-flex h-20 w-20 animate-ping rounded-full bg-neon/20" />
+            <span className="relative flex h-14 w-14 items-center justify-center rounded-full border border-neon/40 bg-black/60 backdrop-blur-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-neon/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.63 2.37m5.96 12a14.98 14.98 0 01-12.12 6.16M15.59 14.37L9.63 2.37" />
+              </svg>
+            </span>
+          </div>
+          <p className="text-xs font-semibold tracking-widest text-neon/60 uppercase">Coming Soon</p>
+        </div>
+      )}
+
+      {/* Video Interactive Tap Area — only when video exists */}
+      {sample.videoUrl && (
+        <button
+          type="button"
+          onClick={togglePlay}
+          className="absolute inset-0 h-full w-full cursor-pointer z-0 border-none bg-transparent p-0 text-left"
+          aria-label={isPlaying ? "Pause video" : "Play video"}
+        />
+      )}
 
       {/* Cinematic Soft Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/50 pointer-events-none" />
 
-      {/* Sound Toggle (Top Right) */}
+      {/* Sound Toggle (Top Right) — only when video exists */}
       <div className="z-10 flex items-center justify-end">
-        <button
-          type="button"
-          onClick={toggleMute}
-          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-2 bg-black/60 text-white/90 border border-white/15 backdrop-blur-md transition-all hover:scale-110 hover:bg-neon hover:text-black shadow"
-          title={isMuted ? "Unmute sound" : "Mute sound"}
-          aria-label={isMuted ? "Unmute video" : "Mute video"}
-        >
-          {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-        </button>
+        {sample.videoUrl && (
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-2 bg-black/60 text-white/90 border border-white/15 backdrop-blur-md transition-all hover:scale-110 hover:bg-neon hover:text-black shadow"
+            title={isMuted ? "Unmute sound" : "Mute sound"}
+            aria-label={isMuted ? "Unmute video" : "Mute video"}
+          >
+            {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </button>
+        )}
       </div>
 
-      {/* Center Play/Pause indicator on hover or when paused */}
-      <div
-        className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${
-          !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-        }`}
-      >
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-brand text-neon-foreground shadow-[0_0_20px_rgba(217,70,239,0.6)] backdrop-blur-md">
-          {isPlaying ? (
-            <Pause className="h-6 w-6 text-white" />
-          ) : (
-            <Play className="ml-0.5 h-6 w-6 text-white fill-white" />
-          )}
+      {/* Center Play/Pause indicator on hover or when paused — only when video exists */}
+      {sample.videoUrl && (
+        <div
+          className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${
+            !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+        >
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-brand text-neon-foreground shadow-[0_0_20px_rgba(217,70,239,0.6)] backdrop-blur-md">
+            {isPlaying ? (
+              <Pause className="h-6 w-6 text-white" />
+            ) : (
+              <Play className="ml-0.5 h-6 w-6 text-white fill-white" />
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Bottom Industry & Description Info with subtle frosted backing */}
       <div className="z-10 space-y-1 rounded-xl bg-black/40 p-2.5 backdrop-blur-sm pointer-events-none border border-white/5">

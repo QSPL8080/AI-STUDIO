@@ -75,6 +75,11 @@ export const portfolioItems = [
       "Founder-led brand update reel powered by a hyper-realistic digital twin — no camera, no studio needed.",
     videoUrl: "/videos/Digital Twin Sample .mp4",
   },
+  {
+    industry: "Coming Soon",
+    description: "New AI video sample dropping soon. Stay tuned!",
+    videoUrl: "",
+  },
 ];
 
 export const services = [
