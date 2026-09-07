@@ -1,2 +1,10 @@
-﻿/*
+/*
   X-Robots-Tag: index, follow
+
+/images/*.mp4
+  Cache-Control: public, max-age=31536000, immutable
+  Accept-Ranges: bytes
+
+/videos/*.mp4
+  Cache-Control: public, max-age=31536000, immutable
+  Accept-Ranges: bytes
