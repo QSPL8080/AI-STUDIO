@@ -27,7 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { NeonButton, Section, SectionHeading } from "./ui";
-import { submitLeadServerFn } from "@/lib/lead-actions";
+import { submitLeadServerFn, broadcastLeadEvent } from "@/lib/lead-actions";
 import {
   deliverables,
   faqs,
@@ -2441,8 +2441,9 @@ export function LeadFormSection() {
               const requirement = String(data.get("requirement") || "");
 
               // 1. Send directly to PostgreSQL Database
+              let savedLead: any = null;
               try {
-                await submitLeadServerFn({
+                const res = await submitLeadServerFn({
                   data: {
                     source: "Contact Form",
                     name,
@@ -2455,12 +2456,15 @@ export function LeadFormSection() {
                     requirement,
                   },
                 });
+                if (res?.success && res.lead) {
+                  savedLead = res.lead;
+                }
               } catch (err) {
                 console.error("PostgreSQL submission error:", err);
               }
 
-              // 2. Also keep local sync for Admin fast-cache
-              const newLead = {
+              // 2. Also keep local sync for Admin fast-cache and instant real-time broadcast
+              const newLead = savedLead || {
                 id: `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
                 source: "Contact Form",
                 name,
@@ -2471,16 +2475,21 @@ export function LeadFormSection() {
                 video_type: videoType,
                 location: location || undefined,
                 requirement,
-                status: "New",
+                status: "New" as const,
                 created_at: new Date().toISOString(),
               };
+
               try {
                 const existing = JSON.parse(localStorage.getItem("ai_studio_local_leads") || "[]");
-                existing.unshift(newLead);
-                localStorage.setItem("ai_studio_local_leads", JSON.stringify(existing));
+                const filtered = existing.filter((l: any) => l.id !== newLead.id);
+                filtered.unshift(newLead);
+                localStorage.setItem("ai_studio_local_leads", JSON.stringify(filtered));
               } catch (err) {
                 console.error(err);
               }
+
+              // 3. Broadcast instant real-time push to open Admin panel tabs
+              broadcastLeadEvent({ type: "NEW_LEAD", lead: newLead });
 
               setLoading(false);
               setSubmitted(true);
@@ -3200,8 +3209,9 @@ export function QuotePopupModal() {
                 const additional = String(data.get("additional") || "");
 
                 // 1. Send directly to PostgreSQL Database
+                let savedLead: any = null;
                 try {
-                  await submitLeadServerFn({
+                  const res = await submitLeadServerFn({
                     data: {
                       source: "Popup Modal",
                       name,
@@ -3213,12 +3223,15 @@ export function QuotePopupModal() {
                       additional,
                     },
                   });
+                  if (res?.success && res.lead) {
+                    savedLead = res.lead;
+                  }
                 } catch (err) {
                   console.error("PostgreSQL modal submission error:", err);
                 }
 
-                // 2. Also keep local sync for Admin fast-cache
-                const newLead = {
+                // 2. Also keep local sync for Admin fast-cache and instant real-time broadcast
+                const newLead = savedLead || {
                   id: `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
                   source: "Popup Modal",
                   name,
@@ -3228,18 +3241,23 @@ export function QuotePopupModal() {
                   video_type: videoType,
                   location: location || undefined,
                   requirement: additional || undefined,
-                  status: "New",
+                  status: "New" as const,
                   created_at: new Date().toISOString(),
                 };
+
                 try {
                   const existing = JSON.parse(
                     localStorage.getItem("ai_studio_local_leads") || "[]",
                   );
-                  existing.unshift(newLead);
-                  localStorage.setItem("ai_studio_local_leads", JSON.stringify(existing));
+                  const filtered = existing.filter((l: any) => l.id !== newLead.id);
+                  filtered.unshift(newLead);
+                  localStorage.setItem("ai_studio_local_leads", JSON.stringify(filtered));
                 } catch (err) {
                   console.error(err);
                 }
+
+                // 3. Broadcast instant real-time push to open Admin panel tabs
+                broadcastLeadEvent({ type: "NEW_LEAD", lead: newLead });
 
                 setLoading(false);
                 setSubmitted(true);

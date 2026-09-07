@@ -56,3 +56,21 @@ export const deleteLeadServerFn = createServerFn({ method: "POST" })
     }
   });
 
+export function broadcastLeadEvent(event: {
+  type: "NEW_LEAD" | "UPDATE_LEAD" | "DELETE_LEAD";
+  lead?: Lead;
+  id?: string;
+}) {
+  if (typeof window === "undefined") return;
+  try {
+    if ("BroadcastChannel" in window) {
+      const bc = new BroadcastChannel("ai_studio_leads_sync");
+      bc.postMessage(event);
+      bc.close();
+    }
+    window.dispatchEvent(new CustomEvent("ai_studio_lead_event", { detail: event }));
+  } catch (e) {
+    console.error("Broadcast lead event failed:", e);
+  }
+}
+

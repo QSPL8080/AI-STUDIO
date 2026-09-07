@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Calendar,
+  Copy,
   Download,
   Eye,
   EyeOff,
@@ -15,10 +16,19 @@ import {
   Phone,
   RefreshCw,
   Search,
+  Sparkles,
   Trash2,
+  Volume2,
+  VolumeX,
+  X,
 } from "lucide-react";
 import type { Lead } from "@/lib/db";
-import { fetchLeadsServerFn, updateLeadStatusServerFn, deleteLeadServerFn } from "@/lib/lead-actions";
+import {
+  fetchLeadsServerFn,
+  updateLeadStatusServerFn,
+  deleteLeadServerFn,
+  broadcastLeadEvent,
+} from "@/lib/lead-actions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -26,6 +36,38 @@ export const Route = createFileRoute("/admin")({
   }),
   component: AdminPage,
 });
+
+// Audio chime using Web Audio API (Zero external network dependencies)
+function playNotificationChime() {
+  try {
+    if (typeof window === "undefined") return;
+    const AudioContextClass =
+      window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, now); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.1); // A5
+    osc.frequency.exponentialRampToValueAtTime(1174.66, now + 0.22); // D6
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.55);
+  } catch {
+    // Audio may be blocked before first user gesture, fail gracefully
+  }
+}
 
 function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -37,18 +79,34 @@ function AdminPage() {
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [filterSource, setFilterSource] = useState<string>("All");
   const [filterStatus, setFilterStatus] = useState<string>("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLeadForMsg, setSelectedLeadForMsg] = useState<Lead | null>(null);
   const [copiedNotification, setCopiedNotification] = useState(false);
 
+  // Real-time live sync state
+  const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("ai_studio_sound_enabled") !== "false";
+  });
+  const [newLeadNotification, setNewLeadNotification] = useState<Lead | null>(null);
+  const [highlightedLeadIds, setHighlightedLeadIds] = useState<Set<string>>(new Set());
+
+  // Ref to always access the latest leads state inside callbacks/intervals without stale closures
+  const leadsRef = useRef<Lead[]>(leads);
+  useEffect(() => {
+    leadsRef.current = leads;
+  }, [leads]);
+
   // Check saved session & remember me on initial mount
   useEffect(() => {
     const savedAuth = localStorage.getItem("ai_studio_admin_auth");
     if (savedAuth === "true") {
       setIsAuthenticated(true);
-      fetchLeads();
+      fetchLeads(false);
     } else {
       const savedEmail = localStorage.getItem("ai_studio_remembered_email");
       if (savedEmail) {
@@ -72,13 +130,11 @@ function AdminPage() {
       }, 300000); // 5 minutes
     };
 
-    // User activity events to monitor
     const activityEvents = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
     activityEvents.forEach((event) => {
       window.addEventListener(event, resetInactivityTimer, { passive: true });
     });
 
-    // Start initial timer
     resetInactivityTimer();
 
     return () => {
@@ -89,21 +145,127 @@ function AdminPage() {
     };
   }, [isAuthenticated]);
 
+  // Handle incoming lead in real-time (from broadcast, supabase, or polling)
+  const handleIncomingLead = (newLead: Lead) => {
+    if (!newLead || !newLead.id) return;
+
+    setLeads((prev) => {
+      const exists = prev.some((l) => l.id === newLead.id);
+      if (exists) {
+        return prev.map((l) => (l.id === newLead.id ? newLead : l));
+      }
+      return [newLead, ...prev];
+    });
+
+    setHighlightedLeadIds((prev) => new Set([...prev, newLead.id]));
+    setTimeout(() => {
+      setHighlightedLeadIds((prev) => {
+        const next = new Set(prev);
+        next.delete(newLead.id);
+        return next;
+      });
+    }, 10000);
+
+    if (soundEnabled) {
+      playNotificationChime();
+    }
+    setNewLeadNotification(newLead);
+    setLastSyncTime(new Date());
+
+    setTimeout(() => {
+      setNewLeadNotification((curr) => (curr?.id === newLead.id ? null : curr));
+    }, 7000);
+  };
+
+  // Real-Time Auto-Polling and Multi-Channel Event Listeners
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // 1. Silent Background Polling Interval (every 3.5 seconds)
+    const intervalId = setInterval(() => {
+      fetchLeads(true);
+    }, 3500);
+
+    // 2. Window Focus & Visibility Change (Instant fetch whenever admin clicks/switches to this tab)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchLeads(true);
+      }
+    };
+    const handleFocus = () => fetchLeads(true);
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    // 3. BroadcastChannel for 0ms Instant Cross-Tab Sync
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      try {
+        bc = new BroadcastChannel("ai_studio_leads_sync");
+        bc.onmessage = (event) => {
+          if (event.data?.type === "NEW_LEAD" && event.data.lead) {
+            handleIncomingLead(event.data.lead);
+          } else if (event.data?.type === "UPDATE_LEAD" || event.data?.type === "DELETE_LEAD") {
+            fetchLeads(true);
+          }
+        };
+      } catch (e) {
+        console.warn("BroadcastChannel init warning:", e);
+      }
+    }
+
+    // 4. Custom Window Event Listener (same-tab immediate trigger)
+    const handleCustomEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.type === "NEW_LEAD" && customEvent.detail.lead) {
+        handleIncomingLead(customEvent.detail.lead);
+      } else if (
+        customEvent.detail?.type === "UPDATE_LEAD" ||
+        customEvent.detail?.type === "DELETE_LEAD"
+      ) {
+        fetchLeads(true);
+      }
+    };
+    window.addEventListener("ai_studio_lead_event", handleCustomEvent);
+
+    // 5. Local Storage StorageEvent Listener (cross-window storage sync)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "ai_studio_local_leads" && e.newValue) {
+        try {
+          const parsed: Lead[] = JSON.parse(e.newValue);
+          setLeads(parsed);
+          setLastSyncTime(new Date());
+        } catch {
+          // ignore json parse error
+        }
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+      if (bc) bc.close();
+      window.removeEventListener("ai_studio_lead_event", handleCustomEvent);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [isAuthenticated, soundEnabled]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (emailInput === "admin@aistudio.com" && passwordInput === "Admin@123") {
       setIsAuthenticated(true);
       localStorage.setItem("ai_studio_admin_auth", "true");
-      
-      // Save ONLY email if user explicitly checked Remember Me
+
       if (rememberMe) {
         localStorage.setItem("ai_studio_remembered_email", emailInput);
       } else {
         localStorage.removeItem("ai_studio_remembered_email");
       }
-      
+
       setAuthError("");
-      fetchLeads();
+      fetchLeads(false);
     } else {
       setAuthError("Invalid admin credentials. Please check email and password.");
     }
@@ -112,7 +274,6 @@ function AdminPage() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem("ai_studio_admin_auth");
-    // Reload remembered email only
     const savedEmail = localStorage.getItem("ai_studio_remembered_email");
     if (savedEmail) {
       setEmailInput(savedEmail);
@@ -125,33 +286,72 @@ function AdminPage() {
     }
   };
 
-  const fetchLeads = async () => {
-    setLoading(true);
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    localStorage.setItem("ai_studio_sound_enabled", String(next));
+    if (next) {
+      playNotificationChime();
+    }
+  };
+
+  const fetchLeads = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    } else {
+      setIsSyncing(true);
+    }
+
     try {
-      // 1. Fetch directly from PostgreSQL
       const res = await fetchLeadsServerFn();
       if (res.success && res.leads && res.leads.length > 0) {
+        const currentIds = new Set(leadsRef.current.map((l) => l.id));
+
+        const brandNewLeads = res.leads.filter((l) => !currentIds.has(l.id));
+        if (brandNewLeads.length > 0 && leadsRef.current.length > 0) {
+          if (soundEnabled) {
+            playNotificationChime();
+          }
+          setNewLeadNotification(brandNewLeads[0]);
+          const newIds = brandNewLeads.map((l) => l.id);
+          setHighlightedLeadIds((prev) => new Set([...prev, ...newIds]));
+          setTimeout(() => {
+            setHighlightedLeadIds((prev) => {
+              const next = new Set(prev);
+              newIds.forEach((id) => next.delete(id));
+              return next;
+            });
+          }, 10000);
+          setTimeout(() => setNewLeadNotification(null), 7000);
+        }
+
         setLeads(res.leads);
         localStorage.setItem("ai_studio_local_leads", JSON.stringify(res.leads));
+        setLastSyncTime(new Date());
       } else {
-        // Fallback to local cache if DB has 0 or unreachable
         const local = localStorage.getItem("ai_studio_local_leads");
         if (local) {
           const parsed: Lead[] = JSON.parse(local);
           const realLeads = parsed.filter(
-            (l) => l.id !== "lead_1" && l.id !== "lead_2" && l.name !== "Rajesh Sharma" && l.name !== "Priya Mehta"
+            (l) =>
+              l.id !== "lead_1" &&
+              l.id !== "lead_2" &&
+              l.name !== "Rajesh Sharma" &&
+              l.name !== "Priya Mehta",
           );
           setLeads(realLeads);
         } else {
           setLeads([]);
         }
+        setLastSyncTime(new Date());
       }
     } catch (err) {
       console.error("fetchLeads error:", err);
       const local = localStorage.getItem("ai_studio_local_leads");
       setLeads(local ? JSON.parse(local) : []);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+      setIsSyncing(false);
     }
   };
 
@@ -159,6 +359,7 @@ function AdminPage() {
     const updated = leads.map((l) => (l.id === id ? { ...l, status: newStatus } : l));
     setLeads(updated);
     localStorage.setItem("ai_studio_local_leads", JSON.stringify(updated));
+    broadcastLeadEvent({ type: "UPDATE_LEAD", id });
     try {
       await updateLeadStatusServerFn({ data: { id, status: newStatus } });
     } catch (err) {
@@ -171,6 +372,7 @@ function AdminPage() {
       const updated = leads.filter((l) => l.id !== id);
       setLeads(updated);
       localStorage.setItem("ai_studio_local_leads", JSON.stringify(updated));
+      broadcastLeadEvent({ type: "DELETE_LEAD", id });
       try {
         await deleteLeadServerFn({ data: { id } });
       } catch (err) {
@@ -194,7 +396,7 @@ function AdminPage() {
     if (lead.location) msg += `\nLocation: ${lead.location}`;
     if (lead.industry) msg += `\nIndustry: ${lead.industry}`;
     if (lead.requirement || lead.additional) msg += `\nRequirement: ${lead.requirement || lead.additional}`;
-    
+
     msg += `\n\nOur team is reviewing your requirements and will share the tailored proposal and sample concepts shortly.\n\nCould you please confirm if you have any specific deadline or additional references in mind?\n\nBest regards,\nQuickupp AI Studio Team\nhttps://quickuppaistudio.com`;
     return msg;
   };
@@ -204,12 +406,10 @@ function AdminPage() {
     const text = getAdminWhatsAppPlainText(lead);
     const phone = sanitizePhoneNumber(lead.phone);
 
-    // Auto copy text as safety backup
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).catch(() => {});
     }
 
-    // Open exact standard wa.me link identical to public website
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
@@ -375,7 +575,10 @@ function AdminPage() {
           </form>
 
           <div className="mt-6 border-t border-border pt-4 text-center">
-            <a href="/" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-neon">
+            <a
+              href="/"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-neon"
+            >
               <ArrowLeft className="h-3.5 w-3.5" /> Back to Website
             </a>
           </div>
@@ -386,10 +589,57 @@ function AdminPage() {
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-[#08070d] text-foreground antialiased selection:bg-neon selection:text-black">
+      {/* Real-Time Incoming Lead Animated Toast Banner */}
+      {newLeadNotification ? (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-lg">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-neon bg-[#17132a] p-3.5 shadow-[0_0_30px_rgba(200,80,255,0.4)] backdrop-blur-xl">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neon/20 text-neon animate-pulse">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-neon">
+                    New Lead Arrived!
+                  </span>
+                  <span className="rounded bg-secondary/80 px-1.5 py-0.2 text-[10px] text-muted-foreground">
+                    {newLeadNotification.source}
+                  </span>
+                </div>
+                <div className="truncate text-sm font-bold text-white">
+                  {newLeadNotification.name} · {newLeadNotification.phone}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {newLeadNotification.business} ({newLeadNotification.video_type})
+                </div>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => handleOpenWhatsApp(newLeadNotification)}
+                className="rounded-lg bg-[#25D366] px-2.5 py-1.5 text-xs font-bold text-white shadow hover:bg-[#20bd5a] flex items-center gap-1 cursor-pointer"
+                title="Open WhatsApp"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span>Chat</span>
+              </button>
+              <button
+                onClick={() => setNewLeadNotification(null)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-white/10 hover:text-white cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Top Admin Header - Full Width & Responsive */}
       <header className="sticky top-0 z-40 w-full border-b border-border bg-[#100e1a]/95 backdrop-blur-xl">
-        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8 lg:px-12">
-          <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-8 lg:px-12">
+          <div className="flex items-center gap-3 sm:gap-4">
             <a href="/" className="flex items-center transition-opacity hover:opacity-90">
               <img
                 src="/images/logo.png"
@@ -399,9 +649,38 @@ function AdminPage() {
                 height={34}
               />
             </a>
+
+            {/* Live Real-time Status Badge */}
+            <div
+              className="hidden xs:inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.15)]"
+              title="Real-time live sync active. Submissions from Popup and Contact forms appear immediately without refreshing."
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              <span>Live Sync Active</span>
+              {isSyncing ? (
+                <span className="text-[10px] text-muted-foreground animate-pulse">···</span>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Audio chime toggle */}
+            <button
+              onClick={toggleSound}
+              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer sm:px-3 sm:py-1.5 ${
+                soundEnabled
+                  ? "border-neon/40 bg-neon/10 text-neon hover:bg-neon/20"
+                  : "border-border/80 bg-secondary/50 text-muted-foreground hover:text-white"
+              }`}
+              title={soundEnabled ? "Notification sound enabled" : "Notification sound muted"}
+            >
+              {soundEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{soundEnabled ? "Sound On" : "Muted"}</span>
+            </button>
+
             <a
               href="/"
               target="_blank"
@@ -412,7 +691,7 @@ function AdminPage() {
             </a>
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/20 sm:px-3.5 sm:py-1.5"
+              className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/20 sm:px-3.5 sm:py-1.5 cursor-pointer"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span>Logout</span>
@@ -490,7 +769,7 @@ function AdminPage() {
               <select
                 value={filterSource}
                 onChange={(e) => setFilterSource(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-white focus:outline-none"
+                className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer"
               >
                 <option value="All" className="bg-[#12101e]">All</option>
                 <option value="Contact Form" className="bg-[#12101e]">Contact Form</option>
@@ -504,7 +783,7 @@ function AdminPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-white focus:outline-none"
+                className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer"
               >
                 <option value="All" className="bg-[#12101e]">All</option>
                 <option value="New" className="bg-[#12101e]">New</option>
@@ -516,17 +795,22 @@ function AdminPage() {
           </div>
 
           <div className="flex items-center justify-end gap-2">
+            <span className="hidden lg:inline text-[11px] text-muted-foreground/70">
+              Synced: {lastSyncTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
+
             <button
-              onClick={fetchLeads}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-[#0a0912] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-neon hover:text-neon sm:px-4 sm:py-2"
+              onClick={() => fetchLeads(false)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-[#0a0912] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-neon hover:text-neon sm:px-4 sm:py-2 cursor-pointer"
+              title="Manual refresh"
             >
-              <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin text-neon" : ""}`} />
+              <RefreshCw className={`h-3 w-3 ${loading || isSyncing ? "animate-spin text-neon" : ""}`} />
               <span>Refresh</span>
             </button>
 
             <button
               onClick={exportCSV}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-brand px-3.5 py-1.5 text-xs font-bold text-neon-foreground shadow-md glow-neon transition-all hover:brightness-110 sm:px-4 sm:py-2"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-brand px-3.5 py-1.5 text-xs font-bold text-neon-foreground shadow-md glow-neon transition-all hover:brightness-110 sm:px-4 sm:py-2 cursor-pointer"
             >
               <Download className="h-3 w-3" />
               <span>Export</span>
@@ -558,17 +842,25 @@ function AdminPage() {
                       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary/50 text-muted-foreground">
                         <Layers className="h-6 w-6" />
                       </div>
-                      <p className="mt-3 text-white font-semibold">No leads in PostgreSQL yet</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Submissions from the website will automatically appear here in real time.</p>
+                      <p className="mt-3 text-white font-semibold">No leads yet</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Submissions from the Popup Modal or Contact Form will automatically appear here in real time without refreshing.
+                      </p>
                     </td>
                   </tr>
                 ) : (
                   filteredLeads.map((lead) => {
                     const receivedToday = isToday(lead.created_at);
+                    const isNewlyArrived = highlightedLeadIds.has(lead.id);
+
                     return (
                       <tr
                         key={lead.id}
-                        className="transition-colors hover:bg-white/[0.03]"
+                        className={`transition-colors duration-500 ${
+                          isNewlyArrived
+                            ? "bg-neon/15 ring-1 ring-inset ring-neon"
+                            : "hover:bg-white/[0.03]"
+                        }`}
                       >
                         {/* Source */}
                         <td className="whitespace-nowrap px-5 py-4">
@@ -579,7 +871,14 @@ function AdminPage() {
 
                         {/* Client Info */}
                         <td className="px-5 py-4">
-                          <div className="text-sm font-semibold text-white">{lead.name}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-semibold text-white">{lead.name}</span>
+                            {isNewlyArrived ? (
+                              <span className="rounded bg-neon px-1.5 py-0.2 text-[9px] font-black uppercase text-black animate-pulse">
+                                JUST NOW
+                              </span>
+                            ) : null}
+                          </div>
                           {lead.email ? (
                             <div className="mt-0.5 text-xs text-muted-foreground">{lead.email}</div>
                           ) : null}
@@ -602,7 +901,10 @@ function AdminPage() {
                             {lead.video_type}
                           </div>
                           {lead.requirement || lead.additional ? (
-                            <p className="mt-1 max-w-xs text-xs text-muted-foreground line-clamp-1" title={lead.requirement || lead.additional}>
+                            <p
+                              className="mt-1 max-w-xs text-xs text-muted-foreground line-clamp-1"
+                              title={lead.requirement || lead.additional}
+                            >
                               {lead.requirement || lead.additional}
                             </p>
                           ) : null}
@@ -612,9 +914,7 @@ function AdminPage() {
                         <td className="px-5 py-4 text-xs">
                           <div className="font-medium text-foreground">{lead.business}</div>
                           {lead.location ? (
-                            <div className="mt-0.5 text-muted-foreground">
-                              {lead.location}
-                            </div>
+                            <div className="mt-0.5 text-muted-foreground">{lead.location}</div>
                           ) : null}
                         </td>
 
@@ -629,10 +929,18 @@ function AdminPage() {
                                 : "border-border/80 bg-secondary/40 text-muted-foreground"
                             }`}
                           >
-                            <option value="New" className="bg-[#12101e] text-emerald-400">New</option>
-                            <option value="Contacted" className="bg-[#12101e] text-foreground">Contacted</option>
-                            <option value="In Progress" className="bg-[#12101e] text-foreground">In Progress</option>
-                            <option value="Closed" className="bg-[#12101e] text-muted-foreground">Closed</option>
+                            <option value="New" className="bg-[#12101e] text-emerald-400">
+                              New
+                            </option>
+                            <option value="Contacted" className="bg-[#12101e] text-foreground">
+                              Contacted
+                            </option>
+                            <option value="In Progress" className="bg-[#12101e] text-foreground">
+                              In Progress
+                            </option>
+                            <option value="Closed" className="bg-[#12101e] text-muted-foreground">
+                              Closed
+                            </option>
                           </select>
                         </td>
 
@@ -642,7 +950,11 @@ function AdminPage() {
                             <div>
                               <div className="inline-flex items-center gap-1.5 rounded-full border border-neon/50 bg-neon/15 px-2.5 py-0.5 font-bold text-neon">
                                 <Calendar className="h-3 w-3" />
-                                Today, {new Date(lead.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                Today,{" "}
+                                {new Date(lead.created_at).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
                               </div>
                             </div>
                           ) : (
@@ -652,7 +964,10 @@ function AdminPage() {
                                 {new Date(lead.created_at).toLocaleDateString()}
                               </div>
                               <div className="mt-0.5 text-[11px] text-muted-foreground/80">
-                                {new Date(lead.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {new Date(lead.created_at).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
                               </div>
                             </div>
                           )}
@@ -663,7 +978,7 @@ function AdminPage() {
                           <div className="flex items-center justify-end gap-2">
                             <a
                               href={`https://wa.me/${sanitizePhoneNumber(lead.phone)}?text=${encodeURIComponent(
-                                getAdminWhatsAppPlainText(lead)
+                                getAdminWhatsAppPlainText(lead),
                               )}`}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -680,7 +995,7 @@ function AdminPage() {
                             </a>
                             <button
                               onClick={() => deleteLeadItem(lead.id)}
-                              className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground transition-colors hover:border-red-500 hover:text-red-400"
+                              className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground transition-colors hover:border-red-500 hover:text-red-400 cursor-pointer"
                               title="Delete Lead"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -699,15 +1014,29 @@ function AdminPage() {
           <div className="block md:hidden divide-y divide-border/60 overflow-y-auto max-h-[calc(100vh-270px)] p-3">
             {filteredLeads.length === 0 ? (
               <div className="py-12 text-center text-xs text-muted-foreground">
-                No leads recorded yet.
+                No leads recorded yet. Submissions will auto-load here in real time.
               </div>
             ) : (
               filteredLeads.map((lead) => {
                 const receivedToday = isToday(lead.created_at);
+                const isNewlyArrived = highlightedLeadIds.has(lead.id);
+
                 return (
-                  <div key={lead.id} className="py-3.5 first:pt-0 last:pb-0 space-y-2">
+                  <div
+                    key={lead.id}
+                    className={`py-3.5 first:pt-0 last:pb-0 space-y-2 rounded-lg transition-all ${
+                      isNewlyArrived ? "bg-neon/15 p-2.5 ring-1 ring-neon" : ""
+                    }`}
+                  >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="font-bold text-sm text-white">{lead.name}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-sm text-white">{lead.name}</span>
+                        {isNewlyArrived ? (
+                          <span className="rounded bg-neon px-1 py-0.2 text-[8px] font-black text-black">
+                            NEW
+                          </span>
+                        ) : null}
+                      </div>
                       <span className="rounded border border-border/80 bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
                         {lead.source}
                       </span>
@@ -735,11 +1064,16 @@ function AdminPage() {
                     <div className="flex items-center justify-between pt-1">
                       {receivedToday ? (
                         <span className="inline-flex items-center gap-1 rounded-full border border-neon/50 bg-neon/15 px-2 py-0.5 text-[10px] font-bold text-neon">
-                          <Calendar className="h-2.5 w-2.5" /> Today {new Date(lead.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          <Calendar className="h-2.5 w-2.5" /> Today{" "}
+                          {new Date(lead.created_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </span>
                       ) : (
                         <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <Calendar className="h-2.5 w-2.5" /> {new Date(lead.created_at).toLocaleDateString()}
+                          <Calendar className="h-2.5 w-2.5" />{" "}
+                          {new Date(lead.created_at).toLocaleDateString()}
                         </span>
                       )}
 
@@ -753,15 +1087,23 @@ function AdminPage() {
                               : "border-border/80 bg-secondary/40 text-muted-foreground"
                           }`}
                         >
-                          <option value="New" className="bg-[#12101e] text-emerald-400">New</option>
-                          <option value="Contacted" className="bg-[#12101e]">Contacted</option>
-                          <option value="In Progress" className="bg-[#12101e]">In Progress</option>
-                          <option value="Closed" className="bg-[#12101e]">Closed</option>
+                          <option value="New" className="bg-[#12101e] text-emerald-400">
+                            New
+                          </option>
+                          <option value="Contacted" className="bg-[#12101e]">
+                            Contacted
+                          </option>
+                          <option value="In Progress" className="bg-[#12101e]">
+                            In Progress
+                          </option>
+                          <option value="Closed" className="bg-[#12101e]">
+                            Closed
+                          </option>
                         </select>
 
                         <a
                           href={`https://wa.me/${sanitizePhoneNumber(lead.phone)}?text=${encodeURIComponent(
-                            getAdminWhatsAppPlainText(lead)
+                            getAdminWhatsAppPlainText(lead),
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
