@@ -264,9 +264,8 @@ export function Hero() {
   const mediaCardRef = useRef<HTMLDivElement>(null);
   const desktopVideoRef = useRef<HTMLVideoElement>(null);
   const mobileVideoRef = useRef<HTMLVideoElement>(null);
-  const userExplicitlyMutedRef = useRef(false);
-  const cleanupInteractionRef = useRef<(() => void) | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
+  const userExplicitlyMutedRef = useRef(true);
+  const [isMuted, setIsMuted] = useState(true);
   const [headerHeight, setHeaderHeight] = useState(116);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -283,22 +282,13 @@ export function Hero() {
     const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
     if (!activeVideo) return;
 
-    const nextMuted = !activeVideo.muted;
+    const nextMuted = !isMuted;
     userExplicitlyMutedRef.current = nextMuted;
 
-    // Immediately teardown any pending autoplay interaction listeners when user mutes
-    if (nextMuted && cleanupInteractionRef.current) {
-      cleanupInteractionRef.current();
-      cleanupInteractionRef.current = null;
-    }
-
-    // Apply strictly to active video
     activeVideo.muted = nextMuted;
     activeVideo.volume = nextMuted ? 0 : 1;
-
     setIsMuted(nextMuted);
 
-    // Video MUST GO ON — never stop or pause when muting/unmuting!
     activeVideo.play().catch(() => {});
   };
 
@@ -308,82 +298,19 @@ export function Hero() {
       const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
       const inactiveVideo = isMobile ? desktopVideoRef.current : mobileVideoRef.current;
 
-      // Completely disable inactive video so only one video ever runs
       if (inactiveVideo) {
         inactiveVideo.pause();
-        inactiveVideo.muted = true;
-        inactiveVideo.volume = 0;
-        inactiveVideo.removeAttribute("src");
-        inactiveVideo.load();
       }
 
-      if (!activeVideo) return;
-
-      // Ensure active video loop is enabled so it autoplays once complete
-      activeVideo.loop = true;
-
-      // If user has explicitly chosen to mute, strictly keep it muted but KEEP PLAYING
-      if (userExplicitlyMutedRef.current) {
-        activeVideo.muted = true;
-        activeVideo.volume = 0;
-        setIsMuted(true);
-        activeVideo.play().catch(() => {});
-        return;
-      }
-
-      // Video and audio should be on when website starts!
-      activeVideo.muted = false;
-      activeVideo.volume = 1;
-
-      const playPromise = activeVideo.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setIsMuted(false);
-          })
-          .catch(() => {
-            // If browser policy blocks sound before user gesture:
-            // Keep video playing (muted), and turn audio ON on first user interaction!
-            activeVideo.muted = true;
-            activeVideo.volume = 0;
-            setIsMuted(true);
-            activeVideo.play().catch(() => {});
-
-            const unmuteOnFirstInteraction = () => {
-              // If user explicitly muted in the meantime, do not unmute
-              if (userExplicitlyMutedRef.current) return;
-
-              const currentActive =
-                window.innerWidth < 1024 ? mobileVideoRef.current : desktopVideoRef.current;
-              if (currentActive && !userExplicitlyMutedRef.current) {
-                currentActive.muted = false;
-                currentActive.volume = 1;
-                setIsMuted(false);
-                currentActive.play().catch(() => {});
-              }
-              cleanup();
-            };
-
-            const cleanup = () => {
-              window.removeEventListener("pointerdown", unmuteOnFirstInteraction);
-              window.removeEventListener("keydown", unmuteOnFirstInteraction);
-              window.removeEventListener("touchstart", unmuteOnFirstInteraction);
-            };
-            cleanupInteractionRef.current = cleanup;
-
-            window.addEventListener("pointerdown", unmuteOnFirstInteraction, {
-              once: true,
-              passive: true,
-            });
-            window.addEventListener("keydown", unmuteOnFirstInteraction, {
-              once: true,
-              passive: true,
-            });
-            window.addEventListener("touchstart", unmuteOnFirstInteraction, {
-              once: true,
-              passive: true,
-            });
-          });
+      if (activeVideo) {
+        activeVideo.muted = isMuted;
+        activeVideo.volume = isMuted ? 0 : 1;
+        activeVideo.play().catch(() => {
+          activeVideo.muted = true;
+          activeVideo.volume = 0;
+          setIsMuted(true);
+          activeVideo.play().catch(() => {});
+        });
       }
     };
 
@@ -391,14 +318,10 @@ export function Hero() {
     window.addEventListener("resize", handleAutoplay);
     return () => {
       window.removeEventListener("resize", handleAutoplay);
-      if (cleanupInteractionRef.current) {
-        cleanupInteractionRef.current();
-        cleanupInteractionRef.current = null;
-      }
     };
-  }, []);
+  }, [isMuted]);
 
-  // IntersectionObserver: automatically stop and mute when hero section is not in view
+  // IntersectionObserver: automatically stop when hero section is not in view
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
     const targetElement = isMobile ? mobileHeroRef.current : trackRef.current;
@@ -411,20 +334,11 @@ export function Hero() {
         if (!activeVideo) return;
 
         if (entry.isIntersecting && entry.intersectionRatio > 0.05) {
-          // User is on the active hero section -> play only, strictly honoring mute
-          if (userExplicitlyMutedRef.current) {
-            activeVideo.muted = true;
-            activeVideo.volume = 0;
-          } else {
-            activeVideo.muted = false;
-            activeVideo.volume = 1;
-          }
+          activeVideo.muted = isMuted;
+          activeVideo.volume = isMuted ? 0 : 1;
           activeVideo.play().catch(() => {});
         } else {
-          // User scrolled away from hero section -> STOP AND MUTE automatically!
           activeVideo.pause();
-          activeVideo.muted = true;
-          activeVideo.volume = 0;
         }
       },
       { threshold: [0, 0.05, 0.2] },
@@ -432,7 +346,7 @@ export function Hero() {
 
     observer.observe(targetElement);
     return () => observer.disconnect();
-  }, [isDesktop]);
+  }, [isDesktop, isMuted]);
 
   useEffect(() => {
     const updateHeaderHeight = () => {
@@ -466,30 +380,21 @@ export function Hero() {
       if (!mobileHeroRef.current || !mobileVideoRef.current) return;
 
       const rect = mobileHeroRef.current.getBoundingClientRect();
-      // If mobile hero section has scrolled past top (leaving screen) or is below view:
       if (rect.bottom <= 60 || rect.top >= window.innerHeight) {
         if (!mobileVideoRef.current.paused) {
           mobileVideoRef.current.pause();
-          mobileVideoRef.current.muted = true;
-          mobileVideoRef.current.volume = 0;
         }
       } else {
-        // User is back on the mobile hero section:
         if (mobileVideoRef.current.paused) {
-          if (userExplicitlyMutedRef.current) {
-            mobileVideoRef.current.muted = true;
-            mobileVideoRef.current.volume = 0;
-          } else {
-            mobileVideoRef.current.muted = false;
-            mobileVideoRef.current.volume = 1;
-          }
+          mobileVideoRef.current.muted = isMuted;
+          mobileVideoRef.current.volume = isMuted ? 0 : 1;
           mobileVideoRef.current.play().catch(() => {});
         }
       }
     };
 
     const handleScroll = () => {
-      if (window.innerWidth < 1024) return; // Desktop cinema engine only
+      if (window.innerWidth < 1024) return;
       if (!trackRef.current || !containerRef.current) return;
 
       const trackRect = trackRef.current.getBoundingClientRect();
@@ -503,49 +408,31 @@ export function Hero() {
       const rawP = scrolled / scrollableDistance;
       const p = Math.min(Math.max(rawP, 0), 1);
 
-      // Expansion completes smoothly at p = 0.65, followed by a generous locked cinema hold from 0.65 to 1.0
       const expandP = Math.min(p / 0.65, 1);
 
-      // --- 3-PHASE PINNING ENGINE: 100% immune to ancestor overflow / sticky cancellation ---
       if (scrolled <= 0) {
-        // Phase 1: At top of track
         containerRef.current.style.position = "absolute";
         containerRef.current.style.top = "0px";
         containerRef.current.style.bottom = "auto";
         if (desktopVideoRef.current && desktopVideoRef.current.paused) {
-          if (userExplicitlyMutedRef.current) {
-            desktopVideoRef.current.muted = true;
-            desktopVideoRef.current.volume = 0;
-          } else {
-            desktopVideoRef.current.muted = false;
-            desktopVideoRef.current.volume = 1;
-          }
+          desktopVideoRef.current.muted = isMuted;
+          desktopVideoRef.current.volume = isMuted ? 0 : 1;
           desktopVideoRef.current.play().catch(() => {});
         }
       } else if (scrolled >= scrollableDistance) {
-        // Phase 3: Scrolled past hero hold, rolling up cleanly into the next section
         containerRef.current.style.position = "absolute";
         containerRef.current.style.top = "auto";
         containerRef.current.style.bottom = "0px";
-        // User scrolled past hero section: STOP AND MUTE automatically by itself!
         if (desktopVideoRef.current && !desktopVideoRef.current.paused) {
           desktopVideoRef.current.pause();
-          desktopVideoRef.current.muted = true;
-          desktopVideoRef.current.volume = 0;
         }
       } else {
-        // Phase 2: Active Scroll & Locked Hold — FIXED TO VIEWPORT, NEVER SCROLLS OFF OR DISAPPEARS!
         containerRef.current.style.position = "fixed";
         containerRef.current.style.top = "0px";
         containerRef.current.style.bottom = "auto";
         if (desktopVideoRef.current && desktopVideoRef.current.paused) {
-          if (userExplicitlyMutedRef.current) {
-            desktopVideoRef.current.muted = true;
-            desktopVideoRef.current.volume = 0;
-          } else {
-            desktopVideoRef.current.muted = false;
-            desktopVideoRef.current.volume = 1;
-          }
+          desktopVideoRef.current.muted = isMuted;
+          desktopVideoRef.current.volume = isMuted ? 0 : 1;
           desktopVideoRef.current.play().catch(() => {});
         }
       }
@@ -668,35 +555,23 @@ export function Hero() {
           <div className="relative w-full max-w-[310px] xs:max-w-[340px] sm:max-w-[390px] aspect-[9/16] max-h-[58vh] rounded-2xl overflow-hidden border border-white/20 bg-[#0e081e] shadow-[0_0_50px_rgba(200,80,255,0.35)] glow-neon">
             <video
               ref={mobileVideoRef}
-              src="/images/Hero Video.mp4"
+              src="/images/Hero%20Video.mp4"
               autoPlay
               loop
               muted={isMuted}
               playsInline
-              preload="metadata"
+              preload="auto"
               onClick={toggleAudio}
-              onEnded={(e) => {
+              onError={(e) => {
                 const v = e.currentTarget;
-                v.currentTime = 0;
-                if (userExplicitlyMutedRef.current) {
-                  v.muted = true;
-                  v.volume = 0;
+                if (!v.src.endsWith('/images/Hero%20Video.mp4')) {
+                  v.src = '/images/Hero%20Video.mp4';
                 }
                 v.play().catch(() => {});
               }}
-              onVolumeChange={(e) => {
-                if (
-                  userExplicitlyMutedRef.current &&
-                  (!e.currentTarget.muted || e.currentTarget.volume > 0)
-                ) {
-                  e.currentTarget.muted = true;
-                  e.currentTarget.volume = 0;
-                  setIsMuted(true);
-                }
-              }}
               className="relative z-10 h-full w-full object-cover object-center cursor-pointer"
             >
-              <source src="/images/Hero Video.mp4" type="video/mp4" />
+              <source src="/images/Hero%20Video.mp4" type="video/mp4" />
               <track kind="captions" src="" label="English" default />
             </video>
 
@@ -824,35 +699,23 @@ export function Hero() {
               {/* Active autoplaying video with audio default */}
               <video
                 ref={desktopVideoRef}
-                src="/images/Hero Video.mp4"
+                src="/images/Hero%20Video.mp4"
                 autoPlay
                 loop
                 muted={isMuted}
                 playsInline
-                preload="metadata"
+                preload="auto"
                 onClick={toggleAudio}
-                onEnded={(e) => {
+                onError={(e) => {
                   const v = e.currentTarget;
-                  v.currentTime = 0;
-                  if (userExplicitlyMutedRef.current) {
-                    v.muted = true;
-                    v.volume = 0;
+                  if (!v.src.endsWith('/images/Hero%20Video.mp4')) {
+                    v.src = '/images/Hero%20Video.mp4';
                   }
                   v.play().catch(() => {});
                 }}
-                onVolumeChange={(e) => {
-                  if (
-                    userExplicitlyMutedRef.current &&
-                    (!e.currentTarget.muted || e.currentTarget.volume > 0)
-                  ) {
-                    e.currentTarget.muted = true;
-                    e.currentTarget.volume = 0;
-                    setIsMuted(true);
-                  }
-                }}
                 className="relative z-10 h-full w-full object-cover object-center cursor-pointer"
               >
-                <source src="/images/Hero Video.mp4" type="video/mp4" />
+                <source src="/images/Hero%20Video.mp4" type="video/mp4" />
                 <track kind="captions" src="" label="English" default />
               </video>
 
