@@ -88,6 +88,7 @@ function AdminPage() {
 
   // Real-time live sync state
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+  const [refreshCountdown, setRefreshCountdown] = useState<number>(10);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("ai_studio_sound_enabled") !== "false";
@@ -177,27 +178,37 @@ function AdminPage() {
     }, 7000);
   };
 
-  // Real-Time Auto-Polling and Multi-Channel Event Listeners
+  // 10-Second Auto-Refresh Polling and Multi-Channel Event Listeners
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // 1. Silent Background Polling Interval (every 3.5 seconds)
+    // 1. Second-by-second countdown timer for visual transparency
+    const countdownTimer = setInterval(() => {
+      setRefreshCountdown((prev) => (prev <= 1 ? 10 : prev - 1));
+    }, 1000);
+
+    // 2. Auto-refresh leads from database every 10 seconds (10,000 ms)
     const intervalId = setInterval(() => {
       fetchLeads(true);
-    }, 3500);
+      setRefreshCountdown(10);
+    }, 10000);
 
-    // 2. Window Focus & Visibility Change (Instant fetch whenever admin clicks/switches to this tab)
+    // 3. Window Focus & Visibility Change (Instant fetch whenever admin clicks/switches to this tab)
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         fetchLeads(true);
+        setRefreshCountdown(10);
       }
     };
-    const handleFocus = () => fetchLeads(true);
+    const handleFocus = () => {
+      fetchLeads(true);
+      setRefreshCountdown(10);
+    };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", handleFocus);
 
-    // 3. BroadcastChannel for 0ms Instant Cross-Tab Sync
+    // 4. BroadcastChannel for 0ms Instant Cross-Tab Sync
     let bc: BroadcastChannel | null = null;
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
       try {
@@ -214,7 +225,7 @@ function AdminPage() {
       }
     }
 
-    // 4. Custom Window Event Listener (same-tab immediate trigger)
+    // 5. Custom Window Event Listener (same-tab immediate trigger)
     const handleCustomEvent = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail?.type === "NEW_LEAD" && customEvent.detail.lead) {
@@ -228,7 +239,7 @@ function AdminPage() {
     };
     window.addEventListener("ai_studio_lead_event", handleCustomEvent);
 
-    // 5. Local Storage StorageEvent Listener (cross-window storage sync)
+    // 6. Local Storage StorageEvent Listener (cross-window storage sync)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "ai_studio_local_leads" && e.newValue) {
         try {
@@ -243,6 +254,7 @@ function AdminPage() {
     window.addEventListener("storage", handleStorageChange);
 
     return () => {
+      clearInterval(countdownTimer);
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
@@ -650,16 +662,16 @@ function AdminPage() {
               />
             </a>
 
-            {/* Live Real-time Status Badge */}
+            {/* Live 10-Second Auto-Refresh Badge */}
             <div
               className="hidden xs:inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.15)]"
-              title="Real-time live sync active. Submissions from Popup and Contact forms appear immediately without refreshing."
+              title="Admin automatically refreshes every 10 seconds to load new leads from Popup Modal & Contact Form."
             >
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
               </span>
-              <span>Live Sync Active</span>
+              <span>Auto-Refresh: {refreshCountdown}s</span>
               {isSyncing ? (
                 <span className="text-[10px] text-muted-foreground animate-pulse">···</span>
               ) : null}
@@ -795,14 +807,17 @@ function AdminPage() {
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <span className="hidden lg:inline text-[11px] text-muted-foreground/70">
-              Synced: {lastSyncTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            <span className="hidden sm:inline text-[11px] text-muted-foreground/70">
+              Auto-syncs in <span className="font-mono text-neon font-semibold">{refreshCountdown}s</span> · Last: {lastSyncTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
 
             <button
-              onClick={() => fetchLeads(false)}
+              onClick={() => {
+                fetchLeads(false);
+                setRefreshCountdown(10);
+              }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-[#0a0912] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-neon hover:text-neon sm:px-4 sm:py-2 cursor-pointer"
-              title="Manual refresh"
+              title="Manual refresh now"
             >
               <RefreshCw className={`h-3 w-3 ${loading || isSyncing ? "animate-spin text-neon" : ""}`} />
               <span>Refresh</span>

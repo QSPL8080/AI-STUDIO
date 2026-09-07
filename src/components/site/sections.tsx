@@ -2494,6 +2494,11 @@ export function LeadFormSection() {
               setLoading(false);
               setSubmitted(true);
               form.reset();
+
+              // Auto-revert form back to normal after 3 seconds
+              setTimeout(() => {
+                setSubmitted(false);
+              }, 3000);
             }}
             className="space-y-5"
           >
@@ -3262,6 +3267,12 @@ export function QuotePopupModal() {
                 setLoading(false);
                 setSubmitted(true);
                 form.reset();
+
+                // Auto-revert form back to normal and close popup modal after 3 seconds
+                setTimeout(() => {
+                  setSubmitted(false);
+                  setIsOpen(false);
+                }, 3000);
               }}
               className="mt-4 space-y-3"
             >
