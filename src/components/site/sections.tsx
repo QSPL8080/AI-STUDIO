@@ -1230,20 +1230,40 @@ export function Samples() {
     currentPair.length > 0 && currentPair.every((_, i) => completedMap[i] === true);
 
   return (
-    <Section id="samples">
-      <SectionHeading
-        eyebrow="AI Video Samples"
-        title="Explore Our AI Video"
-        highlight="Samples"
-        description="See how different AI video formats can bring your brand, product or service to life."
-      />
-      <p className="mx-auto mb-8 -mt-6 max-w-3xl text-center text-sm leading-relaxed text-muted-foreground sm:text-base">
-        Not sure which AI video format is right for your business? Explore our video samples to
-        understand the difference between AI UGC videos, AI cartoon animation, AI avatar videos,
-        hyper-realistic AI videos and AI digital twin videos.
-      </p>
+    <Section id="samples" className="relative overflow-hidden">
+      {/* Giant scrolling 'SAMPLES' watermark — continuous left marquee loop */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 overflow-hidden select-none z-0"
+      >
+        <div className="animate-watermark-scroll flex whitespace-nowrap">
+          {/* Duplicated for seamless infinite loop */}
+          {[0, 1].map((i) => (
+            <span
+              key={i}
+              className="flex shrink-0 items-center font-extrabold uppercase text-white/[0.045]"
+              style={{ fontSize: "clamp(5rem, 18vw, 14rem)", letterSpacing: "0.2em" }}
+            >
+              SAMPLES&nbsp;&nbsp;•&nbsp;&nbsp;SAMPLES&nbsp;&nbsp;•&nbsp;&nbsp;SAMPLES&nbsp;&nbsp;•&nbsp;&nbsp;
+            </span>
+          ))}
+        </div>
+      </div>
 
-      {/* Filter Tabs */}
+      <div className="relative z-10">
+        <SectionHeading
+          eyebrow="AI Video Samples"
+          title="Explore Our AI Video"
+          highlight="Samples"
+          description="See how different AI video formats can bring your brand, product or service to life."
+        />
+        <p className="mx-auto mb-8 -mt-6 max-w-3xl text-center text-sm leading-relaxed text-muted-foreground sm:text-base">
+          Not sure which AI video format is right for your business? Explore our video samples to
+          understand the difference between AI UGC videos, AI cartoon animation, AI avatar videos,
+          hyper-realistic AI videos and AI digital twin videos.
+        </p>
+
+        {/* Filter Tabs */}
       <div className="mb-10 flex flex-wrap items-center justify-center gap-2">
         {filters.map((filter) => (
           <button
@@ -1475,6 +1495,7 @@ export function Samples() {
           Want a Similar Video for Your Business?
         </p>
         <NeonButton href="#contact">Get Your AI Video Quote</NeonButton>
+      </div>
       </div>
     </Section>
   );
@@ -2128,8 +2149,26 @@ export function DigitalTwin() {
   }, [isInView, twinSample?.videoUrl]);
 
   return (
-    <Section id="digital-twin" className="bg-surface/40 overflow-hidden">
-      <div ref={sectionRef} className="grid gap-12 lg:grid-cols-12 lg:items-center">
+    <Section id="digital-twin" className="relative bg-surface/40 overflow-hidden">
+      {/* Giant left-scrolling 'AI VIDEO' watermark */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 overflow-hidden select-none z-0"
+      >
+        <div className="animate-watermark-scroll flex whitespace-nowrap">
+          {[0, 1].map((i) => (
+            <span
+              key={i}
+              className="flex shrink-0 items-center font-extrabold uppercase text-white/[0.04]"
+              style={{ fontSize: "clamp(5rem, 18vw, 14rem)", letterSpacing: "0.2em" }}
+            >
+              AI VIDEO&nbsp;&nbsp;•&nbsp;&nbsp;AI VIDEO&nbsp;&nbsp;•&nbsp;&nbsp;AI VIDEO&nbsp;&nbsp;•&nbsp;&nbsp;
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div ref={sectionRef} className="relative z-10 grid gap-12 lg:grid-cols-12 lg:items-center">
         {/* Content Side: Enters from RIGHT */}
         <div
           className={`lg:col-span-5 transition-all duration-700 ${
