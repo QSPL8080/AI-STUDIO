@@ -714,71 +714,71 @@
 
 @keyframes orbitPulseBreath {
   0%, 100% {
-    transform: scale(0.97);
-    opacity: 0.35;
+    transform: scale(0.99);
+    opacity: 0.2;
   }
   50% {
-    transform: scale(1.03);
-    opacity: 0.75;
+    transform: scale(1.015);
+    opacity: 0.45;
   }
 }
 
 @keyframes waveFloatOne {
   0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-    opacity: 0.3;
+    transform: translateY(0px);
+    opacity: 0.18;
   }
   50% {
-    transform: translateY(-12px) rotate(0.5deg);
-    opacity: 0.65;
+    transform: translateY(-6px);
+    opacity: 0.35;
   }
 }
 
 @keyframes waveFloatTwo {
   0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-    opacity: 0.25;
+    transform: translateY(0px);
+    opacity: 0.15;
   }
   50% {
-    transform: translateY(14px) rotate(-0.5deg);
-    opacity: 0.6;
+    transform: translateY(7px);
+    opacity: 0.32;
   }
 }
 
 @keyframes ambientAuraPulse {
   0%, 100% {
     transform: scale(1);
-    opacity: 0.22;
+    opacity: 0.12;
   }
   50% {
-    transform: scale(1.2);
-    opacity: 0.42;
+    transform: scale(1.1);
+    opacity: 0.22;
   }
 }
 
 .animate-orbit-spin-slow {
-  animation: orbitSpinClockwise 85s linear infinite;
+  animation: orbitSpinClockwise 95s linear infinite;
   transform-origin: 300px 300px;
 }
 
 .animate-orbit-spin-reverse {
-  animation: orbitSpinCounter 60s linear infinite;
+  animation: orbitSpinCounter 75s linear infinite;
   transform-origin: 260px 340px;
 }
 
 .animate-orbit-breath {
-  animation: orbitPulseBreath 7s ease-in-out infinite;
+  animation: orbitPulseBreath 9s ease-in-out infinite;
   transform-origin: 300px 300px;
 }
 
 .animate-wave-float-1 {
-  animation: waveFloatOne 10s ease-in-out infinite;
+  animation: waveFloatOne 12s ease-in-out infinite;
 }
 
 .animate-wave-float-2 {
-  animation: waveFloatTwo 14s ease-in-out infinite;
+  animation: waveFloatTwo 16s ease-in-out infinite;
 }
 
 .animate-aura-pulse {
-  animation: ambientAuraPulse 6s ease-in-out infinite;
+  animation: ambientAuraPulse 8s ease-in-out infinite;
 }
