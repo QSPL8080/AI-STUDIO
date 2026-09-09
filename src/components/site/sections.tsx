@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Clock,
   ExternalLink,
+  FileText,
   Film,
   MapPin,
   Mail,
@@ -25,6 +26,7 @@ import {
   VolumeX,
   Wand2,
   X,
+  Zap,
 } from "lucide-react";
 import { NeonButton, Section, SectionHeading } from "./ui";
 import { submitLeadServerFn, broadcastLeadEvent } from "@/lib/lead-actions";
@@ -863,6 +865,8 @@ export function Hero() {
 export function HeroOverview() {
   const sectionRef = useRef<HTMLElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -881,13 +885,22 @@ export function HeroOverview() {
     return () => observer.disconnect();
   }, []);
 
+  // Auto-cycle through the feature cards with living AI scanner animation
+  useEffect(() => {
+    if (!isVisible || isHovered) return;
+    const interval = setInterval(() => {
+      setActiveIdx((prev) => (prev + 1) % 6);
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [isVisible, isHovered]);
+
   const checklistItems = [
-    "Script Included",
-    "5+ AI Video Formats",
-    "Up to 60-Second Videos",
-    "9:16 Reel Format",
-    "48–72 Hour Delivery",
-    "1 Revision Included",
+    { label: "Script Included", icon: FileText, tag: "AI Structured" },
+    { label: "5+ AI Video Formats", icon: Film, tag: "UGC, Avatar & Reels" },
+    { label: "Up to 60-Second Videos", icon: Sparkles, tag: "High Retention" },
+    { label: "9:16 Reel Format", icon: Smartphone, tag: "TikTok & Reels" },
+    { label: "48–72 Hour Delivery", icon: Clock, tag: "Ultra Fast" },
+    { label: "1 Revision Included", icon: RotateCcw, tag: "Guaranteed" },
   ];
 
   return (
@@ -1003,24 +1016,95 @@ export function HeroOverview() {
             </div>
           </div>
 
-          {/* Right Column: 6 Feature Cards (2 cols on mobile, 1 col on tablet/desktop) */}
+          {/* Right Column: 6 Interactive Cyber Feature Cards with Dynamic Living Scanner */}
           <div
-            className={`md:col-span-5 w-full grid grid-cols-2 md:grid-cols-1 gap-2 sm:gap-2.5 lg:gap-3 transition-all duration-800 delay-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            className={`md:col-span-5 relative w-full transition-all duration-800 delay-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95"
             }`}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
           >
-            {checklistItems.map((item, idx) => (
-              <div
-                key={item}
-                className="group flex items-center gap-2 sm:gap-3 rounded-xl border border-white/10 bg-[#140e24]/80 px-2.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white/95 backdrop-blur-md shadow-md transition-all duration-300 hover:border-neon/60 hover:bg-neon/15 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(200,80,255,0.3)]"
-                style={{ transitionDelay: isVisible ? `${450 + idx * 70}ms` : "0ms" }}
-              >
-                <span className="flex h-4 w-4 sm:h-5 sm:w-5 shrink-0 items-center justify-center rounded-full bg-neon/20 text-neon border border-neon/50 shadow-[0_0_10px_rgba(200,80,255,0.35)] group-hover:scale-110 group-hover:bg-neon group-hover:text-black transition-all duration-200">
-                  <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[3]" />
-                </span>
-                <span className="tracking-wide">{item}</span>
-              </div>
-            ))}
+            {/* Background Holographic Tech Halo / Radar Rings */}
+            <div className="pointer-events-none absolute -inset-4 sm:-inset-6 z-0 overflow-hidden select-none opacity-40">
+              <svg className="w-full h-full" viewBox="0 0 400 400" fill="none">
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="160"
+                  stroke="rgba(168, 85, 247, 0.2)"
+                  strokeWidth="1"
+                  strokeDasharray="4 8"
+                  className="animate-orbit-spin-slow"
+                />
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="120"
+                  stroke="rgba(56, 189, 248, 0.15)"
+                  strokeWidth="1"
+                  className="animate-orbit-breath"
+                />
+              </svg>
+            </div>
+
+            <div className="relative z-10 grid grid-cols-2 md:grid-cols-1 gap-2.5 sm:gap-3">
+              {checklistItems.map((item, idx) => {
+                const Icon = item.icon;
+                const isActive = idx === activeIdx;
+
+                return (
+                  <div
+                    key={item.label}
+                    onMouseEnter={() => setActiveIdx(idx)}
+                    className={`group relative flex items-center justify-between rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-400 backdrop-blur-md cursor-pointer select-none overflow-hidden ${
+                      isActive
+                        ? "border border-neon/80 bg-gradient-to-r from-[#2b144d]/95 via-[#1e0f36]/90 to-[#120822]/90 text-white shadow-[0_0_30px_-5px_rgba(200,80,255,0.45)] md:translate-x-2 scale-[1.02]"
+                        : "border border-white/10 bg-[#140e24]/75 text-white/85 hover:border-white/30 hover:bg-[#1a1230]/85 hover:text-white"
+                    }`}
+                    style={{ transitionDelay: isVisible ? `${450 + idx * 50}ms` : "0ms" }}
+                  >
+                    {/* Active Accent Shimmer Sheen */}
+                    {isActive && (
+                      <div
+                        className="pointer-events-none absolute inset-0 opacity-20 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-watermark-scroll"
+                        style={{ animationDuration: "3s" }}
+                      />
+                    )}
+
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                      {/* Animated Glowing Icon Badge */}
+                      <span
+                        className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-300 ${
+                          isActive
+                            ? "bg-gradient-brand text-white shadow-[0_0_15px_rgba(200,80,255,0.6)] scale-110"
+                            : "bg-white/5 text-neon/80 border border-white/10 group-hover:border-neon/50 group-hover:bg-neon/15 group-hover:text-neon"
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      </span>
+
+                      <span className="tracking-wide truncate font-medium sm:font-semibold">
+                        {item.label}
+                      </span>
+                    </div>
+
+                    {/* Right-Side Status Badge / Live Beacon (Hidden on very narrow mobile split) */}
+                    <div className="hidden sm:flex items-center gap-1.5 shrink-0 pl-2">
+                      {isActive ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-neon/20 px-2 py-0.5 text-[10px] font-bold text-neon border border-neon/40 animate-in fade-in zoom-in-95">
+                          <span className="h-1.5 w-1.5 rounded-full bg-neon animate-ping" />
+                          <span>{item.tag}</span>
+                        </span>
+                      ) : (
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/5 text-white/40 border border-white/10 group-hover:text-neon/80 group-hover:border-neon/30 transition-colors">
+                          <Check className="h-2.5 w-2.5 stroke-[2.5]" />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
