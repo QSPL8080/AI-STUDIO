@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { saveLead as saveLeadToDb, getLeads as getLeadsFromDb, updateLeadStatus as updateStatusInDb, deleteLead as deleteLeadFromDb, type Lead } from "./db";
+import { sendLeadNotificationEmail } from "./email";
 
 export const submitLeadServerFn = createServerFn({ method: "POST" })
   .validator((data: {
@@ -16,7 +17,19 @@ export const submitLeadServerFn = createServerFn({ method: "POST" })
   }) => data)
   .handler(async ({ data }) => {
     try {
+      // 1. Save lead to PostgreSQL / Supabase Database for Admin Panel
       const saved = await saveLeadToDb(data);
+
+      // 2. Dispatch Email Notification directly to quickuppaistudio1@gmail.com
+      try {
+        await sendLeadNotificationEmail({
+          ...data,
+          leadId: saved.id,
+        });
+      } catch (mailError) {
+        console.error("Failed to send lead notification email:", mailError);
+      }
+
       return { success: true, lead: saved };
     } catch (error: any) {
       console.error("Error submitting lead to PostgreSQL:", error);
