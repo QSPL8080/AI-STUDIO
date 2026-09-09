@@ -228,12 +228,10 @@ export async function sendLeadNotificationEmail(lead: LeadEmailPayload): Promise
         <div class="actions-title">Instant Response Actions</div>
         <a href="https://wa.me/${waPhone}" class="btn btn-wa" target="_blank">&#128172; WhatsApp Chat</a>
         <a href="tel:${cleanPhone}" class="btn btn-call">&#128222; Call Client</a>
-        ${lead.email ? `<a href="mailto:${lead.email}" class="btn btn-mail">&#9993; Send Email</a>` : ''}
       </div>
     </div>
     <div class="footer">
-      This lead is automatically saved in your PostgreSQL & Supabase Admin Dashboard.<br/>
-      &copy; ${new Date().getFullYear()} Quickupp AI Studio &bull; All rights reserved.
+      &copy; ${new Date().getFullYear()} Quickupp AI Studio
     </div>
   </div>
 </body>
