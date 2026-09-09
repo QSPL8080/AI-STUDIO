@@ -1691,17 +1691,136 @@ export function Services() {
   }, []);
 
   return (
-    <Section id="services" className="overflow-hidden">
-      <SectionHeading
-        eyebrow="AI Video Creation Services"
-        title="Our AI Video Production"
-        highlight="Services"
-        description="Choose the AI video format that best fits your business and marketing goals."
-      />
-      <div
-        ref={sectionRef}
-        className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 lg:gap-7"
-      >
+    <Section id="services" className="relative overflow-hidden">
+      {/* Left Half-Cut Geometric Orbital Watermark */}
+      <div className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-[520px] sm:w-[650px] lg:w-[780px] h-[520px] sm:h-[650px] lg:h-[780px] select-none z-0">
+        <svg
+          className="w-full h-full"
+          viewBox="0 0 600 600"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <radialGradient id="servicesLeftGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#9333ea" stopOpacity="0.20" />
+              <stop offset="60%" stopColor="#3b82f6" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          {/* Ambient Center Glow */}
+          <circle cx="300" cy="300" r="260" fill="url(#servicesLeftGlow)" className="animate-aura-pulse" />
+
+          {/* Outer Orbit Ring with smooth continuous rotation */}
+          <g className="animate-orbit-spin-slow">
+            <circle
+              cx="300"
+              cy="300"
+              r="270"
+              stroke="rgba(255, 255, 255, 0.18)"
+              strokeWidth="1.2"
+              strokeDasharray="8 12"
+            />
+            <circle cx="570" cy="300" r="3" fill="#f472b6" className="drop-shadow-[0_0_6px_#f472b6]" />
+            <circle cx="30" cy="300" r="2.5" fill="#38bdf8" className="drop-shadow-[0_0_6px_#38bdf8]" />
+          </g>
+
+          {/* Middle Breathing Cyan/Blue Orbit Ring */}
+          <circle
+            cx="300"
+            cy="300"
+            r="200"
+            stroke="rgba(91, 141, 254, 0.35)"
+            strokeWidth="1.5"
+            className="animate-orbit-breath"
+          />
+
+          {/* S-Curve Contours */}
+          <path
+            d="M 0 300 C 180 180, 420 420, 600 300"
+            stroke="rgba(255, 255, 255, 0.22)"
+            strokeWidth="1.5"
+            className="animate-wave-float-1"
+          />
+          <path
+            d="M 0 360 C 220 440, 380 160, 600 240"
+            stroke="rgba(244, 63, 158, 0.28)"
+            strokeWidth="1.3"
+            className="animate-wave-float-2"
+          />
+        </svg>
+      </div>
+
+      {/* Right Half-Cut Geometric Orbital Watermark */}
+      <div className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-[520px] sm:w-[650px] lg:w-[780px] h-[520px] sm:h-[650px] lg:h-[780px] select-none z-0">
+        <svg
+          className="w-full h-full"
+          viewBox="0 0 600 600"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <radialGradient id="servicesRightGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ec4899" stopOpacity="0.18" />
+              <stop offset="60%" stopColor="#8b5cf6" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          {/* Ambient Center Glow */}
+          <circle cx="300" cy="300" r="260" fill="url(#servicesRightGlow)" className="animate-aura-pulse" />
+
+          {/* Outer Orbit Ring with smooth counter-clockwise rotation */}
+          <g className="animate-orbit-spin-reverse">
+            <circle
+              cx="300"
+              cy="300"
+              r="270"
+              stroke="rgba(255, 255, 255, 0.18)"
+              strokeWidth="1.2"
+              strokeDasharray="8 12"
+            />
+            <circle cx="570" cy="300" r="3" fill="#a855f7" className="drop-shadow-[0_0_6px_#a855f7]" />
+            <circle cx="30" cy="300" r="2.5" fill="#ec4899" className="drop-shadow-[0_0_6px_#ec4899]" />
+          </g>
+
+          {/* Middle Breathing Magenta/Violet Orbit Ring */}
+          <circle
+            cx="300"
+            cy="300"
+            r="200"
+            stroke="rgba(168, 85, 247, 0.35)"
+            strokeWidth="1.5"
+            className="animate-orbit-breath"
+          />
+
+          {/* S-Curve Contours (mirrored flow) */}
+          <path
+            d="M 0 300 C 180 420, 420 180, 600 300"
+            stroke="rgba(255, 255, 255, 0.22)"
+            strokeWidth="1.5"
+            className="animate-wave-float-2"
+          />
+          <path
+            d="M 0 240 C 220 160, 380 440, 600 360"
+            stroke="rgba(56, 189, 248, 0.28)"
+            strokeWidth="1.3"
+            className="animate-wave-float-1"
+          />
+        </svg>
+      </div>
+
+      <div className="relative z-10">
+        <SectionHeading
+          eyebrow="AI Video Creation Services"
+          title="Our AI Video Production"
+          highlight="Services"
+          description="Choose the AI video format that best fits your business and marketing goals."
+        />
+        <div
+          ref={sectionRef}
+          className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 lg:gap-7"
+        >
         {services.map((service, idx) => {
           const Icon = serviceIcons[service.title] || Sparkles;
           const isFeatured = idx === 0 || idx === 3;
@@ -1769,6 +1888,7 @@ export function Services() {
             </article>
           );
         })}
+      </div>
       </div>
     </Section>
   );
