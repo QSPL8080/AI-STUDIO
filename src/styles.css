@@ -692,3 +692,93 @@
 .animate-watermark-scroll {
   animation: watermarkScroll 18s linear infinite;
 }
+
+/* Hero Orbital & Podcast-Style Geometric Contour Animations */
+@keyframes orbitSpinClockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orbitSpinCounter {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes orbitPulseBreath {
+  0%, 100% {
+    transform: scale(0.97);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 0.75;
+  }
+}
+
+@keyframes waveFloatOne {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(-12px) rotate(0.5deg);
+    opacity: 0.65;
+  }
+}
+
+@keyframes waveFloatTwo {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0.25;
+  }
+  50% {
+    transform: translateY(14px) rotate(-0.5deg);
+    opacity: 0.6;
+  }
+}
+
+@keyframes ambientAuraPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.22;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.42;
+  }
+}
+
+.animate-orbit-spin-slow {
+  animation: orbitSpinClockwise 85s linear infinite;
+  transform-origin: 300px 300px;
+}
+
+.animate-orbit-spin-reverse {
+  animation: orbitSpinCounter 60s linear infinite;
+  transform-origin: 260px 340px;
+}
+
+.animate-orbit-breath {
+  animation: orbitPulseBreath 7s ease-in-out infinite;
+  transform-origin: 300px 300px;
+}
+
+.animate-wave-float-1 {
+  animation: waveFloatOne 10s ease-in-out infinite;
+}
+
+.animate-wave-float-2 {
+  animation: waveFloatTwo 14s ease-in-out infinite;
+}
+
+.animate-aura-pulse {
+  animation: ambientAuraPulse 6s ease-in-out infinite;
+}
