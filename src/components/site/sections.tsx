@@ -561,7 +561,7 @@ export function Hero() {
                   el.playsInline = true;
                 }
               }}
-              src="/images/Hero%20Video.mp4"
+              src="/videos/Hero-Showcase.mp4?v=1"
               autoPlay
               loop
               muted={isMuted}
@@ -704,7 +704,7 @@ export function Hero() {
                     el.playsInline = true;
                   }
                 }}
-                src="/images/Hero%20Video.mp4"
+                src="/videos/Hero-Showcase.mp4?v=1"
                 autoPlay
                 loop
                 muted={isMuted}
