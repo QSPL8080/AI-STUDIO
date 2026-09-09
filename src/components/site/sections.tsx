@@ -1565,7 +1565,7 @@ export function Portfolio() {
           Create a Similar Video
         </a>
         <a
-          href="https://www.youtube.com/@QuickuppAiStudio"
+          href="https://youtube.com/@quickuppaistudios?si=QnC53RJK3YyMFtth"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center rounded-full border border-border/80 bg-secondary/40 px-8 py-3.5 text-sm font-semibold tracking-wide text-foreground shadow-md transition-all duration-200 hover:border-neon hover:bg-neon/10 hover:text-neon"
