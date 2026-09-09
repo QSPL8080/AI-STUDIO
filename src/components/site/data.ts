@@ -49,36 +49,36 @@ export const portfolioItems = [
     industry: "3D Character Animation",
     description:
       "Expressive 3D character animation and storytelling reel for creative brands and entertainment.",
-    videoUrl: "/videos/Cartoon%20Portfolio.mp4?v=2",
+    videoUrl: "/videos/Cartoon%20Portfolio.mp4?v=3",
   },
   {
     industry: "D2C & Consumer Brands",
     description:
       "Authentic creator-led AI UGC product review and demonstration reel designed for high conversions.",
-    videoUrl: "/videos/UGC%20Porfolio.mp4?v=2",
+    videoUrl: "/videos/UGC%20Porfolio.mp4?v=3",
   },
   {
     industry: "Interior Design & Architecture",
     description:
       "High-impact AI avatar presenter reel showcasing 360° growth solutions and premium client acquisition for interior designers.",
-    videoUrl: "/videos/Avtar%20Portfolio.mp4?v=2",
+    videoUrl: "/videos/Avtar%20Portfolio.mp4?v=3",
   },
   {
     industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
-    videoUrl: "/videos/Hyper%20Realistic%20Sample.mp4?v=2",
+    videoUrl: "/videos/Hyper%20Realistic%20Sample.mp4?v=3",
   },
   {
     industry: "Digital Twin",
     description:
       "Founder-led brand update reel powered by a hyper-realistic digital twin — no camera, no studio needed.",
-    videoUrl: "/videos/Digital%20Twin%20Sample.mp4?v=2",
+    videoUrl: "/videos/Digital%20Twin%20Sample.mp4?v=3",
   },
   {
     industry: "AI Video Production",
     description:
       "Professional AI-powered video production reel showcasing cinematic quality and brand storytelling.",
-    videoUrl: "/videos/Portflio%206.mp4?v=2",
+    videoUrl: "/videos/Portflio%206.mp4?v=3",
   },
 ];
 
