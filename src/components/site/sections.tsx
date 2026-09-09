@@ -259,103 +259,85 @@ export function Header() {
 export function HeroOrbitalAtmosphere({ className = "" }: { className?: string }) {
   return (
     <div className={`pointer-events-none absolute inset-0 z-0 overflow-hidden select-none ${className}`}>
-      {/* Cosmic Geometric SVG Watermarks & Animated Contour Waveforms (Dark, Stealth & Cinematic) */}
+      {/* Animated geometric curved background watermarks / intersecting contour lines (Direct from Podcast Design System) */}
       <svg
-        className="absolute -left-20 sm:-left-10 lg:-left-20 bottom-0 lg:-bottom-16 w-[540px] sm:w-[680px] lg:w-[860px] xl:w-[980px] h-[540px] sm:h-[680px] lg:h-[860px] xl:h-[980px] select-none opacity-30"
+        className="absolute -left-20 sm:-left-12 lg:-left-24 bottom-[-60px] lg:bottom-[-80px] w-[650px] sm:w-[780px] lg:w-[920px] h-[650px] sm:h-[780px] lg:h-[920px] select-none"
         viewBox="0 0 600 600"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <linearGradient id="orbitGradientDarkViolet" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.25" />
-            <stop offset="50%" stopColor="#9333ea" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#1e1b4b" stopOpacity="0.05" />
-          </linearGradient>
-          <linearGradient id="orbitGradientDarkCyan" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#0284c7" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#312e81" stopOpacity="0.05" />
-          </linearGradient>
-          <radialGradient id="orbitAuraDarkGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#581c87" stopOpacity="0.08" />
-            <stop offset="70%" stopColor="#1e1b4b" stopOpacity="0.02" />
+          <radialGradient id="heroAtmosphereGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#9333ea" stopOpacity="0.22" />
+            <stop offset="60%" stopColor="#3b82f6" stopOpacity="0.08" />
             <stop offset="100%" stopColor="#000000" stopOpacity="0" />
           </radialGradient>
         </defs>
 
-        {/* Subtle Dark Ambient Center Glow Disc */}
-        <circle cx="300" cy="300" r="250" fill="url(#orbitAuraDarkGlow)" className="animate-aura-pulse" />
+        {/* Ambient Center Glow Disc */}
+        <circle cx="300" cy="300" r="260" fill="url(#heroAtmosphereGlow)" className="animate-aura-pulse" />
 
-        {/* 1. Outer Orbit Ring with smooth continuous slow rotation (Darkened tone) */}
+        {/* 1. Outer Orbit Ring with smooth 80s continuous rotation */}
         <g className="animate-orbit-spin-slow">
           <circle
             cx="300"
             cy="300"
             r="270"
-            stroke="rgba(255, 255, 255, 0.04)"
-            strokeWidth="0.8"
-            strokeDasharray="6 16"
+            stroke="rgba(255, 255, 255, 0.18)"
+            strokeWidth="1.2"
+            strokeDasharray="8 12"
           />
-          {/* Subtle dim satellite points */}
-          <circle cx="570" cy="300" r="1.5" fill="#a855f7" className="opacity-40" />
-          <circle cx="300" cy="30" r="1.5" fill="#0284c7" className="opacity-35" />
+          {/* Orbiting Satellite Light Points */}
+          <circle cx="570" cy="300" r="3" fill="#f472b6" className="drop-shadow-[0_0_6px_#f472b6]" />
+          <circle cx="30" cy="300" r="2.5" fill="#38bdf8" className="drop-shadow-[0_0_6px_#38bdf8]" />
         </g>
 
-        {/* 2. Middle Breathing Dark Cyan/Violet Orbit Ring */}
+        {/* 2. Middle Breathing Cyan/Blue Orbit Ring */}
         <circle
           cx="300"
           cy="300"
-          r="205"
-          stroke="url(#orbitGradientDarkCyan)"
-          strokeWidth="0.9"
+          r="200"
+          stroke="rgba(91, 141, 254, 0.38)"
+          strokeWidth="1.5"
           className="animate-orbit-breath"
         />
 
-        {/* 3. Inner Offset Counter-Rotating Dashed Orbit Ring */}
+        {/* 3. Inner Offset Rotating Magenta/Violet Ring */}
         <g className="animate-orbit-spin-reverse">
           <circle
-            cx="260"
-            cy="340"
+            cx="220"
+            cy="380"
             r="150"
-            stroke="url(#orbitGradientDarkViolet)"
-            strokeWidth="0.8"
-            strokeDasharray="4 12"
+            stroke="rgba(168, 85, 247, 0.32)"
+            strokeWidth="1.2"
+            strokeDasharray="4 8"
           />
+          <circle cx="370" cy="380" r="2.5" fill="#c084fc" className="drop-shadow-[0_0_5px_#c084fc]" />
         </g>
 
-        {/* 4. Deep Core Orbit Ring */}
-        <circle
-          cx="300"
-          cy="300"
-          r="95"
-          stroke="rgba(255, 255, 255, 0.03)"
-          strokeWidth="0.6"
-          strokeDasharray="2 8"
-        />
-
-        {/* 5. Animated Harmonic Waveform Contour 1 (Deep dark stroke) */}
+        {/* 4. Animated S-Curve Contour 1 */}
         <path
-          d="M 0 300 C 160 180, 440 420, 600 300"
-          stroke="rgba(147, 51, 234, 0.12)"
-          strokeWidth="0.8"
+          d="M 0 300 C 180 180, 420 420, 600 300"
+          stroke="rgba(255, 255, 255, 0.24)"
+          strokeWidth="1.5"
           className="animate-wave-float-1"
         />
 
-        {/* 6. Animated Intersecting Sine Waveform Contour 2 (Deep dark stroke) */}
+        {/* 5. Animated S-Curve Contour 2 (Intersecting Wave) */}
         <path
-          d="M 0 370 C 210 460, 390 140, 600 230"
-          stroke="rgba(2, 132, 199, 0.1)"
-          strokeWidth="0.75"
+          d="M 0 360 C 220 440, 380 160, 600 240"
+          stroke="rgba(244, 63, 158, 0.30)"
+          strokeWidth="1.3"
           className="animate-wave-float-2"
         />
       </svg>
 
-      {/* Gentle atmospheric dark purple glow splash */}
+      {/* Radiant ambient gradient splash */}
       <div
-        className="animate-aura-pulse absolute -top-20 -right-20 w-[380px] lg:w-[500px] h-[380px] lg:h-[500px] rounded-full blur-3xl pointer-events-none opacity-10"
+        className="animate-aura-pulse absolute top-0 right-0 w-80 lg:w-[480px] h-80 lg:h-[480px] rounded-full blur-3xl pointer-events-none opacity-20"
         style={{
           background:
-            "radial-gradient(circle, rgba(124, 58, 237, 0.2) 0%, rgba(30, 27, 75, 0.1) 50%, transparent 70%)",
+            "radial-gradient(circle, rgba(168, 85, 247, 0.45) 0%, rgba(236, 72, 153, 0.2) 50%, transparent 70%)",
         }}
       />
     </div>
@@ -641,7 +623,7 @@ export function Hero() {
         style={{ paddingTop: `${headerHeight + 20}px` }}
       >
         {/* Animated podcast-style geometric orbital watermarks & contour waves */}
-        <HeroOrbitalAtmosphere className="opacity-70 scale-90" />
+        <HeroOrbitalAtmosphere className="scale-90" />
 
         {/* Ambient atmospheric brand glows */}
         <div
@@ -733,7 +715,7 @@ export function Hero() {
           className="absolute top-0 left-0 w-full h-screen overflow-hidden bg-background pointer-events-none"
         >
           {/* Animated podcast-style geometric orbital watermarks & contour waves */}
-          <HeroOrbitalAtmosphere className="opacity-55" />
+          <HeroOrbitalAtmosphere />
 
           {/* Ambient atmospheric background glows */}
           <div
