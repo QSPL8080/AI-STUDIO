@@ -1917,46 +1917,124 @@ export function WhyAiVideo() {
   }, []);
 
   return (
-    <Section className="bg-surface/30">
-      <SectionHeading
-        eyebrow="Why AI Video"
-        title="Why Businesses Are Choosing AI Video"
-        highlight="Production"
-        description="Traditional video production can involve actors, locations, equipment and repeated shooting requirements. AI video production gives businesses a flexible way to create engaging content at scale while reducing production complexity."
-      />
-      <div ref={sectionRef} className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {whyAiVideo.map((item, i) => {
-          const animationClass = isInView ? "animate-cyber-wave" : "opacity-0 translate-y-8";
+    <Section id="why-ai" className="relative overflow-hidden bg-surface/30">
+      {/* Dynamic Fluid Gradient Ribbon Waves Background */}
+      <div className="pointer-events-none absolute inset-0 select-none overflow-hidden z-0">
+        <svg
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] min-w-[1200px] h-[130%] object-cover opacity-85"
+          viewBox="0 0 1440 800"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id="whyAiRibbon1" x1="0%" y1="0%" x2="100%" y2="80%">
+              <stop offset="0%" stopColor="#9333ea" stopOpacity="0.28" />
+              <stop offset="40%" stopColor="#ec4899" stopOpacity="0.22" />
+              <stop offset="75%" stopColor="#3b82f6" stopOpacity="0.20" />
+              <stop offset="100%" stopColor="#a855f7" stopOpacity="0.10" />
+            </linearGradient>
 
-          return (
-            <article
-              key={item.title}
-              style={{ animationDelay: `${i * 0.12}s` }}
-              className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0e0a1b]/90 p-7 shadow-xl backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:border-neon/70 hover:shadow-[0_0_35px_-5px_rgba(200,80,255,0.35)] ${animationClass}`}
-            >
-              {/* Top Neon Scanner Accent Bar on Hover */}
-              <div className="absolute left-0 top-0 h-1 w-0 bg-gradient-brand transition-all duration-500 group-hover:w-full" />
+            <linearGradient id="whyAiRibbon2" x1="100%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.22" />
+              <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.26" />
+              <stop offset="100%" stopColor="#d946ef" stopOpacity="0.14" />
+            </linearGradient>
 
-              {/* Ambient Glowing Watermark Number */}
-              <span className="pointer-events-none absolute right-4 top-2 text-5xl font-black text-white/[0.03] transition-all duration-300 group-hover:text-neon/15 group-hover:scale-110">
-                {String(i + 1).padStart(2, "0")}
-              </span>
+            <radialGradient id="whyAiGlowLeft" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#9333ea" stopOpacity="0.22" />
+              <stop offset="60%" stopColor="#ec4899" stopOpacity="0.08" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
 
-              {/* Number Pill Badge */}
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-neon/30 bg-neon/10 text-xs font-bold text-neon shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:bg-neon group-hover:text-black">
-                {String(i + 1).padStart(2, "0")}
-              </div>
+            <radialGradient id="whyAiGlowRight" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.20" />
+              <stop offset="65%" stopColor="#a855f7" stopOpacity="0.07" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
+          </defs>
 
-              <h3 className="mt-4 text-lg font-bold text-white transition-colors duration-200 group-hover:text-neon">
-                {item.title}
-              </h3>
+          {/* Ambient luminous glow discs */}
+          <circle cx="220" cy="300" r="320" fill="url(#whyAiGlowLeft)" className="animate-aura-pulse" />
+          <circle cx="1220" cy="500" r="340" fill="url(#whyAiGlowRight)" className="animate-aura-pulse" />
 
-              <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                {item.description}
-              </p>
-            </article>
-          );
-        })}
+          {/* Flowing Ribbon 1 - Upper Harmonic Arc */}
+          <path
+            d="M -60 140 C 260 20, 540 380, 900 220 C 1160 110, 1360 300, 1500 200 L 1500 330 C 1340 430, 1120 250, 880 350 C 520 490, 240 150, -60 260 Z"
+            fill="url(#whyAiRibbon1)"
+            className="animate-wave-float-1"
+          />
+
+          {/* Flowing Ribbon 2 - Lower Harmonic Arc */}
+          <path
+            d="M -60 580 C 300 740, 600 420, 940 600 C 1200 720, 1400 490, 1500 620 L 1500 490 C 1380 370, 1180 600, 920 470 C 580 310, 280 620, -60 450 Z"
+            fill="url(#whyAiRibbon2)"
+            className="animate-wave-float-2"
+          />
+
+          {/* Dynamic Dotted / Dashed Accent Contour Line 1 */}
+          <path
+            d="M -60 140 C 260 20, 540 380, 900 220 C 1160 110, 1360 300, 1500 200"
+            stroke="rgba(236, 72, 153, 0.45)"
+            strokeWidth="1.8"
+            strokeDasharray="6 8"
+            fill="none"
+            className="animate-wave-float-1"
+          />
+
+          {/* Dynamic Cyan Accent Contour Line 2 */}
+          <path
+            d="M -60 580 C 300 740, 600 420, 940 600 C 1200 720, 1400 490, 1500 620"
+            stroke="rgba(56, 189, 248, 0.40)"
+            strokeWidth="1.8"
+            strokeDasharray="8 10"
+            fill="none"
+            className="animate-wave-float-2"
+          />
+        </svg>
+      </div>
+
+      <div className="relative z-10">
+        <SectionHeading
+          eyebrow="Why AI Video"
+          title="Why Businesses Are Choosing AI Video"
+          highlight="Production"
+          description="Traditional video production can involve actors, locations, equipment and repeated shooting requirements. AI video production gives businesses a flexible way to create engaging content at scale while reducing production complexity."
+        />
+        <div ref={sectionRef} className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {whyAiVideo.map((item, i) => {
+            const animationClass = isInView ? "animate-cyber-wave" : "opacity-0 translate-y-8";
+
+            return (
+              <article
+                key={item.title}
+                style={{ animationDelay: `${i * 0.12}s` }}
+                className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0e0a1b]/90 p-7 shadow-xl backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:border-neon/70 hover:shadow-[0_0_35px_-5px_rgba(200,80,255,0.35)] ${animationClass}`}
+              >
+                {/* Top Neon Scanner Accent Bar on Hover */}
+                <div className="absolute left-0 top-0 h-1 w-0 bg-gradient-brand transition-all duration-500 group-hover:w-full" />
+
+                {/* Ambient Glowing Watermark Number */}
+                <span className="pointer-events-none absolute right-4 top-2 text-5xl font-black text-white/[0.03] transition-all duration-300 group-hover:text-neon/15 group-hover:scale-110">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+
+                {/* Number Pill Badge */}
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-neon/30 bg-neon/10 text-xs font-bold text-neon shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:bg-neon group-hover:text-black">
+                  {String(i + 1).padStart(2, "0")}
+                </div>
+
+                <h3 className="mt-4 text-lg font-bold text-white transition-colors duration-200 group-hover:text-neon">
+                  {item.title}
+                </h3>
+
+                <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  {item.description}
+                </p>
+              </article>
+            );
+          })}
+        </div>
       </div>
     </Section>
   );
