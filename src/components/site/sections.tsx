@@ -262,8 +262,8 @@ export function Hero() {
   const containerRef = useRef<HTMLDivElement>(null);
   const heroBrandRef = useRef<HTMLDivElement>(null);
   const mediaCardRef = useRef<HTMLDivElement>(null);
-  const desktopVideoRef = useRef<HTMLVideoElement>(null);
-  const mobileVideoRef = useRef<HTMLVideoElement>(null);
+  const desktopVideoRef = useRef<HTMLVideoElement | null>(null);
+  const mobileVideoRef = useRef<HTMLVideoElement | null>(null);
   const userExplicitlyMutedRef = useRef(true);
   const [isMuted, setIsMuted] = useState(true);
   const [isVideoReady, setIsVideoReady] = useState(false);
@@ -276,6 +276,10 @@ export function Hero() {
     window.addEventListener("resize", checkScreen);
     return () => window.removeEventListener("resize", checkScreen);
   }, []);
+
+  const markVideoReady = () => {
+    setIsVideoReady(true);
+  };
 
   const toggleAudio = (e?: { stopPropagation?: () => void }) => {
     if (e?.stopPropagation) e.stopPropagation();
@@ -293,36 +297,50 @@ export function Hero() {
     activeVideo.play().catch(() => {});
   };
 
+  // Video autoplay and lifecycle management
   useEffect(() => {
-    const handleAutoplay = () => {
-      const isMobile = window.innerWidth < 1024;
-      const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
-      const inactiveVideo = isMobile ? desktopVideoRef.current : mobileVideoRef.current;
+    const isMobile = window.innerWidth < 1024;
+    const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
+    const inactiveVideo = isMobile ? desktopVideoRef.current : mobileVideoRef.current;
 
-      if (inactiveVideo) {
-        inactiveVideo.pause();
+    if (inactiveVideo) {
+      inactiveVideo.pause();
+    }
+
+    if (activeVideo) {
+      activeVideo.defaultMuted = true;
+      activeVideo.muted = isMuted;
+      activeVideo.volume = isMuted ? 0 : 1;
+      activeVideo.playsInline = true;
+
+      if (activeVideo.readyState >= 1 || activeVideo.currentTime > 0) {
+        setIsVideoReady(true);
       }
 
-      if (activeVideo) {
-        activeVideo.muted = isMuted;
-        activeVideo.volume = isMuted ? 0 : 1;
-        activeVideo.play().catch(() => {
-          activeVideo.muted = true;
-          activeVideo.volume = 0;
-          setIsMuted(true);
-          activeVideo.play().catch(() => {});
-        });
-      }
-    };
+      const onVideoActive = () => setIsVideoReady(true);
+      activeVideo.addEventListener("loadeddata", onVideoActive);
+      activeVideo.addEventListener("canplay", onVideoActive);
+      activeVideo.addEventListener("playing", onVideoActive);
+      activeVideo.addEventListener("timeupdate", onVideoActive);
 
-    handleAutoplay();
-    window.addEventListener("resize", handleAutoplay);
-    return () => {
-      window.removeEventListener("resize", handleAutoplay);
-    };
-  }, [isMuted]);
+      activeVideo.play().catch(() => {
+        // Retry muted if autoplay was blocked
+        activeVideo.muted = true;
+        activeVideo.volume = 0;
+        setIsMuted(true);
+        activeVideo.play().catch(() => {});
+      });
 
-  // IntersectionObserver: automatically stop when hero section is not in view
+      return () => {
+        activeVideo.removeEventListener("loadeddata", onVideoActive);
+        activeVideo.removeEventListener("canplay", onVideoActive);
+        activeVideo.removeEventListener("playing", onVideoActive);
+        activeVideo.removeEventListener("timeupdate", onVideoActive);
+      };
+    }
+  }, [isDesktop, isMuted]);
+
+  // IntersectionObserver: resume video when hero is in view, pause when completely out of view
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
     const targetElement = isMobile ? mobileHeroRef.current : trackRef.current;
@@ -334,15 +352,19 @@ export function Hero() {
         const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
         if (!activeVideo) return;
 
-        if (entry.isIntersecting && entry.intersectionRatio > 0.05) {
+        if (entry.isIntersecting) {
           activeVideo.muted = isMuted;
           activeVideo.volume = isMuted ? 0 : 1;
-          activeVideo.play().catch(() => {});
+          activeVideo.play().catch(() => {
+            activeVideo.muted = true;
+            activeVideo.volume = 0;
+            activeVideo.play().catch(() => {});
+          });
         } else {
           activeVideo.pause();
         }
       },
-      { threshold: [0, 0.05, 0.2] },
+      { threshold: [0, 0.1] },
     );
 
     observer.observe(targetElement);
@@ -560,15 +582,31 @@ export function Hero() {
               </div>
             )}
             <video
-              ref={mobileVideoRef}
+              ref={(el) => {
+                mobileVideoRef.current = el;
+                if (el) {
+                  el.defaultMuted = true;
+                  el.muted = isMuted;
+                  el.playsInline = true;
+                  if (el.readyState >= 1 || el.currentTime > 0) {
+                    setIsVideoReady(true);
+                  }
+                }
+              }}
               src="/images/Hero%20Video.mp4"
               autoPlay
               loop
               muted={isMuted}
+              defaultMuted
               playsInline
-              preload={!isDesktop ? "auto" : "metadata"}
-              onLoadedData={() => setIsVideoReady(true)}
-              onCanPlay={() => setIsVideoReady(true)}
+              preload="auto"
+              onLoadedMetadata={markVideoReady}
+              onLoadedData={markVideoReady}
+              onCanPlay={markVideoReady}
+              onCanPlayThrough={markVideoReady}
+              onPlaying={markVideoReady}
+              onPlay={markVideoReady}
+              onTimeUpdate={markVideoReady}
               onClick={toggleAudio}
               onError={(e) => {
                 const v = e.currentTarget;
@@ -577,8 +615,10 @@ export function Hero() {
                 }
                 v.play().catch(() => {});
               }}
-              className={`relative z-10 h-full w-full object-cover object-center cursor-pointer transition-opacity duration-300 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
+              className="relative z-10 h-full w-full object-cover object-center cursor-pointer transition-opacity duration-300"
             >
+              <source src="/images/Hero%20Video.mp4" type="video/mp4" />
+              <source src="/images/Hero Video.mp4" type="video/mp4" />
               <track kind="captions" src="" label="English" default />
             </video>
 
@@ -710,15 +750,31 @@ export function Hero() {
               )}
               {/* Active autoplaying video with audio default */}
               <video
-                ref={desktopVideoRef}
+                ref={(el) => {
+                  desktopVideoRef.current = el;
+                  if (el) {
+                    el.defaultMuted = true;
+                    el.muted = isMuted;
+                    el.playsInline = true;
+                    if (el.readyState >= 1 || el.currentTime > 0) {
+                      setIsVideoReady(true);
+                    }
+                  }
+                }}
                 src="/images/Hero%20Video.mp4"
                 autoPlay
                 loop
                 muted={isMuted}
+                defaultMuted
                 playsInline
-                preload={isDesktop ? "auto" : "metadata"}
-                onLoadedData={() => setIsVideoReady(true)}
-                onCanPlay={() => setIsVideoReady(true)}
+                preload="auto"
+                onLoadedMetadata={markVideoReady}
+                onLoadedData={markVideoReady}
+                onCanPlay={markVideoReady}
+                onCanPlayThrough={markVideoReady}
+                onPlaying={markVideoReady}
+                onPlay={markVideoReady}
+                onTimeUpdate={markVideoReady}
                 onClick={toggleAudio}
                 onError={(e) => {
                   const v = e.currentTarget;
@@ -727,8 +783,10 @@ export function Hero() {
                   }
                   v.play().catch(() => {});
                 }}
-                className={`relative z-10 h-full w-full object-cover object-center cursor-pointer transition-opacity duration-300 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
+                className="relative z-10 h-full w-full object-cover object-center cursor-pointer transition-opacity duration-300"
               >
+                <source src="/images/Hero%20Video.mp4" type="video/mp4" />
+                <source src="/images/Hero Video.mp4" type="video/mp4" />
                 <track kind="captions" src="" label="English" default />
               </video>
 
