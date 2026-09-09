@@ -266,7 +266,6 @@ export function Hero() {
   const mobileVideoRef = useRef<HTMLVideoElement | null>(null);
   const userExplicitlyMutedRef = useRef(true);
   const [isMuted, setIsMuted] = useState(true);
-  const [isVideoReady, setIsVideoReady] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(116);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -276,10 +275,6 @@ export function Hero() {
     window.addEventListener("resize", checkScreen);
     return () => window.removeEventListener("resize", checkScreen);
   }, []);
-
-  const markVideoReady = () => {
-    setIsVideoReady(true);
-  };
 
   const toggleAudio = (e?: { stopPropagation?: () => void }) => {
     if (e?.stopPropagation) e.stopPropagation();
@@ -312,35 +307,16 @@ export function Hero() {
       activeVideo.muted = isMuted;
       activeVideo.volume = isMuted ? 0 : 1;
       activeVideo.playsInline = true;
-
-      if (activeVideo.readyState >= 1 || activeVideo.currentTime > 0) {
-        setIsVideoReady(true);
-      }
-
-      const onVideoActive = () => setIsVideoReady(true);
-      activeVideo.addEventListener("loadeddata", onVideoActive);
-      activeVideo.addEventListener("canplay", onVideoActive);
-      activeVideo.addEventListener("playing", onVideoActive);
-      activeVideo.addEventListener("timeupdate", onVideoActive);
-
       activeVideo.play().catch(() => {
-        // Retry muted if autoplay was blocked
         activeVideo.muted = true;
         activeVideo.volume = 0;
         setIsMuted(true);
         activeVideo.play().catch(() => {});
       });
-
-      return () => {
-        activeVideo.removeEventListener("loadeddata", onVideoActive);
-        activeVideo.removeEventListener("canplay", onVideoActive);
-        activeVideo.removeEventListener("playing", onVideoActive);
-        activeVideo.removeEventListener("timeupdate", onVideoActive);
-      };
     }
   }, [isDesktop, isMuted]);
 
-  // IntersectionObserver: resume video when hero is in view, pause when completely out of view
+  // IntersectionObserver: resume video when hero is in view, pause when out of view
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
     const targetElement = isMobile ? mobileHeroRef.current : trackRef.current;
@@ -576,11 +552,6 @@ export function Hero() {
         <div className="relative z-10 flex flex-col items-center w-full max-w-md mx-auto my-auto">
           {/* Video in between (centered, high-impact vertical format) */}
           <div className="relative w-full max-w-[310px] xs:max-w-[340px] sm:max-w-[390px] aspect-[9/16] max-h-[58vh] rounded-2xl overflow-hidden border border-white/20 bg-[#0e081e] shadow-[0_0_50px_rgba(200,80,255,0.35)] glow-neon">
-            {!isVideoReady && (
-              <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0e081e]">
-                <div className="h-7 w-7 rounded-full border-2 border-neon/30 border-t-neon animate-spin" />
-              </div>
-            )}
             <video
               ref={(el) => {
                 mobileVideoRef.current = el;
@@ -588,38 +559,17 @@ export function Hero() {
                   el.defaultMuted = true;
                   el.muted = isMuted;
                   el.playsInline = true;
-                  if (el.readyState >= 1 || el.currentTime > 0) {
-                    setIsVideoReady(true);
-                  }
                 }
               }}
               src="/images/Hero%20Video.mp4"
               autoPlay
               loop
               muted={isMuted}
-              defaultMuted
               playsInline
-              poster="/images/hero-poster.jpg"
               preload="auto"
-              onLoadedMetadata={markVideoReady}
-              onLoadedData={markVideoReady}
-              onCanPlay={markVideoReady}
-              onCanPlayThrough={markVideoReady}
-              onPlaying={markVideoReady}
-              onPlay={markVideoReady}
-              onTimeUpdate={markVideoReady}
               onClick={toggleAudio}
-              onError={(e) => {
-                const v = e.currentTarget;
-                if (!v.src.endsWith('/images/Hero%20Video.mp4')) {
-                  v.src = '/images/Hero%20Video.mp4';
-                }
-                v.play().catch(() => {});
-              }}
-              className="relative z-10 h-full w-full object-cover object-center cursor-pointer transition-opacity duration-300"
+              className="h-full w-full object-cover object-center cursor-pointer"
             >
-              <source src="/images/Hero%20Video.mp4" type="video/mp4" />
-              <source src="/images/Hero Video.mp4" type="video/mp4" />
               <track kind="captions" src="" label="English" default />
             </video>
 
@@ -744,11 +694,6 @@ export function Hero() {
                 borderRadius: "20px",
               }}
             >
-              {!isVideoReady && (
-                <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0e081e]">
-                  <div className="h-8 w-8 rounded-full border-2 border-neon/30 border-t-neon animate-spin" />
-                </div>
-              )}
               {/* Active autoplaying video with audio default */}
               <video
                 ref={(el) => {
@@ -757,38 +702,17 @@ export function Hero() {
                     el.defaultMuted = true;
                     el.muted = isMuted;
                     el.playsInline = true;
-                    if (el.readyState >= 1 || el.currentTime > 0) {
-                      setIsVideoReady(true);
-                    }
                   }
                 }}
                 src="/images/Hero%20Video.mp4"
                 autoPlay
                 loop
                 muted={isMuted}
-                defaultMuted
                 playsInline
-                poster="/images/hero-poster.jpg"
                 preload="auto"
-                onLoadedMetadata={markVideoReady}
-                onLoadedData={markVideoReady}
-                onCanPlay={markVideoReady}
-                onCanPlayThrough={markVideoReady}
-                onPlaying={markVideoReady}
-                onPlay={markVideoReady}
-                onTimeUpdate={markVideoReady}
                 onClick={toggleAudio}
-                onError={(e) => {
-                  const v = e.currentTarget;
-                  if (!v.src.endsWith('/images/Hero%20Video.mp4')) {
-                    v.src = '/images/Hero%20Video.mp4';
-                  }
-                  v.play().catch(() => {});
-                }}
-                className="relative z-10 h-full w-full object-cover object-center cursor-pointer transition-opacity duration-300"
+                className="h-full w-full object-cover object-center cursor-pointer"
               >
-                <source src="/images/Hero%20Video.mp4" type="video/mp4" />
-                <source src="/images/Hero Video.mp4" type="video/mp4" />
                 <track kind="captions" src="" label="English" default />
               </video>
 
