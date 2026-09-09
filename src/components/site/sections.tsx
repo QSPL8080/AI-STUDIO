@@ -599,6 +599,7 @@ export function Hero() {
               muted={isMuted}
               defaultMuted
               playsInline
+              poster="/images/hero-poster.jpg"
               preload="auto"
               onLoadedMetadata={markVideoReady}
               onLoadedData={markVideoReady}
@@ -767,6 +768,7 @@ export function Hero() {
                 muted={isMuted}
                 defaultMuted
                 playsInline
+                poster="/images/hero-poster.jpg"
                 preload="auto"
                 onLoadedMetadata={markVideoReady}
                 onLoadedData={markVideoReady}
