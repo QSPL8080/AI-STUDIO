@@ -2671,15 +2671,88 @@ export function LeadFormSection() {
   const [loading, setLoading] = useState(false);
 
   return (
-    <Section id="contact">
-      <SectionHeading
-        eyebrow="Get a Quote"
-        title="Let's Create Your Next"
-        highlight="AI Video"
-        description="Tell us about your business and our team will prepare and share a tailored AI video proposal."
-        center={true}
-      />
-      <div className="panel mx-auto max-w-3xl p-6 sm:p-10">
+    <Section id="contact" className="relative overflow-hidden">
+      {/* Light Shade Dynamic Fluid Ribbon Wave Background */}
+      <div className="pointer-events-none absolute inset-0 select-none overflow-hidden z-0">
+        <svg
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] min-w-[1200px] h-[130%] object-cover opacity-60"
+          viewBox="0 0 1440 800"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id="leadRibbonLight1" x1="0%" y1="0%" x2="100%" y2="80%">
+              <stop offset="0%" stopColor="#9333ea" stopOpacity="0.14" />
+              <stop offset="40%" stopColor="#ec4899" stopOpacity="0.10" />
+              <stop offset="75%" stopColor="#38bdf8" stopOpacity="0.10" />
+              <stop offset="100%" stopColor="#a855f7" stopOpacity="0.05" />
+            </linearGradient>
+
+            <linearGradient id="leadRibbonLight2" x1="100%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.12" />
+              <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.13" />
+              <stop offset="100%" stopColor="#d946ef" stopOpacity="0.07" />
+            </linearGradient>
+
+            <radialGradient id="leadGlowLightLeft" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#9333ea" stopOpacity="0.12" />
+              <stop offset="70%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
+
+            <radialGradient id="leadGlowLightRight" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.10" />
+              <stop offset="70%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          {/* Ambient soft glow discs */}
+          <circle cx="200" cy="260" r="320" fill="url(#leadGlowLightLeft)" className="animate-aura-pulse" />
+          <circle cx="1240" cy="540" r="340" fill="url(#leadGlowLightRight)" className="animate-aura-pulse" />
+
+          {/* Flowing Ribbon 1 */}
+          <path
+            d="M -60 180 C 280 40, 560 390, 920 240 C 1180 130, 1370 310, 1500 220 L 1500 340 C 1350 430, 1130 260, 890 360 C 530 500, 250 170, -60 290 Z"
+            fill="url(#leadRibbonLight1)"
+            className="animate-wave-float-1"
+          />
+
+          {/* Flowing Ribbon 2 */}
+          <path
+            d="M -60 560 C 310 710, 620 410, 950 580 C 1210 690, 1390 480, 1500 590 L 1500 480 C 1370 370, 1170 580, 910 460 C 570 310, 270 600, -60 440 Z"
+            fill="url(#leadRibbonLight2)"
+            className="animate-wave-float-2"
+          />
+
+          {/* Subtle delicate accent contour strokes */}
+          <path
+            d="M -60 180 C 280 40, 560 390, 920 240 C 1180 130, 1370 310, 1500 220"
+            stroke="rgba(236, 72, 153, 0.25)"
+            strokeWidth="1.5"
+            strokeDasharray="6 8"
+            fill="none"
+            className="animate-wave-float-1"
+          />
+          <path
+            d="M -60 560 C 310 710, 620 410, 950 580 C 1210 690, 1390 480, 1500 590"
+            stroke="rgba(56, 189, 248, 0.22)"
+            strokeWidth="1.5"
+            strokeDasharray="8 10"
+            fill="none"
+            className="animate-wave-float-2"
+          />
+        </svg>
+      </div>
+
+      <div className="relative z-10">
+        <SectionHeading
+          eyebrow="Get a Quote"
+          title="Let's Create Your Next"
+          highlight="AI Video"
+          description="Tell us about your business and our team will prepare and share a tailored AI video proposal."
+          center={true}
+        />
+        <div className="panel mx-auto max-w-3xl p-6 sm:p-10">
         {submitted ? (
           <div className="py-8 text-center space-y-3 animate-in fade-in zoom-in-95 duration-300">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_25px_rgba(16,185,129,0.3)]">
@@ -2974,6 +3047,7 @@ export function LeadFormSection() {
           </form>
         )}
       </div>
+      </div>
     </Section>
   );
 }
@@ -3099,8 +3173,80 @@ export function Contact() {
   }, []);
 
   return (
-    <section id="final-cta" className="scroll-mt-[72px] px-5 py-8 md:py-12 overflow-hidden">
-      <div ref={containerRef} className="mx-auto w-full max-w-5xl">
+    <section id="final-cta" className="scroll-mt-[72px] px-5 py-8 md:py-12 overflow-hidden relative">
+      {/* Light Shade Dynamic Fluid Ribbon Wave Background */}
+      <div className="pointer-events-none absolute inset-0 select-none overflow-hidden z-0">
+        <svg
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] min-w-[1200px] h-[130%] object-cover opacity-60"
+          viewBox="0 0 1440 800"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id="ctaRibbonLight1" x1="0%" y1="0%" x2="100%" y2="80%">
+              <stop offset="0%" stopColor="#9333ea" stopOpacity="0.14" />
+              <stop offset="40%" stopColor="#ec4899" stopOpacity="0.10" />
+              <stop offset="75%" stopColor="#38bdf8" stopOpacity="0.10" />
+              <stop offset="100%" stopColor="#a855f7" stopOpacity="0.05" />
+            </linearGradient>
+
+            <linearGradient id="ctaRibbonLight2" x1="100%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.12" />
+              <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.13" />
+              <stop offset="100%" stopColor="#d946ef" stopOpacity="0.07" />
+            </linearGradient>
+
+            <radialGradient id="ctaGlowLightLeft" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#9333ea" stopOpacity="0.12" />
+              <stop offset="70%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
+
+            <radialGradient id="ctaGlowLightRight" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.10" />
+              <stop offset="70%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          {/* Ambient soft glow discs */}
+          <circle cx="200" cy="260" r="320" fill="url(#ctaGlowLightLeft)" className="animate-aura-pulse" />
+          <circle cx="1240" cy="540" r="340" fill="url(#ctaGlowLightRight)" className="animate-aura-pulse" />
+
+          {/* Flowing Ribbon 1 */}
+          <path
+            d="M -60 180 C 280 40, 560 390, 920 240 C 1180 130, 1370 310, 1500 220 L 1500 340 C 1350 430, 1130 260, 890 360 C 530 500, 250 170, -60 290 Z"
+            fill="url(#ctaRibbonLight1)"
+            className="animate-wave-float-1"
+          />
+
+          {/* Flowing Ribbon 2 */}
+          <path
+            d="M -60 560 C 310 710, 620 410, 950 580 C 1210 690, 1390 480, 1500 590 L 1500 480 C 1370 370, 1170 580, 910 460 C 570 310, 270 600, -60 440 Z"
+            fill="url(#ctaRibbonLight2)"
+            className="animate-wave-float-2"
+          />
+
+          {/* Subtle delicate accent contour strokes */}
+          <path
+            d="M -60 180 C 280 40, 560 390, 920 240 C 1180 130, 1370 310, 1500 220"
+            stroke="rgba(236, 72, 153, 0.25)"
+            strokeWidth="1.5"
+            strokeDasharray="6 8"
+            fill="none"
+            className="animate-wave-float-1"
+          />
+          <path
+            d="M -60 560 C 310 710, 620 410, 950 580 C 1210 690, 1390 480, 1500 590"
+            stroke="rgba(56, 189, 248, 0.22)"
+            strokeWidth="1.5"
+            strokeDasharray="8 10"
+            fill="none"
+            className="animate-wave-float-2"
+          />
+        </svg>
+      </div>
+
+      <div ref={containerRef} className="mx-auto w-full max-w-5xl relative z-10">
         <div
           className={`panel relative mx-auto overflow-hidden p-6 text-center sm:p-8 md:p-12 transition-all duration-700 hover:border-neon/70 hover:shadow-[0_0_50px_-5px_rgba(200,80,255,0.45)] ${
             isInView ? "animate-cta-float" : "opacity-0 translate-y-8"
