@@ -21,7 +21,7 @@ export const samples = [
     industry: "Healthcare & Real Estate",
     description:
       "Professional presenter-led explainer reel for clinics, property, and corporate services.",
-    videoUrl: "/videos/Avtar%20Sample.mp4?v=2",
+    videoUrl: "/videos/Avtar%20Sample%20new.mp4?v=1",
   },
   {
     format: "Hyper-Realistic",
