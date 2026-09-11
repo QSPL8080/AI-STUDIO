@@ -12,15 +12,14 @@ export const formats = ["AI UGC", "AI Cartoon", "AI Avatar", "Hyper-Realistic", 
 export const samples = [
   {
     format: "AI UGC",
-    industry: "E-Commerce & Fashion",
-    description: "Dynamic creator-style AI UGC video with energetic hooks and product showcase.",
+    industry: "Dental & Healthcare",
+    description: "Creator-style AI UGC video showcasing dental services and solutions to common teeth problems.",
     videoUrl: "/videos/UGC%20Sample%20new.mp4?v=1",
   },
   {
     format: "AI Avatar",
-    industry: "Healthcare & Real Estate",
-    description:
-      "Professional presenter-led explainer reel for clinics, property, and corporate services.",
+    industry: "Hospitality & Food",
+    description: "AI avatar presenter reel highlighting a hotel's diverse food menu and dining varieties.",
     videoUrl: "/videos/Avtar%20Sample%20new.mp4?v=1",
   },
   {
