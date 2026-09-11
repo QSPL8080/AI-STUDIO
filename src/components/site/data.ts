@@ -14,7 +14,7 @@ export const samples = [
     format: "AI UGC",
     industry: "E-Commerce & Fashion",
     description: "Dynamic creator-style AI UGC video with energetic hooks and product showcase.",
-    videoUrl: "/videos/UGC%20Sample.mp4?v=2",
+    videoUrl: "/videos/UGC%20Sample%20new.mp4?v=1",
   },
   {
     format: "AI Avatar",
