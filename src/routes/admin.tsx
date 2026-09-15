@@ -29,6 +29,13 @@ import {
   deleteLeadServerFn,
   broadcastLeadEvent,
 } from "@/lib/lead-actions";
+import {
+  IND_CONTACT_SOURCE,
+  IND_POPUP_SOURCE,
+  displayLeadSource,
+  isIndContactSource,
+  isIndPopupSource,
+} from "@/lib/lead-source";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -451,7 +458,7 @@ function AdminPage() {
     ];
     const rows = filteredLeads.map((l) => [
       l.id,
-      l.source,
+      displayLeadSource(l.source),
       `"${l.name}"`,
       `"${l.phone}"`,
       `"${l.email || ""}"`,
@@ -486,7 +493,7 @@ function AdminPage() {
 
   const filteredLeads = leads
     .filter((lead) => {
-      const matchesSource = filterSource === "All" || lead.source === filterSource;
+      const matchesSource = filterSource === "All" || displayLeadSource(lead.source) === filterSource;
       const matchesStatus = filterStatus === "All" || lead.status === filterStatus;
       const matchesSearch =
         searchTerm === "" ||
@@ -499,8 +506,13 @@ function AdminPage() {
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const contactFormCount = leads.filter((l) => l.source === "Contact Form").length;
-  const popupModalCount = leads.filter((l) => l.source === "Popup Modal").length;
+  const contactFormCount = leads.filter((l) => isIndContactSource(l.source)).length;
+  const popupModalCount = leads.filter((l) => isIndPopupSource(l.source)).length;
+
+  // All distinct lead sources currently present (e.g. "IND - Contact Form", "IND - Popup Modal",
+  // "USA - Contact Form", "USA - Popup Modal", ...), normalized, so the Source filter always
+  // differentiates every site/channel that is sending leads into this shared admin panel.
+  const availableSources = Array.from(new Set(leads.map((l) => displayLeadSource(l.source)))).sort();
 
   if (!isAuthenticated) {
     return (
@@ -615,7 +627,7 @@ function AdminPage() {
                     New Lead Arrived!
                   </span>
                   <span className="rounded bg-secondary/80 px-1.5 py-0.2 text-[10px] text-muted-foreground">
-                    {newLeadNotification.source}
+                    {displayLeadSource(newLeadNotification.source)}
                   </span>
                 </div>
                 <div className="truncate text-sm font-bold text-white">
@@ -729,7 +741,7 @@ function AdminPage() {
           <div className="rounded-xl border border-blue-500/30 bg-[#0d1428] p-3.5 shadow-lg transition-all hover:border-blue-400 sm:p-5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 sm:text-xs">
-                Contact Form
+                IND Contact Form
               </span>
               <span className="h-2 w-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)] sm:h-2.5 sm:w-2.5" />
             </div>
@@ -739,7 +751,7 @@ function AdminPage() {
           <div className="rounded-xl border border-pink-500/30 bg-[#250d1e] p-3.5 shadow-lg transition-all hover:border-pink-400 sm:p-5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 sm:text-xs">
-                Popup Modal
+                IND Popup Modal
               </span>
               <span className="h-2 w-2 rounded-full bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.8)] sm:h-2.5 sm:w-2.5" />
             </div>
@@ -784,8 +796,11 @@ function AdminPage() {
                 className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer"
               >
                 <option value="All" className="bg-[#12101e]">All</option>
-                <option value="Contact Form" className="bg-[#12101e]">Contact Form</option>
-                <option value="Popup Modal" className="bg-[#12101e]">Popup Modal</option>
+                {availableSources.map((src) => (
+                  <option key={src} value={src} className="bg-[#12101e]">
+                    {src}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -880,7 +895,7 @@ function AdminPage() {
                         {/* Source */}
                         <td className="whitespace-nowrap px-5 py-4">
                           <span className="inline-block rounded-md border border-border/80 bg-secondary/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                            {lead.source}
+                            {displayLeadSource(lead.source)}
                           </span>
                         </td>
 
@@ -1053,7 +1068,7 @@ function AdminPage() {
                         ) : null}
                       </div>
                       <span className="rounded border border-border/80 bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-                        {lead.source}
+                        {displayLeadSource(lead.source)}
                       </span>
                     </div>
 

@@ -1,10 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { saveLead as saveLeadToDb, getLeads as getLeadsFromDb, updateLeadStatus as updateStatusInDb, deleteLead as deleteLeadFromDb, type Lead } from "./db";
 import { sendLeadNotificationEmail } from "./email";
+import type { IndiaLeadSource } from "./lead-source";
 
 export const submitLeadServerFn = createServerFn({ method: "POST" })
   .validator((data: {
-    source: "Contact Form" | "Popup Modal";
+    source: IndiaLeadSource;
     name: string;
     phone: string;
     email?: string;

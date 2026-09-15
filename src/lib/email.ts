@@ -1,7 +1,8 @@
 import nodemailer from "nodemailer";
+import type { IndiaLeadSource } from "./lead-source";
 
 export interface LeadEmailPayload {
-  source: "Contact Form" | "Popup Modal";
+  source: IndiaLeadSource;
   name: string;
   phone: string;
   email?: string;

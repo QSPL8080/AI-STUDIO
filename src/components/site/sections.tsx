@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { NeonButton, Section, SectionHeading } from "./ui";
 import { submitLeadServerFn, broadcastLeadEvent } from "@/lib/lead-actions";
+import { IND_CONTACT_SOURCE, IND_POPUP_SOURCE } from "@/lib/lead-source";
 import {
   deliverables,
   faqs,
@@ -2796,7 +2797,7 @@ export function LeadFormSection() {
               try {
                 const res = await submitLeadServerFn({
                   data: {
-                    source: "Contact Form",
+                    source: IND_CONTACT_SOURCE,
                     name,
                     phone,
                     email,
@@ -2817,7 +2818,7 @@ export function LeadFormSection() {
               // 2. Also keep local sync for Admin fast-cache and instant real-time broadcast
               const newLead = savedLead || {
                 id: `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-                source: "Contact Form",
+                source: IND_CONTACT_SOURCE,
                 name,
                 phone,
                 email: email || undefined,
@@ -3642,7 +3643,7 @@ export function QuotePopupModal() {
                 try {
                   const res = await submitLeadServerFn({
                     data: {
-                      source: "Popup Modal",
+                      source: IND_POPUP_SOURCE,
                       name,
                       phone,
                       email,
@@ -3662,7 +3663,7 @@ export function QuotePopupModal() {
                 // 2. Also keep local sync for Admin fast-cache and instant real-time broadcast
                 const newLead = savedLead || {
                   id: `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-                  source: "Popup Modal",
+                  source: IND_POPUP_SOURCE,
                   name,
                   phone,
                   email: email || undefined,

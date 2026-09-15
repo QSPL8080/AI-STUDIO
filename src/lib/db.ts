@@ -1,6 +1,8 @@
+import type { IndiaLeadSource } from "./lead-source";
+
 export interface Lead {
   id: string;
-  source: "Contact Form" | "Popup Modal";
+  source: IndiaLeadSource | string;
   name: string;
   phone: string;
   email?: string;
@@ -90,7 +92,7 @@ export async function initDb() {
         await client.query(`
           CREATE TABLE IF NOT EXISTS leads (
             id VARCHAR(64) PRIMARY KEY,
-            source VARCHAR(32) NOT NULL,
+            source VARCHAR(64) NOT NULL,
             name VARCHAR(255) NOT NULL,
             phone VARCHAR(64) NOT NULL,
             email VARCHAR(255),
@@ -115,7 +117,7 @@ export async function initDb() {
 }
 
 export async function saveLead(data: {
-  source: "Contact Form" | "Popup Modal";
+  source: IndiaLeadSource;
   name: string;
   phone: string;
   email?: string;
