@@ -65,7 +65,7 @@ export const portfolioItems = [
   {
     industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
-    videoUrl: "/videos/Hyper%20Realistic%20Sample.mp4?v=3",
+    videoUrl: "/videos/Jwellery%20Portfolio.mp4?v=1",
   },
   {
     industry: "Digital Twin",
