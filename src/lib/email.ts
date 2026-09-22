@@ -301,7 +301,7 @@ Call: tel:${cleanPhone}
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: process.env.RESEND_FROM || "Quickupp Leads <leads@quickuppaistudio.com>",
+          from: process.env.RESEND_FROM || "Quickupp Leads <leads@quickuppaistudio.in>",
           to: [NOTIFICATION_EMAIL],
           reply_to: lead.email || undefined,
           subject,
