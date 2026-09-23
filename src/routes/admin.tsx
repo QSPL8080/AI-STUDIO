@@ -100,9 +100,9 @@ function AdminPage() {
   const [selectedLeadForMsg, setSelectedLeadForMsg] = useState<Lead | null>(null);
   const [copiedNotification, setCopiedNotification] = useState(false);
 
-  // Orders State
+  // Orders State (Default: Show COMPLETED paid orders, hide abandoned pending by default)
   const [orders, setOrders] = useState<Order[]>([]);
-  const [filterOrderStatus, setFilterOrderStatus] = useState<string>("All");
+  const [filterOrderStatus, setFilterOrderStatus] = useState<string>("COMPLETED");
   const [orderSearchTerm, setOrderSearchTerm] = useState("");
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
   const [newOrderNotification, setNewOrderNotification] = useState<Order | null>(null);
@@ -719,25 +719,37 @@ function AdminPage() {
   const contactFormCount = leads.filter((l) => l.source.includes("Contact Form")).length;
   const popupModalCount = leads.filter((l) => l.source.includes("Popup Modal")).length;
 
-  // Orders Calculations
+  // Orders Calculations - Defaults to showing COMPLETED paid orders, prioritizes completed on top when viewing all
   const filteredOrders = orders
     .filter((order) => {
-      const matchesStatus =
-        filterOrderStatus === "All" ||
-        order.payment_status?.toUpperCase() === filterOrderStatus.toUpperCase();
-
+      const status = (order.payment_status || "").toUpperCase();
+      if (filterOrderStatus === "COMPLETED") return status === "COMPLETED";
+      if (filterOrderStatus === "PENDING") return status === "PENDING";
+      if (filterOrderStatus === "FAILED") return status === "FAILED" || status === "CANCELLED";
+      if (filterOrderStatus === "REFUNDED") return status === "REFUNDED";
+      if (filterOrderStatus === "All") return true;
+      return status === filterOrderStatus.toUpperCase();
+    })
+    .filter((order) => {
       const query = orderSearchTerm.toLowerCase().trim();
-      const matchesSearch =
-        query === "" ||
+      if (!query) return true;
+      return (
         order.customer_name?.toLowerCase().includes(query) ||
         order.customer_email?.toLowerCase().includes(query) ||
         order.paypal_order_id?.toLowerCase().includes(query) ||
         (order.paypal_capture_id && order.paypal_capture_id.toLowerCase().includes(query)) ||
-        order.item_name?.toLowerCase().includes(query);
-
-      return matchesStatus && matchesSearch;
+        order.item_name?.toLowerCase().includes(query)
+      );
     })
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    .sort((a, b) => {
+      // Prioritize COMPLETED status to always show at the top
+      const aIsCompleted = a.payment_status === "COMPLETED" ? 1 : 0;
+      const bIsCompleted = b.payment_status === "COMPLETED" ? 1 : 0;
+      if (aIsCompleted !== bIsCompleted) {
+        return bIsCompleted - aIsCompleted;
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   const totalRevenue = orders
     .filter((o) => o.payment_status === "COMPLETED")
@@ -1595,12 +1607,11 @@ function AdminPage() {
                     onChange={(e) => setFilterOrderStatus(e.target.value)}
                     className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer"
                   >
+                    <option value="COMPLETED" className="bg-[#12101e]">Completed (Paid Orders)</option>
                     <option value="All" className="bg-[#12101e]">All Statuses</option>
-                    <option value="COMPLETED" className="bg-[#12101e]">COMPLETED</option>
-                    <option value="PENDING" className="bg-[#12101e]">PENDING</option>
-                    <option value="FAILED" className="bg-[#12101e]">FAILED</option>
-                    <option value="CANCELLED" className="bg-[#12101e]">CANCELLED</option>
-                    <option value="REFUNDED" className="bg-[#12101e]">REFUNDED</option>
+                    <option value="PENDING" className="bg-[#12101e]">Pending Orders</option>
+                    <option value="FAILED" className="bg-[#12101e]">Failed / Cancelled</option>
+                    <option value="REFUNDED" className="bg-[#12101e]">Refunded</option>
                   </select>
                 </div>
               </div>

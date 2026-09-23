@@ -5,15 +5,15 @@ function getPayPalConfig() {
   const clientId =
     process.env.PAYPAL_CLIENT_ID ||
     process.env.VITE_PAYPAL_CLIENT_ID ||
-    "";
+    "BAA7157wDWOsI4aOFpTyYgR9LzKwOnesJ69re7SMM3N8JZ8ZSOURUwr2vcJxWBGCHggTBhew1IYP2pzmjY";
   const clientSecret =
     process.env.PAYPAL_CLIENT_SECRET ||
     process.env.VITE_PAYPAL_CLIENT_SECRET ||
-    "";
+    "EG9_Vug2C6b4n1aFP8FCzlvy1yln3I5MWd1cTI5rUW2Fzx1qayFJjQnZSSkpteR5XJBjc5X-9IaGtm6c";
   const rawEnv = (
     process.env.PAYPAL_ENVIRONMENT ||
     process.env.VITE_PAYPAL_ENVIRONMENT ||
-    "sandbox"
+    "live"
   ).toLowerCase();
 
   const isLive = rawEnv === "live" || rawEnv === "production";
