@@ -155,28 +155,27 @@ export function Header() {
         </div>
       )}
 
-      <div id="site-header-bar" className="relative border-b border-white/10 bg-[#0a0718]/90 backdrop-blur-xl z-50 transition-colors">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2.5 sm:gap-3 px-3.5 sm:px-6 py-2 sm:py-2.5 md:py-3.5">
-          {/* Logo Anchor */}
+      <div id="site-header-bar" className="relative border-b border-border/60 bg-background/85 backdrop-blur-xl z-50">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 py-2.5 sm:py-3 md:py-3.5">
           <a
             href="#top"
             id="navbar-logo-anchor"
-            className="flex items-center shrink-0 transition-all hover:opacity-90 active:scale-95"
+            className="flex items-center shrink-0 transition-opacity hover:opacity-90"
             aria-label="Quickupp AI Studio Home"
           >
             <img
               src="/images/logo.png"
               alt="Quickupp AI Studio logo"
-              className="h-6.5 xs:h-7 sm:h-8 md:h-9 lg:h-10 w-auto object-contain shrink-0"
+              className="h-7 sm:h-8 md:h-9 lg:h-10 w-auto object-contain shrink-0"
               width={125}
               height={40}
             />
           </a>
 
-          {/* Desktop Navigation Links (>=1024px) */}
+          {/* Desktop Navigation Links */}
           <nav
             aria-label="Main Navigation"
-            className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 lg:flex shrink-0 backdrop-blur-md"
+            className="hidden items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1.5 lg:flex shrink-0"
           >
             {nav.map((item) => (
               <a
@@ -189,35 +188,26 @@ export function Header() {
             ))}
           </nav>
 
-          {/* Right Action Controls */}
+          {/* Right CTA */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Mobile Compact Quote Button (<640px) */}
-            <a
-              href="#contact"
-              className="inline-flex sm:hidden items-center justify-center rounded-full bg-gradient-brand px-3 py-1.5 text-[11.5px] font-bold text-neon-foreground shadow-md glow-neon transition-all hover:brightness-110 active:scale-95 whitespace-nowrap"
-            >
-              Get Quote
-            </a>
-
-            {/* Tablet / Desktop Full Quote Button (>=640px) */}
             <NeonButton
               href="#contact"
               variant="primary"
               size="sm"
-              className="hidden sm:inline-flex whitespace-nowrap text-xs py-2 px-4"
+              className="hidden sm:inline-flex whitespace-nowrap text-xs py-2 px-3.5"
             >
               Get AI Video Quote
             </NeonButton>
 
-            {/* Mobile & Tablet Hamburger Menu Toggle Button (<1024px) */}
+            {/* Mobile / Tablet Menu Button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="flex h-9 w-9 sm:h-10 sm:w-10 min-h-[38px] min-w-[38px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-white/[0.05] text-white backdrop-blur-md transition-all duration-200 hover:border-neon hover:bg-neon/15 hover:text-neon active:scale-95 lg:hidden cursor-pointer"
+              className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-border bg-secondary/50 text-foreground transition-colors hover:border-neon hover:text-neon lg:hidden cursor-pointer"
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={mobileMenuOpen}
             >
-              {mobileMenuOpen ? <X className="h-4.5 w-4.5 sm:h-5 sm:w-5" /> : <Menu className="h-4.5 w-4.5 sm:h-5 sm:w-5" />}
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
@@ -226,7 +216,7 @@ export function Header() {
         {mobileMenuOpen && (
           <nav
             aria-label="Mobile Navigation"
-            className="absolute top-full left-0 right-0 w-full border-b border-white/10 bg-[#090616]/98 px-4 sm:px-6 py-5 shadow-2xl backdrop-blur-2xl lg:hidden animate-in fade-in slide-in-from-top-2 duration-200 max-h-[calc(100dvh-4.5rem)] overflow-y-auto z-50"
+            className="absolute top-full left-0 right-0 w-full border-b border-border/70 bg-[#0c0919]/98 px-5 py-6 shadow-2xl backdrop-blur-2xl lg:hidden animate-in fade-in slide-in-from-top-2 duration-200 max-h-[calc(100dvh-4.5rem)] overflow-y-auto z-50"
           >
             <div className="mx-auto flex max-w-md flex-col gap-1">
               {nav.map((item) => (
@@ -234,7 +224,7 @@ export function Header() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex min-h-[44px] items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-foreground/90 transition-colors hover:bg-white/[0.06] hover:text-neon active:scale-[0.99]"
+                  className="flex min-h-[44px] items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-foreground/90 transition-colors hover:bg-white/[0.05] hover:text-neon active:scale-[0.99]"
                 >
                   <span>{item.label}</span>
                   <span className="text-xs text-neon/60 font-bold">→</span>
@@ -245,7 +235,7 @@ export function Header() {
                 <a
                   href="#contact"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gradient-brand py-3 text-sm font-bold text-neon-foreground shadow-md active:scale-95 glow-neon"
+                  className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gradient-brand py-3 text-sm font-bold text-neon-foreground shadow-md active:scale-95"
                 >
                   Get AI Video Quote
                 </a>
@@ -254,9 +244,9 @@ export function Header() {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366] hover:text-white py-3 text-sm font-semibold transition-all active:scale-95"
+                  className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-white transition-colors hover:border-neon hover:text-neon active:scale-95"
                 >
-                  <MessageCircle className="h-4 w-4" />
+                  <MessageCircle className="h-4 w-4 text-[#25D366]" />
                   Chat on WhatsApp
                 </a>
               </div>
