@@ -991,14 +991,6 @@ function AdminPage() {
               <span className="hidden sm:inline">{soundEnabled ? "Sound On" : "Muted"}</span>
             </button>
 
-            <a
-              href="/"
-              target="_blank"
-              className="inline-flex items-center gap-1 rounded-lg border border-border/80 bg-secondary/60 px-2.5 py-1 text-xs font-semibold text-foreground transition-all hover:border-neon hover:text-neon sm:px-3.5 sm:py-1.5"
-            >
-              <span className="hidden sm:inline">View Live Website</span>
-              <span className="sm:hidden">Site</span> ↗
-            </a>
             <button
               onClick={handleLogout}
               className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/20 sm:px-3.5 sm:py-1.5 cursor-pointer"
