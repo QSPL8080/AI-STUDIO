@@ -42,8 +42,6 @@ import {
   footerIndiaMapUrl,
   footerPhone,
   footerTagline,
-  footerUsaAddress,
-  footerUsaMapUrl,
   heroBadges,
   industries,
   nav,
@@ -3407,24 +3405,9 @@ export function Footer() {
                   <MapPin className="h-4 w-4 text-neon shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold text-white group-hover:text-neon">
-                      India Office:{" "}
+                      Headquarters (India):{" "}
                     </span>
                     <span>{footerIndiaAddress}</span>
-                  </div>
-                </a>
-
-                <a
-                  href={footerUsaMapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-start gap-2 text-muted-foreground hover:text-[#60a5fa] transition-colors"
-                >
-                  <MapPin className="h-4 w-4 text-[#60a5fa] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-white group-hover:text-[#60a5fa]">
-                      USA Office:{" "}
-                    </span>
-                    <span>{footerUsaAddress}</span>
                   </div>
                 </a>
               </div>
