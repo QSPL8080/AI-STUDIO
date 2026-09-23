@@ -93,7 +93,7 @@ export function Header() {
     <header id="site-nav-container" className="fixed top-0 left-0 right-0 z-50 flex flex-col">
       {/* Top Highlight Announcement Bar */}
       {showAnnouncement && (
-        <div className="relative border-b border-white/15 bg-gradient-to-r from-[#7c22e8] via-[#a832e6] to-[#ec1e79] px-3 py-1.5 sm:py-2 text-white shadow-[0_2px_15px_rgba(168,50,230,0.4)]">
+        <div className="relative border-b border-white/15 bg-gradient-to-r from-[#7c22e8] via-[#a832e6] to-[#ec1e79] px-3 py-1.5 sm:py-2 text-white shadow-[0_2px_15px_rgba(168,50,230,0.4)] z-50">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 text-xs md:text-sm font-medium">
             {/* Mobile Layout (Compact Single Row) */}
             <div className="flex flex-1 items-center justify-center gap-2 sm:hidden text-center">
@@ -144,7 +144,7 @@ export function Header() {
             <button
               type="button"
               onClick={() => setShowAnnouncement(false)}
-              className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-2 text-white/90 transition-all hover:text-white"
+              className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-2 text-white/90 transition-all hover:text-white cursor-pointer"
               aria-label="Dismiss announcement"
             >
               <span className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-black/40 border border-white/20 transition-all hover:bg-white hover:text-black">
@@ -155,18 +155,18 @@ export function Header() {
         </div>
       )}
 
-      <div className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-3 md:py-3.5">
+      <div id="site-header-bar" className="relative border-b border-border/60 bg-background/85 backdrop-blur-xl z-50">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 py-2.5 sm:py-3 md:py-3.5">
           <a
             href="#top"
             id="navbar-logo-anchor"
-            className="-ml-3 sm:-ml-5 flex items-center transition-opacity hover:opacity-90"
+            className="flex items-center shrink-0 transition-opacity hover:opacity-90"
             aria-label="Quickupp AI Studio Home"
           >
             <img
               src="/images/logo.png"
               alt="Quickupp AI Studio logo"
-              className="h-8 sm:h-9 md:h-10 w-auto object-contain"
+              className="h-7 sm:h-8 md:h-9 lg:h-10 w-auto object-contain shrink-0"
               width={125}
               height={40}
             />
@@ -175,7 +175,7 @@ export function Header() {
           {/* Desktop Navigation Links */}
           <nav
             aria-label="Main Navigation"
-            className="hidden items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1.5 lg:flex"
+            className="hidden items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1.5 lg:flex shrink-0"
           >
             {nav.map((item) => (
               <a
@@ -189,12 +189,12 @@ export function Header() {
           </nav>
 
           {/* Right CTA */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <NeonButton
               href="#contact"
               variant="primary"
               size="sm"
-              className="hidden sm:inline-flex"
+              className="hidden sm:inline-flex whitespace-nowrap text-xs py-2 px-3.5"
             >
               Get AI Video Quote
             </NeonButton>
@@ -203,7 +203,7 @@ export function Header() {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-secondary/50 text-foreground transition-colors hover:border-neon hover:text-neon lg:hidden"
+              className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-border bg-secondary/50 text-foreground transition-colors hover:border-neon hover:text-neon lg:hidden cursor-pointer"
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={mobileMenuOpen}
             >
@@ -212,30 +212,30 @@ export function Header() {
           </div>
         </div>
 
-        {/* Mobile & Tablet Navigation Menu Dropdown */}
+        {/* Mobile & Tablet Navigation Menu Dropdown (Absolute overlay to prevent jumping layout) */}
         {mobileMenuOpen && (
           <nav
             aria-label="Mobile Navigation"
-            className="border-b border-border/70 bg-[#0c0919]/98 px-5 py-5 shadow-2xl backdrop-blur-2xl lg:hidden animate-in fade-in slide-in-from-top-2 duration-200"
+            className="absolute top-full left-0 right-0 w-full border-b border-border/70 bg-[#0c0919]/98 px-5 py-6 shadow-2xl backdrop-blur-2xl lg:hidden animate-in fade-in slide-in-from-top-2 duration-200 max-h-[calc(100dvh-4.5rem)] overflow-y-auto z-50"
           >
-            <div className="mx-auto flex max-w-md flex-col gap-1.5">
+            <div className="mx-auto flex max-w-md flex-col gap-1">
               {nav.map((item) => (
                 <a
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-foreground/90 transition-colors hover:bg-white/[0.05] hover:text-neon"
+                  className="flex min-h-[44px] items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-foreground/90 transition-colors hover:bg-white/[0.05] hover:text-neon active:scale-[0.99]"
                 >
                   <span>{item.label}</span>
-                  <span className="text-xs text-neon/60">→</span>
+                  <span className="text-xs text-neon/60 font-bold">→</span>
                 </a>
               ))}
 
-              <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-4">
+              <div className="mt-3 flex flex-col gap-2.5 border-t border-white/10 pt-4">
                 <a
                   href="#contact"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex w-full items-center justify-center rounded-full bg-gradient-brand py-2.5 text-sm font-bold text-neon-foreground shadow-md"
+                  className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gradient-brand py-3 text-sm font-bold text-neon-foreground shadow-md active:scale-95"
                 >
                   Get AI Video Quote
                 </a>
@@ -244,7 +244,7 @@ export function Header() {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-secondary/50 py-2.5 text-sm font-semibold text-white transition-colors hover:border-neon hover:text-neon"
+                  className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-white transition-colors hover:border-neon hover:text-neon active:scale-95"
                 >
                   <MessageCircle className="h-4 w-4 text-[#25D366]" />
                   Chat on WhatsApp
@@ -429,6 +429,8 @@ export function Hero() {
       const nav = document.getElementById("site-nav-container");
       if (nav) {
         setHeaderHeight(nav.offsetHeight);
+      } else {
+        setHeaderHeight(100);
       }
     };
 
@@ -608,11 +610,11 @@ export function Hero() {
         id="hero-mobile-section"
         ref={mobileHeroRef}
         aria-hidden={isDesktop}
-        className="block lg:hidden relative overflow-hidden bg-background w-full min-h-[calc(100vh-60px)] px-4 sm:px-6 pb-12 flex flex-col items-center justify-center text-center"
-        style={{ paddingTop: `${headerHeight + 20}px` }}
+        className="block lg:hidden relative overflow-hidden bg-background w-full min-h-[calc(100dvh-60px)] px-4 sm:px-6 pb-12 flex flex-col items-center justify-center text-center"
+        style={{ paddingTop: `calc(${headerHeight}px + 1.25rem)` }}
       >
         {/* Animated podcast-style geometric orbital watermarks & contour waves */}
-        <HeroOrbitalAtmosphere className="scale-90" />
+        <HeroOrbitalAtmosphere className="scale-90 sm:scale-100" />
 
         {/* Ambient atmospheric brand glows */}
         <div
@@ -629,9 +631,9 @@ export function Hero() {
           }}
         />
 
-        <div className="relative z-10 flex flex-col items-center w-full max-w-md mx-auto my-auto">
+        <div className="relative z-10 flex flex-col items-center w-full max-w-md sm:max-w-xl md:max-w-2xl mx-auto my-auto">
           {/* Video in between (centered, high-impact vertical format) */}
-          <div className="relative w-full max-w-[310px] xs:max-w-[340px] sm:max-w-[390px] aspect-[9/16] max-h-[58vh] rounded-2xl overflow-hidden border border-white/20 bg-[#0e081e] shadow-[0_0_50px_rgba(200,80,255,0.35)] glow-neon">
+          <div className="relative w-full max-w-[310px] xs:max-w-[340px] sm:max-w-[380px] md:max-w-[420px] aspect-[9/16] max-h-[55vh] rounded-2xl overflow-hidden border border-white/20 bg-[#0e081e] shadow-[0_0_50px_rgba(200,80,255,0.35)] glow-neon">
             <video
               ref={(el) => {
                 mobileVideoRef.current = el;
@@ -678,14 +680,14 @@ export function Hero() {
           </div>
 
           {/* Below that: Hero Headline & Subheading */}
-          <div className="mt-4 sm:mt-6 w-full max-w-lg px-2 text-center">
+          <div className="mt-4 sm:mt-6 w-full max-w-lg sm:max-w-xl md:max-w-2xl px-2 text-center">
             <h1 className="font-[var(--font-google-sans)] text-2xl sm:text-3xl md:text-4xl font-bold leading-tight tracking-tight text-white">
               <span className="font-serif italic font-bold text-gradient-brand inline-block pr-1.5">
                 AI Video Creation
               </span>{" "}
               for Businesses That Want to Stand Out
             </h1>
-            <p className="mt-2.5 sm:mt-3 text-sm sm:text-base text-white/85 leading-relaxed font-normal">
+            <p className="mt-2.5 sm:mt-3.5 text-sm sm:text-base md:text-lg text-white/85 leading-relaxed font-normal">
               Turn your ideas into engaging, professional videos with AI - faster, smarter, and more cost-effectively.
             </p>
           </div>
