@@ -588,15 +588,13 @@ function AdminPage() {
   };
 
   const isLeadUsa = (lead: Lead | null | undefined): boolean => {
-    if (!lead) return true;
-    if (lead.source?.toLowerCase().includes("india") || lead.source?.includes("IN -")) {
-      return false;
-    }
-    return true;
+    if (!lead) return false;
+    const src = (lead.source || "").toLowerCase().trim();
+    return src.startsWith("usa") || src.includes("usa -") || src.includes("united states");
   };
 
-  const sanitizePhoneNumber = (phone: string, isUsa: boolean = true) => {
-    let clean = phone.replace(/[^0-9]/g, "");
+  const sanitizePhoneNumber = (phone: string, isUsa: boolean = false) => {
+    let clean = (phone || "").replace(/[^0-9]/g, "");
     if (clean.length === 10) {
       clean = isUsa ? `1${clean}` : `91${clean}`;
     }
@@ -614,18 +612,18 @@ function AdminPage() {
       if (lead.industry) msg += `\n🏷️ Industry: ${lead.industry}`;
       if (lead.requirement || lead.additional) msg += `\n📋 Project Scope: ${lead.requirement || lead.additional}`;
 
-      msg += `\n\nOur US team is reviewing your requirements and preparing custom sample concepts, video reels, and a tailored quote for your project.\n\nCould you please confirm if you have a target turnaround timeline or any reference video links in mind?\n\nBest regards,\nQuickupp AI Studio Team (USA)\n🌐 https://quickuppaistudio.us\n📧 info@quickuppaistudio.us\n📍 8 The Green, Suite A, Dover, DE 19901, USA`;
+      msg += `\n\nOur team is reviewing your requirements and preparing custom sample concepts, video reels, and a tailored quote for your project.\n\nCould you please confirm if you have a target turnaround timeline or any reference video links in mind?\n\nBest regards,\nQuickupp AI Studio Team (USA)`;
       return msg;
     }
 
-    let msg = `Hello ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio!\n\nWe have received your project inquiry with the following details:\n\n👤 Client Name: ${lead.name}`;
-    if (lead.business) msg += `\nBusiness Name: ${lead.business}`;
-    if (lead.video_type) msg += `\nVideo Type: ${lead.video_type}`;
-    if (lead.location) msg += `\nLocation: ${lead.location}`;
-    if (lead.industry) msg += `\nIndustry: ${lead.industry}`;
-    if (lead.requirement || lead.additional) msg += `\nRequirement: ${lead.requirement || lead.additional}`;
+    let msg = `Hello ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio! 🇮🇳\n\nWe have received your AI video inquiry with the following details:\n\n👤 Client Name: ${lead.name}`;
+    if (lead.business) msg += `\n🏢 Business: ${lead.business}`;
+    if (lead.video_type) msg += `\n🎬 Video Type: ${lead.video_type}`;
+    if (lead.location) msg += `\n📍 Location: ${lead.location}`;
+    if (lead.industry) msg += `\n🏷️ Industry: ${lead.industry}`;
+    if (lead.requirement || lead.additional) msg += `\n📋 Requirement: ${lead.requirement || lead.additional}`;
 
-    msg += `\n\nOur team is reviewing your requirements and will share the tailored proposal and sample concepts shortly.\n\nCould you please confirm if you have any specific deadline or additional references in mind?\n\nBest regards,\nQuickupp AI Studio Team\nhttps://quickuppaistudio.us`;
+    msg += `\n\nOur team is reviewing your requirements and will share the tailored proposal and sample concepts shortly.\n\nCould you please confirm if you have any specific deadline or reference in mind?\n\nBest regards,\nQuickupp AI Studio Team`;
     return msg;
   };
 
@@ -638,7 +636,6 @@ function AdminPage() {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).catch(() => {});
     }
-
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
@@ -1220,13 +1217,14 @@ function AdminPage() {
                         {/* Source */}
                         <td className="whitespace-nowrap px-5 py-4">
                           {isLeadUsa(lead) ? (
-                            <span className="inline-flex items-center gap-1 rounded-md border border-blue-500/40 bg-blue-500/15 px-2.5 py-1 text-[11px] font-bold text-blue-300 shadow-sm">
+                            <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-500/40 bg-blue-500/15 px-2.5 py-1 text-[11px] font-bold text-blue-300 shadow-sm">
                               <span>🇺🇸</span>
                               <span>{lead.source}</span>
                             </span>
                           ) : (
-                            <span className="inline-block rounded-md border border-border/80 bg-secondary/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                              {lead.source}
+                            <span className="inline-flex items-center gap-1.5 rounded-md border border-orange-500/40 bg-orange-500/15 px-2.5 py-1 text-[11px] font-bold text-orange-300 shadow-sm">
+                              <span>🇮🇳</span>
+                              <span>{lead.source}</span>
                             </span>
                           )}
                         </td>
@@ -1400,12 +1398,14 @@ function AdminPage() {
                         ) : null}
                       </div>
                       {isLeadUsa(lead) ? (
-                        <span className="rounded border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-300">
-                          🇺🇸 {lead.source}
+                        <span className="inline-flex items-center gap-1 rounded border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-300">
+                          <span>🇺🇸</span>
+                          <span>{lead.source}</span>
                         </span>
                       ) : (
-                        <span className="rounded border border-border/80 bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-                          {lead.source}
+                        <span className="inline-flex items-center gap-1 rounded border border-orange-500/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold text-orange-300">
+                          <span>🇮🇳</span>
+                          <span>{lead.source}</span>
                         </span>
                       )}
                     </div>
