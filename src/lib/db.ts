@@ -1,8 +1,6 @@
-import type { IndiaLeadSource } from "./lead-source";
-
 export interface Lead {
   id: string;
-  source: IndiaLeadSource | string;
+  source: "Contact Form" | "Popup Modal" | "USA - Contact Form" | "USA - Popup Modal" | string;
   name: string;
   phone: string;
   email?: string;
@@ -14,6 +12,28 @@ export interface Lead {
   additional?: string;
   created_at: string;
   status: "New" | "Contacted" | "In Progress" | "Closed";
+}
+
+export type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "REFUNDED";
+
+export interface Order {
+  id: string;
+  paypal_order_id: string;
+  paypal_capture_id?: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone?: string;
+  customer_company?: string;
+  item_type: "individual" | "package" | "setup" | string;
+  item_id: string;
+  item_name: string;
+  amount: number;
+  currency: string;
+  payment_status: PaymentStatus;
+  paypal_status?: string;
+  raw_details?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 let pgPool: any = null;
@@ -92,7 +112,7 @@ export async function initDb() {
         await client.query(`
           CREATE TABLE IF NOT EXISTS leads (
             id VARCHAR(64) PRIMARY KEY,
-            source VARCHAR(64) NOT NULL,
+            source VARCHAR(32) NOT NULL,
             name VARCHAR(255) NOT NULL,
             phone VARCHAR(64) NOT NULL,
             email VARCHAR(255),
@@ -104,6 +124,26 @@ export async function initDb() {
             additional TEXT,
             status VARCHAR(32) DEFAULT 'New',
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE IF NOT EXISTS orders (
+            id VARCHAR(64) PRIMARY KEY,
+            paypal_order_id VARCHAR(128) NOT NULL UNIQUE,
+            paypal_capture_id VARCHAR(128),
+            customer_name VARCHAR(255) NOT NULL,
+            customer_email VARCHAR(255) NOT NULL,
+            customer_phone VARCHAR(64),
+            customer_company VARCHAR(255),
+            item_type VARCHAR(64) NOT NULL,
+            item_id VARCHAR(128) NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            amount NUMERIC(10, 2) NOT NULL,
+            currency VARCHAR(16) DEFAULT 'USD',
+            payment_status VARCHAR(32) DEFAULT 'PENDING',
+            paypal_status VARCHAR(64),
+            raw_details TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
           );
         `);
         isInitialized = true;
@@ -117,7 +157,7 @@ export async function initDb() {
 }
 
 export async function saveLead(data: {
-  source: IndiaLeadSource;
+  source: "Contact Form" | "Popup Modal" | "USA - Contact Form" | "USA - Popup Modal" | string;
   name: string;
   phone: string;
   email?: string;
@@ -281,6 +321,284 @@ export async function deleteLead(id: string): Promise<boolean> {
     }
   } catch (error) {
     console.error("PostgreSQL Delete error:", error);
+  }
+  return false;
+}
+
+// ==========================================
+// ORDERS & PAYPAL PAYMENTS PERSISTENCE
+// ==========================================
+
+export async function saveOrder(data: {
+  paypalOrderId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  customerCompany?: string;
+  itemType: "individual" | "package" | "setup" | string;
+  itemId: string;
+  itemName: string;
+  amount: number;
+  currency?: string;
+  paymentStatus?: PaymentStatus;
+  paypalStatus?: string;
+  rawDetails?: string;
+}): Promise<Order> {
+  const id = `order_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const now = new Date().toISOString();
+  const status: PaymentStatus = data.paymentStatus || "PENDING";
+  const currency = data.currency || "USD";
+
+  const record: Order = {
+    id,
+    paypal_order_id: data.paypalOrderId,
+    customer_name: data.customerName,
+    customer_email: data.customerEmail,
+    customer_phone: data.customerPhone || undefined,
+    customer_company: data.customerCompany || undefined,
+    item_type: data.itemType,
+    item_id: data.itemId,
+    item_name: data.itemName,
+    amount: data.amount,
+    currency,
+    payment_status: status,
+    paypal_status: data.paypalStatus || "CREATED",
+    raw_details: data.rawDetails || undefined,
+    created_at: now,
+    updated_at: now,
+  };
+
+  // Strategy A: Supabase REST
+  if (getSupabaseConfig()) {
+    try {
+      const result = await supabaseRest("orders", {
+        method: "POST",
+        body: JSON.stringify({
+          id: record.id,
+          paypal_order_id: record.paypal_order_id,
+          customer_name: record.customer_name,
+          customer_email: record.customer_email,
+          customer_phone: record.customer_phone || null,
+          customer_company: record.customer_company || null,
+          item_type: record.item_type,
+          item_id: record.item_id,
+          item_name: record.item_name,
+          amount: record.amount,
+          currency: record.currency,
+          payment_status: record.payment_status,
+          paypal_status: record.paypal_status || null,
+          raw_details: record.raw_details || null,
+          created_at: record.created_at,
+          updated_at: record.updated_at,
+        }),
+      });
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0];
+      }
+      return record;
+    } catch (supabaseError) {
+      console.warn("Supabase REST saveOrder failed, falling back to PostgreSQL pool:", supabaseError);
+    }
+  }
+
+  // Strategy B: PostgreSQL Pool
+  await initDb();
+  const pool = await getPool();
+  if (pool) {
+    const res = await pool.query(
+      `INSERT INTO orders (id, paypal_order_id, customer_name, customer_email, customer_phone, customer_company, item_type, item_id, item_name, amount, currency, payment_status, paypal_status, raw_details, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+       RETURNING *`,
+      [
+        id,
+        record.paypal_order_id,
+        record.customer_name,
+        record.customer_email,
+        record.customer_phone || null,
+        record.customer_company || null,
+        record.item_type,
+        record.item_id,
+        record.item_name,
+        record.amount,
+        record.currency,
+        record.payment_status,
+        record.paypal_status || null,
+        record.raw_details || null,
+      ]
+    );
+    return res.rows[0];
+  }
+
+  return record;
+}
+
+export async function updateOrderPayment(data: {
+  paypalOrderId: string;
+  paypalCaptureId?: string;
+  paymentStatus: PaymentStatus;
+  paypalStatus?: string;
+  rawDetails?: string;
+}): Promise<Order | null> {
+  const now = new Date().toISOString();
+
+  if (getSupabaseConfig()) {
+    try {
+      const payload: Record<string, any> = {
+        payment_status: data.paymentStatus,
+        updated_at: now,
+      };
+      if (data.paypalCaptureId) payload.paypal_capture_id = data.paypalCaptureId;
+      if (data.paypalStatus) payload.paypal_status = data.paypalStatus;
+      if (data.rawDetails) payload.raw_details = data.rawDetails;
+
+      const rows = await supabaseRest(`orders?paypal_order_id=eq.${data.paypalOrderId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      if (Array.isArray(rows) && rows.length > 0) {
+        return rows[0];
+      }
+    } catch (err) {
+      console.warn("Supabase REST updateOrderPayment fallback:", err);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      const res = await pool.query(
+        `UPDATE orders
+         SET payment_status = $1,
+             paypal_capture_id = COALESCE($2, paypal_capture_id),
+             paypal_status = COALESCE($3, paypal_status),
+             raw_details = COALESCE($4, raw_details),
+             updated_at = NOW()
+         WHERE paypal_order_id = $5
+         RETURNING *`,
+        [
+          data.paymentStatus,
+          data.paypalCaptureId || null,
+          data.paypalStatus || null,
+          data.rawDetails || null,
+          data.paypalOrderId,
+        ]
+      );
+      return res.rows[0] || null;
+    }
+  } catch (error) {
+    console.error("PostgreSQL updateOrderPayment error:", error);
+  }
+  return null;
+}
+
+export async function getOrders(): Promise<Order[]> {
+  // Strategy A: Supabase REST
+  if (getSupabaseConfig()) {
+    try {
+      const rows = await supabaseRest("orders?select=*&order=created_at.desc");
+      if (Array.isArray(rows)) {
+        return rows as Order[];
+      }
+    } catch (err) {
+      console.warn("Supabase REST getOrders fallback:", err);
+    }
+  }
+
+  // Strategy B: PostgreSQL pool
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      const res = await pool.query("SELECT * FROM orders ORDER BY created_at DESC");
+      return res.rows.map((r: any) => ({
+        ...r,
+        amount: typeof r.amount === "string" ? parseFloat(r.amount) : r.amount,
+      }));
+    }
+  } catch (error) {
+    console.error("PostgreSQL Select Orders error:", error);
+  }
+  return [];
+}
+
+export async function getOrderById(id: string): Promise<Order | null> {
+  if (getSupabaseConfig()) {
+    try {
+      const rows = await supabaseRest(`orders?id=eq.${id}&select=*`);
+      if (Array.isArray(rows) && rows.length > 0) {
+        return rows[0];
+      }
+    } catch (err) {
+      console.warn("Supabase REST getOrderById fallback:", err);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      const res = await pool.query("SELECT * FROM orders WHERE id = $1 LIMIT 1", [id]);
+      if (res.rows[0]) {
+        return {
+          ...res.rows[0],
+          amount: typeof res.rows[0].amount === "string" ? parseFloat(res.rows[0].amount) : res.rows[0].amount,
+        };
+      }
+    }
+  } catch (error) {
+    console.error("PostgreSQL getOrderById error:", error);
+  }
+  return null;
+}
+
+export async function updateOrderStatus(id: string, status: PaymentStatus): Promise<boolean> {
+  if (getSupabaseConfig()) {
+    try {
+      await supabaseRest(`orders?id=eq.${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ payment_status: status, updated_at: new Date().toISOString() }),
+      });
+      return true;
+    } catch (err) {
+      console.warn("Supabase REST updateOrderStatus fallback:", err);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      const res = await pool.query("UPDATE orders SET payment_status = $1, updated_at = NOW() WHERE id = $2", [status, id]);
+      return (res.rowCount ?? 0) > 0;
+    }
+  } catch (error) {
+    console.error("PostgreSQL updateOrderStatus error:", error);
+  }
+  return false;
+}
+
+export async function deleteOrder(id: string): Promise<boolean> {
+  if (getSupabaseConfig()) {
+    try {
+      await supabaseRest(`orders?id=eq.${id}`, {
+        method: "DELETE",
+      });
+      return true;
+    } catch (err) {
+      console.warn("Supabase REST deleteOrder fallback:", err);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      const res = await pool.query("DELETE FROM orders WHERE id = $1", [id]);
+      return (res.rowCount ?? 0) > 0;
+    }
+  } catch (error) {
+    console.error("PostgreSQL deleteOrder error:", error);
   }
   return false;
 }

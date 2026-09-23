@@ -3,7 +3,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Calendar,
+  CheckCircle2,
+  Clock,
   Copy,
+  CreditCard,
+  DollarSign,
   Download,
   Eye,
   EyeOff,
@@ -13,16 +17,18 @@ import {
   LogOut,
   Mail,
   MessageSquare,
+  Package,
   Phone,
   RefreshCw,
   Search,
+  ShieldCheck,
   Sparkles,
   Trash2,
   Volume2,
   VolumeX,
   X,
 } from "lucide-react";
-import type { Lead } from "@/lib/db";
+import type { Lead, Order, PaymentStatus } from "@/lib/db";
 import {
   fetchLeadsServerFn,
   updateLeadStatusServerFn,
@@ -30,12 +36,11 @@ import {
   broadcastLeadEvent,
 } from "@/lib/lead-actions";
 import {
-  IND_CONTACT_SOURCE,
-  IND_POPUP_SOURCE,
-  displayLeadSource,
-  isIndContactSource,
-  isIndPopupSource,
-} from "@/lib/lead-source";
+  fetchOrdersServerFn,
+  updateOrderStatusServerFn,
+  deleteOrderServerFn,
+  broadcastOrderEvent,
+} from "@/lib/paypal-actions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -84,6 +89,8 @@ function AdminPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [authError, setAuthError] = useState("");
 
+  const [activeTab, setActiveTab] = useState<"leads" | "orders">("leads");
+
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -92,6 +99,14 @@ function AdminPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLeadForMsg, setSelectedLeadForMsg] = useState<Lead | null>(null);
   const [copiedNotification, setCopiedNotification] = useState(false);
+
+  // Orders State
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [filterOrderStatus, setFilterOrderStatus] = useState<string>("All");
+  const [orderSearchTerm, setOrderSearchTerm] = useState("");
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
+  const [newOrderNotification, setNewOrderNotification] = useState<Order | null>(null);
+  const [highlightedOrderIds, setHighlightedOrderIds] = useState<Set<string>>(new Set());
 
   // Real-time live sync state
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
@@ -103,11 +118,16 @@ function AdminPage() {
   const [newLeadNotification, setNewLeadNotification] = useState<Lead | null>(null);
   const [highlightedLeadIds, setHighlightedLeadIds] = useState<Set<string>>(new Set());
 
-  // Ref to always access the latest leads state inside callbacks/intervals without stale closures
+  // Ref to always access the latest state inside callbacks/intervals without stale closures
   const leadsRef = useRef<Lead[]>(leads);
   useEffect(() => {
     leadsRef.current = leads;
   }, [leads]);
+
+  const ordersRef = useRef<Order[]>(orders);
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
 
   // Check saved session & remember me on initial mount
   useEffect(() => {
@@ -115,6 +135,7 @@ function AdminPage() {
     if (savedAuth === "true") {
       setIsAuthenticated(true);
       fetchLeads(false);
+      fetchOrders(false);
     } else {
       const savedEmail = localStorage.getItem("ai_studio_remembered_email");
       if (savedEmail) {
@@ -185,6 +206,38 @@ function AdminPage() {
     }, 7000);
   };
 
+  // Handle incoming order in real-time (from broadcast or polling)
+  const handleIncomingOrder = (newOrder: Order) => {
+    if (!newOrder || !newOrder.id) return;
+
+    setOrders((prev) => {
+      const exists = prev.some((o) => o.id === newOrder.id);
+      if (exists) {
+        return prev.map((o) => (o.id === newOrder.id ? newOrder : o));
+      }
+      return [newOrder, ...prev];
+    });
+
+    setHighlightedOrderIds((prev) => new Set([...prev, newOrder.id]));
+    setTimeout(() => {
+      setHighlightedOrderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(newOrder.id);
+        return next;
+      });
+    }, 10000);
+
+    if (soundEnabled) {
+      playNotificationChime();
+    }
+    setNewOrderNotification(newOrder);
+    setLastSyncTime(new Date());
+
+    setTimeout(() => {
+      setNewOrderNotification((curr) => (curr?.id === newOrder.id ? null : curr));
+    }, 7000);
+  };
+
   // 10-Second Auto-Refresh Polling and Multi-Channel Event Listeners
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -194,9 +247,10 @@ function AdminPage() {
       setRefreshCountdown((prev) => (prev <= 1 ? 10 : prev - 1));
     }, 1000);
 
-    // 2. Auto-refresh leads from database every 10 seconds (10,000 ms)
+    // 2. Auto-refresh leads and orders from database every 10 seconds (10,000 ms)
     const intervalId = setInterval(() => {
       fetchLeads(true);
+      fetchOrders(true);
       setRefreshCountdown(10);
     }, 10000);
 
@@ -204,11 +258,13 @@ function AdminPage() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         fetchLeads(true);
+        fetchOrders(true);
         setRefreshCountdown(10);
       }
     };
     const handleFocus = () => {
       fetchLeads(true);
+      fetchOrders(true);
       setRefreshCountdown(10);
     };
 
@@ -216,15 +272,25 @@ function AdminPage() {
     window.addEventListener("focus", handleFocus);
 
     // 4. BroadcastChannel for 0ms Instant Cross-Tab Sync
-    let bc: BroadcastChannel | null = null;
+    let bcLeads: BroadcastChannel | null = null;
+    let bcOrders: BroadcastChannel | null = null;
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
       try {
-        bc = new BroadcastChannel("ai_studio_leads_sync");
-        bc.onmessage = (event) => {
+        bcLeads = new BroadcastChannel("ai_studio_leads_sync");
+        bcLeads.onmessage = (event) => {
           if (event.data?.type === "NEW_LEAD" && event.data.lead) {
             handleIncomingLead(event.data.lead);
           } else if (event.data?.type === "UPDATE_LEAD" || event.data?.type === "DELETE_LEAD") {
             fetchLeads(true);
+          }
+        };
+
+        bcOrders = new BroadcastChannel("ai_studio_orders_sync");
+        bcOrders.onmessage = (event) => {
+          if (event.data?.type === "NEW_ORDER" && event.data.order) {
+            handleIncomingOrder(event.data.order);
+          } else if (event.data?.type === "UPDATE_ORDER" || event.data?.type === "DELETE_ORDER") {
+            fetchOrders(true);
           }
         };
       } catch (e) {
@@ -233,7 +299,7 @@ function AdminPage() {
     }
 
     // 5. Custom Window Event Listener (same-tab immediate trigger)
-    const handleCustomEvent = (e: Event) => {
+    const handleCustomLeadEvent = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail?.type === "NEW_LEAD" && customEvent.detail.lead) {
         handleIncomingLead(customEvent.detail.lead);
@@ -244,7 +310,20 @@ function AdminPage() {
         fetchLeads(true);
       }
     };
-    window.addEventListener("ai_studio_lead_event", handleCustomEvent);
+    window.addEventListener("ai_studio_lead_event", handleCustomLeadEvent);
+
+    const handleCustomOrderEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.type === "NEW_ORDER" && customEvent.detail.order) {
+        handleIncomingOrder(customEvent.detail.order);
+      } else if (
+        customEvent.detail?.type === "UPDATE_ORDER" ||
+        customEvent.detail?.type === "DELETE_ORDER"
+      ) {
+        fetchOrders(true);
+      }
+    };
+    window.addEventListener("ai_studio_order_event", handleCustomOrderEvent);
 
     // 6. Local Storage StorageEvent Listener (cross-window storage sync)
     const handleStorageChange = (e: StorageEvent) => {
@@ -265,15 +344,23 @@ function AdminPage() {
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
-      if (bc) bc.close();
-      window.removeEventListener("ai_studio_lead_event", handleCustomEvent);
+      if (bcLeads) bcLeads.close();
+      if (bcOrders) bcOrders.close();
+      window.removeEventListener("ai_studio_lead_event", handleCustomLeadEvent);
+      window.removeEventListener("ai_studio_order_event", handleCustomOrderEvent);
       window.removeEventListener("storage", handleStorageChange);
     };
   }, [isAuthenticated, soundEnabled]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (emailInput === "admin@aistudio.com" && passwordInput === "Admin@123") {
+    const cleanEmail = emailInput.trim().toLowerCase();
+    const isValid =
+      (cleanEmail === "qsaistudio@gmail.com" && passwordInput === "Anay@0079") ||
+      (cleanEmail === "admin@aistudio.com" && passwordInput === "Admin@123") ||
+      (cleanEmail === "info@quickuppaistudio.us" && passwordInput === "Admin@123");
+
+    if (isValid) {
       setIsAuthenticated(true);
       localStorage.setItem("ai_studio_admin_auth", "true");
 
@@ -400,30 +487,153 @@ function AdminPage() {
     }
   };
 
-  const sanitizePhoneNumber = (phone: string) => {
+  // ==========================================
+  // ORDERS MANAGEMENT HANDLERS
+  // ==========================================
+  const fetchOrders = async (silent = false) => {
+    try {
+      const res = await fetchOrdersServerFn();
+      if (res.success && res.orders) {
+        const currentIds = new Set(ordersRef.current.map((o) => o.id));
+        const brandNewOrders = res.orders.filter((o) => !currentIds.has(o.id));
+        if (brandNewOrders.length > 0 && ordersRef.current.length > 0) {
+          if (soundEnabled) {
+            playNotificationChime();
+          }
+          setNewOrderNotification(brandNewOrders[0]);
+          const newIds = brandNewOrders.map((o) => o.id);
+          setHighlightedOrderIds((prev) => new Set([...prev, ...newIds]));
+          setTimeout(() => {
+            setHighlightedOrderIds((prev) => {
+              const next = new Set(prev);
+              newIds.forEach((id) => next.delete(id));
+              return next;
+            });
+          }, 10000);
+          setTimeout(() => setNewOrderNotification(null), 7000);
+        }
+
+        setOrders(res.orders);
+        setLastSyncTime(new Date());
+      }
+    } catch (err) {
+      console.error("fetchOrders error:", err);
+    }
+  };
+
+  const updateOrderStatusItem = async (id: string, newStatus: PaymentStatus) => {
+    const updated = orders.map((o) => (o.id === id ? { ...o, payment_status: newStatus } : o));
+    setOrders(updated);
+    broadcastOrderEvent({ type: "UPDATE_ORDER", id });
+    try {
+      await updateOrderStatusServerFn({ data: { id, status: newStatus } });
+    } catch (err) {
+      console.error("DB updateOrderStatus error:", err);
+    }
+  };
+
+  const deleteOrderItem = async (id: string) => {
+    if (confirm("Are you sure you want to delete this payment record?")) {
+      const updated = orders.filter((o) => o.id !== id);
+      setOrders(updated);
+      broadcastOrderEvent({ type: "DELETE_ORDER", id });
+      try {
+        await deleteOrderServerFn({ data: { id } });
+      } catch (err) {
+        console.error("DB deleteOrder error:", err);
+      }
+    }
+  };
+
+  const exportOrdersToCsv = () => {
+    if (orders.length === 0) return;
+    const headers = [
+      "Order ID",
+      "PayPal Order ID",
+      "PayPal Capture ID",
+      "Customer Name",
+      "Customer Email",
+      "Customer Phone",
+      "Company",
+      "Item Type",
+      "Item Name",
+      "Amount",
+      "Currency",
+      "Payment Status",
+      "Date",
+    ];
+    const rows = orders.map((o) => [
+      `"${o.id}"`,
+      `"${o.paypal_order_id}"`,
+      `"${o.paypal_capture_id || ""}"`,
+      `"${o.customer_name}"`,
+      `"${o.customer_email}"`,
+      `"${o.customer_phone || ""}"`,
+      `"${o.customer_company || ""}"`,
+      `"${o.item_type}"`,
+      `"${o.item_name}"`,
+      `"${o.amount}"`,
+      `"${o.currency}"`,
+      `"${o.payment_status}"`,
+      `"${new Date(o.created_at).toLocaleString()}"`,
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `ai_studio_orders_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const isLeadUsa = (lead: Lead | null | undefined): boolean => {
+    if (!lead) return true;
+    if (lead.source?.toLowerCase().includes("india") || lead.source?.includes("IN -")) {
+      return false;
+    }
+    return true;
+  };
+
+  const sanitizePhoneNumber = (phone: string, isUsa: boolean = true) => {
     let clean = phone.replace(/[^0-9]/g, "");
     if (clean.length === 10) {
-      clean = `91${clean}`;
+      clean = isUsa ? `1${clean}` : `91${clean}`;
     }
     return clean;
   };
 
   const getAdminWhatsAppPlainText = (lead: Lead) => {
-    let msg = `Hello ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio!\n\nWe have received your project inquiry with the following details:\n\n• Client Name: ${lead.name}`;
-    if (lead.business) msg += `\n• Business Name: ${lead.business}`;
-    if (lead.video_type) msg += `\n• Video Service: ${lead.video_type}`;
-    if (lead.location) msg += `\n• Location: ${lead.location}`;
-    if (lead.industry) msg += `\n• Industry: ${lead.industry}`;
-    if (lead.requirement || lead.additional) msg += `\n• Requirement: ${lead.requirement || lead.additional}`;
+    const isUsa = isLeadUsa(lead);
 
-    msg += `\n\nOur team in India is reviewing your requirements and will share the tailored proposal, sample concepts, and pricing shortly.\n\nCould you please confirm if you have any specific deadline or additional references in mind?\n\nBest regards,\nQuickupp AI Studio Team (India)\nWebsite: https://quickuppaistudio.in\nPhone / WhatsApp: +91 8177828748`;
+    if (isUsa) {
+      let msg = `Hi ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio USA! 🇺🇸\n\nWe have received your AI Video Production inquiry with the following details:\n\n👤 Client Name: ${lead.name}`;
+      if (lead.business) msg += `\n🏢 Business / Brand: ${lead.business}`;
+      if (lead.video_type) msg += `\n🎬 Video Format: ${lead.video_type}`;
+      if (lead.location) msg += `\n📍 Location: ${lead.location}`;
+      if (lead.industry) msg += `\n🏷️ Industry: ${lead.industry}`;
+      if (lead.requirement || lead.additional) msg += `\n📋 Project Scope: ${lead.requirement || lead.additional}`;
+
+      msg += `\n\nOur US team is reviewing your requirements and preparing custom sample concepts, video reels, and a tailored quote for your project.\n\nCould you please confirm if you have a target turnaround timeline or any reference video links in mind?\n\nBest regards,\nQuickupp AI Studio Team (USA)\n🌐 https://quickuppaistudio.us\n📧 info@quickuppaistudio.us\n📍 8 The Green, Suite A, Dover, DE 19901, USA`;
+      return msg;
+    }
+
+    let msg = `Hello ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio!\n\nWe have received your project inquiry with the following details:\n\n👤 Client Name: ${lead.name}`;
+    if (lead.business) msg += `\nBusiness Name: ${lead.business}`;
+    if (lead.video_type) msg += `\nVideo Type: ${lead.video_type}`;
+    if (lead.location) msg += `\nLocation: ${lead.location}`;
+    if (lead.industry) msg += `\nIndustry: ${lead.industry}`;
+    if (lead.requirement || lead.additional) msg += `\nRequirement: ${lead.requirement || lead.additional}`;
+
+    msg += `\n\nOur team is reviewing your requirements and will share the tailored proposal and sample concepts shortly.\n\nCould you please confirm if you have any specific deadline or additional references in mind?\n\nBest regards,\nQuickupp AI Studio Team\nhttps://quickuppaistudio.us`;
     return msg;
   };
 
   const handleOpenWhatsApp = (lead: Lead) => {
     setSelectedLeadForMsg(lead);
     const text = getAdminWhatsAppPlainText(lead);
-    const phone = sanitizePhoneNumber(lead.phone);
+    const isUsa = isLeadUsa(lead);
+    const phone = sanitizePhoneNumber(lead.phone, isUsa);
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).catch(() => {});
@@ -458,7 +668,7 @@ function AdminPage() {
     ];
     const rows = filteredLeads.map((l) => [
       l.id,
-      displayLeadSource(l.source),
+      l.source,
       `"${l.name}"`,
       `"${l.phone}"`,
       `"${l.email || ""}"`,
@@ -493,7 +703,9 @@ function AdminPage() {
 
   const filteredLeads = leads
     .filter((lead) => {
-      const matchesSource = filterSource === "All" || displayLeadSource(lead.source) === filterSource;
+      const matchesSource =
+        filterSource === "All" ||
+        (filterSource === "USA Leads" ? lead.source.includes("USA") : lead.source === filterSource);
       const matchesStatus = filterStatus === "All" || lead.status === filterStatus;
       const matchesSearch =
         searchTerm === "" ||
@@ -506,13 +718,38 @@ function AdminPage() {
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const contactFormCount = leads.filter((l) => isIndContactSource(l.source)).length;
-  const popupModalCount = leads.filter((l) => isIndPopupSource(l.source)).length;
+  const usaLeadsCount = leads.filter((l) => l.source.includes("USA")).length;
+  const contactFormCount = leads.filter((l) => l.source.includes("Contact Form")).length;
+  const popupModalCount = leads.filter((l) => l.source.includes("Popup Modal")).length;
 
-  // All distinct lead sources currently present (e.g. "IND - Contact Form", "IND - Popup Modal",
-  // "USA - Contact Form", "USA - Popup Modal", ...), normalized, so the Source filter always
-  // differentiates every site/channel that is sending leads into this shared admin panel.
-  const availableSources = Array.from(new Set(leads.map((l) => displayLeadSource(l.source)))).sort();
+  // Orders Calculations
+  const filteredOrders = orders
+    .filter((order) => {
+      const matchesStatus =
+        filterOrderStatus === "All" ||
+        order.payment_status?.toUpperCase() === filterOrderStatus.toUpperCase();
+
+      const query = orderSearchTerm.toLowerCase().trim();
+      const matchesSearch =
+        query === "" ||
+        order.customer_name?.toLowerCase().includes(query) ||
+        order.customer_email?.toLowerCase().includes(query) ||
+        order.paypal_order_id?.toLowerCase().includes(query) ||
+        (order.paypal_capture_id && order.paypal_capture_id.toLowerCase().includes(query)) ||
+        order.item_name?.toLowerCase().includes(query);
+
+      return matchesStatus && matchesSearch;
+    })
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const totalRevenue = orders
+    .filter((o) => o.payment_status === "COMPLETED")
+    .reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
+  const completedOrdersCount = orders.filter((o) => o.payment_status === "COMPLETED").length;
+  const pendingOrdersCount = orders.filter((o) => o.payment_status === "PENDING").length;
+  const failedOrdersCount = orders.filter(
+    (o) => o.payment_status === "FAILED" || o.payment_status === "CANCELLED"
+  ).length;
 
   if (!isAuthenticated) {
     return (
@@ -613,6 +850,55 @@ function AdminPage() {
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-[#08070d] text-foreground antialiased selection:bg-neon selection:text-black">
+      {/* Real-Time Incoming Order Animated Toast Banner */}
+      {newOrderNotification ? (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-lg">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-purple-400 bg-[#1e1330] p-3.5 shadow-[0_0_30px_rgba(168,85,247,0.5)] backdrop-blur-xl">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/20 text-purple-300 animate-pulse">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-purple-300">
+                    New PayPal Payment!
+                  </span>
+                  <span className="rounded bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 text-[10px] font-bold">
+                    ${Number(newOrderNotification.amount).toFixed(2)} {newOrderNotification.currency}
+                  </span>
+                </div>
+                <div className="truncate text-sm font-bold text-white">
+                  {newOrderNotification.customer_name} · {newOrderNotification.item_name}
+                </div>
+                <div className="truncate text-xs text-muted-foreground font-mono">
+                  Order ID: {newOrderNotification.paypal_order_id}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => {
+                  setActiveTab("orders");
+                  setSelectedOrderDetails(newOrderNotification);
+                  setNewOrderNotification(null);
+                }}
+                className="rounded-lg bg-purple-600 px-2.5 py-1.5 text-xs font-bold text-white shadow hover:bg-purple-500 flex items-center gap-1 cursor-pointer"
+              >
+                <span>View</span>
+              </button>
+              <button
+                onClick={() => setNewOrderNotification(null)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-white/10 hover:text-white cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Real-Time Incoming Lead Animated Toast Banner */}
       {newLeadNotification ? (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-lg">
@@ -627,7 +913,7 @@ function AdminPage() {
                     New Lead Arrived!
                   </span>
                   <span className="rounded bg-secondary/80 px-1.5 py-0.2 text-[10px] text-muted-foreground">
-                    {displayLeadSource(newLeadNotification.source)}
+                    {newLeadNotification.source}
                   </span>
                 </div>
                 <div className="truncate text-sm font-bold text-white">
@@ -726,8 +1012,45 @@ function AdminPage() {
 
       {/* Main Admin Body - Full Width & Responsive */}
       <main className="w-full px-4 py-5 sm:px-8 lg:px-12">
-        {/* KPI Stats Cards - Responsive 2x2 or 4x1 */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        {/* Top Tab Switcher: Leads CRM vs PayPal Orders & Payments */}
+        <div className="flex items-center gap-3 border-b border-border/80 pb-4 mb-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab("leads")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              activeTab === "leads"
+                ? "bg-neon/15 text-neon border border-neon/40 shadow-[0_0_15px_rgba(200,80,255,0.2)]"
+                : "text-muted-foreground hover:bg-white/5 hover:text-white border border-transparent"
+            }`}
+          >
+            <Layers className="h-4 w-4" />
+            <span>Leads CRM</span>
+            <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-foreground font-semibold">
+              {leads.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("orders")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              activeTab === "orders"
+                ? "bg-purple-500/20 text-purple-300 border border-purple-400/50 shadow-[0_0_15px_rgba(168,85,247,0.25)]"
+                : "text-muted-foreground hover:bg-white/5 hover:text-white border border-transparent"
+            }`}
+          >
+            <DollarSign className="h-4 w-4 text-purple-400" />
+            <span>PayPal Orders & Payments</span>
+            <span className="rounded-full bg-purple-900/60 border border-purple-500/40 px-2 py-0.5 text-[11px] text-purple-200 font-semibold">
+              {orders.length}
+            </span>
+          </button>
+        </div>
+
+        {activeTab === "leads" && (
+          <div>
+        {/* KPI Stats Cards - Responsive */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
           <div className="rounded-xl border border-border/80 bg-[#12101e] p-3.5 shadow-lg transition-all hover:border-neon/50 sm:p-5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-xs">
@@ -738,10 +1061,20 @@ function AdminPage() {
             <p className="mt-2 text-2xl font-extrabold text-white sm:mt-3 sm:text-3xl">{leads.length}</p>
           </div>
 
+          <div className="rounded-xl border border-indigo-500/30 bg-[#0d1028] p-3.5 shadow-lg transition-all hover:border-indigo-400 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 sm:text-xs">
+                🇺🇸 USA Leads
+              </span>
+              <span className="h-2 w-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)] sm:h-2.5 sm:w-2.5" />
+            </div>
+            <p className="mt-2 text-2xl font-extrabold text-indigo-400 sm:mt-3 sm:text-3xl">{usaLeadsCount}</p>
+          </div>
+
           <div className="rounded-xl border border-blue-500/30 bg-[#0d1428] p-3.5 shadow-lg transition-all hover:border-blue-400 sm:p-5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 sm:text-xs">
-                IND Contact Form
+                Contact Form
               </span>
               <span className="h-2 w-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)] sm:h-2.5 sm:w-2.5" />
             </div>
@@ -751,17 +1084,17 @@ function AdminPage() {
           <div className="rounded-xl border border-pink-500/30 bg-[#250d1e] p-3.5 shadow-lg transition-all hover:border-pink-400 sm:p-5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 sm:text-xs">
-                IND Popup Modal
+                Popup Modal
               </span>
               <span className="h-2 w-2 rounded-full bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.8)] sm:h-2.5 sm:w-2.5" />
             </div>
             <p className="mt-2 text-2xl font-extrabold text-pink-400 sm:mt-3 sm:text-3xl">{popupModalCount}</p>
           </div>
 
-          <div className="rounded-xl border border-emerald-500/30 bg-[#0c231a] p-3.5 shadow-lg transition-all hover:border-emerald-400 sm:p-5">
+          <div className="rounded-xl border border-emerald-500/30 bg-[#0c231a] p-3.5 shadow-lg transition-all hover:border-emerald-400 sm:p-5 col-span-2 sm:col-span-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 sm:text-xs">
-                New Today
+                New Status
               </span>
               <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] sm:h-2.5 sm:w-2.5" />
             </div>
@@ -795,12 +1128,12 @@ function AdminPage() {
                 onChange={(e) => setFilterSource(e.target.value)}
                 className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer"
               >
-                <option value="All" className="bg-[#12101e]">All</option>
-                {availableSources.map((src) => (
-                  <option key={src} value={src} className="bg-[#12101e]">
-                    {src}
-                  </option>
-                ))}
+                <option value="All" className="bg-[#12101e]">All Sources</option>
+                <option value="USA Leads" className="bg-[#12101e]">🇺🇸 USA Leads (All)</option>
+                <option value="USA - Contact Form" className="bg-[#12101e]">🇺🇸 USA - Contact Form</option>
+                <option value="USA - Popup Modal" className="bg-[#12101e]">🇺🇸 USA - Popup Modal</option>
+                <option value="Contact Form" className="bg-[#12101e]">Contact Form</option>
+                <option value="Popup Modal" className="bg-[#12101e]">Popup Modal</option>
               </select>
             </div>
 
@@ -894,9 +1227,16 @@ function AdminPage() {
                       >
                         {/* Source */}
                         <td className="whitespace-nowrap px-5 py-4">
-                          <span className="inline-block rounded-md border border-border/80 bg-secondary/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                            {displayLeadSource(lead.source)}
-                          </span>
+                          {isLeadUsa(lead) ? (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-blue-500/40 bg-blue-500/15 px-2.5 py-1 text-[11px] font-bold text-blue-300 shadow-sm">
+                              <span>🇺🇸</span>
+                              <span>{lead.source}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-block rounded-md border border-border/80 bg-secondary/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                              {lead.source}
+                            </span>
+                          )}
                         </td>
 
                         {/* Client Info */}
@@ -1007,7 +1347,7 @@ function AdminPage() {
                         <td className="whitespace-nowrap px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <a
-                              href={`https://wa.me/${sanitizePhoneNumber(lead.phone)}?text=${encodeURIComponent(
+                              href={`https://wa.me/${sanitizePhoneNumber(lead.phone, isLeadUsa(lead))}?text=${encodeURIComponent(
                                 getAdminWhatsAppPlainText(lead),
                               )}`}
                               target="_blank"
@@ -1067,9 +1407,15 @@ function AdminPage() {
                           </span>
                         ) : null}
                       </div>
-                      <span className="rounded border border-border/80 bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-                        {displayLeadSource(lead.source)}
-                      </span>
+                      {isLeadUsa(lead) ? (
+                        <span className="rounded border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-300">
+                          🇺🇸 {lead.source}
+                        </span>
+                      ) : (
+                        <span className="rounded border border-border/80 bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+                          {lead.source}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between text-xs">
@@ -1132,7 +1478,7 @@ function AdminPage() {
                         </select>
 
                         <a
-                          href={`https://wa.me/${sanitizePhoneNumber(lead.phone)}?text=${encodeURIComponent(
+                          href={`https://wa.me/${sanitizePhoneNumber(lead.phone, isLeadUsa(lead))}?text=${encodeURIComponent(
                             getAdminWhatsAppPlainText(lead),
                           )}`}
                           target="_blank"
@@ -1161,7 +1507,454 @@ function AdminPage() {
               })
             )}
           </div>
+          </div>
         </div>
+        )}
+
+        {/* ========================================== */}
+        {/* ORDERS & PAYMENTS TAB VIEW                */}
+        {/* ========================================== */}
+        {activeTab === "orders" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Orders KPI Stats Cards */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
+              <div className="rounded-xl border border-border/80 bg-[#12101e] p-3.5 shadow-lg sm:p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-xs">
+                    Total Orders
+                  </span>
+                  <Package className="h-3.5 w-3.5 text-purple-400 sm:h-4 sm:w-4" />
+                </div>
+                <p className="mt-2 text-2xl font-extrabold text-white sm:mt-3 sm:text-3xl">
+                  {orders.length}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-emerald-500/30 bg-[#0c231a] p-3.5 shadow-lg sm:p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 sm:text-xs">
+                    Total Revenue
+                  </span>
+                  <DollarSign className="h-3.5 w-3.5 text-emerald-400 sm:h-4 sm:w-4" />
+                </div>
+                <p className="mt-2 text-2xl font-extrabold text-emerald-400 sm:mt-3 sm:text-3xl">
+                  ${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-blue-500/30 bg-[#0d1428] p-3.5 shadow-lg sm:p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 sm:text-xs">
+                    Completed
+                  </span>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-400 sm:h-4 sm:w-4" />
+                </div>
+                <p className="mt-2 text-2xl font-extrabold text-blue-400 sm:mt-3 sm:text-3xl">
+                  {completedOrdersCount}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-amber-500/30 bg-[#241a0b] p-3.5 shadow-lg sm:p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 sm:text-xs">
+                    Pending
+                  </span>
+                  <Clock className="h-3.5 w-3.5 text-amber-400 sm:h-4 sm:w-4" />
+                </div>
+                <p className="mt-2 text-2xl font-extrabold text-amber-400 sm:mt-3 sm:text-3xl">
+                  {pendingOrdersCount}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-red-500/30 bg-[#250d1e] p-3.5 shadow-lg sm:p-5 col-span-2 sm:col-span-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-300 sm:text-xs">
+                    Failed / Cancelled
+                  </span>
+                  <span className="h-2 w-2 rounded-full bg-red-400" />
+                </div>
+                <p className="mt-2 text-2xl font-extrabold text-red-400 sm:mt-3 sm:text-3xl">
+                  {failedOrdersCount}
+                </p>
+              </div>
+            </div>
+
+            {/* Orders Filters & Actions Bar */}
+            <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-[#12101e] p-3 shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-4">
+              <div className="flex flex-1 flex-wrap items-center gap-2.5 sm:gap-3">
+                {/* Search Input */}
+                <div className="relative w-full min-w-0 sm:max-w-xs sm:flex-1">
+                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search customer, email, order ID..."
+                    value={orderSearchTerm}
+                    onChange={(e) => setOrderSearchTerm(e.target.value)}
+                    className="w-full rounded-lg border border-border/80 bg-[#0a0912] py-2 pl-9 pr-3 text-xs text-white placeholder:text-muted-foreground focus:border-purple-400 focus:outline-none"
+                  />
+                </div>
+
+                {/* Status Filter */}
+                <div className="flex items-center gap-1.5 rounded-lg border border-border/80 bg-[#0a0912] px-2.5 py-1.5">
+                  <Filter className="h-3 w-3 text-purple-400" />
+                  <span className="text-xs font-medium text-muted-foreground">Status:</span>
+                  <select
+                    value={filterOrderStatus}
+                    onChange={(e) => setFilterOrderStatus(e.target.value)}
+                    className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="All" className="bg-[#12101e]">All Statuses</option>
+                    <option value="COMPLETED" className="bg-[#12101e]">COMPLETED</option>
+                    <option value="PENDING" className="bg-[#12101e]">PENDING</option>
+                    <option value="FAILED" className="bg-[#12101e]">FAILED</option>
+                    <option value="CANCELLED" className="bg-[#12101e]">CANCELLED</option>
+                    <option value="REFUNDED" className="bg-[#12101e]">REFUNDED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={exportOrdersToCsv}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-[#0a0912] px-3 py-2 text-xs font-semibold text-white hover:bg-secondary transition-colors cursor-pointer"
+                >
+                  <Download className="h-3.5 w-3.5 text-purple-400" />
+                  <span>Export CSV</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    fetchOrders(false);
+                    setRefreshCountdown(10);
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg bg-gradient-brand px-3 py-2 text-xs font-bold text-white hover:brightness-110 shadow-sm cursor-pointer"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Orders Table Container */}
+            <div className="overflow-hidden rounded-xl border border-border/80 bg-[#12101e] shadow-xl">
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border/80 bg-[#171427] text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <th className="px-5 py-3.5">Customer</th>
+                      <th className="px-5 py-3.5">Service / Package</th>
+                      <th className="px-5 py-3.5 text-center">Amount</th>
+                      <th className="px-5 py-3.5 text-center">Payment Status</th>
+                      <th className="px-5 py-3.5">PayPal Order & Capture ID</th>
+                      <th className="px-5 py-3.5 text-center">Date</th>
+                      <th className="px-5 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {filteredOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-5 py-12 text-center text-muted-foreground text-xs">
+                          No PayPal payment orders found matching criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOrders.map((order) => {
+                        const isCompleted = order.payment_status === "COMPLETED";
+                        const isPending = order.payment_status === "PENDING";
+                        const isFailed = order.payment_status === "FAILED" || order.payment_status === "CANCELLED";
+
+                        return (
+                          <tr
+                            key={order.id}
+                            className={`transition-colors hover:bg-white/[0.03] ${
+                              highlightedOrderIds.has(order.id) ? "bg-purple-900/20" : ""
+                            }`}
+                          >
+                            {/* Customer */}
+                            <td className="px-5 py-4">
+                              <div className="font-bold text-white text-sm">{order.customer_name}</div>
+                              <div className="text-[11px] text-muted-foreground font-mono mt-0.5">{order.customer_email}</div>
+                              {order.customer_phone && (
+                                <div className="text-[11px] text-muted-foreground/80 mt-0.5">{order.customer_phone}</div>
+                              )}
+                              {order.customer_company && (
+                                <div className="text-[10px] text-purple-300 font-semibold mt-0.5">🏢 {order.customer_company}</div>
+                              )}
+                            </td>
+
+                            {/* Service / Package */}
+                            <td className="px-5 py-4">
+                              <div className="font-bold text-white text-xs">{order.item_name}</div>
+                              <div className="mt-1">
+                                <span className="inline-flex rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
+                                  {order.item_type}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Amount */}
+                            <td className="px-5 py-4 text-center">
+                              <span className="font-mono text-sm font-bold text-emerald-400">
+                                ${Number(order.amount).toFixed(2)}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground ml-1">{order.currency}</span>
+                            </td>
+
+                            {/* Payment Status */}
+                            <td className="px-5 py-4 text-center">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                                  isCompleted
+                                    ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                                    : isPending
+                                    ? "border border-amber-500/40 bg-amber-500/15 text-amber-300"
+                                    : "border border-red-500/40 bg-red-500/15 text-red-300"
+                                }`}
+                              >
+                                {isCompleted && <CheckCircle2 className="h-3 w-3" />}
+                                {isPending && <Clock className="h-3 w-3" />}
+                                {isFailed && <AlertCircle className="h-3 w-3" />}
+                                <span>{order.payment_status}</span>
+                              </span>
+                            </td>
+
+                            {/* PayPal IDs */}
+                            <td className="px-5 py-4">
+                              <div className="space-y-1 font-mono text-[11px]">
+                                <div className="flex items-center gap-1.5 text-muted-foreground">
+                                  <span className="text-[10px] text-slate-400">Order:</span>
+                                  <span className="text-white select-all">{order.paypal_order_id}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(order.paypal_order_id);
+                                      setCopiedNotification(true);
+                                      setTimeout(() => setCopiedNotification(false), 2500);
+                                    }}
+                                    className="p-1 text-muted-foreground hover:text-white"
+                                    title="Copy Order ID"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </button>
+                                </div>
+                                {order.paypal_capture_id && (
+                                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                                    <span className="text-[10px] text-slate-400">Capture:</span>
+                                    <span className="text-emerald-300 select-all">{order.paypal_capture_id}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (order.paypal_capture_id) {
+                                          navigator.clipboard.writeText(order.paypal_capture_id);
+                                          setCopiedNotification(true);
+                                          setTimeout(() => setCopiedNotification(false), 2500);
+                                        }
+                                      }}
+                                      className="p-1 text-muted-foreground hover:text-white"
+                                      title="Copy Capture ID"
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Date */}
+                            <td className="px-5 py-4 text-center text-[11px] text-muted-foreground">
+                              <div>{new Date(order.created_at).toLocaleDateString()}</div>
+                              <div className="text-[10px] text-muted-foreground/70">
+                                {new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </div>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-5 py-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedOrderDetails(order)}
+                                  className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground hover:text-white hover:border-purple-400 transition-colors"
+                                  title="View Order Details"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => deleteOrderItem(order.id)}
+                                  className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground hover:text-red-400 hover:border-red-500 transition-colors"
+                                  title="Delete Record"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card List View for Orders */}
+              <div className="block md:hidden divide-y divide-border/60 p-3">
+                {filteredOrders.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-muted-foreground">
+                    No orders found.
+                  </div>
+                ) : (
+                  filteredOrders.map((order) => (
+                    <div key={order.id} className="py-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-bold text-white text-sm">{order.customer_name}</div>
+                          <div className="text-xs text-muted-foreground">{order.customer_email}</div>
+                        </div>
+                        <span className="font-mono font-bold text-emerald-400 text-sm">
+                          ${Number(order.amount).toFixed(2)}
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-slate-300 font-medium">
+                        {order.item_name}
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
+                          {order.payment_status}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOrderDetails(order)}
+                            className="rounded border border-border bg-secondary/60 px-2.5 py-1 text-xs text-white"
+                          >
+                            Details
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteOrderItem(order.id)}
+                            className="rounded border border-border bg-secondary/60 p-1 text-muted-foreground hover:text-red-400"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Detailed Order Modal */}
+        {selectedOrderDetails ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in">
+            <div className="w-full max-w-xl rounded-2xl border border-purple-400/40 bg-[#120f20] p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300">
+                    <Package className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Order Details</h3>
+                    <p className="text-xs text-muted-foreground font-mono">{selectedOrderDetails.id}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrderDetails(null)}
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl border border-border/60 bg-[#0a0912] p-3 space-y-1">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Customer</span>
+                  <p className="font-bold text-white text-sm">{selectedOrderDetails.customer_name}</p>
+                  <p className="text-muted-foreground font-mono">{selectedOrderDetails.customer_email}</p>
+                  {selectedOrderDetails.customer_phone && <p className="text-muted-foreground">{selectedOrderDetails.customer_phone}</p>}
+                  {selectedOrderDetails.customer_company && <p className="text-purple-300 font-medium">🏢 {selectedOrderDetails.customer_company}</p>}
+                </div>
+
+                <div className="rounded-xl border border-border/60 bg-[#0a0912] p-3 space-y-1">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Payment Summary</span>
+                  <p className="text-lg font-bold text-emerald-400 font-mono">
+                    ${Number(selectedOrderDetails.amount).toFixed(2)} {selectedOrderDetails.currency}
+                  </p>
+                  <div className="pt-1">
+                    <span className="inline-flex rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
+                      Status: {selectedOrderDetails.payment_status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/60 bg-[#0a0912] p-3 text-xs space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Item Purchased</span>
+                <p className="font-bold text-white text-sm">{selectedOrderDetails.item_name}</p>
+                <p className="text-muted-foreground">Type: <span className="font-semibold text-white capitalize">{selectedOrderDetails.item_type}</span></p>
+              </div>
+
+              <div className="rounded-xl border border-border/60 bg-[#0a0912] p-3 text-xs space-y-2 font-mono">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold font-sans">PayPal Identifiers</span>
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>PayPal Order ID:</span>
+                  <span className="text-white select-all">{selectedOrderDetails.paypal_order_id}</span>
+                </div>
+                {selectedOrderDetails.paypal_capture_id && (
+                  <div className="flex justify-between items-center text-muted-foreground">
+                    <span>Payment Capture ID:</span>
+                    <span className="text-emerald-400 select-all">{selectedOrderDetails.paypal_capture_id}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Created At:</span>
+                  <span className="text-slate-300">{new Date(selectedOrderDetails.created_at).toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Status Update Control */}
+              <div className="flex items-center justify-between border-t border-border/80 pt-3">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground font-semibold">Change Status:</span>
+                  <select
+                    value={selectedOrderDetails.payment_status}
+                    onChange={(e) => {
+                      const newSt = e.target.value as PaymentStatus;
+                      updateOrderStatusItem(selectedOrderDetails.id, newSt);
+                      setSelectedOrderDetails({ ...selectedOrderDetails, payment_status: newSt });
+                    }}
+                    className="rounded-lg border border-border bg-[#0a0912] px-2 py-1 text-xs text-white cursor-pointer"
+                  >
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="FAILED">FAILED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                    <option value="REFUNDED">REFUNDED</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrderDetails(null)}
+                  className="rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-500 cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Quick WhatsApp Message Preview & 1-Click Copy Modal */}
         {selectedLeadForMsg ? (
@@ -1171,7 +1964,9 @@ function AdminPage() {
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
                     <MessageSquare className="h-5 w-5 text-emerald-400" />
-                    WhatsApp Confirmation Message
+                    {isLeadUsa(selectedLeadForMsg)
+                      ? "🇺🇸 WhatsApp Confirmation (USA Lead)"
+                      : "WhatsApp Confirmation Message"}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     For {selectedLeadForMsg.name} ({selectedLeadForMsg.phone})
@@ -1199,8 +1994,11 @@ function AdminPage() {
                 </button>
 
                 <a
-                  href={`https://wa.me/${sanitizePhoneNumber(selectedLeadForMsg.phone)}?text=${encodeURIComponent(
-                    getAdminWhatsAppPlainText(selectedLeadForMsg)
+                  href={`https://wa.me/${sanitizePhoneNumber(
+                    selectedLeadForMsg.phone,
+                    isLeadUsa(selectedLeadForMsg),
+                  )}?text=${encodeURIComponent(
+                    getAdminWhatsAppPlainText(selectedLeadForMsg),
                   )}`}
                   target="_blank"
                   rel="noreferrer"
