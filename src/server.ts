@@ -50,8 +50,8 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
-      if (url.hostname === "www.quickuppaistudio.com") {
-        url.hostname = "quickuppaistudio.com";
+      if (url.hostname === "www.quickuppaistudio.in" || url.hostname === "www.quickuppaistudio.com" || url.hostname === "quickuppaistudio.com") {
+        url.hostname = "quickuppaistudio.in";
         url.protocol = "https:";
         return Response.redirect(url.toString(), 301);
       }

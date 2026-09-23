@@ -595,3 +595,6 @@ export const footerIndiaMapUrl = "https://maps.app.goo.gl/geUWrpRet8nY8qbW6";
 export const footerUsaAddress = "8 The Green, Suite A, Dover, Delaware - 19901, USA";
 export const footerUsaMapUrl = "https://maps.app.goo.gl/2rLqrCN4rco2XpQr5";
 export const footerCopyright = `© ${new Date().getFullYear()} Quickupp AI Studio. All rights reserved.`;
+
+export const standardWhatsAppMessage =
+  "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!";

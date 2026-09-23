@@ -327,8 +327,8 @@ Call: tel:${cleanPhone}
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "Origin": "https://quickuppaistudio.com",
-        "Referer": "https://quickuppaistudio.com",
+        "Origin": "https://quickuppaistudio.in",
+        "Referer": "https://quickuppaistudio.in",
       },
       body: JSON.stringify({
         _subject: subject,

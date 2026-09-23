@@ -56,6 +56,7 @@ import {
   useCases,
   whyAiVideo,
   whyUs,
+  standardWhatsAppMessage,
 } from "./data";
 
 export function Header() {
@@ -241,7 +242,7 @@ export function Header() {
                   Get AI Video Quote
                 </a>
                 <a
-                  href="https://wa.me/918177828748"
+                  href={`https://wa.me/918177828748?text=${encodeURIComponent(standardWhatsAppMessage)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMobileMenuOpen(false)}
@@ -3054,9 +3055,7 @@ export function LeadFormSection() {
 }
 
 export function WhatsAppCtaSection() {
-  const professionalMessage = encodeURIComponent(
-    "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!",
-  );
+  const professionalMessage = encodeURIComponent(standardWhatsAppMessage);
 
   return (
     <section className="border-t border-border bg-surface/40 px-5 py-12 md:py-16">
@@ -3521,9 +3520,7 @@ export function FloatingWhatsAppButton() {
 
       {/* Official WhatsApp Floating Button */}
       <a
-        href={`https://wa.me/918177828748?text=${encodeURIComponent(
-          "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!",
-        )}`}
+        href={`https://wa.me/918177828748?text=${encodeURIComponent(standardWhatsAppMessage)}`}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with Quickupp AI Studio on WhatsApp"

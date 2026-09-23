@@ -409,14 +409,14 @@ function AdminPage() {
   };
 
   const getAdminWhatsAppPlainText = (lead: Lead) => {
-    let msg = `Hello ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio!\n\nWe have received your project inquiry with the following details:\n\nClient Name: ${lead.name}`;
-    if (lead.business) msg += `\nBusiness Name: ${lead.business}`;
-    if (lead.video_type) msg += `\nVideo Type: ${lead.video_type}`;
-    if (lead.location) msg += `\nLocation: ${lead.location}`;
-    if (lead.industry) msg += `\nIndustry: ${lead.industry}`;
-    if (lead.requirement || lead.additional) msg += `\nRequirement: ${lead.requirement || lead.additional}`;
+    let msg = `Hello ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio!\n\nWe have received your project inquiry with the following details:\n\n• Client Name: ${lead.name}`;
+    if (lead.business) msg += `\n• Business Name: ${lead.business}`;
+    if (lead.video_type) msg += `\n• Video Service: ${lead.video_type}`;
+    if (lead.location) msg += `\n• Location: ${lead.location}`;
+    if (lead.industry) msg += `\n• Industry: ${lead.industry}`;
+    if (lead.requirement || lead.additional) msg += `\n• Requirement: ${lead.requirement || lead.additional}`;
 
-    msg += `\n\nOur team is reviewing your requirements and will share the tailored proposal and sample concepts shortly.\n\nCould you please confirm if you have any specific deadline or additional references in mind?\n\nBest regards,\nQuickupp AI Studio Team\nhttps://quickuppaistudio.com`;
+    msg += `\n\nOur team in India is reviewing your requirements and will share the tailored proposal, sample concepts, and pricing shortly.\n\nCould you please confirm if you have any specific deadline or additional references in mind?\n\nBest regards,\nQuickupp AI Studio Team (India)\nWebsite: https://quickuppaistudio.in\nPhone / WhatsApp: +91 8177828748`;
     return msg;
   };
 

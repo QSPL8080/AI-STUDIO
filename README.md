@@ -1,6 +1,4 @@
-# Quickupp AI Studio — AI Video Production & Lead Generation Platform
-
-[![Live Website](https://img.shields.io/badge/Website-quickuppaistudio.com-blue?style=for-the-badge&logo=google-chrome)](https://quickuppaistudio.com)
+[![Live Website](https://img.shields.io/badge/Website-quickuppaistudio.in-blue?style=for-the-badge&logo=google-chrome)](https://quickuppaistudio.in)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/QSPL8080/AI-STUDIO.git)
 [![React 19](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react)](https://react.dev)
 [![TanStack Start](https://img.shields.io/badge/TanStack-Start-FF4154?style=for-the-badge&logo=tanstack)](https://tanstack.com/start)
@@ -118,7 +116,7 @@ The database engine (`src/lib/db.ts`) provides full fault-tolerance:
 
 An authenticated, mobile-responsive dashboard designed for real-time lead tracking and client management:
 
-- **Portal URL:** `https://quickuppaistudio.com/admin` (or `http://localhost:3000/admin`)
+- **Portal URL:** `https://quickuppaistudio.in/admin` (or `http://localhost:3000/admin`)
 - **Default Admin Email:** `admin@aistudio.com`
 - **Default Password:** `Admin@123`
 
@@ -272,7 +270,7 @@ npm start
    - Build Command: `npm run build`
    - Start Command: `npm start`
 4. **Auto-Deployment:**
-   Every time you push code to GitHub (`git push origin main`), Hostinger automatically rebuilds and deploys the latest version to **`https://quickuppaistudio.com`**.
+   Every time you push code to GitHub (`git push origin main`), Hostinger automatically rebuilds and deploys the latest version to **`https://quickuppaistudio.in`**.
 
 ---
 
@@ -290,7 +288,7 @@ npm start
 ## 👥 Authors & Credits
 
 Developed for **Quickupp AI Studio**  
-Website: [quickuppaistudio.com](https://quickuppaistudio.com)  
+Website: [quickuppaistudio.in](https://quickuppaistudio.in)  
 YouTube: [Quickupp AI Studio YouTube Channel](https://youtube.com/@quickuppaistudio1@gmail.com?si=QnC53RJK3YyMFtth)  
 Support / Inquiries: [quickuppsoftech1@gmail.com](mailto:quickuppsoftech1@gmail.com)
 

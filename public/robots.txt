@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://quickuppaistudio.com/sitemap.xml
+Sitemap: https://quickuppaistudio.in/sitemap.xml

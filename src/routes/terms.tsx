@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { Footer, FloatingWhatsAppButton } from "@/components/site/sections";
+import { standardWhatsAppMessage } from "@/components/site/data";
 
 const policyItems = [
   {
@@ -163,7 +164,7 @@ export function TermsPage() {
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-3">
               <a
-                href="https://wa.me/918177828748?text=Hi%20Quickupp%20AI%20Studio%2C%20I%20have%20a%20question%20regarding%20the%20Terms%20and%20Policies."
+                href={`https://wa.me/918177828748?text=${encodeURIComponent(standardWhatsAppMessage)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-brand px-5 py-2 text-xs font-bold text-neon-foreground shadow-md transition-all hover:brightness-110 sm:text-sm"

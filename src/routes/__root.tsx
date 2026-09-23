@@ -106,8 +106,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "AI video production services for businesses: AI UGC, avatar, cartoon, hyper-realistic and digital twin videos.",
       },
-      { property: "og:url", content: "https://quickuppaistudio.com/" },
-      { property: "og:image", content: "https://quickuppaistudio.com/images/logo.png" },
+      { property: "og:url", content: "https://quickuppaistudio.in/" },
+      { property: "og:image", content: "https://quickuppaistudio.in/images/logo.png" },
       { name: "twitter:card", content: "summary_large_image" },
       {
         name: "twitter:title",
@@ -118,16 +118,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "AI video production services for businesses: AI UGC, avatar, cartoon, hyper-realistic and digital twin videos.",
       },
-      { name: "twitter:image", content: "https://quickuppaistudio.com/images/logo.png" },
+      { name: "twitter:image", content: "https://quickuppaistudio.in/images/logo.png" },
     ],
     links: [
       {
         rel: "canonical",
-        href: "https://quickuppaistudio.com/",
+        href: "https://quickuppaistudio.in/",
       },
       {
         rel: "publisher",
-        href: "https://quickuppaistudio.com/",
+        href: "https://quickuppaistudio.in/",
       },
       {
         rel: "stylesheet",
@@ -174,7 +174,7 @@ gtag('config', 'G-TGFHQZB6EP');`,
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `if(typeof window!=="undefined"&&window.location.hostname==="www.quickuppaistudio.com"){window.location.replace("https://quickuppaistudio.com"+window.location.pathname+window.location.search+window.location.hash);}`,
+            __html: `if(typeof window!=="undefined"&&(window.location.hostname==="www.quickuppaistudio.in"||window.location.hostname==="www.quickuppaistudio.com"||window.location.hostname==="quickuppaistudio.com")){window.location.replace("https://quickuppaistudio.in"+window.location.pathname+window.location.search+window.location.hash);}`,
           }}
         />
         <script
@@ -184,14 +184,14 @@ gtag('config', 'G-TGFHQZB6EP');`,
               "@context": "https://schema.org",
               "@type": "WebSite",
               name: "Quickupp AI Studio",
-              url: "https://quickuppaistudio.com/",
+              url: "https://quickuppaistudio.in/",
               description:
                 "AI video production services for businesses: AI UGC, avatar, cartoon, hyper-realistic and digital twin videos.",
               publisher: {
                 "@type": "Organization",
                 name: "Quickupp AI Studio",
-                url: "https://quickuppaistudio.com/",
-                logo: "https://quickuppaistudio.com/images/logo.png",
+                url: "https://quickuppaistudio.in/",
+                logo: "https://quickuppaistudio.in/images/logo.png",
               },
             }),
           }}
@@ -219,14 +219,18 @@ function RootComponent() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      if (window.location.hostname === "www.quickuppaistudio.com") {
+      if (
+        window.location.hostname === "www.quickuppaistudio.in" ||
+        window.location.hostname === "www.quickuppaistudio.com" ||
+        window.location.hostname === "quickuppaistudio.com"
+      ) {
         window.location.replace(
-          `https://quickuppaistudio.com${window.location.pathname}${window.location.search}${window.location.hash}`,
+          `https://quickuppaistudio.in${window.location.pathname}${window.location.search}${window.location.hash}`,
         );
         return;
       }
       const path = window.location.pathname === "/" ? "" : window.location.pathname;
-      const canonicalUrl = `https://quickuppaistudio.com${path}`;
+      const canonicalUrl = `https://quickuppaistudio.in${path}`;
       const canonicalTag = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
       if (canonicalTag) {
         canonicalTag.href = canonicalUrl;
