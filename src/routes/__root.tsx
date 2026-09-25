@@ -198,6 +198,10 @@ gtag('config', 'G-TGFHQZB6EP');`,
         />
         <meta
           name="google-site-verification"
+          content="k0CRedSirOhjF6zzDcq3Nre2y7-5snD7xWBipOX57Q0"
+        />
+        <meta
+          name="google-site-verification"
           content="gOHgs3AmPVTc2WTkLc0bJd29aNE1Wi9hp0nUN9xV9GM"
         />
         <meta
