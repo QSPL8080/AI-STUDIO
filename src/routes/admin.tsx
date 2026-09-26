@@ -2189,22 +2189,16 @@ function AdminPage() {
                 </button>
               </div>
 
-              <form
-                onSubmit={handleUnlockPaymentPin}
-                autoComplete="off"
-                data-lpignore="true"
-                data-form-type="other"
-                className="mt-6 space-y-4"
-              >
+              <div className="mt-6 space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
                     Security PIN
                   </label>
                   <div className="relative">
                     <input
-                      type={showPaymentPin ? "text" : "password"}
-                      name="temporary_pin_no_autofill"
-                      id="temporary_pin_no_autofill"
+                      type="text"
+                      name="security_pin_code"
+                      id="security_pin_code"
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="off"
@@ -2216,11 +2210,22 @@ function AdminPage() {
                       autoFocus
                       placeholder="Enter PIN"
                       value={paymentPinInput}
+                      style={
+                        {
+                          WebkitTextSecurity: showPaymentPin ? "none" : "disc",
+                        } as React.CSSProperties
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleUnlockPaymentPin();
+                        }
+                      }}
                       onChange={(e) => {
                         setPaymentPinInput(e.target.value);
                         if (paymentPinError) setPaymentPinError("");
                       }}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all font-mono"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all font-mono tracking-wider"
                     />
                     <button
                       type="button"
@@ -2253,14 +2258,16 @@ function AdminPage() {
                     Cancel
                   </button>
                   <button
-                    type="submit"
-                    className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md hover:brightness-105 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
+                    type="button"
+                    onClick={() => handleUnlockPaymentPin()}
+                    disabled={isVerifyingPin}
+                    className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md hover:brightness-105 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <ShieldCheck className="h-4 w-4" />
-                    <span>Unlock</span>
+                    <span>{isVerifyingPin ? "Verifying..." : "Unlock"}</span>
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
           </div>
         )}
