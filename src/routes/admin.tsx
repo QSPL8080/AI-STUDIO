@@ -186,6 +186,31 @@ function AdminPage() {
     };
   }, [isAuthenticated]);
 
+  // Auto-lock Payment Tab on browser tab switch, window blur/hidden, or page unload
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setIsPaymentUnlocked(false);
+        setShowPaymentPinModal(false);
+      }
+    };
+
+    const handlePageUnload = () => {
+      setIsPaymentUnlocked(false);
+      setShowPaymentPinModal(false);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageUnload);
+    window.addEventListener("beforeunload", handlePageUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageUnload);
+      window.removeEventListener("beforeunload", handlePageUnload);
+    };
+  }, []);
+
   // Handle incoming lead in real-time (from broadcast, supabase, or polling)
   const handleIncomingLead = (newLead: Lead) => {
     if (!newLead || !newLead.id) return;
@@ -1099,7 +1124,11 @@ function AdminPage() {
         <div className="flex items-center gap-3 border-b border-border/80 pb-4 mb-6">
           <button
             type="button"
-            onClick={() => setActiveTab("leads")}
+            onClick={() => {
+              setActiveTab("leads");
+              setIsPaymentUnlocked(false);
+              setShowPaymentPinModal(false);
+            }}
             className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeTab === "leads"
                 ? "bg-neon/15 text-neon border border-neon/40 shadow-[0_0_15px_rgba(200,80,255,0.2)]"
@@ -1124,17 +1153,6 @@ function AdminPage() {
           >
             <DollarSign className="h-4 w-4 text-purple-400" />
             <span>PayPal Orders & Payments</span>
-            {isPaymentUnlocked ? (
-              <span className="flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] text-emerald-300 font-semibold">
-                <ShieldCheck className="h-3 w-3 text-emerald-400" />
-                <span>Unlocked</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 rounded-full bg-purple-900/60 border border-purple-500/40 px-2 py-0.5 text-[10px] text-purple-300 font-semibold">
-                <Lock className="h-3 w-3 text-purple-300" />
-                <span>PIN Protected</span>
-              </span>
-            )}
             <span className="rounded-full bg-purple-900/60 border border-purple-500/40 px-2 py-0.5 text-[11px] text-purple-200 font-semibold">
               {orders.length}
             </span>
