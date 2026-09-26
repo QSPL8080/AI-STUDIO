@@ -81,6 +81,8 @@ function playNotificationChime() {
   }
 }
 
+const PAYMENT_TAB_PIN = "Admin@8080";
+
 function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [emailInput, setEmailInput] = useState("");
@@ -90,6 +92,14 @@ function AdminPage() {
   const [authError, setAuthError] = useState("");
 
   const [activeTab, setActiveTab] = useState<"leads" | "orders">("leads");
+
+  // Payment Tab Security PIN Protection
+  const [isPaymentUnlocked, setIsPaymentUnlocked] = useState(false);
+  const [showPaymentPinModal, setShowPaymentPinModal] = useState(false);
+  const [paymentPinInput, setPaymentPinInput] = useState("");
+  const [showPaymentPin, setShowPaymentPin] = useState(false);
+  const [paymentPinError, setPaymentPinError] = useState("");
+  const pendingOrdersCallbackRef = useRef<(() => void) | null>(null);
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
@@ -379,6 +389,11 @@ function AdminPage() {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setIsPaymentUnlocked(false);
+    setShowPaymentPinModal(false);
+    setPaymentPinInput("");
+    setPaymentPinError("");
+    setActiveTab("leads");
     localStorage.removeItem("ai_studio_admin_auth");
     const savedEmail = localStorage.getItem("ai_studio_remembered_email");
     if (savedEmail) {
@@ -390,6 +405,40 @@ function AdminPage() {
       setPasswordInput("");
       setRememberMe(false);
     }
+  };
+
+  const handleSelectOrdersTab = (onSuccess?: () => void) => {
+    if (isPaymentUnlocked) {
+      setActiveTab("orders");
+      if (onSuccess) onSuccess();
+    } else {
+      pendingOrdersCallbackRef.current = onSuccess || null;
+      setPaymentPinError("");
+      setPaymentPinInput("");
+      setShowPaymentPinModal(true);
+    }
+  };
+
+  const handleUnlockPaymentPin = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (paymentPinInput === PAYMENT_TAB_PIN) {
+      setIsPaymentUnlocked(true);
+      setShowPaymentPinModal(false);
+      setPaymentPinInput("");
+      setPaymentPinError("");
+      setActiveTab("orders");
+      if (pendingOrdersCallbackRef.current) {
+        pendingOrdersCallbackRef.current();
+        pendingOrdersCallbackRef.current = null;
+      }
+    } else {
+      setPaymentPinError("Incorrect PIN. Please enter the valid security PIN.");
+    }
+  };
+
+  const handleLockPaymentTab = () => {
+    setIsPaymentUnlocked(false);
+    setActiveTab("leads");
   };
 
   const toggleSound = () => {
@@ -888,9 +937,10 @@ function AdminPage() {
             <div className="flex shrink-0 items-center gap-2">
               <button
                 onClick={() => {
-                  setActiveTab("orders");
-                  setSelectedOrderDetails(newOrderNotification);
-                  setNewOrderNotification(null);
+                  handleSelectOrdersTab(() => {
+                    setSelectedOrderDetails(newOrderNotification);
+                    setNewOrderNotification(null);
+                  });
                 }}
                 className="rounded-lg bg-purple-600 px-2.5 py-1.5 text-xs font-bold text-white shadow hover:bg-purple-500 flex items-center gap-1 cursor-pointer"
               >
@@ -1033,7 +1083,7 @@ function AdminPage() {
 
           <button
             type="button"
-            onClick={() => setActiveTab("orders")}
+            onClick={() => handleSelectOrdersTab()}
             className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeTab === "orders"
                 ? "bg-purple-500/20 text-purple-300 border border-purple-400/50 shadow-[0_0_15px_rgba(168,85,247,0.25)]"
@@ -1042,6 +1092,17 @@ function AdminPage() {
           >
             <DollarSign className="h-4 w-4 text-purple-400" />
             <span>PayPal Orders & Payments</span>
+            {isPaymentUnlocked ? (
+              <span className="flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] text-emerald-300 font-semibold">
+                <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                <span>Unlocked</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 rounded-full bg-purple-900/60 border border-purple-500/40 px-2 py-0.5 text-[10px] text-purple-300 font-semibold">
+                <Lock className="h-3 w-3 text-purple-300" />
+                <span>PIN Protected</span>
+              </span>
+            )}
             <span className="rounded-full bg-purple-900/60 border border-purple-500/40 px-2 py-0.5 text-[11px] text-purple-200 font-semibold">
               {orders.length}
             </span>
@@ -1518,7 +1579,31 @@ function AdminPage() {
         {/* ========================================== */}
         {/* ORDERS & PAYMENTS TAB VIEW                */}
         {/* ========================================== */}
-        {activeTab === "orders" && (
+        {activeTab === "orders" && !isPaymentUnlocked && (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-purple-500/40 bg-[#120f22] p-8 sm:p-12 text-center shadow-2xl animate-in fade-in duration-200">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-300 border border-purple-500/40 mb-4 shadow-[0_0_25px_rgba(168,85,247,0.35)]">
+              <Lock className="h-8 w-8" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Payment & Orders Portal is Protected</h2>
+            <p className="mt-2 text-xs sm:text-sm text-muted-foreground max-w-md">
+              This section is secured with a PIN. Please enter your security PIN to view PayPal orders and transaction records.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setPaymentPinError("");
+                setPaymentPinInput("");
+                setShowPaymentPinModal(true);
+              }}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-lg hover:from-purple-500 hover:to-indigo-500 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <Lock className="h-4 w-4" />
+              <span>Enter Security PIN</span>
+            </button>
+          </div>
+        )}
+
+        {activeTab === "orders" && isPaymentUnlocked && (
           <div className="space-y-6 animate-in fade-in duration-200">
             {/* Orders KPI Stats Cards */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
@@ -1617,6 +1702,16 @@ function AdminPage() {
               </div>
 
               <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleLockPaymentTab}
+                  className="flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-950/40 px-3 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-900/60 hover:text-white transition-colors cursor-pointer"
+                  title="Lock Payment & Orders Tab"
+                >
+                  <Lock className="h-3.5 w-3.5 text-purple-400" />
+                  <span>Lock Tab</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={exportOrdersToCsv}
@@ -2014,6 +2109,100 @@ function AdminPage() {
             </div>
           </div>
         ) : null}
+
+        {/* Payment Tab Security PIN Modal */}
+        {showPaymentPinModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-purple-500/40 bg-[#0f0b1c] p-6 shadow-2xl sm:p-7">
+              {/* Decorative Background Glow */}
+              <div
+                className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-purple-500/20 blur-3xl"
+                aria-hidden="true"
+              />
+
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-purple-500/40 bg-purple-500/20 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                    <Lock className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Unlock Payments Tab</h3>
+                    <p className="text-xs text-muted-foreground">Enter security PIN to view orders &amp; revenue</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPaymentPinModal(false);
+                    setPaymentPinInput("");
+                    setPaymentPinError("");
+                  }}
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                  title="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUnlockPaymentPin} className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-white/90 mb-1.5">
+                    Security PIN
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPaymentPin ? "text" : "password"}
+                      autoFocus
+                      placeholder="Enter PIN"
+                      value={paymentPinInput}
+                      onChange={(e) => {
+                        setPaymentPinInput(e.target.value);
+                        if (paymentPinError) setPaymentPinError("");
+                      }}
+                      className="w-full rounded-xl border border-purple-500/40 bg-[#0a0714] px-4 py-3 text-sm text-white placeholder:text-muted-foreground focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/30 transition-all font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPaymentPin(!showPaymentPin)}
+                      className="absolute right-3.5 top-3 text-muted-foreground hover:text-white transition-colors cursor-pointer"
+                      tabIndex={-1}
+                      title={showPaymentPin ? "Hide PIN" : "Show PIN"}
+                    >
+                      {showPaymentPin ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                    </button>
+                  </div>
+
+                  {paymentPinError && (
+                    <p className="mt-2 text-xs font-semibold text-red-400 animate-in fade-in">
+                      ⚠️ {paymentPinError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPaymentPinModal(false);
+                      setPaymentPinInput("");
+                      setPaymentPinError("");
+                    }}
+                    className="w-full rounded-xl border border-border bg-secondary/60 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-secondary transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg hover:from-purple-500 hover:to-indigo-500 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>Unlock</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Global Copied Toast */}
         {copiedNotification && !selectedLeadForMsg ? (
