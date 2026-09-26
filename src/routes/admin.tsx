@@ -891,7 +891,7 @@ function AdminPage() {
           <div className="text-center">
             <div className="mx-auto flex h-14 w-fit items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 shadow-xs">
               <img
-                src="/images/logo.png"
+                src="/images/ADMIN LOGO.png"
                 alt="Quickupp AI Studio logo"
                 className="h-9 w-auto object-contain"
                 width={120}
@@ -1086,7 +1086,7 @@ function AdminPage() {
           <div className="flex items-center gap-3 sm:gap-4">
             <a href="/" className="flex items-center transition-opacity hover:opacity-85">
               <img
-                src="/images/logo.png"
+                src="/images/ADMIN LOGO.png"
                 alt="Quickupp AI Studio logo"
                 className="h-8 sm:h-9 w-auto object-contain"
                 width={110}
