@@ -40,6 +40,8 @@ import {
   updateOrderStatusServerFn,
   deleteOrderServerFn,
   broadcastOrderEvent,
+  verifyPaymentPinServerFn,
+  verifyAdminLoginServerFn,
 } from "@/lib/paypal-actions";
 
 export const Route = createFileRoute("/admin")({
@@ -81,8 +83,6 @@ function playNotificationChime() {
   }
 }
 
-const PAYMENT_TAB_PIN = "Admin@8080";
-
 function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [emailInput, setEmailInput] = useState("");
@@ -90,15 +90,17 @@ function AdminPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"leads" | "orders">("leads");
 
-  // Payment Tab Security PIN Protection
+  // Payment Tab Security PIN Protection (Server-Verified)
   const [isPaymentUnlocked, setIsPaymentUnlocked] = useState(false);
   const [showPaymentPinModal, setShowPaymentPinModal] = useState(false);
   const [paymentPinInput, setPaymentPinInput] = useState("");
   const [showPaymentPin, setShowPaymentPin] = useState(false);
   const [paymentPinError, setPaymentPinError] = useState("");
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
   const pendingOrdersCallbackRef = useRef<(() => void) | null>(null);
 
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -362,28 +364,40 @@ function AdminPage() {
     };
   }, [isAuthenticated, soundEnabled]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanEmail = emailInput.trim().toLowerCase();
-    const isValid =
-      (cleanEmail === "qsaistudio@gmail.com" && passwordInput === "Anay@0079") ||
-      (cleanEmail === "admin@aistudio.com" && passwordInput === "Admin@123") ||
-      (cleanEmail === "info@quickuppaistudio.us" && passwordInput === "Admin@123");
+    if (!emailInput.trim() || !passwordInput) {
+      setAuthError("Please enter both email and password.");
+      return;
+    }
 
-    if (isValid) {
-      setIsAuthenticated(true);
-      localStorage.setItem("ai_studio_admin_auth", "true");
+    setIsLoggingIn(true);
+    setAuthError("");
 
-      if (rememberMe) {
-        localStorage.setItem("ai_studio_remembered_email", emailInput);
+    try {
+      const res = await verifyAdminLoginServerFn({
+        data: { email: emailInput, password: passwordInput },
+      });
+
+      if (res.success) {
+        setIsAuthenticated(true);
+        localStorage.setItem("ai_studio_admin_auth", "true");
+
+        if (rememberMe) {
+          localStorage.setItem("ai_studio_remembered_email", emailInput);
+        } else {
+          localStorage.removeItem("ai_studio_remembered_email");
+        }
+
+        setAuthError("");
+        fetchLeads(false);
       } else {
-        localStorage.removeItem("ai_studio_remembered_email");
+        setAuthError(res.error || "Invalid admin credentials. Please check email and password.");
       }
-
-      setAuthError("");
-      fetchLeads(false);
-    } else {
-      setAuthError("Invalid admin credentials. Please check email and password.");
+    } catch (err: any) {
+      setAuthError(err?.message || "Failed to authenticate with server.");
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -419,20 +433,38 @@ function AdminPage() {
     }
   };
 
-  const handleUnlockPaymentPin = (e?: React.FormEvent) => {
+  const handleUnlockPaymentPin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (paymentPinInput === PAYMENT_TAB_PIN) {
-      setIsPaymentUnlocked(true);
-      setShowPaymentPinModal(false);
-      setPaymentPinInput("");
-      setPaymentPinError("");
-      setActiveTab("orders");
-      if (pendingOrdersCallbackRef.current) {
-        pendingOrdersCallbackRef.current();
-        pendingOrdersCallbackRef.current = null;
+    if (!paymentPinInput.trim()) {
+      setPaymentPinError("Please enter the security PIN.");
+      return;
+    }
+
+    setIsVerifyingPin(true);
+    setPaymentPinError("");
+
+    try {
+      const res = await verifyPaymentPinServerFn({
+        data: { pin: paymentPinInput },
+      });
+
+      if (res.success) {
+        setIsPaymentUnlocked(true);
+        setShowPaymentPinModal(false);
+        setPaymentPinInput("");
+        setPaymentPinError("");
+        setActiveTab("orders");
+        if (pendingOrdersCallbackRef.current) {
+          pendingOrdersCallbackRef.current();
+          pendingOrdersCallbackRef.current = null;
+        }
+      } else {
+        setPaymentPinError(res.error || "Incorrect PIN. Please enter the valid security PIN.");
       }
-    } else {
-      setPaymentPinError("Incorrect PIN. Please enter the valid security PIN.");
+    } catch (err: any) {
+      setPaymentPinError(err?.message || "Failed to verify PIN with server.");
+    } finally {
+      setIsVerifyingPin(false);
     }
   };
 
