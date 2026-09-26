@@ -868,10 +868,10 @@ function AdminPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0d0b14] px-4 text-foreground">
-        <div className="panel relative w-full max-w-md border-neon/40 p-8 shadow-2xl glow-neon">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-gray-100 to-indigo-50/50 px-4 text-slate-800">
+        <div className="relative w-full max-w-md rounded-3xl border border-slate-200/90 bg-white p-8 sm:p-10 shadow-xl shadow-slate-200/60">
           <div className="text-center">
-            <div className="mx-auto flex h-14 w-fit items-center justify-center rounded-2xl border border-neon/30 bg-[#12101e] px-4 py-2 shadow-xl glow-neon">
+            <div className="mx-auto flex h-14 w-fit items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 shadow-xs">
               <img
                 src="/images/logo.png"
                 alt="Quickupp AI Studio logo"
@@ -880,48 +880,48 @@ function AdminPage() {
                 height={36}
               />
             </div>
-            <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">Admin Portal</h2>
-            <p className="mt-1 text-xs text-muted-foreground">Quickupp AI Studio Lead Management</p>
+            <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Admin Portal</h2>
+            <p className="mt-1 text-xs text-slate-500">Quickupp AI Studio Lead Management</p>
           </div>
 
           <form onSubmit={handleLogin} className="mt-6 space-y-4">
             {authError ? (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600">
                 {authError}
               </div>
             ) : null}
 
             <div>
-              <label className="block text-xs font-semibold text-foreground">Admin Email</label>
+              <label className="block text-xs font-bold text-slate-700">Admin Email</label>
               <div className="relative mt-1">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <input
                   type="email"
                   required
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   placeholder="admin@aistudio.com"
-                  className="w-full rounded-lg border border-border bg-secondary/40 py-2.5 pl-9 pr-3 text-sm text-foreground focus:border-neon focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground">Password</label>
+              <label className="block text-xs font-bold text-slate-700">Password</label>
               <div className="relative mt-1">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-lg border border-border/80 bg-[#0a0912] py-2.5 pl-9 pr-10 text-sm text-white focus:border-neon focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-9 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-muted-foreground transition-colors hover:text-white"
+                  className="absolute right-3 top-3 text-slate-400 transition-colors hover:text-slate-700"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -930,30 +930,30 @@ function AdminPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-border bg-[#0a0912] text-neon focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                 />
-                <span>Remember me</span>
+                <span className="font-medium">Remember me</span>
               </label>
-              <span className="text-[11px] text-muted-foreground/60">admin@aistudio.com</span>
+              <span className="text-[11px] text-slate-400">admin@aistudio.com</span>
             </div>
 
             <button
               type="submit"
-              className="w-full rounded-full bg-gradient-brand py-3 text-sm font-bold uppercase tracking-wider text-neon-foreground shadow-lg glow-neon transition-all hover:brightness-110"
+              className="w-full rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 py-3 text-sm font-bold tracking-wide text-white shadow-lg shadow-indigo-200 transition-all hover:brightness-105 active:scale-[0.99] cursor-pointer"
             >
               Sign In to Admin
             </button>
           </form>
 
-          <div className="mt-6 border-t border-border pt-4 text-center">
+          <div className="mt-6 border-t border-slate-200 pt-4 text-center">
             <a
               href="/"
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-neon"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
             >
               <ArrowLeft className="h-3.5 w-3.5" /> Back to Website
             </a>
@@ -964,28 +964,28 @@ function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-[#08070d] text-foreground antialiased selection:bg-neon selection:text-black">
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#f8fafc] text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
       {/* Real-Time Incoming Order Animated Toast Banner */}
       {newOrderNotification ? (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-lg">
-          <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-purple-400 bg-[#1e1330] p-3.5 shadow-[0_0_30px_rgba(168,85,247,0.5)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-indigo-500 bg-white p-4 shadow-2xl shadow-indigo-100">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/20 text-purple-300 animate-pulse">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 animate-pulse border border-indigo-100">
                 <DollarSign className="h-5 w-5" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-purple-300">
+                  <span className="text-xs font-black uppercase tracking-wider text-indigo-600">
                     New PayPal Payment!
                   </span>
-                  <span className="rounded bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 text-[10px] font-bold">
+                  <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
                     ${Number(newOrderNotification.amount).toFixed(2)} {newOrderNotification.currency}
                   </span>
                 </div>
-                <div className="truncate text-sm font-bold text-white">
+                <div className="truncate text-sm font-bold text-slate-900">
                   {newOrderNotification.customer_name} · {newOrderNotification.item_name}
                 </div>
-                <div className="truncate text-xs text-muted-foreground font-mono">
+                <div className="truncate text-xs text-slate-500 font-mono">
                   Order ID: {newOrderNotification.paypal_order_id}
                 </div>
               </div>
@@ -999,13 +999,13 @@ function AdminPage() {
                     setNewOrderNotification(null);
                   });
                 }}
-                className="rounded-lg bg-purple-600 px-2.5 py-1.5 text-xs font-bold text-white shadow hover:bg-purple-500 flex items-center gap-1 cursor-pointer"
+                className="rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 flex items-center gap-1 cursor-pointer transition-colors"
               >
                 <span>View</span>
               </button>
               <button
                 onClick={() => setNewOrderNotification(null)}
-                className="rounded-lg p-1 text-muted-foreground hover:bg-white/10 hover:text-white cursor-pointer"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer transition-colors"
                 title="Dismiss"
               >
                 <X className="h-4 w-4" />
@@ -1018,24 +1018,24 @@ function AdminPage() {
       {/* Real-Time Incoming Lead Animated Toast Banner */}
       {newLeadNotification ? (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-lg">
-          <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-neon bg-[#17132a] p-3.5 shadow-[0_0_30px_rgba(200,80,255,0.4)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-purple-500 bg-white p-4 shadow-2xl shadow-purple-100">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neon/20 text-neon animate-pulse">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600 animate-pulse border border-purple-100">
                 <Sparkles className="h-5 w-5" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-neon">
+                  <span className="text-xs font-black uppercase tracking-wider text-purple-600">
                     New Lead Arrived!
                   </span>
-                  <span className="rounded bg-secondary/80 px-1.5 py-0.2 text-[10px] text-muted-foreground">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                     {newLeadNotification.source}
                   </span>
                 </div>
-                <div className="truncate text-sm font-bold text-white">
+                <div className="truncate text-sm font-bold text-slate-900">
                   {newLeadNotification.name} · {newLeadNotification.phone}
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
+                <div className="truncate text-xs text-slate-500">
                   {newLeadNotification.business} ({newLeadNotification.video_type})
                 </div>
               </div>
@@ -1044,7 +1044,7 @@ function AdminPage() {
             <div className="flex shrink-0 items-center gap-2">
               <button
                 onClick={() => handleOpenWhatsApp(newLeadNotification)}
-                className="rounded-lg bg-[#25D366] px-2.5 py-1.5 text-xs font-bold text-white shadow hover:bg-[#20bd5a] flex items-center gap-1 cursor-pointer"
+                className="rounded-xl bg-[#25D366] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#20bd5a] flex items-center gap-1 cursor-pointer transition-colors"
                 title="Open WhatsApp"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
@@ -1052,7 +1052,7 @@ function AdminPage() {
               </button>
               <button
                 onClick={() => setNewLeadNotification(null)}
-                className="rounded-lg p-1 text-muted-foreground hover:bg-white/10 hover:text-white cursor-pointer"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer transition-colors"
                 title="Dismiss"
               >
                 <X className="h-4 w-4" />
@@ -1063,10 +1063,10 @@ function AdminPage() {
       ) : null}
 
       {/* Top Admin Header - Full Width & Responsive */}
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-[#100e1a]/95 backdrop-blur-xl">
-        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-8 lg:px-12">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/90 bg-white/95 shadow-xs backdrop-blur-md">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8 lg:px-12">
           <div className="flex items-center gap-3 sm:gap-4">
-            <a href="/" className="flex items-center transition-opacity hover:opacity-90">
+            <a href="/" className="flex items-center transition-opacity hover:opacity-85">
               <img
                 src="/images/logo.png"
                 alt="Quickupp AI Studio logo"
@@ -1078,7 +1078,7 @@ function AdminPage() {
 
             {/* Live 10-Second Auto-Refresh Badge */}
             <div
-              className="hidden xs:inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.15)]"
+              className="hidden xs:inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700 shadow-xs"
               title="Admin automatically refreshes every 10 seconds to load new leads from Popup Modal & Contact Form."
             >
               <span className="relative flex h-2 w-2">
@@ -1087,7 +1087,7 @@ function AdminPage() {
               </span>
               <span>Auto-Refresh: {refreshCountdown}s</span>
               {isSyncing ? (
-                <span className="text-[10px] text-muted-foreground animate-pulse">···</span>
+                <span className="text-[10px] text-emerald-600 font-bold animate-pulse">···</span>
               ) : null}
             </div>
           </div>
@@ -1096,10 +1096,10 @@ function AdminPage() {
             {/* Audio chime toggle */}
             <button
               onClick={toggleSound}
-              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer sm:px-3 sm:py-1.5 ${
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shadow-xs ${
                 soundEnabled
-                  ? "border-neon/40 bg-neon/10 text-neon hover:bg-neon/20"
-                  : "border-border/80 bg-secondary/50 text-muted-foreground hover:text-white"
+                  ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                  : "border-slate-200 bg-slate-100 text-slate-500 hover:text-slate-800"
               }`}
               title={soundEnabled ? "Notification sound enabled" : "Notification sound muted"}
             >
@@ -1109,7 +1109,7 @@ function AdminPage() {
 
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/20 sm:px-3.5 sm:py-1.5 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 transition-all hover:bg-red-100 shadow-xs cursor-pointer"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span>Logout</span>
@@ -1119,9 +1119,9 @@ function AdminPage() {
       </header>
 
       {/* Main Admin Body - Full Width & Responsive */}
-      <main className="w-full px-4 py-5 sm:px-8 lg:px-12">
+      <main className="w-full px-4 py-6 sm:px-8 lg:px-12">
         {/* Top Tab Switcher: Leads CRM vs PayPal Orders & Payments */}
-        <div className="flex items-center gap-3 border-b border-border/80 pb-4 mb-6">
+        <div className="flex items-center gap-3 border-b border-slate-200 pb-4 mb-6">
           <button
             type="button"
             onClick={() => {
@@ -1131,13 +1131,13 @@ function AdminPage() {
             }}
             className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeTab === "leads"
-                ? "bg-neon/15 text-neon border border-neon/40 shadow-[0_0_15px_rgba(200,80,255,0.2)]"
-                : "text-muted-foreground hover:bg-white/5 hover:text-white border border-transparent"
+                ? "bg-white text-indigo-600 border border-slate-200/90 shadow-sm"
+                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent"
             }`}
           >
             <Layers className="h-4 w-4" />
             <span>Leads CRM</span>
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-foreground font-semibold">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700 font-bold">
               {leads.length}
             </span>
           </button>
@@ -1147,13 +1147,13 @@ function AdminPage() {
             onClick={() => handleSelectOrdersTab()}
             className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeTab === "orders"
-                ? "bg-purple-500/20 text-purple-300 border border-purple-400/50 shadow-[0_0_15px_rgba(168,85,247,0.25)]"
-                : "text-muted-foreground hover:bg-white/5 hover:text-white border border-transparent"
+                ? "bg-white text-indigo-600 border border-slate-200/90 shadow-sm"
+                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent"
             }`}
           >
-            <DollarSign className="h-4 w-4 text-purple-400" />
+            <DollarSign className="h-4 w-4 text-indigo-600" />
             <span>PayPal Orders & Payments</span>
-            <span className="rounded-full bg-purple-900/60 border border-purple-500/40 px-2 py-0.5 text-[11px] text-purple-200 font-semibold">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700 font-bold">
               {orders.length}
             </span>
           </button>
@@ -1163,112 +1163,112 @@ function AdminPage() {
           <div>
         {/* KPI Stats Cards - Responsive */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
-          <div className="rounded-xl border border-border/80 bg-[#12101e] p-3.5 shadow-lg transition-all hover:border-neon/50 sm:p-5">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-indigo-200 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">
                 Total Leads
               </span>
-              <Layers className="h-3.5 w-3.5 text-neon sm:h-4 sm:w-4" />
+              <Layers className="h-4 w-4 text-indigo-600" />
             </div>
-            <p className="mt-2 text-2xl font-extrabold text-white sm:mt-3 sm:text-3xl">{leads.length}</p>
+            <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">{leads.length}</p>
           </div>
 
-          <div className="rounded-xl border border-indigo-500/30 bg-[#0d1028] p-3.5 shadow-lg transition-all hover:border-indigo-400 sm:p-5">
+          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-blue-200 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 sm:text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 sm:text-xs">
                 🇺🇸 USA Leads
               </span>
-              <span className="h-2 w-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)] sm:h-2.5 sm:w-2.5" />
+              <span className="h-2 w-2 rounded-full bg-blue-500 shadow-xs sm:h-2.5 sm:w-2.5" />
             </div>
-            <p className="mt-2 text-2xl font-extrabold text-indigo-400 sm:mt-3 sm:text-3xl">{usaLeadsCount}</p>
+            <p className="mt-2 text-2xl font-black text-blue-700 sm:mt-3 sm:text-3xl">{usaLeadsCount}</p>
           </div>
 
-          <div className="rounded-xl border border-blue-500/30 bg-[#0d1428] p-3.5 shadow-lg transition-all hover:border-blue-400 sm:p-5">
+          <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-sky-200 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 sm:text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-800 sm:text-xs">
                 Contact Form
               </span>
-              <span className="h-2 w-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)] sm:h-2.5 sm:w-2.5" />
+              <span className="h-2 w-2 rounded-full bg-sky-500 shadow-xs sm:h-2.5 sm:w-2.5" />
             </div>
-            <p className="mt-2 text-2xl font-extrabold text-blue-400 sm:mt-3 sm:text-3xl">{contactFormCount}</p>
+            <p className="mt-2 text-2xl font-black text-sky-700 sm:mt-3 sm:text-3xl">{contactFormCount}</p>
           </div>
 
-          <div className="rounded-xl border border-pink-500/30 bg-[#250d1e] p-3.5 shadow-lg transition-all hover:border-pink-400 sm:p-5">
+          <div className="rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-purple-200 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 sm:text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800 sm:text-xs">
                 Popup Modal
               </span>
-              <span className="h-2 w-2 rounded-full bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.8)] sm:h-2.5 sm:w-2.5" />
+              <span className="h-2 w-2 rounded-full bg-purple-500 shadow-xs sm:h-2.5 sm:w-2.5" />
             </div>
-            <p className="mt-2 text-2xl font-extrabold text-pink-400 sm:mt-3 sm:text-3xl">{popupModalCount}</p>
+            <p className="mt-2 text-2xl font-black text-purple-700 sm:mt-3 sm:text-3xl">{popupModalCount}</p>
           </div>
 
-          <div className="rounded-xl border border-emerald-500/30 bg-[#0c231a] p-3.5 shadow-lg transition-all hover:border-emerald-400 sm:p-5 col-span-2 sm:col-span-1">
+          <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-emerald-200 sm:p-5 col-span-2 sm:col-span-1">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 sm:text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 sm:text-xs">
                 New Status
               </span>
-              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] sm:h-2.5 sm:w-2.5" />
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-xs sm:h-2.5 sm:w-2.5" />
             </div>
-            <p className="mt-2 text-2xl font-extrabold text-emerald-400 sm:mt-3 sm:text-3xl">
+            <p className="mt-2 text-2xl font-black text-emerald-700 sm:mt-3 sm:text-3xl">
               {leads.filter((l) => l.status === "New").length}
             </p>
           </div>
         </div>
 
         {/* Filters & Actions Bar */}
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/80 bg-[#12101e] p-3 shadow-md sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-xs sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:p-4">
           <div className="flex flex-1 flex-wrap items-center gap-2.5 sm:gap-3">
             {/* Search Input */}
             <div className="relative w-full min-w-0 sm:max-w-xs sm:flex-1">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search leads..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border border-border/80 bg-[#0a0912] py-2 pl-9 pr-3 text-xs text-white placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none transition-all"
               />
             </div>
 
             {/* Source Filter */}
-            <div className="flex items-center gap-1.5 rounded-lg border border-border/80 bg-[#0a0912] px-2.5 py-1.5">
-              <Filter className="h-3 w-3 text-neon" />
-              <span className="text-xs font-medium text-muted-foreground">Source:</span>
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+              <Filter className="h-3 w-3 text-indigo-600" />
+              <span className="text-xs font-semibold text-slate-500">Source:</span>
               <select
                 value={filterSource}
                 onChange={(e) => setFilterSource(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
               >
-                <option value="All" className="bg-[#12101e]">All Sources</option>
-                <option value="USA Leads" className="bg-[#12101e]">🇺🇸 USA Leads (All)</option>
-                <option value="USA - Contact Form" className="bg-[#12101e]">🇺🇸 USA - Contact Form</option>
-                <option value="USA - Popup Modal" className="bg-[#12101e]">🇺🇸 USA - Popup Modal</option>
-                <option value="Contact Form" className="bg-[#12101e]">Contact Form</option>
-                <option value="Popup Modal" className="bg-[#12101e]">Popup Modal</option>
+                <option value="All">All Sources</option>
+                <option value="USA Leads">🇺🇸 USA Leads (All)</option>
+                <option value="USA - Contact Form">🇺🇸 USA - Contact Form</option>
+                <option value="USA - Popup Modal">🇺🇸 USA - Popup Modal</option>
+                <option value="Contact Form">Contact Form</option>
+                <option value="Popup Modal">Popup Modal</option>
               </select>
             </div>
 
             {/* Status Filter */}
-            <div className="flex items-center gap-1.5 rounded-lg border border-border/80 bg-[#0a0912] px-2.5 py-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Status:</span>
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+              <span className="text-xs font-semibold text-slate-500">Status:</span>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
               >
-                <option value="All" className="bg-[#12101e]">All</option>
-                <option value="New" className="bg-[#12101e]">New</option>
-                <option value="Contacted" className="bg-[#12101e]">Contacted</option>
-                <option value="In Progress" className="bg-[#12101e]">In Progress</option>
-                <option value="Closed" className="bg-[#12101e]">Closed</option>
+                <option value="All">All</option>
+                <option value="New">New</option>
+                <option value="Contacted">Contacted</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Closed">Closed</option>
               </select>
             </div>
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <span className="hidden sm:inline text-[11px] text-muted-foreground/70">
-              Auto-syncs in <span className="font-mono text-neon font-semibold">{refreshCountdown}s</span> · Last: {lastSyncTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            <span className="hidden sm:inline text-[11px] text-slate-400">
+              Auto-syncs in <span className="font-mono text-indigo-600 font-bold">{refreshCountdown}s</span> · Last: {lastSyncTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
 
             <button
@@ -1276,16 +1276,16 @@ function AdminPage() {
                 fetchLeads(false);
                 setRefreshCountdown(10);
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-[#0a0912] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-neon hover:text-neon sm:px-4 sm:py-2 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 cursor-pointer shadow-xs"
               title="Manual refresh now"
             >
-              <RefreshCw className={`h-3 w-3 ${loading || isSyncing ? "animate-spin text-neon" : ""}`} />
+              <RefreshCw className={`h-3 w-3 ${loading || isSyncing ? "animate-spin text-indigo-600" : ""}`} />
               <span>Refresh</span>
             </button>
 
             <button
               onClick={exportCSV}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-brand px-3.5 py-1.5 text-xs font-bold text-neon-foreground shadow-md glow-neon transition-all hover:brightness-110 sm:px-4 sm:py-2 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-105 transition-all cursor-pointer"
             >
               <Download className="h-3 w-3" />
               <span>Export</span>
@@ -1294,31 +1294,31 @@ function AdminPage() {
         </div>
 
         {/* Leads Container - Table on Desktop, Clean Cards on Mobile */}
-        <div className="mt-5 flex-1 flex flex-col min-h-0 overflow-hidden rounded-xl border border-border/80 bg-[#12101e] shadow-xl sm:mt-6">
+        <div className="mt-5 flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs sm:mt-6">
           {/* Desktop & Tablet Table View */}
           <div className="hidden md:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-270px)]">
             <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 z-20 border-b border-border bg-[#181528] text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <thead className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="px-5 py-4">Source</th>
-                  <th className="px-5 py-4">Client Name</th>
-                  <th className="px-5 py-4">WhatsApp / Phone</th>
-                  <th className="px-5 py-4">Video Type</th>
-                  <th className="px-5 py-4">Business / Location</th>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4">Received Date</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
+                  <th className="px-5 py-3.5">Source</th>
+                  <th className="px-5 py-3.5">Client Name</th>
+                  <th className="px-5 py-3.5">WhatsApp / Phone</th>
+                  <th className="px-5 py-3.5">Video Type</th>
+                  <th className="px-5 py-3.5">Business / Location</th>
+                  <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5">Received Date</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
+              <tbody className="divide-y divide-slate-100">
                 {filteredLeads.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center text-sm font-medium text-muted-foreground">
-                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary/50 text-muted-foreground">
+                    <td colSpan={8} className="py-16 text-center text-sm font-medium text-slate-400">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
                         <Layers className="h-6 w-6" />
                       </div>
-                      <p className="mt-3 text-white font-semibold">No leads yet</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-3 text-slate-800 font-bold">No leads yet</p>
+                      <p className="mt-1 text-xs text-slate-500">
                         Submissions from the Popup Modal or Contact Form will automatically appear here in real time without refreshing.
                       </p>
                     </td>
@@ -1331,21 +1331,21 @@ function AdminPage() {
                     return (
                       <tr
                         key={lead.id}
-                        className={`transition-colors duration-500 ${
+                        className={`transition-colors duration-300 ${
                           isNewlyArrived
-                            ? "bg-neon/15 ring-1 ring-inset ring-neon"
-                            : "hover:bg-white/[0.03]"
+                            ? "bg-indigo-50/70 ring-1 ring-inset ring-indigo-300"
+                            : "hover:bg-slate-50/80"
                         }`}
                       >
                         {/* Source */}
                         <td className="whitespace-nowrap px-5 py-4">
                           {isLeadUsa(lead) ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-500/40 bg-blue-500/15 px-2.5 py-1 text-[11px] font-bold text-blue-300 shadow-sm">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 shadow-xs">
                               <span>🇺🇸</span>
                               <span>{lead.source}</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-md border border-orange-500/40 bg-orange-500/15 px-2.5 py-1 text-[11px] font-bold text-orange-300 shadow-sm">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700 shadow-xs">
                               <span>🇮🇳</span>
                               <span>{lead.source}</span>
                             </span>
@@ -1355,23 +1355,23 @@ function AdminPage() {
                         {/* Client Info */}
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-semibold text-white">{lead.name}</span>
+                            <span className="text-sm font-bold text-slate-900">{lead.name}</span>
                             {isNewlyArrived ? (
-                              <span className="rounded bg-neon px-1.5 py-0.2 text-[9px] font-black uppercase text-black animate-pulse">
+                              <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-black uppercase text-white animate-pulse">
                                 JUST NOW
                               </span>
                             ) : null}
                           </div>
                           {lead.email ? (
-                            <div className="mt-0.5 text-xs text-muted-foreground">{lead.email}</div>
+                            <div className="mt-0.5 text-xs text-slate-500 font-mono">{lead.email}</div>
                           ) : null}
                         </td>
 
                         {/* Phone (Plain text / tel link) */}
-                        <td className="whitespace-nowrap px-5 py-4 font-mono text-sm text-foreground">
+                        <td className="whitespace-nowrap px-5 py-4 font-mono text-sm text-slate-800">
                           <a
                             href={`tel:${lead.phone.replace(/[^0-9+]/g, "")}`}
-                            className="hover:text-neon hover:underline"
+                            className="hover:text-indigo-600 hover:underline"
                             title="Call Phone Number"
                           >
                             {lead.phone}
@@ -1380,12 +1380,12 @@ function AdminPage() {
 
                         {/* Video Type */}
                         <td className="px-5 py-4">
-                          <div className="text-xs font-medium text-foreground">
+                          <div className="text-xs font-semibold text-slate-800">
                             {lead.video_type}
                           </div>
                           {lead.requirement || lead.additional ? (
                             <p
-                              className="mt-1 max-w-xs text-xs text-muted-foreground line-clamp-1"
+                              className="mt-1 max-w-xs text-xs text-slate-500 line-clamp-1"
                               title={lead.requirement || lead.additional}
                             >
                               {lead.requirement || lead.additional}
@@ -1395,9 +1395,9 @@ function AdminPage() {
 
                         {/* Business & Location */}
                         <td className="px-5 py-4 text-xs">
-                          <div className="font-medium text-foreground">{lead.business}</div>
+                          <div className="font-semibold text-slate-800">{lead.business}</div>
                           {lead.location ? (
-                            <div className="mt-0.5 text-muted-foreground">{lead.location}</div>
+                            <div className="mt-0.5 text-slate-500">{lead.location}</div>
                           ) : null}
                         </td>
 
@@ -1406,24 +1406,16 @@ function AdminPage() {
                           <select
                             value={lead.status}
                             onChange={(e) => updateStatus(lead.id, e.target.value as Lead["status"])}
-                            className={`rounded-md border px-2.5 py-1 text-xs font-semibold focus:outline-none cursor-pointer ${
+                            className={`rounded-xl border px-2.5 py-1 text-xs font-bold focus:outline-none cursor-pointer ${
                               lead.status === "New"
-                                ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400 font-bold"
-                                : "border-border/80 bg-secondary/40 text-muted-foreground"
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : "border-slate-200 bg-slate-50 text-slate-700"
                             }`}
                           >
-                            <option value="New" className="bg-[#12101e] text-emerald-400">
-                              New
-                            </option>
-                            <option value="Contacted" className="bg-[#12101e] text-foreground">
-                              Contacted
-                            </option>
-                            <option value="In Progress" className="bg-[#12101e] text-foreground">
-                              In Progress
-                            </option>
-                            <option value="Closed" className="bg-[#12101e] text-muted-foreground">
-                              Closed
-                            </option>
+                            <option value="New">New</option>
+                            <option value="Contacted">Contacted</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Closed">Closed</option>
                           </select>
                         </td>
 
@@ -1431,7 +1423,7 @@ function AdminPage() {
                         <td className="whitespace-nowrap px-5 py-4 text-xs">
                           {receivedToday ? (
                             <div>
-                              <div className="inline-flex items-center gap-1.5 rounded-full border border-neon/50 bg-neon/15 px-2.5 py-0.5 font-bold text-neon">
+                              <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 font-bold text-indigo-700 shadow-xs">
                                 <Calendar className="h-3 w-3" />
                                 Today,{" "}
                                 {new Date(lead.created_at).toLocaleTimeString([], {
@@ -1441,12 +1433,12 @@ function AdminPage() {
                               </div>
                             </div>
                           ) : (
-                            <div className="text-muted-foreground">
-                              <div className="flex items-center gap-1.5">
-                                <Calendar className="h-3 w-3" />
+                            <div className="text-slate-500">
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <Calendar className="h-3 w-3 text-slate-400" />
                                 {new Date(lead.created_at).toLocaleDateString()}
                               </div>
-                              <div className="mt-0.5 text-[11px] text-muted-foreground/80">
+                              <div className="mt-0.5 text-[11px] text-slate-400">
                                 {new Date(lead.created_at).toLocaleTimeString([], {
                                   hour: "2-digit",
                                   minute: "2-digit",
@@ -1465,12 +1457,12 @@ function AdminPage() {
                               )}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="rounded-lg border border-[#25D366]/40 bg-[#25D366]/15 p-2 text-[#25D366] transition-all hover:scale-110 hover:border-[#25D366] hover:bg-[#25D366]/30 inline-flex items-center justify-center shadow-[0_0_10px_rgba(37,211,102,0.2)]"
+                              className="rounded-xl border border-emerald-200 bg-emerald-50 p-2 text-emerald-700 transition-all hover:bg-emerald-100 inline-flex items-center justify-center shadow-xs"
                               title="Chat on WhatsApp (Direct Prefilled Message)"
                             >
                               <svg
                                 viewBox="0 0 24 24"
-                                className="h-4 w-4 fill-current"
+                                className="h-4 w-4 fill-current text-emerald-600"
                                 xmlns="http://www.w3.org/2000/svg"
                               >
                                 <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24zm-3.6 3.63c-.2 0-.42.01-.6.04-.24.04-.52.14-.72.37-.25.28-.97.95-.97 2.32s.99 2.69 1.13 2.87c.14.19 1.95 2.98 4.73 4.18.66.29 1.18.46 1.58.59.66.21 1.27.18 1.75.11.53-.08 1.63-.67 1.86-1.31.23-.65.23-1.2.16-1.31-.07-.12-.25-.19-.53-.33-.28-.14-1.63-.8-1.88-.89-.25-.09-.44-.14-.62.14-.19.28-.72.89-.88 1.07-.16.19-.33.21-.61.07-.28-.14-1.18-.44-2.25-1.39-.83-.74-1.4-1.66-1.56-1.94-.16-.28-.02-.43.12-.57.13-.13.28-.33.42-.5.14-.16.19-.28.28-.47.09-.19.05-.35-.02-.49-.07-.14-.62-1.5-.86-2.05-.22-.53-.46-.46-.62-.47z" />
@@ -1478,7 +1470,7 @@ function AdminPage() {
                             </a>
                             <button
                               onClick={() => deleteLeadItem(lead.id)}
-                              className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground transition-colors hover:border-red-500 hover:text-red-400 cursor-pointer"
+                              className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-400 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 cursor-pointer shadow-xs"
                               title="Delete Lead"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1494,9 +1486,9 @@ function AdminPage() {
           </div>
 
           {/* Mobile Card List View (Strictly No Horizontal Page Scroll) */}
-          <div className="block md:hidden divide-y divide-border/60 overflow-y-auto max-h-[calc(100vh-270px)] p-3">
+          <div className="block md:hidden divide-y divide-slate-100 overflow-y-auto max-h-[calc(100vh-270px)] p-3">
             {filteredLeads.length === 0 ? (
-              <div className="py-12 text-center text-xs text-muted-foreground">
+              <div className="py-12 text-center text-xs text-slate-400">
                 No leads recorded yet. Submissions will auto-load here in real time.
               </div>
             ) : (
@@ -1507,26 +1499,26 @@ function AdminPage() {
                 return (
                   <div
                     key={lead.id}
-                    className={`py-3.5 first:pt-0 last:pb-0 space-y-2 rounded-lg transition-all ${
-                      isNewlyArrived ? "bg-neon/15 p-2.5 ring-1 ring-neon" : ""
+                    className={`py-3.5 first:pt-0 last:pb-0 space-y-2 rounded-xl transition-all ${
+                      isNewlyArrived ? "bg-indigo-50/80 p-2.5 ring-1 ring-indigo-300" : ""
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-sm text-white">{lead.name}</span>
+                        <span className="font-bold text-sm text-slate-900">{lead.name}</span>
                         {isNewlyArrived ? (
-                          <span className="rounded bg-neon px-1 py-0.2 text-[8px] font-black text-black">
+                          <span className="rounded-full bg-indigo-600 px-1.5 py-0.2 text-[8px] font-black text-white">
                             NEW
                           </span>
                         ) : null}
                       </div>
                       {isLeadUsa(lead) ? (
-                        <span className="inline-flex items-center gap-1 rounded border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-300">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
                           <span>🇺🇸</span>
                           <span>{lead.source}</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded border border-orange-500/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold text-orange-300">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-700">
                           <span>🇮🇳</span>
                           <span>{lead.source}</span>
                         </span>
@@ -1536,25 +1528,25 @@ function AdminPage() {
                     <div className="flex items-center justify-between text-xs">
                       <a
                         href={`tel:${lead.phone.replace(/[^0-9+]/g, "")}`}
-                        className="font-mono text-white/90 hover:underline hover:text-neon flex items-center gap-1"
+                        className="font-mono text-slate-800 hover:underline hover:text-indigo-600 flex items-center gap-1 font-semibold"
                         title="Call Phone Number"
                       >
-                        <Phone className="h-3 w-3 text-muted-foreground" />
+                        <Phone className="h-3 w-3 text-slate-400" />
                         {lead.phone}
                       </a>
-                      <div className="text-[11px] text-muted-foreground">{lead.video_type}</div>
+                      <div className="text-[11px] text-slate-500 font-medium">{lead.video_type}</div>
                     </div>
 
                     {lead.business ? (
-                      <div className="text-xs text-muted-foreground">
-                        <span className="text-white font-medium">{lead.business}</span>
+                      <div className="text-xs text-slate-600">
+                        <span className="text-slate-900 font-semibold">{lead.business}</span>
                         {lead.location ? ` · ${lead.location}` : ""}
                       </div>
                     ) : null}
 
                     <div className="flex items-center justify-between pt-1">
                       {receivedToday ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-neon/50 bg-neon/15 px-2 py-0.5 text-[10px] font-bold text-neon">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
                           <Calendar className="h-2.5 w-2.5" /> Today{" "}
                           {new Date(lead.created_at).toLocaleTimeString([], {
                             hour: "2-digit",
@@ -1562,8 +1554,8 @@ function AdminPage() {
                           })}
                         </span>
                       ) : (
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <Calendar className="h-2.5 w-2.5" />{" "}
+                        <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium">
+                          <Calendar className="h-2.5 w-2.5 text-slate-400" />{" "}
                           {new Date(lead.created_at).toLocaleDateString()}
                         </span>
                       )}
@@ -1572,24 +1564,16 @@ function AdminPage() {
                         <select
                           value={lead.status}
                           onChange={(e) => updateStatus(lead.id, e.target.value as Lead["status"])}
-                          className={`rounded border px-2 py-0.5 text-[11px] font-semibold focus:outline-none ${
+                          className={`rounded-lg border px-2 py-0.5 text-[11px] font-bold focus:outline-none ${
                             lead.status === "New"
-                              ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400 font-bold"
-                              : "border-border/80 bg-secondary/40 text-muted-foreground"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-slate-200 bg-slate-50 text-slate-700"
                           }`}
                         >
-                          <option value="New" className="bg-[#12101e] text-emerald-400">
-                            New
-                          </option>
-                          <option value="Contacted" className="bg-[#12101e]">
-                            Contacted
-                          </option>
-                          <option value="In Progress" className="bg-[#12101e]">
-                            In Progress
-                          </option>
-                          <option value="Closed" className="bg-[#12101e]">
-                            Closed
-                          </option>
+                          <option value="New">New</option>
+                          <option value="Contacted">Contacted</option>
+                          <option value="In Progress">In Progress</option>
+                          <option value="Closed">Closed</option>
                         </select>
 
                         <a
@@ -1598,12 +1582,12 @@ function AdminPage() {
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded border border-[#25D366]/40 bg-[#25D366]/15 p-1.5 text-[#25D366] hover:border-[#25D366] hover:bg-[#25D366]/30 inline-flex items-center justify-center shadow-[0_0_8px_rgba(37,211,102,0.2)]"
+                          className="rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-700 hover:bg-emerald-100 inline-flex items-center justify-center shadow-xs"
                           title="Chat on WhatsApp (Direct Prefilled Message)"
                         >
                           <svg
                             viewBox="0 0 24 24"
-                            className="h-3.5 w-3.5 fill-current"
+                            className="h-3.5 w-3.5 fill-current text-emerald-600"
                             xmlns="http://www.w3.org/2000/svg"
                           >
                             <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24zm-3.6 3.63c-.2 0-.42.01-.6.04-.24.04-.52.14-.72.37-.25.28-.97.95-.97 2.32s.99 2.69 1.13 2.87c.14.19 1.95 2.98 4.73 4.18.66.29 1.18.46 1.58.59.66.21 1.27.18 1.75.11.53-.08 1.63-.67 1.86-1.31.23-.65.23-1.2.16-1.31-.07-.12-.25-.19-.53-.33-.28-.14-1.63-.8-1.88-.89-.25-.09-.44-.14-.62.14-.19.28-.72.89-.88 1.07-.16.19-.33.21-.61.07-.28-.14-1.18-.44-2.25-1.39-.83-.74-1.4-1.66-1.56-1.94-.16-.28-.02-.43.12-.57.13-.13.28-.33.42-.5.14-.16.19-.28.28-.47.09-.19.05-.35-.02-.49-.07-.14-.62-1.5-.86-2.05-.22-.53-.46-.46-.62-.47z" />
@@ -1611,7 +1595,7 @@ function AdminPage() {
                         </a>
                         <button
                           onClick={() => deleteLeadItem(lead.id)}
-                          className="rounded border border-border/80 bg-secondary/50 p-1.5 text-muted-foreground hover:border-red-500 hover:text-red-400"
+                          className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-400 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -1630,12 +1614,12 @@ function AdminPage() {
         {/* ORDERS & PAYMENTS TAB VIEW                */}
         {/* ========================================== */}
         {activeTab === "orders" && !isPaymentUnlocked && (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-purple-500/40 bg-[#120f22] p-8 sm:p-12 text-center shadow-2xl animate-in fade-in duration-200">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-300 border border-purple-500/40 mb-4 shadow-[0_0_25px_rgba(168,85,247,0.35)]">
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200/90 bg-white p-8 sm:p-14 text-center shadow-lg shadow-indigo-100/50 animate-in fade-in duration-200">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 mb-4 shadow-xs">
               <Lock className="h-8 w-8" />
             </div>
-            <h2 className="text-xl font-bold text-white">Payment & Orders Portal is Protected</h2>
-            <p className="mt-2 text-xs sm:text-sm text-muted-foreground max-w-md">
+            <h2 className="text-xl font-bold text-slate-900">Payment & Orders Portal is Protected</h2>
+            <p className="mt-2 text-xs sm:text-sm text-slate-500 max-w-md">
               This section is secured with a PIN. Please enter your security PIN to view PayPal orders and transaction records.
             </p>
             <button
@@ -1645,7 +1629,7 @@ function AdminPage() {
                 setPaymentPinInput("");
                 setShowPaymentPinModal(true);
               }}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-lg hover:from-purple-500 hover:to-indigo-500 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-md hover:brightness-105 transition-all hover:scale-105 active:scale-95 cursor-pointer"
             >
               <Lock className="h-4 w-4" />
               <span>Enter Security PIN</span>
@@ -1657,96 +1641,96 @@ function AdminPage() {
           <div className="space-y-6 animate-in fade-in duration-200">
             {/* Orders KPI Stats Cards */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
-              <div className="rounded-xl border border-border/80 bg-[#12101e] p-3.5 shadow-lg sm:p-5">
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs sm:p-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">
                     Total Orders
                   </span>
-                  <Package className="h-3.5 w-3.5 text-purple-400 sm:h-4 sm:w-4" />
+                  <Package className="h-4 w-4 text-indigo-600" />
                 </div>
-                <p className="mt-2 text-2xl font-extrabold text-white sm:mt-3 sm:text-3xl">
+                <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">
                   {orders.length}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-emerald-500/30 bg-[#0c231a] p-3.5 shadow-lg sm:p-5">
+              <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-white to-white p-4 shadow-xs sm:p-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 sm:text-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 sm:text-xs">
                     Total Revenue
                   </span>
-                  <DollarSign className="h-3.5 w-3.5 text-emerald-400 sm:h-4 sm:w-4" />
+                  <DollarSign className="h-4 w-4 text-emerald-600" />
                 </div>
-                <p className="mt-2 text-2xl font-extrabold text-emerald-400 sm:mt-3 sm:text-3xl">
+                <p className="mt-2 text-2xl font-black text-emerald-700 sm:mt-3 sm:text-3xl">
                   ${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-blue-500/30 bg-[#0d1428] p-3.5 shadow-lg sm:p-5">
+              <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-white p-4 shadow-xs sm:p-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 sm:text-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 sm:text-xs">
                     Completed
                   </span>
-                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-400 sm:h-4 sm:w-4" />
+                  <CheckCircle2 className="h-4 w-4 text-blue-600" />
                 </div>
-                <p className="mt-2 text-2xl font-extrabold text-blue-400 sm:mt-3 sm:text-3xl">
+                <p className="mt-2 text-2xl font-black text-blue-700 sm:mt-3 sm:text-3xl">
                   {completedOrdersCount}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-amber-500/30 bg-[#241a0b] p-3.5 shadow-lg sm:p-5">
+              <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/70 via-white to-white p-4 shadow-xs sm:p-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 sm:text-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 sm:text-xs">
                     Pending
                   </span>
-                  <Clock className="h-3.5 w-3.5 text-amber-400 sm:h-4 sm:w-4" />
+                  <Clock className="h-4 w-4 text-amber-600" />
                 </div>
-                <p className="mt-2 text-2xl font-extrabold text-amber-400 sm:mt-3 sm:text-3xl">
+                <p className="mt-2 text-2xl font-black text-amber-700 sm:mt-3 sm:text-3xl">
                   {pendingOrdersCount}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-red-500/30 bg-[#250d1e] p-3.5 shadow-lg sm:p-5 col-span-2 sm:col-span-1">
+              <div className="rounded-2xl border border-red-100 bg-gradient-to-br from-red-50/70 via-white to-white p-4 shadow-xs sm:p-5 col-span-2 sm:col-span-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-300 sm:text-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-800 sm:text-xs">
                     Failed / Cancelled
                   </span>
-                  <span className="h-2 w-2 rounded-full bg-red-400" />
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
                 </div>
-                <p className="mt-2 text-2xl font-extrabold text-red-400 sm:mt-3 sm:text-3xl">
+                <p className="mt-2 text-2xl font-black text-red-700 sm:mt-3 sm:text-3xl">
                   {failedOrdersCount}
                 </p>
               </div>
             </div>
 
             {/* Orders Filters & Actions Bar */}
-            <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-[#12101e] p-3 shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-4">
+            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-4">
               <div className="flex flex-1 flex-wrap items-center gap-2.5 sm:gap-3">
                 {/* Search Input */}
                 <div className="relative w-full min-w-0 sm:max-w-xs sm:flex-1">
-                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search customer, email, order ID..."
                     value={orderSearchTerm}
                     onChange={(e) => setOrderSearchTerm(e.target.value)}
-                    className="w-full rounded-lg border border-border/80 bg-[#0a0912] py-2 pl-9 pr-3 text-xs text-white placeholder:text-muted-foreground focus:border-purple-400 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none transition-all"
                   />
                 </div>
 
                 {/* Status Filter */}
-                <div className="flex items-center gap-1.5 rounded-lg border border-border/80 bg-[#0a0912] px-2.5 py-1.5">
-                  <Filter className="h-3 w-3 text-purple-400" />
-                  <span className="text-xs font-medium text-muted-foreground">Status:</span>
+                <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+                  <Filter className="h-3 w-3 text-indigo-600" />
+                  <span className="text-xs font-semibold text-slate-500">Status:</span>
                   <select
                     value={filterOrderStatus}
                     onChange={(e) => setFilterOrderStatus(e.target.value)}
-                    className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer"
+                    className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
                   >
-                    <option value="COMPLETED" className="bg-[#12101e]">Completed (Paid Orders)</option>
-                    <option value="All" className="bg-[#12101e]">All Statuses</option>
-                    <option value="PENDING" className="bg-[#12101e]">Pending Orders</option>
-                    <option value="FAILED" className="bg-[#12101e]">Failed / Cancelled</option>
-                    <option value="REFUNDED" className="bg-[#12101e]">Refunded</option>
+                    <option value="COMPLETED">Completed (Paid Orders)</option>
+                    <option value="All">All Statuses</option>
+                    <option value="PENDING">Pending Orders</option>
+                    <option value="FAILED">Failed / Cancelled</option>
+                    <option value="REFUNDED">Refunded</option>
                   </select>
                 </div>
               </div>
@@ -1755,19 +1739,19 @@ function AdminPage() {
                 <button
                   type="button"
                   onClick={handleLockPaymentTab}
-                  className="flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-950/40 px-3 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-900/60 hover:text-white transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer shadow-xs"
                   title="Lock Payment & Orders Tab"
                 >
-                  <Lock className="h-3.5 w-3.5 text-purple-400" />
+                  <Lock className="h-3.5 w-3.5 text-indigo-600" />
                   <span>Lock Tab</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={exportOrdersToCsv}
-                  className="flex items-center gap-1.5 rounded-lg border border-border bg-[#0a0912] px-3 py-2 text-xs font-semibold text-white hover:bg-secondary transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer shadow-xs"
                 >
-                  <Download className="h-3.5 w-3.5 text-purple-400" />
+                  <Download className="h-3.5 w-3.5 text-indigo-600" />
                   <span>Export CSV</span>
                 </button>
 
@@ -1777,7 +1761,7 @@ function AdminPage() {
                     fetchOrders(false);
                     setRefreshCountdown(10);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg bg-gradient-brand px-3 py-2 text-xs font-bold text-white hover:brightness-110 shadow-sm cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-105 transition-all cursor-pointer"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                   <span>Refresh</span>
@@ -1786,12 +1770,12 @@ function AdminPage() {
             </div>
 
             {/* Orders Table Container */}
-            <div className="overflow-hidden rounded-xl border border-border/80 bg-[#12101e] shadow-xl">
+            <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs">
               {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-border/80 bg-[#171427] text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                       <th className="px-5 py-3.5">Customer</th>
                       <th className="px-5 py-3.5">Service / Package</th>
                       <th className="px-5 py-3.5 text-center">Amount</th>
@@ -1801,10 +1785,10 @@ function AdminPage() {
                       <th className="px-5 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border/60">
+                  <tbody className="divide-y divide-slate-100">
                     {filteredOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-5 py-12 text-center text-muted-foreground text-xs">
+                        <td colSpan={7} className="px-5 py-12 text-center text-slate-400 text-xs">
                           No PayPal payment orders found matching criteria.
                         </td>
                       </tr>
@@ -1817,27 +1801,27 @@ function AdminPage() {
                         return (
                           <tr
                             key={order.id}
-                            className={`transition-colors hover:bg-white/[0.03] ${
-                              highlightedOrderIds.has(order.id) ? "bg-purple-900/20" : ""
+                            className={`transition-colors hover:bg-slate-50/80 ${
+                              highlightedOrderIds.has(order.id) ? "bg-indigo-50/70" : ""
                             }`}
                           >
                             {/* Customer */}
                             <td className="px-5 py-4">
-                              <div className="font-bold text-white text-sm">{order.customer_name}</div>
-                              <div className="text-[11px] text-muted-foreground font-mono mt-0.5">{order.customer_email}</div>
+                              <div className="font-bold text-slate-900 text-sm">{order.customer_name}</div>
+                              <div className="text-[11px] text-slate-500 font-mono mt-0.5">{order.customer_email}</div>
                               {order.customer_phone && (
-                                <div className="text-[11px] text-muted-foreground/80 mt-0.5">{order.customer_phone}</div>
+                                <div className="text-[11px] text-slate-500 mt-0.5">{order.customer_phone}</div>
                               )}
                               {order.customer_company && (
-                                <div className="text-[10px] text-purple-300 font-semibold mt-0.5">🏢 {order.customer_company}</div>
+                                <div className="text-[10px] text-indigo-700 font-semibold mt-0.5">🏢 {order.customer_company}</div>
                               )}
                             </td>
 
                             {/* Service / Package */}
                             <td className="px-5 py-4">
-                              <div className="font-bold text-white text-xs">{order.item_name}</div>
+                              <div className="font-bold text-slate-900 text-xs">{order.item_name}</div>
                               <div className="mt-1">
-                                <span className="inline-flex rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
+                                <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 uppercase">
                                   {order.item_type}
                                 </span>
                               </div>
@@ -1845,10 +1829,10 @@ function AdminPage() {
 
                             {/* Amount */}
                             <td className="px-5 py-4 text-center">
-                              <span className="font-mono text-sm font-bold text-emerald-400">
+                              <span className="font-mono text-sm font-bold text-emerald-700">
                                 ${Number(order.amount).toFixed(2)}
                               </span>
-                              <span className="text-[10px] text-muted-foreground ml-1">{order.currency}</span>
+                              <span className="text-[10px] text-slate-400 ml-1">{order.currency}</span>
                             </td>
 
                             {/* Payment Status */}
@@ -1856,10 +1840,10 @@ function AdminPage() {
                               <span
                                 className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
                                   isCompleted
-                                    ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                                    ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
                                     : isPending
-                                    ? "border border-amber-500/40 bg-amber-500/15 text-amber-300"
-                                    : "border border-red-500/40 bg-red-500/15 text-red-300"
+                                    ? "border border-amber-200 bg-amber-50 text-amber-700"
+                                    : "border border-red-200 bg-red-50 text-red-700"
                                 }`}
                               >
                                 {isCompleted && <CheckCircle2 className="h-3 w-3" />}
@@ -1872,9 +1856,9 @@ function AdminPage() {
                             {/* PayPal IDs */}
                             <td className="px-5 py-4">
                               <div className="space-y-1 font-mono text-[11px]">
-                                <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <div className="flex items-center gap-1.5 text-slate-500">
                                   <span className="text-[10px] text-slate-400">Order:</span>
-                                  <span className="text-white select-all">{order.paypal_order_id}</span>
+                                  <span className="text-slate-800 font-semibold select-all">{order.paypal_order_id}</span>
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1882,16 +1866,16 @@ function AdminPage() {
                                       setCopiedNotification(true);
                                       setTimeout(() => setCopiedNotification(false), 2500);
                                     }}
-                                    className="p-1 text-muted-foreground hover:text-white"
+                                    className="p-1 text-slate-400 hover:text-slate-700"
                                     title="Copy Order ID"
                                   >
                                     <Copy className="h-3 w-3" />
                                   </button>
                                 </div>
                                 {order.paypal_capture_id && (
-                                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                                  <div className="flex items-center gap-1.5 text-slate-500">
                                     <span className="text-[10px] text-slate-400">Capture:</span>
-                                    <span className="text-emerald-300 select-all">{order.paypal_capture_id}</span>
+                                    <span className="text-emerald-700 font-semibold select-all">{order.paypal_capture_id}</span>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1901,7 +1885,7 @@ function AdminPage() {
                                           setTimeout(() => setCopiedNotification(false), 2500);
                                         }
                                       }}
-                                      className="p-1 text-muted-foreground hover:text-white"
+                                      className="p-1 text-slate-400 hover:text-slate-700"
                                       title="Copy Capture ID"
                                     >
                                       <Copy className="h-3 w-3" />
@@ -1912,9 +1896,9 @@ function AdminPage() {
                             </td>
 
                             {/* Date */}
-                            <td className="px-5 py-4 text-center text-[11px] text-muted-foreground">
-                              <div>{new Date(order.created_at).toLocaleDateString()}</div>
-                              <div className="text-[10px] text-muted-foreground/70">
+                            <td className="px-5 py-4 text-center text-[11px] text-slate-500">
+                              <div className="font-medium text-slate-700">{new Date(order.created_at).toLocaleDateString()}</div>
+                              <div className="text-[10px] text-slate-400">
                                 {new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                               </div>
                             </td>
@@ -1925,7 +1909,7 @@ function AdminPage() {
                                 <button
                                   type="button"
                                   onClick={() => setSelectedOrderDetails(order)}
-                                  className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground hover:text-white hover:border-purple-400 transition-colors"
+                                  className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition-colors shadow-xs"
                                   title="View Order Details"
                                 >
                                   <Eye className="h-3.5 w-3.5" />
@@ -1934,7 +1918,7 @@ function AdminPage() {
                                 <button
                                   type="button"
                                   onClick={() => deleteOrderItem(order.id)}
-                                  className="rounded-lg border border-border/80 bg-secondary/50 p-2 text-muted-foreground hover:text-red-400 hover:border-red-500 transition-colors"
+                                  className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-400 hover:text-red-600 hover:border-red-300 transition-colors shadow-xs"
                                   title="Delete Record"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
@@ -1950,9 +1934,9 @@ function AdminPage() {
               </div>
 
               {/* Mobile Card List View for Orders */}
-              <div className="block md:hidden divide-y divide-border/60 p-3">
+              <div className="block md:hidden divide-y divide-slate-100 p-3">
                 {filteredOrders.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-muted-foreground">
+                  <div className="py-12 text-center text-xs text-slate-400">
                     No orders found.
                   </div>
                 ) : (
@@ -1960,20 +1944,20 @@ function AdminPage() {
                     <div key={order.id} className="py-3.5 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-bold text-white text-sm">{order.customer_name}</div>
-                          <div className="text-xs text-muted-foreground">{order.customer_email}</div>
+                          <div className="font-bold text-slate-900 text-sm">{order.customer_name}</div>
+                          <div className="text-xs text-slate-500 font-mono">{order.customer_email}</div>
                         </div>
-                        <span className="font-mono font-bold text-emerald-400 text-sm">
+                        <span className="font-mono font-bold text-emerald-700 text-sm">
                           ${Number(order.amount).toFixed(2)}
                         </span>
                       </div>
 
-                      <div className="text-xs text-slate-300 font-medium">
+                      <div className="text-xs text-slate-700 font-medium">
                         {order.item_name}
                       </div>
 
                       <div className="flex items-center justify-between text-xs pt-1">
-                        <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
+                        <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 uppercase">
                           {order.payment_status}
                         </span>
 
@@ -1981,14 +1965,14 @@ function AdminPage() {
                           <button
                             type="button"
                             onClick={() => setSelectedOrderDetails(order)}
-                            className="rounded border border-border bg-secondary/60 px-2.5 py-1 text-xs text-white"
+                            className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
                           >
                             Details
                           </button>
                           <button
                             type="button"
                             onClick={() => deleteOrderItem(order.id)}
-                            className="rounded border border-border bg-secondary/60 p-1 text-muted-foreground hover:text-red-400"
+                            className="rounded-lg border border-slate-200 bg-slate-50 p-1 text-slate-400 hover:text-red-600"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -2004,77 +1988,77 @@ function AdminPage() {
 
         {/* Detailed Order Modal */}
         {selectedOrderDetails ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in">
-            <div className="w-full max-w-xl rounded-2xl border border-purple-400/40 bg-[#120f20] p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-border/80 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300">
-                    <Package className="h-4 w-4" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in">
+            <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-6 sm:p-7 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto text-slate-800">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                    <Package className="h-4.5 w-4.5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Order Details</h3>
-                    <p className="text-xs text-muted-foreground font-mono">{selectedOrderDetails.id}</p>
+                    <h3 className="text-base font-bold text-slate-900">Order Details</h3>
+                    <p className="text-xs text-slate-500 font-mono">{selectedOrderDetails.id}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedOrderDetails(null)}
-                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
                 >
                   ✕
                 </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="rounded-xl border border-border/60 bg-[#0a0912] p-3 space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Customer</span>
-                  <p className="font-bold text-white text-sm">{selectedOrderDetails.customer_name}</p>
-                  <p className="text-muted-foreground font-mono">{selectedOrderDetails.customer_email}</p>
-                  {selectedOrderDetails.customer_phone && <p className="text-muted-foreground">{selectedOrderDetails.customer_phone}</p>}
-                  {selectedOrderDetails.customer_company && <p className="text-purple-300 font-medium">🏢 {selectedOrderDetails.customer_company}</p>}
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-1">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Customer</span>
+                  <p className="font-bold text-slate-900 text-sm">{selectedOrderDetails.customer_name}</p>
+                  <p className="text-slate-500 font-mono">{selectedOrderDetails.customer_email}</p>
+                  {selectedOrderDetails.customer_phone && <p className="text-slate-600">{selectedOrderDetails.customer_phone}</p>}
+                  {selectedOrderDetails.customer_company && <p className="text-indigo-700 font-semibold">🏢 {selectedOrderDetails.customer_company}</p>}
                 </div>
 
-                <div className="rounded-xl border border-border/60 bg-[#0a0912] p-3 space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Payment Summary</span>
-                  <p className="text-lg font-bold text-emerald-400 font-mono">
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-1">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Payment Summary</span>
+                  <p className="text-lg font-bold text-emerald-700 font-mono">
                     ${Number(selectedOrderDetails.amount).toFixed(2)} {selectedOrderDetails.currency}
                   </p>
                   <div className="pt-1">
-                    <span className="inline-flex rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
+                    <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700 uppercase">
                       Status: {selectedOrderDetails.payment_status}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-border/60 bg-[#0a0912] p-3 text-xs space-y-2">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Item Purchased</span>
-                <p className="font-bold text-white text-sm">{selectedOrderDetails.item_name}</p>
-                <p className="text-muted-foreground">Type: <span className="font-semibold text-white capitalize">{selectedOrderDetails.item_type}</span></p>
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 text-xs space-y-1">
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Item Purchased</span>
+                <p className="font-bold text-slate-900 text-sm">{selectedOrderDetails.item_name}</p>
+                <p className="text-slate-500">Type: <span className="font-semibold text-slate-800 capitalize">{selectedOrderDetails.item_type}</span></p>
               </div>
 
-              <div className="rounded-xl border border-border/60 bg-[#0a0912] p-3 text-xs space-y-2 font-mono">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold font-sans">PayPal Identifiers</span>
-                <div className="flex justify-between items-center text-muted-foreground">
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 text-xs space-y-2 font-mono">
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold font-sans">PayPal Identifiers</span>
+                <div className="flex justify-between items-center text-slate-500">
                   <span>PayPal Order ID:</span>
-                  <span className="text-white select-all">{selectedOrderDetails.paypal_order_id}</span>
+                  <span className="text-slate-900 font-semibold select-all">{selectedOrderDetails.paypal_order_id}</span>
                 </div>
                 {selectedOrderDetails.paypal_capture_id && (
-                  <div className="flex justify-between items-center text-muted-foreground">
+                  <div className="flex justify-between items-center text-slate-500">
                     <span>Payment Capture ID:</span>
-                    <span className="text-emerald-400 select-all">{selectedOrderDetails.paypal_capture_id}</span>
+                    <span className="text-emerald-700 font-semibold select-all">{selectedOrderDetails.paypal_capture_id}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center text-muted-foreground">
+                <div className="flex justify-between items-center text-slate-500">
                   <span>Created At:</span>
-                  <span className="text-slate-300">{new Date(selectedOrderDetails.created_at).toLocaleString()}</span>
+                  <span className="text-slate-700">{new Date(selectedOrderDetails.created_at).toLocaleString()}</span>
                 </div>
               </div>
 
               {/* Status Update Control */}
-              <div className="flex items-center justify-between border-t border-border/80 pt-3">
+              <div className="flex items-center justify-between border-t border-slate-200 pt-3">
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground font-semibold">Change Status:</span>
+                  <span className="text-slate-600 font-bold">Change Status:</span>
                   <select
                     value={selectedOrderDetails.payment_status}
                     onChange={(e) => {
@@ -2082,7 +2066,7 @@ function AdminPage() {
                       updateOrderStatusItem(selectedOrderDetails.id, newSt);
                       setSelectedOrderDetails({ ...selectedOrderDetails, payment_status: newSt });
                     }}
-                    className="rounded-lg border border-border bg-[#0a0912] px-2 py-1 text-xs text-white cursor-pointer"
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 cursor-pointer"
                   >
                     <option value="COMPLETED">COMPLETED</option>
                     <option value="PENDING">PENDING</option>
@@ -2095,7 +2079,7 @@ function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedOrderDetails(null)}
-                  className="rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-500 cursor-pointer"
+                  className="rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-900 cursor-pointer"
                 >
                   Close
                 </button>
@@ -2106,38 +2090,38 @@ function AdminPage() {
 
         {/* Quick WhatsApp Message Preview & 1-Click Copy Modal */}
         {selectedLeadForMsg ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-2xl border border-border bg-[#120f20] p-6 shadow-2xl space-y-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 sm:p-7 shadow-2xl space-y-4 text-slate-800">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5 text-emerald-400" />
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-emerald-600" />
                     {isLeadUsa(selectedLeadForMsg)
                       ? "🇺🇸 WhatsApp Confirmation (USA Lead)"
                       : "WhatsApp Confirmation Message"}
                   </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     For {selectedLeadForMsg.name} ({selectedLeadForMsg.phone})
                   </p>
                 </div>
                 <button
                   onClick={() => setSelectedLeadForMsg(null)}
-                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="rounded-xl border border-border/80 bg-black/60 p-4 font-mono text-xs text-white/90 whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-xs text-slate-800 whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed">
                 {getAdminWhatsAppPlainText(selectedLeadForMsg)}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
                 <button
                   onClick={() => copyLeadMessage(selectedLeadForMsg)}
-                  className="rounded-xl border border-border bg-secondary/80 py-2.5 px-3 text-xs font-semibold text-white hover:bg-secondary flex items-center justify-center gap-1.5"
+                  className="rounded-xl border border-slate-200 bg-slate-100 py-2.5 px-3 text-xs font-bold text-slate-700 hover:bg-slate-200 flex items-center justify-center gap-1.5 transition-colors"
                 >
-                  <Copy className="h-4 w-4 text-neon" />
+                  <Copy className="h-4 w-4 text-indigo-600" />
                   {copiedNotification ? "Copied!" : "Copy Text"}
                 </button>
 
@@ -2150,7 +2134,7 @@ function AdminPage() {
                   )}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-xl bg-[#25D366] py-2.5 px-3 text-xs font-bold text-white hover:bg-[#20bd5a] flex items-center justify-center gap-1.5"
+                  className="rounded-xl bg-[#25D366] py-2.5 px-3 text-xs font-bold text-white hover:bg-[#20bd5a] flex items-center justify-center gap-1.5 shadow-sm transition-all"
                 >
                   <MessageSquare className="h-4 w-4" />
                   Chat on WhatsApp
@@ -2162,22 +2146,16 @@ function AdminPage() {
 
         {/* Payment Tab Security PIN Modal */}
         {showPaymentPinModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-purple-500/40 bg-[#0f0b1c] p-6 shadow-2xl sm:p-7">
-              {/* Decorative Background Glow */}
-              <div
-                className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-purple-500/20 blur-3xl"
-                aria-hidden="true"
-              />
-
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl text-slate-800">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-purple-500/40 bg-purple-500/20 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-xs">
                     <Lock className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">Unlock Payments Tab</h3>
-                    <p className="text-xs text-muted-foreground">Enter security PIN to view orders &amp; revenue</p>
+                    <h3 className="text-lg font-black text-slate-900">Unlock Payments Tab</h3>
+                    <p className="text-xs text-slate-500">Enter security PIN to view orders &amp; revenue</p>
                   </div>
                 </div>
                 <button
@@ -2187,7 +2165,7 @@ function AdminPage() {
                     setPaymentPinInput("");
                     setPaymentPinError("");
                   }}
-                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
                   title="Close"
                 >
                   <X className="h-5 w-5" />
@@ -2196,7 +2174,7 @@ function AdminPage() {
 
               <form onSubmit={handleUnlockPaymentPin} className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-white/90 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
                     Security PIN
                   </label>
                   <div className="relative">
@@ -2209,12 +2187,12 @@ function AdminPage() {
                         setPaymentPinInput(e.target.value);
                         if (paymentPinError) setPaymentPinError("");
                       }}
-                      className="w-full rounded-xl border border-purple-500/40 bg-[#0a0714] px-4 py-3 text-sm text-white placeholder:text-muted-foreground focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/30 transition-all font-mono"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all font-mono"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPaymentPin(!showPaymentPin)}
-                      className="absolute right-3.5 top-3 text-muted-foreground hover:text-white transition-colors cursor-pointer"
+                      className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                       tabIndex={-1}
                       title={showPaymentPin ? "Hide PIN" : "Show PIN"}
                     >
@@ -2223,7 +2201,7 @@ function AdminPage() {
                   </div>
 
                   {paymentPinError && (
-                    <p className="mt-2 text-xs font-semibold text-red-400 animate-in fade-in">
+                    <p className="mt-2 text-xs font-bold text-red-600 animate-in fade-in">
                       ⚠️ {paymentPinError}
                     </p>
                   )}
@@ -2237,13 +2215,13 @@ function AdminPage() {
                       setPaymentPinInput("");
                       setPaymentPinError("");
                     }}
-                    className="w-full rounded-xl border border-border bg-secondary/60 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-secondary transition-colors cursor-pointer"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-100 py-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg hover:from-purple-500 hover:to-indigo-500 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md hover:brightness-105 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     <ShieldCheck className="h-4 w-4" />
                     <span>Unlock</span>
@@ -2256,7 +2234,7 @@ function AdminPage() {
 
         {/* Global Copied Toast */}
         {copiedNotification && !selectedLeadForMsg ? (
-          <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-emerald-500 px-4 py-3 text-xs font-bold text-white shadow-2xl flex items-center gap-2">
+          <div className="fixed bottom-6 right-6 z-50 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white shadow-xl flex items-center gap-2">
             ✓ Message copied! Press Ctrl+V in WhatsApp.
           </div>
         ) : null}
