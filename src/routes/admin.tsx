@@ -2172,7 +2172,13 @@ function AdminPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleUnlockPaymentPin} className="mt-6 space-y-4">
+              <form
+                onSubmit={handleUnlockPaymentPin}
+                autoComplete="off"
+                data-lpignore="true"
+                data-form-type="other"
+                className="mt-6 space-y-4"
+              >
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
                     Security PIN
@@ -2180,6 +2186,16 @@ function AdminPage() {
                   <div className="relative">
                     <input
                       type={showPaymentPin ? "text" : "password"}
+                      name="temporary_pin_no_autofill"
+                      id="temporary_pin_no_autofill"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      data-bwignore="true"
+                      data-form-type="other"
                       autoFocus
                       placeholder="Enter PIN"
                       value={paymentPinInput}
