@@ -806,9 +806,26 @@ function AdminPage() {
 
   const filteredLeads = leads
     .filter((lead) => {
-      const matchesSource =
-        filterSource === "All" ||
-        (filterSource === "USA Leads" ? lead.source.includes("USA") : lead.source === filterSource);
+      const isUsa = isLeadUsa(lead);
+      let matchesSource = true;
+      if (filterSource === "All" || filterSource === "All Leads") {
+        matchesSource = true;
+      } else if (filterSource === "USA Leads" || filterSource === "All USA Leads") {
+        matchesSource = isUsa;
+      } else if (filterSource === "IND Leads" || filterSource === "All India Leads") {
+        matchesSource = !isUsa;
+      } else if (filterSource === "USA - Contact Form") {
+        matchesSource = isUsa && (lead.source || "").includes("Contact Form");
+      } else if (filterSource === "USA - Popup Modal") {
+        matchesSource = isUsa && (lead.source || "").includes("Popup Modal");
+      } else if (filterSource === "India - Contact Form" || filterSource === "Contact Form") {
+        matchesSource = !isUsa && (lead.source || "").includes("Contact Form");
+      } else if (filterSource === "India - Popup Modal" || filterSource === "Popup Modal") {
+        matchesSource = !isUsa && (lead.source || "").includes("Popup Modal");
+      } else {
+        matchesSource = lead.source === filterSource;
+      }
+
       const matchesStatus = filterStatus === "All" || lead.status === filterStatus;
       const matchesSearch =
         searchTerm === "" ||
@@ -821,9 +838,10 @@ function AdminPage() {
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const usaLeadsCount = leads.filter((l) => l.source.includes("USA")).length;
-  const contactFormCount = leads.filter((l) => l.source.includes("Contact Form")).length;
-  const popupModalCount = leads.filter((l) => l.source.includes("Popup Modal")).length;
+  const usaLeadsCount = leads.filter((l) => isLeadUsa(l)).length;
+  const indiaLeadsCount = leads.filter((l) => !isLeadUsa(l)).length;
+  const contactFormCount = leads.filter((l) => (l.source || "").includes("Contact Form")).length;
+  const popupModalCount = leads.filter((l) => (l.source || "").includes("Popup Modal")).length;
 
   // Orders Calculations - Defaults to showing COMPLETED paid orders, prioritizes completed on top when viewing all
   const filteredOrders = orders
@@ -1176,11 +1194,21 @@ function AdminPage() {
           <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-blue-200 sm:p-5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 sm:text-xs">
-                🇺🇸 USA Leads
+                All USA Leads
               </span>
               <span className="h-2 w-2 rounded-full bg-blue-500 shadow-xs sm:h-2.5 sm:w-2.5" />
             </div>
             <p className="mt-2 text-2xl font-black text-blue-700 sm:mt-3 sm:text-3xl">{usaLeadsCount}</p>
+          </div>
+
+          <div className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-orange-200 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-orange-800 sm:text-xs">
+                All India Leads
+              </span>
+              <span className="h-2 w-2 rounded-full bg-orange-500 shadow-xs sm:h-2.5 sm:w-2.5" />
+            </div>
+            <p className="mt-2 text-2xl font-black text-orange-700 sm:mt-3 sm:text-3xl">{indiaLeadsCount}</p>
           </div>
 
           <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-sky-200 sm:p-5">
@@ -1193,7 +1221,7 @@ function AdminPage() {
             <p className="mt-2 text-2xl font-black text-sky-700 sm:mt-3 sm:text-3xl">{contactFormCount}</p>
           </div>
 
-          <div className="rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-purple-200 sm:p-5">
+          <div className="rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-purple-200 sm:p-5 col-span-2 sm:col-span-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800 sm:text-xs">
                 Popup Modal
@@ -1201,18 +1229,6 @@ function AdminPage() {
               <span className="h-2 w-2 rounded-full bg-purple-500 shadow-xs sm:h-2.5 sm:w-2.5" />
             </div>
             <p className="mt-2 text-2xl font-black text-purple-700 sm:mt-3 sm:text-3xl">{popupModalCount}</p>
-          </div>
-
-          <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-emerald-200 sm:p-5 col-span-2 sm:col-span-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 sm:text-xs">
-                New Status
-              </span>
-              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-xs sm:h-2.5 sm:w-2.5" />
-            </div>
-            <p className="mt-2 text-2xl font-black text-emerald-700 sm:mt-3 sm:text-3xl">
-              {leads.filter((l) => l.status === "New").length}
-            </p>
           </div>
         </div>
 
@@ -1240,12 +1256,13 @@ function AdminPage() {
                 onChange={(e) => setFilterSource(e.target.value)}
                 className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
               >
-                <option value="All">All Sources</option>
-                <option value="USA Leads">🇺🇸 USA Leads (All)</option>
-                <option value="USA - Contact Form">🇺🇸 USA - Contact Form</option>
-                <option value="USA - Popup Modal">🇺🇸 USA - Popup Modal</option>
-                <option value="Contact Form">Contact Form</option>
-                <option value="Popup Modal">Popup Modal</option>
+                <option value="All">All Leads</option>
+                <option value="All USA Leads">All USA Leads</option>
+                <option value="All India Leads">All India Leads</option>
+                <option value="USA - Contact Form">USA - Contact Form</option>
+                <option value="USA - Popup Modal">USA - Popup Modal</option>
+                <option value="India - Contact Form">India - Contact Form</option>
+                <option value="India - Popup Modal">India - Popup Modal</option>
               </select>
             </div>
 
