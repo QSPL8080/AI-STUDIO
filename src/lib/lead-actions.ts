@@ -551,6 +551,91 @@ export const updateCalendlyMeetingServerFn = createServerFn({ method: "POST" })
     }
   });
 
+export const cancelCalendlyMeetingServerFn = createServerFn({ method: "POST" })
+  .validator((data: { id: string; email?: string; reason: string; performedBy?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const { id, email, reason, performedBy } = data;
+      const token = process.env.CALENDLY_API_TOKEN || process.env.VITE_CALENDLY_API_TOKEN;
+
+      // 1. Sync cancellation to Calendly API if token & email exist
+      if (token && email) {
+        try {
+          const userRes = await fetch("https://api.calendly.com/users/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (userRes.ok) {
+            const userData = (await userRes.json()) as any;
+            const org = userData.resource?.current_organization;
+            if (org) {
+              const eventsRes = await fetch(
+                `https://api.calendly.com/scheduled_events?organization=${encodeURIComponent(org)}&status=active`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              if (eventsRes.ok) {
+                const eventsData = (await eventsRes.json()) as any;
+                for (const evt of eventsData.collection || []) {
+                  const evtUuid = evt.uri.split("/").pop();
+                  const invRes = await fetch(`https://api.calendly.com/scheduled_events/${evtUuid}/invitees`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                  });
+                  if (invRes.ok) {
+                    const invData = (await invRes.json()) as any;
+                    const matched = (invData.collection || []).some(
+                      (inv: any) => inv.email?.toLowerCase() === email.toLowerCase()
+                    );
+                    if (matched) {
+                      await fetch(`https://api.calendly.com/scheduled_events/${evtUuid}/cancellation`, {
+                        method: "POST",
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ reason: reason || "Cancelled from AI Studio CRM" }),
+                      });
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (apiErr) {
+          console.warn("Calendly API cancellation sync error:", apiErr);
+        }
+      }
+
+      // 2. Update status in CRM DB
+      const cancelled_at = new Date().toISOString();
+      const ok = await updateCalendlyMeetingDetailsInDb(id, {
+        meeting_status: "cancelled",
+        cancelled_at,
+        notes: reason ? `Cancellation Reason: ${reason}` : undefined,
+      });
+
+      if (ok) {
+        await addActivityLogInDb({
+          action: "Calendly Meeting Cancelled",
+          details: `Meeting #${id.slice(-6)} cancelled (${reason || "No reason provided"})`,
+          performed_by: performedBy || "Admin",
+          user_role: "admin",
+        });
+
+        await saveCRMNotificationInDb({
+          type: "meeting_cancelled",
+          title: "Meeting Cancelled",
+          message: `Meeting #${id.slice(-6)} cancelled: ${reason || "by Admin"}. Status locked.`,
+          entity_id: id,
+          actor: performedBy || "Admin",
+        });
+      }
+
+      return { success: ok, cancelled_at };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
 export const deleteCalendlyMeetingServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string; client_name?: string; performedBy?: string }) => data)
   .handler(async ({ data }) => {

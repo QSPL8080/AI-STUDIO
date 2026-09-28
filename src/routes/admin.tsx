@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowLeft,
   Bell,
   BellRing,
@@ -21,6 +22,7 @@ import {
   EyeOff,
   Filter,
   Layers,
+  Loader2,
   Lock,
   LogOut,
   Mail,
@@ -70,6 +72,7 @@ import {
   fetchCalendlyMeetingsServerFn,
   saveCalendlyMeetingServerFn,
   updateCalendlyMeetingServerFn,
+  cancelCalendlyMeetingServerFn,
   deleteCalendlyMeetingServerFn,
   sendTestCalendlyBookingServerFn,
   fetchNotificationsServerFn,
@@ -331,10 +334,10 @@ function AdminPage() {
   const [closingLead, setClosingLead] = useState<Lead | null>(null);
   const [deliveringLead, setDeliveringLead] = useState<Lead | null>(null);
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
-  const [showAddMeetingModal, setShowAddMeetingModal] = useState(false);
-  const [modalMeetingDate, setModalMeetingDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [modalMeetingTime, setModalMeetingTime] = useState<string>("03:00 PM EST");
   const [editingMeeting, setEditingMeeting] = useState<CalendlyMeeting | null>(null);
+  const [cancellingMeeting, setCancellingMeeting] = useState<CalendlyMeeting | null>(null);
+  const [cancellationReason, setCancellationReason] = useState<string>("");
+  const [isSubmittingCancel, setIsSubmittingCancel] = useState<boolean>(false);
   const [selectedLeadForMsg, setSelectedLeadForMsg] = useState<Lead | null>(null);
 
   // Real-time Sync & Notification State
@@ -2887,69 +2890,74 @@ function AdminPage() {
                             <span>{m.meeting_type || "AI Video Strategy Call (30 min)"}</span>
                           </td>
 
-                          {/* 4. Meeting Status (Editable Dropdown) */}
+                          {/* 4. Meeting Status (Editable Dropdown or Locked Badge) */}
                           <td className="px-4 py-3.5">
-                            <select
-                              value={m.meeting_status || "scheduled"}
-                              onChange={async (e) => {
-                                const newStatus = e.target.value;
-                                const cancelledAt = newStatus === "cancelled" ? new Date().toISOString() : undefined;
-                                await updateCalendlyMeetingServerFn({
-                                  id: m.id,
-                                  meeting_status: newStatus,
-                                  cancelled_at: cancelledAt,
-                                  performedBy: session?.name || "Admin",
-                                });
-                                setMeetings((prev) =>
-                                  prev.map((item) =>
-                                    item.id === m.id
-                                      ? { ...item, meeting_status: newStatus, cancelled_at: cancelledAt || item.cancelled_at }
-                                      : item
-                                  )
-                                );
-                                showToast(`Meeting status updated to ${newStatus}`);
-                                await fetchMeetingsList();
-                                await fetchNotificationsList();
-                                await fetchLogsList();
-                              }}
-                              className={`rounded-lg px-2 py-1 text-[11px] font-bold uppercase border cursor-pointer ${
-                                m.meeting_status === "completed"
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                  : m.meeting_status === "cancelled"
-                                  ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300"
-                                  : m.meeting_status === "rescheduled"
-                                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
-                                  : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
-                              }`}
-                            >
-                              <option value="scheduled">Scheduled</option>
-                              <option value="upcoming">Upcoming</option>
-                              <option value="completed">Completed</option>
-                              <option value="rescheduled">Rescheduled</option>
-                              <option value="cancelled">Cancelled</option>
-                            </select>
-
-                            {m.meeting_status === "cancelled" && (
-                              <div className="mt-1 text-[10px] text-red-500 font-semibold leading-tight">
-                                <div className="text-[9px] uppercase tracking-wider text-red-400">Cancelled on:</div>
-                                <div>
-                                  {m.cancelled_at
-                                    ? new Date(m.cancelled_at).toLocaleString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                        year: "numeric",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })
-                                    : new Date(m.created_at || Date.now()).toLocaleString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                        year: "numeric",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
+                            {m.meeting_status === "cancelled" ? (
+                              <div className="space-y-1">
+                                <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-extrabold uppercase bg-red-100 text-red-700 border border-red-300 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800 select-none shadow-xs">
+                                  <Lock className="h-3 w-3 text-red-500" />
+                                  <span>Cancelled (Locked)</span>
+                                </span>
+                                <div className="text-[10px] text-red-500 font-semibold leading-tight">
+                                  <div className="text-[9px] uppercase tracking-wider text-red-400 font-bold">Cancelled on:</div>
+                                  <div>
+                                    {m.cancelled_at
+                                      ? new Date(m.cancelled_at).toLocaleString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                          year: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })
+                                      : new Date(m.created_at || Date.now()).toLocaleString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                          year: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                  </div>
                                 </div>
                               </div>
+                            ) : (
+                              <select
+                                value={m.meeting_status || "scheduled"}
+                                onChange={async (e) => {
+                                  const newStatus = e.target.value;
+                                  if (newStatus === "cancelled") {
+                                    setCancellingMeeting(m);
+                                    setCancellationReason("");
+                                    return;
+                                  }
+                                  await updateCalendlyMeetingServerFn({
+                                    id: m.id,
+                                    meeting_status: newStatus,
+                                    performedBy: session?.name || "Admin",
+                                  });
+                                  setMeetings((prev) =>
+                                    prev.map((item) =>
+                                      item.id === m.id ? { ...item, meeting_status: newStatus } : item
+                                    )
+                                  );
+                                  showToast(`Meeting status updated to ${newStatus}`);
+                                  await fetchMeetingsList();
+                                  await fetchNotificationsList();
+                                  await fetchLogsList();
+                                }}
+                                className={`rounded-lg px-2 py-1 text-[11px] font-bold uppercase border cursor-pointer ${
+                                  m.meeting_status === "completed"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                    : m.meeting_status === "rescheduled"
+                                    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+                                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
+                                }`}
+                              >
+                                <option value="scheduled">Scheduled</option>
+                                <option value="upcoming">Upcoming</option>
+                                <option value="completed">Completed</option>
+                                <option value="rescheduled">Rescheduled</option>
+                                <option value="cancelled">❌ Cancel Meeting...</option>
+                              </select>
                             )}
                           </td>
 
@@ -3031,6 +3039,19 @@ function AdminPage() {
                                 <Edit className="h-3.5 w-3.5" />
                               </button>
 
+                              {m.meeting_status !== "cancelled" && (
+                                <button
+                                  onClick={() => {
+                                    setCancellingMeeting(m);
+                                    setCancellationReason("");
+                                  }}
+                                  className="rounded-lg border border-red-200 dark:border-red-900/60 p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer"
+                                  title="Cancel Meeting (Permanent & Synced with Calendly)"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+
                               <button
                                 onClick={async () => {
                                   if (confirm(`Permanently delete meeting record for ${m.client_name}?`)) {
@@ -3053,8 +3074,8 @@ function AdminPage() {
                                     await fetchLogsList();
                                   }
                                 }}
-                                className="rounded-lg border border-slate-200 dark:border-slate-700 p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
-                                title="Delete Meeting"
+                                className="rounded-lg border border-slate-200 dark:border-slate-700 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
+                                title="Delete Meeting Record"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -4628,19 +4649,28 @@ function AdminPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold mb-1">Status</label>
-                  <select
-                    name="meeting_status"
-                    defaultValue={editingMeeting.meeting_status || "scheduled"}
-                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
-                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                    }`}
-                  >
-                    <option value="scheduled">Scheduled</option>
-                    <option value="upcoming">Upcoming</option>
-                    <option value="completed">Completed</option>
-                    <option value="rescheduled">Rescheduled</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+                  {editingMeeting.meeting_status === "cancelled" ? (
+                    <div>
+                      <input type="hidden" name="meeting_status" value="cancelled" />
+                      <div className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 p-2.5 text-red-600 dark:text-red-300 font-bold flex items-center gap-1.5 text-xs">
+                        <Lock className="h-3.5 w-3.5" />
+                        <span>Cancelled (Locked)</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <select
+                      name="meeting_status"
+                      defaultValue={editingMeeting.meeting_status || "scheduled"}
+                      className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                        isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                      }`}
+                    >
+                      <option value="scheduled">Scheduled</option>
+                      <option value="upcoming">Upcoming</option>
+                      <option value="completed">Completed</option>
+                      <option value="rescheduled">Rescheduled</option>
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -4714,6 +4744,135 @@ function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7.6: CANCEL CALENDLY MEETING POPUP MODAL (2-WAY SYNC) */}
+      {cancellingMeeting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div
+            className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-4 ${
+              isDark ? "border-slate-800 bg-[#12101e] text-white" : "border-slate-200 bg-white text-slate-900"
+            }`}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+                <h3 className="text-base font-bold">Cancel Calendly Meeting</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setCancellingMeeting(null);
+                  setCancellationReason("");
+                }}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
+                <div className="font-bold text-sm text-slate-800 dark:text-slate-100">{cancellingMeeting.client_name}</div>
+                <div className="text-slate-500 font-mono mt-0.5">{cancellingMeeting.email}</div>
+                <div className="text-blue-600 dark:text-blue-400 font-semibold mt-1 flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>{cancellingMeeting.meeting_date} at {cancellingMeeting.meeting_time}</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300">
+                <p className="font-bold flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>Important Notice</span>
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed">
+                  Cancelling this meeting will notify Calendly to free up the scheduled slot, remove the meeting join link, and permanently mark the meeting as <strong>LOCKED & CANCELLED</strong> in the CRM. Once cancelled, this status cannot be changed back.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Cancellation Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="e.g., Client requested cancellation, Scope mismatch, Rescheduled directly..."
+                  rows={3}
+                  className={`w-full rounded-xl border p-3 text-xs outline-none focus:border-red-500 resize-none ${
+                    isDark ? "border-slate-800 bg-[#171427] text-white" : "border-slate-200 bg-slate-50 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCancellingMeeting(null);
+                    setCancellationReason("");
+                  }}
+                  className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors cursor-pointer ${
+                    isDark ? "hover:bg-slate-800 text-slate-300" : "hover:bg-slate-100 text-slate-700"
+                  }`}
+                >
+                  Keep Meeting
+                </button>
+                <button
+                  type="button"
+                  disabled={!cancellationReason.trim() || isSubmittingCancel}
+                  onClick={async () => {
+                    if (!cancellationReason.trim()) {
+                      showToast("Please provide a cancellation reason");
+                      return;
+                    }
+                    setIsSubmittingCancel(true);
+                    try {
+                      const res = await cancelCalendlyMeetingServerFn({
+                        id: cancellingMeeting.id,
+                        email: cancellingMeeting.email,
+                        reason: cancellationReason,
+                        performedBy: session?.name || "Admin",
+                      });
+                      if (res.success) {
+                        const cancelled_at = res.cancelled_at || new Date().toISOString();
+                        setMeetings((prev) =>
+                          prev.map((item) =>
+                            item.id === cancellingMeeting.id
+                              ? { ...item, meeting_status: "cancelled", cancelled_at, meeting_link: "" }
+                              : item
+                          )
+                        );
+                        showToast("Meeting cancelled & locked. Synced with Calendly.");
+                        setCancellingMeeting(null);
+                        setCancellationReason("");
+                        await fetchMeetingsList();
+                        await fetchNotificationsList();
+                        await fetchLogsList();
+                      } else {
+                        showToast(`Cancellation error: ${res.error || "Failed"}`);
+                      }
+                    } catch (err: any) {
+                      showToast(`Error: ${err.message || "Failed to cancel"}`);
+                    } finally {
+                      setIsSubmittingCancel(false);
+                    }
+                  }}
+                  className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-red-600/20 hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmittingCancel ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Cancelling...</span>
+                    </>
+                  ) : (
+                    <span>Confirm & Cancel Meeting</span>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
