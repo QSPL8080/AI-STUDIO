@@ -553,22 +553,18 @@ function AdminPage() {
     const cleanEmail = emailInput.trim().toLowerCase();
     const cleanPass = passwordInput.trim();
 
-    // 1. Super Admin Credentials (Exact as requested: superadmin@aistudio.com / SA@123)
+    // 1. Super Admin Credentials (sa@aistudio.com / Anay@123)
     let authRole: "super_admin" | "admin" | null = null;
     let authName = "Admin";
 
-    if (cleanEmail === "superadmin@aistudio.com" && cleanPass === "SA@123") {
+    if (cleanEmail === "sa@aistudio.com" && cleanPass === "Anay@123") {
       authRole = "super_admin";
       authName = "Super Admin";
     }
-    // 2. Existing Admin Credentials (Preserved as requested)
-    else if (
-      (cleanEmail === "admin@aistudio.com" && cleanPass === "Admin@123") ||
-      (cleanEmail === "qsaistudio@gmail.com" && cleanPass === "Anay@0079") ||
-      (cleanEmail === "info@quickuppaistudio.us" && cleanPass === "Admin@123")
-    ) {
+    // 2. Operational Admin Credentials (admin@aistudio.com / Admin@123)
+    else if (cleanEmail === "admin@aistudio.com" && cleanPass === "Admin@123") {
       authRole = "admin";
-      authName = cleanEmail === "qsaistudio@gmail.com" ? "Anay Admin" : "Admin";
+      authName = "Admin";
     } else {
       // 3. Check dynamically registered admin users in database/local state
       const dynamicUser = adminUsers.find(
@@ -599,14 +595,31 @@ function AdminPage() {
       setAuthError("");
       fetchAllData(false);
 
-      // Record Login Audit Log with IP & Location
+      // Record Login Audit Log with Real IP & Geolocation
       try {
         let ipAddress = "127.0.0.1";
-        let location = "USA / Web Client";
+        let location = "India / Web Client";
         try {
           const ipRes = await fetch("https://api.ipify.org?format=json");
           const ipData = await ipRes.json();
-          if (ipData?.ip) ipAddress = ipData.ip;
+          if (ipData?.ip) {
+            ipAddress = ipData.ip;
+            try {
+              const geoRes = await fetch(`https://ipwho.is/${ipAddress}`);
+              const geoData = await geoRes.json();
+              if (geoData && geoData.success !== false) {
+                const parts = [geoData.city, geoData.region, geoData.country].filter(Boolean);
+                if (parts.length > 0) {
+                  location = parts.join(", ");
+                }
+              }
+            } catch {
+              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+              if (tz.includes("Calcutta") || tz.includes("Kolkata") || tz.includes("Asia")) {
+                location = "India / Web Client";
+              }
+            }
+          }
         } catch {}
 
         await recordLoginLogServerFn({
@@ -1197,7 +1210,7 @@ function AdminPage() {
                   required
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="superadmin@aistudio.com"
+                  placeholder="sa@aistudio.com"
                   className={`w-full rounded-xl border py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     isDark
                       ? "border-slate-700 bg-slate-900 text-white placeholder-slate-500"
@@ -2506,7 +2519,7 @@ function AdminPage() {
                   {/* Default Pre-Configured Users */}
                   <tr className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
                     <td className="px-4 py-3.5 font-bold">Super Admin</td>
-                    <td className="px-4 py-3.5 font-mono">superadmin@aistudio.com</td>
+                    <td className="px-4 py-3.5 font-mono">sa@aistudio.com</td>
                     <td className="px-4 py-3.5">
                       <span className="rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 text-[10px] font-bold">
                         Super Admin
