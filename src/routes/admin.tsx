@@ -343,6 +343,76 @@ function AdminPage() {
   // Activity & Login Logs State
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>([]);
+  const [activityCategoryFilter, setActivityCategoryFilter] = useState<"all" | "calendly" | "leads" | "user_activity">("all");
+  const [activitySearchTerm, setActivitySearchTerm] = useState<string>("");
+
+  const calendlyActivityLogs = useMemo(() => {
+    return activityLogs.filter((log) => {
+      const act = (log.action || "").toLowerCase();
+      const det = (log.details || "").toLowerCase();
+      return (
+        act.includes("calendly") ||
+        act.includes("meeting") ||
+        act.includes("strategy call") ||
+        act.includes("call") ||
+        det.includes("calendly") ||
+        det.includes("meeting") ||
+        det.includes("strategy call")
+      );
+    });
+  }, [activityLogs]);
+
+  const leadsActivityLogs = useMemo(() => {
+    return activityLogs.filter((log) => {
+      const act = (log.action || "").toLowerCase();
+      const det = (log.details || "").toLowerCase();
+      return (
+        act.includes("lead") ||
+        act.includes("project") ||
+        det.includes("lead") ||
+        det.includes("project") ||
+        Boolean(log.lead_id)
+      );
+    });
+  }, [activityLogs]);
+
+  const userActivityLogs = useMemo(() => {
+    return activityLogs.filter((log) => {
+      const act = (log.action || "").toLowerCase();
+      const det = (log.details || "").toLowerCase();
+      return (
+        act.includes("user") ||
+        act.includes("admin") ||
+        act.includes("login") ||
+        act.includes("logged") ||
+        act.includes("account") ||
+        act.includes("auth") ||
+        act.includes("password") ||
+        act.includes("security") ||
+        det.includes("login") ||
+        det.includes("logged in") ||
+        det.includes("account") ||
+        det.includes("admin")
+      );
+    });
+  }, [activityLogs]);
+
+  const filteredActivityLogs = useMemo(() => {
+    let list = activityLogs;
+    if (activityCategoryFilter === "calendly") list = calendlyActivityLogs;
+    else if (activityCategoryFilter === "leads") list = leadsActivityLogs;
+    else if (activityCategoryFilter === "user_activity") list = userActivityLogs;
+
+    if (!activitySearchTerm.trim()) return list;
+    const term = activitySearchTerm.toLowerCase();
+    return list.filter(
+      (log) =>
+        (log.action || "").toLowerCase().includes(term) ||
+        (log.details || "").toLowerCase().includes(term) ||
+        (log.performed_by || "").toLowerCase().includes(term) ||
+        (log.user_role || "").toLowerCase().includes(term)
+    );
+  }, [activityLogs, activityCategoryFilter, calendlyActivityLogs, leadsActivityLogs, userActivityLogs, activitySearchTerm]);
 
   // Admin Users Management State
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
@@ -3128,55 +3198,280 @@ function AdminPage() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 4: ACTIVITY HISTORY / AUDIT LOG */}
+        {/* TAB 4: ACTIVITY HISTORY / AUDIT LOG (CALENDLY, LEADS, USER ACTIVITY) */}
         {/* ========================================================================= */}
         {activeTab === "activity" && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className={`rounded-2xl border p-4 shadow-sm ${
-              isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
-            }`}>
-              <h3 className="text-base font-bold flex items-center gap-2">
-                <Clock className="h-5 w-5 text-blue-500" />
-                <span>Activity History & Audit Logs</span>
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Complete timeline of lead updates, status transitions, manual entries, and administrative actions.
-              </p>
+          <div className="space-y-5 animate-in fade-in duration-200">
+            {/* Header Card with Category Pills & Search */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold flex items-center gap-2 text-slate-900">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                    <span>Activity History & Audit Logs</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Real-time audit log categorized across Calendly bookings, Leads lifecycle, and User administrative actions.
+                  </p>
+                </div>
+
+                {/* Search Input */}
+                <div className="relative w-full md:w-72">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={activitySearchTerm}
+                    onChange={(e) => setActivitySearchTerm(e.target.value)}
+                    placeholder="Search logs, actions, users..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs text-slate-900 focus:bg-white focus:border-blue-500 focus:outline-none transition-colors"
+                  />
+                  {activitySearchTerm && (
+                    <button
+                      onClick={() => setActivitySearchTerm("")}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 3 Categories + All Filter Bar */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 border-t border-slate-100 scrollbar-none">
+                <button
+                  onClick={() => setActivityCategoryFilter("all")}
+                  className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    activityCategoryFilter === "all"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  <span>All Activities</span>
+                  <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
+                    activityCategoryFilter === "all" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                  }`}>
+                    {activityLogs.length}
+                  </span>
+                </button>
+
+                {/* 1. Calendly Category */}
+                <button
+                  onClick={() => setActivityCategoryFilter("calendly")}
+                  className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    activityCategoryFilter === "calendly"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100"
+                  }`}
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>Calendly</span>
+                  <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
+                    activityCategoryFilter === "calendly" ? "bg-white/20 text-white" : "bg-indigo-200 text-indigo-900"
+                  }`}>
+                    {calendlyActivityLogs.length}
+                  </span>
+                </button>
+
+                {/* 2. Leads Category */}
+                <button
+                  onClick={() => setActivityCategoryFilter("leads")}
+                  className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    activityCategoryFilter === "leads"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100"
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  <span>Leads</span>
+                  <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
+                    activityCategoryFilter === "leads" ? "bg-white/20 text-white" : "bg-emerald-200 text-emerald-900"
+                  }`}>
+                    {leadsActivityLogs.length}
+                  </span>
+                </button>
+
+                {/* 3. User Activity Category */}
+                <button
+                  onClick={() => setActivityCategoryFilter("user_activity")}
+                  className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    activityCategoryFilter === "user_activity"
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100"
+                  }`}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span>User Activity</span>
+                  <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
+                    activityCategoryFilter === "user_activity" ? "bg-white/20 text-white" : "bg-purple-200 text-purple-900"
+                  }`}>
+                    {userActivityLogs.length}
+                  </span>
+                </button>
+              </div>
             </div>
 
-            <div className={`overflow-hidden rounded-2xl border shadow-sm ${
-              isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
-            }`}>
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {activityLogs.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-slate-500">
-                    No activity logs recorded yet.
+            {/* Activity Feed List */}
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="divide-y divide-slate-100">
+                {filteredActivityLogs.length === 0 ? (
+                  <div className="py-16 text-center text-xs text-slate-500 space-y-2">
+                    <Clock className="mx-auto h-8 w-8 text-slate-300" />
+                    <p className="font-bold text-slate-700 text-sm">No activity logs found</p>
+                    <p className="text-slate-400 max-w-sm mx-auto">
+                      {activitySearchTerm
+                        ? `No logs match "${activitySearchTerm}". Try clearing your search.`
+                        : `No activity recorded under category "${activityCategoryFilter}".`}
+                    </p>
+                    {(activitySearchTerm || activityCategoryFilter !== "all") && (
+                      <button
+                        onClick={() => {
+                          setActivitySearchTerm("");
+                          setActivityCategoryFilter("all");
+                        }}
+                        className="mt-2 text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                      >
+                        Reset filters
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  activityLogs.map((log) => (
-                    <div key={log.id} className="p-4 flex items-start justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs">{log.action}</span>
-                          <span className={`rounded px-1.5 py-0.2 text-[9px] font-extrabold uppercase ${
-                            log.user_role === "super_admin"
-                              ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-                              : "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                          }`}>
-                            {log.performed_by}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-300">{log.details}</p>
-                      </div>
+                  filteredActivityLogs.map((log) => {
+                    const actLower = (log.action || "").toLowerCase();
+                    const detLower = (log.details || "").toLowerCase();
+                    const isCalendly =
+                      actLower.includes("calendly") ||
+                      actLower.includes("meeting") ||
+                      actLower.includes("strategy call") ||
+                      detLower.includes("calendly") ||
+                      detLower.includes("meeting");
+                    const isUserAct =
+                      actLower.includes("user") ||
+                      actLower.includes("admin") ||
+                      actLower.includes("login") ||
+                      actLower.includes("logged") ||
+                      actLower.includes("account") ||
+                      actLower.includes("password");
+                    const isLead = !isCalendly && !isUserAct;
 
-                      <div className="text-[11px] text-slate-400 font-mono shrink-0">
-                        {new Date(log.created_at).toLocaleString()}
+                    return (
+                      <div
+                        key={log.id}
+                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors"
+                      >
+                        <div className="flex items-start gap-3 min-w-0">
+                          {/* Category Icon Badge */}
+                          <div className="mt-0.5 shrink-0">
+                            {isCalendly ? (
+                              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">
+                                <Calendar className="h-4 w-4" />
+                              </div>
+                            ) : isUserAct ? (
+                              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-50 text-purple-600 border border-purple-200">
+                                <Shield className="h-4 w-4" />
+                              </div>
+                            ) : (
+                              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
+                                <Users className="h-4 w-4" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Content */}
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-xs text-slate-900">{log.action}</span>
+                              
+                              {/* Category tag */}
+                              <span className={`rounded px-1.5 py-0.2 text-[9px] font-extrabold uppercase ${
+                                isCalendly
+                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                  : isUserAct
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              }`}>
+                                {isCalendly ? "Calendly" : isUserAct ? "User Activity" : "Leads"}
+                              </span>
+
+                              {/* Performer role tag */}
+                              <span className={`rounded-full px-2 py-0.2 text-[9px] font-extrabold uppercase ${
+                                log.user_role === "super_admin"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : "bg-blue-100 text-blue-800"
+                              }`}>
+                                {log.performed_by}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 leading-relaxed">{log.details}</p>
+                          </div>
+                        </div>
+
+                        {/* Timestamp */}
+                        <div className="text-[11px] text-slate-400 font-mono shrink-0 pl-11 sm:pl-0 sm:text-right">
+                          <div>{new Date(log.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}</div>
+                          <div className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
+
+            {/* If User Activity is Selected: Display Admin Login Audit Log Table */}
+            {activityCategoryFilter === "user_activity" && loginLogs.length > 0 && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-purple-600" />
+                    <span>Admin Login & Access Audit Trail ({loginLogs.length})</span>
+                  </h4>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <table className="w-full min-w-[650px] text-left text-xs">
+                    <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                      <tr>
+                        <th className="px-4 py-3">Admin Email</th>
+                        <th className="px-4 py-3">Role</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">IP Address</th>
+                        <th className="px-4 py-3">Device / Agent</th>
+                        <th className="px-4 py-3 text-right">Login Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {loginLogs.map((ll) => (
+                        <tr key={ll.id} className="hover:bg-slate-50/75 transition-colors">
+                          <td className="px-4 py-3 font-bold font-mono text-slate-900">{ll.email}</td>
+                          <td className="px-4 py-3">
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-slate-700">
+                              {ll.role}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              ll.status === "failed"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-emerald-100 text-emerald-700"
+                            }`}>
+                              {ll.status === "failed" ? "Failed" : "Success"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-slate-500 text-[11px]">{ll.ip_address || "127.0.0.1"}</td>
+                          <td className="px-4 py-3 text-slate-500 truncate max-w-[200px]" title={ll.user_agent}>
+                            {ll.user_agent || "Web Browser"}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-slate-400 text-[11px]">
+                            {new Date(ll.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
