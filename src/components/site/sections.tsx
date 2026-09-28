@@ -2973,11 +2973,12 @@ export function LeadFormSection() {
                   >
                     <option value="">Select video type</option>
                     <option value="AI UGC Video">AI UGC Video</option>
-                    <option value="AI Cartoon Animation">AI Cartoon Animation</option>
                     <option value="AI Avatar Video">AI Avatar Video</option>
+                    <option value="AI Product Video">AI Product Video</option>
+                    <option value="AI Cartoon Animation">AI Cartoon Animation</option>
                     <option value="Hyper-Realistic AI Video">Hyper-Realistic AI Video</option>
                     <option value="AI Digital Twin / Clone">AI Digital Twin / Clone</option>
-                    <option value="Not Sure - Need Guidance">Not Sure - Need Guidance</option>
+                    <option value="Other / Custom Requirement">Other / Custom Requirement</option>
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
                 </div>
@@ -3756,11 +3757,14 @@ export function QuotePopupModal() {
                       <option value="AI UGC Video" className="bg-[#121019] text-foreground">
                         AI UGC Video
                       </option>
-                      <option value="AI Cartoon Animation" className="bg-[#121019] text-foreground">
-                        AI Cartoon Animation
-                      </option>
                       <option value="AI Avatar Video" className="bg-[#121019] text-foreground">
                         AI Avatar Video
+                      </option>
+                      <option value="AI Product Video" className="bg-[#121019] text-foreground">
+                        AI Product Video
+                      </option>
+                      <option value="AI Cartoon Animation" className="bg-[#121019] text-foreground">
+                        AI Cartoon Animation
                       </option>
                       <option
                         value="Hyper-Realistic AI Video"
@@ -3778,7 +3782,7 @@ export function QuotePopupModal() {
                         Monthly Package (5-15 Reels)
                       </option>
                       <option value="Custom Requirement" className="bg-[#121019] text-foreground">
-                        Custom AI Video
+                        Other / Custom AI Video
                       </option>
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
