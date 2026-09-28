@@ -964,6 +964,32 @@ export async function saveCalendlyMeeting(data: {
   try {
     const pool = await getPool();
     if (pool) {
+      const existingRes = await pool.query(
+        `SELECT * FROM calendly_meetings WHERE email = $1 AND meeting_date = $2 LIMIT 1`,
+        [data.email, data.meeting_date]
+      );
+      if (existingRes.rows.length > 0) {
+        const existingMeeting = existingRes.rows[0];
+        const updateRes = await pool.query(
+          `UPDATE calendly_meetings 
+           SET meeting_status = COALESCE($1, meeting_status), 
+               meeting_link = COALESCE($2, meeting_link), 
+               meeting_time = COALESCE($3, meeting_time), 
+               notes = COALESCE($4, notes),
+               client_name = COALESCE($5, client_name)
+           WHERE id = $6 RETURNING *`,
+          [
+            data.meeting_status || null,
+            data.meeting_link || null,
+            data.meeting_time || null,
+            data.notes || null,
+            data.client_name || null,
+            existingMeeting.id,
+          ]
+        );
+        return updateRes.rows[0] || existingMeeting;
+      }
+
       const res = await pool.query(
         `INSERT INTO calendly_meetings (id, lead_id, client_name, email, phone, meeting_date, meeting_time, meeting_status, meeting_link, meeting_type, assigned_admin, notes, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())

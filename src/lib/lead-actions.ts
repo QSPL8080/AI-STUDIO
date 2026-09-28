@@ -614,14 +614,113 @@ export const deleteAdminUserServerFn = createServerFn({ method: "POST" })
     }
   });
 
+// Helper to fetch live scheduled events from Calendly API and upsert into DB
+export async function syncCalendlyEventsFromApi(): Promise<{ count: number; error?: string }> {
+  try {
+    const token = process.env.CALENDLY_API_TOKEN || process.env.VITE_CALENDLY_API_TOKEN;
+    if (!token) {
+      return { count: 0, error: "Calendly API token not configured" };
+    }
+
+    const userRes = await fetch("https://api.calendly.com/users/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!userRes.ok) {
+      return { count: 0, error: `Calendly API user lookup failed (${userRes.status})` };
+    }
+
+    const userData = (await userRes.json()) as any;
+    const userUri = userData.resource?.uri;
+    if (!userUri) {
+      return { count: 0, error: "Calendly user URI not found" };
+    }
+
+    const eventsRes = await fetch(
+      `https://api.calendly.com/scheduled_events?user=${encodeURIComponent(userUri)}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    if (!eventsRes.ok) {
+      return { count: 0, error: `Calendly events API error (${eventsRes.status})` };
+    }
+
+    const eventsData = (await eventsRes.json()) as any;
+    let syncedCount = 0;
+
+    for (const ev of eventsData.collection || []) {
+      try {
+        const invRes = await fetch(`${ev.uri}/invitees`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!invRes.ok) continue;
+
+        const invData = (await invRes.json()) as any;
+        const invitee = (invData.collection || [])[0];
+        if (!invitee) continue;
+
+        const startDate = new Date(ev.start_time);
+        const dateStr = startDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          timeZone: "America/New_York",
+        });
+        const timeStr =
+          startDate.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: "America/New_York",
+          }) + " EST";
+
+        const status =
+          ev.status === "active" && invitee.status === "active" ? "scheduled" : "cancelled";
+        const link = ev.location?.join_url || ev.uri;
+
+        await saveCalendlyMeetingInDb({
+          client_name: invitee.name || "Calendly Client",
+          email: invitee.email || "client@calendly.com",
+          phone: invitee.text_reminder_number || undefined,
+          meeting_date: dateStr,
+          meeting_time: timeStr,
+          meeting_status: status,
+          meeting_link: link,
+          meeting_type: ev.name || "Quickupp AI Studio - 30 Min Strategy Call",
+          notes: `Synced from live Calendly API (${ev.status})`,
+        });
+
+        syncedCount++;
+      } catch (evErr) {
+        console.warn("Error syncing single Calendly event:", evErr);
+      }
+    }
+
+    return { count: syncedCount };
+  } catch (err: any) {
+    console.error("Calendly sync error:", err);
+    return { count: 0, error: err.message };
+  }
+}
+
 // 13. Calendly Meetings
 export const fetchCalendlyMeetingsServerFn = createServerFn({ method: "GET" }).handler(async () => {
   try {
+    // 1. Live Sync from Calendly API in background/inline so CRM always has fresh scheduled events
+    await syncCalendlyEventsFromApi();
+
+    // 2. Fetch all meetings from DB
     const meetings = await getCalendlyMeetingsFromDb();
     return { success: true, meetings };
   } catch (error: any) {
     return { success: false, meetings: [] as CalendlyMeeting[], error: error.message };
   }
+});
+
+export const syncCalendlyEventsServerFn = createServerFn({ method: "POST" }).handler(async () => {
+  const result = await syncCalendlyEventsFromApi();
+  const meetings = await getCalendlyMeetingsFromDb();
+  return { success: !result.error, count: result.count, meetings, error: result.error };
 });
 
 export const saveCalendlyMeetingServerFn = createServerFn({ method: "POST" })
