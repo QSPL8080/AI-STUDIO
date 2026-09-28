@@ -59,6 +59,9 @@ import {
   softDeleteLeadServerFn,
   restoreLeadServerFn,
   permanentDeleteLeadServerFn,
+  bulkPermanentDeleteLeadsServerFn,
+  bulkRestoreLeadsServerFn,
+  emptyRecycleBinServerFn,
   fetchActivityLogsServerFn,
   addActivityLogServerFn,
   recordLoginLogServerFn,
@@ -238,6 +241,7 @@ function AdminPage() {
 
   // Selection & Bulk Actions
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [selectedRecycleBinIds, setSelectedRecycleBinIds] = useState<Set<string>>(new Set());
 
   // Orders State
   const [orders, setOrders] = useState<Order[]>([]);
@@ -416,6 +420,44 @@ function AdminPage() {
 
   // Admin Users Management State
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+
+  const uniqueAdminUsers = useMemo(() => {
+    const map = new Map<string, AdminUser>();
+
+    // 1. Guaranteed Super Admin entry
+    map.set("sa@aistudio.com", {
+      id: "usr_superadmin",
+      name: "Super Admin",
+      email: "sa@aistudio.com",
+      role: "super_admin",
+      status: "active",
+      created_at: "System Protected",
+    });
+
+    // 2. Add DB admin accounts
+    adminUsers.forEach((u) => {
+      const cleanEmail = (u.email || "").toLowerCase().trim();
+      if (!cleanEmail) return;
+      if (cleanEmail === "sa@aistudio.com") return;
+      if (!map.has(cleanEmail)) {
+        map.set(cleanEmail, u);
+      }
+    });
+
+    // 3. Guaranteed operational Admin entry if not already present
+    if (!map.has("admin@aistudio.com")) {
+      map.set("admin@aistudio.com", {
+        id: "usr_admin_1",
+        name: "Admin",
+        email: "admin@aistudio.com",
+        role: "admin",
+        status: "active",
+        created_at: "System Default",
+      });
+    }
+
+    return Array.from(map.values());
+  }, [adminUsers]);
 
   // Modals State
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
@@ -1066,6 +1108,100 @@ function AdminPage() {
           },
         });
         showToast("Lead permanently deleted");
+        fetchLogsList();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  // Recycle Bin Bulk Handlers
+  const handleSelectAllRecycleBin = (checked: boolean) => {
+    if (checked) {
+      setSelectedRecycleBinIds(new Set(recycleBinLeads.map((l) => l.id)));
+    } else {
+      setSelectedRecycleBinIds(new Set());
+    }
+  };
+
+  const handleToggleSelectRecycleBin = (id: string) => {
+    setSelectedRecycleBinIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkRestoreRecycleBin = async () => {
+    if (selectedRecycleBinIds.size === 0) return;
+    const ids = Array.from(selectedRecycleBinIds);
+    if (confirm(`Restore ${ids.length} selected leads back to active leads?`)) {
+      const restored = recycleBinLeads.filter((l) => selectedRecycleBinIds.has(l.id));
+      setRecycleBinLeads((prev) => prev.filter((l) => !selectedRecycleBinIds.has(l.id)));
+      setLeads((prev) => [...restored.map((l) => ({ ...l, deleted_at: null })), ...prev]);
+      setSelectedRecycleBinIds(new Set());
+      try {
+        await bulkRestoreLeadsServerFn({
+          data: {
+            ids,
+            performedBy: session?.name || "Admin",
+            userRole: session?.role || "admin",
+          },
+        });
+        showToast(`Restored ${ids.length} leads from Recycle Bin`);
+        fetchLeadsList();
+        fetchLogsList();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleBulkPermanentDeleteRecycleBin = async () => {
+    if (!isSuperAdmin) {
+      alert("Only Super Admin can permanently delete records.");
+      return;
+    }
+    if (selectedRecycleBinIds.size === 0) return;
+    const ids = Array.from(selectedRecycleBinIds);
+    if (confirm(`WARNING: Permanently erase ${ids.length} selected leads from the database? This action CANNOT be undone.`)) {
+      setRecycleBinLeads((prev) => prev.filter((l) => !selectedRecycleBinIds.has(l.id)));
+      setSelectedRecycleBinIds(new Set());
+      try {
+        await bulkPermanentDeleteLeadsServerFn({
+          data: {
+            ids,
+            performedBy: session?.name || "Super Admin",
+            userRole: "super_admin",
+          },
+        });
+        showToast(`Permanently deleted ${ids.length} leads`);
+        fetchLogsList();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleEmptyRecycleBin = async () => {
+    if (!isSuperAdmin) {
+      alert("Only Super Admin can empty the Recycle Bin.");
+      return;
+    }
+    if (recycleBinLeads.length === 0) return;
+    if (confirm(`CRITICAL WARNING: This will permanently erase ALL ${recycleBinLeads.length} leads currently in the Recycle Bin. This action CANNOT be recovered. Proceed?`)) {
+      const total = recycleBinLeads.length;
+      setRecycleBinLeads([]);
+      setSelectedRecycleBinIds(new Set());
+      try {
+        await emptyRecycleBinServerFn({
+          data: {
+            performedBy: session?.name || "Super Admin",
+            userRole: "super_admin",
+          },
+        });
+        showToast(`Recycle Bin emptied (${total} records permanently erased)`);
         fetchLogsList();
       } catch (err) {
         console.error(err);
@@ -3480,36 +3616,30 @@ function AdminPage() {
         {/* ========================================================================= */}
         {activeTab === "users" && isSuperAdmin && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            <div className={`rounded-2xl border p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-              isDark ? "border-purple-900/40 bg-[#151026]" : "border-purple-200 bg-purple-50/50"
-            }`}>
+            <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold flex items-center gap-2 text-purple-900 dark:text-purple-200">
+                <h3 className="text-base sm:text-lg font-bold flex items-center gap-2 text-purple-900">
                   <Users className="h-5 w-5 text-purple-600" />
                   <span>Admin User Management (Super Admin Exclusive)</span>
                 </h3>
-                <p className="text-xs text-purple-700/80 dark:text-purple-300/80 mt-0.5">
-                  Create, configure, activate, and deactivate operational Admin accounts.
+                <p className="text-xs text-purple-700/80 mt-0.5">
+                  Create, configure, activate, and deactivate operational Admin accounts. Super Admin accounts remain permanently protected.
                 </p>
               </div>
 
               <button
                 onClick={() => setShowAddAdminModal(true)}
-                className="rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-purple-700 flex items-center gap-1.5 cursor-pointer"
+                className="rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-purple-700 flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
               >
                 <UserPlus className="h-4 w-4" />
                 <span>+ Create Admin Account</span>
               </button>
             </div>
 
-            {/* Admin Users Table */}
-            <div className={`overflow-x-auto w-full rounded-2xl border shadow-sm ${
-              isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
-            }`}>
+            {/* Admin Users Table (Deduplicated, Protected Super Admin) */}
+            <div className="overflow-x-auto w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
               <table className="w-full min-w-[750px] text-left text-xs">
-                <thead className={`border-b text-[11px] font-bold uppercase tracking-wider ${
-                  isDark ? "border-slate-800 bg-[#171427] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-600"
-                }`}>
+                <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                   <tr>
                     <th className="px-4 py-3.5">Name</th>
                     <th className="px-4 py-3.5">Email</th>
@@ -3519,101 +3649,95 @@ function AdminPage() {
                     <th className="px-4 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {/* Default Pre-Configured Users */}
-                  <tr className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-                    <td className="px-4 py-3.5 font-bold">Super Admin</td>
-                    <td className="px-4 py-3.5 font-mono">sa@aistudio.com</td>
-                    <td className="px-4 py-3.5">
-                      <span className="rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 text-[10px] font-bold">
-                        Super Admin
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">
-                        Active
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-400">System Built-in</td>
-                    <td className="px-4 py-3.5 text-right text-slate-400 text-[11px]">Protected</td>
-                  </tr>
+                <tbody className="divide-y divide-slate-100">
+                  {uniqueAdminUsers.map((user) => {
+                    const isSuper = user.role === "super_admin" || user.email.toLowerCase() === "sa@aistudio.com";
 
-                  <tr className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-                    <td className="px-4 py-3.5 font-bold">Operational Admin</td>
-                    <td className="px-4 py-3.5 font-mono">admin@aistudio.com</td>
-                    <td className="px-4 py-3.5">
-                      <span className="rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 text-[10px] font-bold">
-                        Admin
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">
-                        Active
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-400">System Built-in</td>
-                    <td className="px-4 py-3.5 text-right text-slate-400 text-[11px]">Master Account</td>
-                  </tr>
+                    return (
+                      <tr key={user.email} className="hover:bg-slate-50/75 transition-colors">
+                        <td className="px-4 py-3.5 font-bold text-slate-900">{user.name}</td>
+                        <td className="px-4 py-3.5 font-mono text-slate-600">{user.email}</td>
+                        <td className="px-4 py-3.5">
+                          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                            isSuper
+                              ? "bg-purple-100 text-purple-800 border border-purple-200"
+                              : "bg-blue-100 text-blue-800 border border-blue-200"
+                          }`}>
+                            {isSuper ? "Super Admin" : "Admin"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                            user.status === "active" || isSuper
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : "bg-red-100 text-red-800 border border-red-200"
+                          }`}>
+                            {isSuper ? "Active" : user.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-400 font-mono text-[11px]">
+                          {user.created_at.includes("-") ? new Date(user.created_at).toLocaleDateString() : user.created_at}
+                        </td>
+                        <td className="px-4 py-3.5 text-right">
+                          {isSuper ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 border border-purple-200 px-2.5 py-1 text-[11px] font-bold text-purple-700 select-none cursor-not-allowed">
+                              <Lock className="h-3 w-3 text-purple-500" />
+                              <span>Protected</span>
+                            </span>
+                          ) : (
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={async () => {
+                                  const nextStatus = user.status === "active" ? "inactive" : "active";
+                                  const res = await toggleAdminUserStatusServerFn({
+                                    data: {
+                                      id: user.id,
+                                      status: nextStatus,
+                                      email: user.email,
+                                      performedBy: session.name,
+                                    },
+                                  });
+                                  if (res.success) {
+                                    fetchAdminUsersList();
+                                    showToast(`Admin ${user.email} status updated to ${nextStatus}`);
+                                  } else {
+                                    showToast(res.error || "Failed to update admin status");
+                                  }
+                                }}
+                                className={`rounded-lg px-2.5 py-1 text-xs font-bold border cursor-pointer transition-colors ${
+                                  user.status === "active"
+                                    ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                }`}
+                              >
+                                {user.status === "active" ? "Deactivate" : "Activate"}
+                              </button>
 
-                  {/* Dynamically Created Admin Users */}
-                  {adminUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-                      <td className="px-4 py-3.5 font-bold">{user.name}</td>
-                      <td className="px-4 py-3.5 font-mono">{user.email}</td>
-                      <td className="px-4 py-3.5">
-                        <span className="rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 text-[10px] font-bold capitalize">
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                          user.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                        }`}>
-                          {user.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-400">
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={async () => {
-                              const nextStatus = user.status === "active" ? "inactive" : "active";
-                              await toggleAdminUserStatusServerFn({
-                                data: {
-                                  id: user.id,
-                                  status: nextStatus,
-                                  email: user.email,
-                                  performedBy: session.name,
-                                },
-                              });
-                              fetchAdminUsersList();
-                              showToast(`Admin ${user.email} status updated to ${nextStatus}`);
-                            }}
-                            className="rounded border border-slate-200 dark:border-slate-700 px-2 py-1 text-xs hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                          >
-                            {user.status === "active" ? "Deactivate" : "Activate"}
-                          </button>
-
-                          <button
-                            onClick={async () => {
-                              if (confirm(`Delete admin account for ${user.email}?`)) {
-                                await deleteAdminUserServerFn({
-                                  data: { id: user.id, email: user.email, performedBy: session.name },
-                                });
-                                fetchAdminUsersList();
-                                showToast(`Admin ${user.email} deleted`);
-                              }
-                            }}
-                            className="rounded border border-red-300 p-1 text-red-500 hover:bg-red-50 cursor-pointer"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Delete admin account for ${user.email}?`)) {
+                                    const res = await deleteAdminUserServerFn({
+                                      data: { id: user.id, email: user.email, performedBy: session.name },
+                                    });
+                                    if (res.success) {
+                                      fetchAdminUsersList();
+                                      showToast(`Admin ${user.email} deleted`);
+                                    } else {
+                                      showToast(res.error || "Failed to delete admin account");
+                                    }
+                                  }
+                                }}
+                                className="rounded-lg border border-red-200 p-1.5 text-red-500 hover:bg-red-50 cursor-pointer transition-colors"
+                                title="Delete Admin Account"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -3625,11 +3749,9 @@ function AdminPage() {
         {/* ========================================================================= */}
         {activeTab === "security" && isSuperAdmin && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            <div className={`rounded-2xl border p-4 shadow-sm ${
-              isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
-            }`}>
-              <h3 className="text-base font-bold flex items-center gap-2">
-                <ShieldAlert className="h-5 w-5 text-purple-500" />
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-base font-bold flex items-center gap-2 text-slate-900">
+                <ShieldAlert className="h-5 w-5 text-purple-600" />
                 <span>IP / GPS Login Security Tracking</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -3637,13 +3759,9 @@ function AdminPage() {
               </p>
             </div>
 
-            <div className={`overflow-x-auto w-full rounded-2xl border shadow-sm ${
-              isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
-            }`}>
+            <div className="overflow-x-auto w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
               <table className="w-full min-w-[900px] text-left text-xs">
-                <thead className={`border-b text-[11px] font-bold uppercase tracking-wider ${
-                  isDark ? "border-slate-800 bg-[#171427] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-600"
-                }`}>
+                <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                   <tr>
                     <th className="px-4 py-3.5">Timestamp</th>
                     <th className="px-4 py-3.5">User Email</th>
@@ -3654,7 +3772,7 @@ function AdminPage() {
                     <th className="px-4 py-3.5">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-100">
                   {loginLogs.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-12 text-center text-xs text-slate-500">
@@ -3663,30 +3781,30 @@ function AdminPage() {
                     </tr>
                   ) : (
                     loginLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+                      <tr key={log.id} className="hover:bg-slate-50/75 transition-colors">
                         <td className="px-4 py-3.5 text-slate-500 font-mono">
                           {new Date(log.created_at).toLocaleString()}
                         </td>
-                        <td className="px-4 py-3.5 font-bold">{log.email}</td>
+                        <td className="px-4 py-3.5 font-bold text-slate-900">{log.email}</td>
                         <td className="px-4 py-3.5">
-                          <span className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-700">
                             {log.role}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 font-mono text-blue-600 dark:text-blue-400 font-semibold select-all">
+                        <td className="px-4 py-3.5 font-mono text-blue-600 font-semibold select-all">
                           {log.ip_address}
                         </td>
-                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
+                        <td className="px-4 py-3.5 text-slate-600">
                           {log.location || "USA / Web Client"}
                         </td>
                         <td className="px-4 py-3.5 text-slate-400 max-w-xs truncate" title={log.user_agent}>
                           {log.user_agent}
                         </td>
                         <td className="px-4 py-3.5">
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                             log.status === "success"
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                              : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-red-100 text-red-700"
                           }`}>
                             {log.status}
                           </span>
@@ -3701,32 +3819,89 @@ function AdminPage() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 7: RECYCLE BIN */}
+        {/* TAB 7: RECYCLE BIN (SOFT-DELETED LEADS WITH BULK ACTIONS) */}
         {/* ========================================================================= */}
         {activeTab === "recycle_bin" && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className={`rounded-2xl border p-4 shadow-sm flex items-center justify-between ${
-              isDark ? "border-red-950/40 bg-[#160d18]" : "border-red-200 bg-red-50/50"
-            }`}>
+          <div className="space-y-5 animate-in fade-in duration-200">
+            {/* Header Card with Empty Recycle Bin Action */}
+            <div className="rounded-2xl border border-red-200 bg-red-50/50 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold flex items-center gap-2 text-red-900 dark:text-red-200">
+                <h3 className="text-base sm:text-lg font-bold flex items-center gap-2 text-red-900">
                   <Trash2 className="h-5 w-5 text-red-600" />
                   <span>Recycle Bin (Soft-Deleted Leads)</span>
+                  <span className="rounded-full bg-red-100 border border-red-200 px-2 py-0.5 text-[10px] font-extrabold text-red-700">
+                    {recycleBinLeads.length} Total
+                  </span>
                 </h3>
-                <p className="text-xs text-red-700/80 dark:text-red-300/80 mt-0.5">
-                  Deleted leads remain recoverable here. Super Admin can restore or permanently erase records.
+                <p className="text-xs text-red-700/80 mt-0.5">
+                  Soft-deleted leads remain recoverable here. Super Admin can perform bulk restoration, bulk permanent deletion, or empty the entire bin.
                 </p>
               </div>
+
+              {isSuperAdmin && recycleBinLeads.length > 0 && (
+                <button
+                  onClick={handleEmptyRecycleBin}
+                  className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700 flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
+                  title="Permanently erase all items in Recycle Bin"
+                >
+                  <Trash className="h-4 w-4" />
+                  <span>⚠️ Empty Recycle Bin</span>
+                </button>
+              )}
             </div>
 
-            <div className={`overflow-x-auto w-full rounded-2xl border shadow-sm ${
-              isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
-            }`}>
-              <table className="w-full min-w-[750px] text-left text-xs">
-                <thead className={`border-b text-[11px] font-bold uppercase tracking-wider ${
-                  isDark ? "border-slate-800 bg-[#171427] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-600"
-                }`}>
+            {/* Bulk Actions Floating/Top Toolbar */}
+            {selectedRecycleBinIds.size > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-900 animate-in fade-in shadow-sm">
+                <div className="flex items-center gap-2 font-bold">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] text-white">
+                    {selectedRecycleBinIds.size}
+                  </span>
+                  <span>{selectedRecycleBinIds.size} lead(s) selected</span>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={handleBulkRestoreRecycleBin}
+                    className="flex items-center gap-1.5 rounded-lg border border-blue-300 bg-white px-3 py-1 text-xs font-bold text-blue-700 hover:bg-blue-50 shadow-xs cursor-pointer transition-colors"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 text-blue-600" />
+                    <span>Restore Selected ({selectedRecycleBinIds.size})</span>
+                  </button>
+
+                  {isSuperAdmin && (
+                    <button
+                      onClick={handleBulkPermanentDeleteRecycleBin}
+                      className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700 shadow-xs cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Permanently Delete Selected ({selectedRecycleBinIds.size})</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setSelectedRecycleBinIds(new Set())}
+                    className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
+                  >
+                    Clear selection
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Recycle Bin Table */}
+            <div className="overflow-x-auto w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full min-w-[850px] text-left text-xs">
+                <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                   <tr>
+                    <th className="px-4 py-3.5 w-10">
+                      <input
+                        type="checkbox"
+                        checked={recycleBinLeads.length > 0 && selectedRecycleBinIds.size === recycleBinLeads.length}
+                        onChange={(e) => handleSelectAllRecycleBin(e.target.checked)}
+                        className="rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                      />
+                    </th>
                     <th className="px-4 py-3.5">Client Name</th>
                     <th className="px-4 py-3.5">Phone / Email</th>
                     <th className="px-4 py-3.5">Original Source</th>
@@ -3734,49 +3909,69 @@ function AdminPage() {
                     <th className="px-4 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-100">
                   {recycleBinLeads.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-xs text-slate-500">
+                      <td colSpan={6} className="py-14 text-center text-xs text-slate-500">
                         <Trash className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                        <p className="font-bold">Recycle Bin is empty.</p>
+                        <p className="font-bold text-sm text-slate-700">Recycle Bin is empty</p>
+                        <p className="text-slate-400 mt-1">Soft-deleted leads will appear here for recovery or permanent erase.</p>
                       </td>
                     </tr>
                   ) : (
-                    recycleBinLeads.map((lead) => (
-                      <tr key={lead.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-                        <td className="px-4 py-3.5 font-bold">{lead.name}</td>
-                        <td className="px-4 py-3.5">
-                          <div className="font-mono">{lead.phone}</div>
-                          <div className="text-slate-400">{lead.email}</div>
-                        </td>
-                        <td className="px-4 py-3.5">{lead.source}</td>
-                        <td className="px-4 py-3.5 text-slate-400">
-                          {lead.deleted_at ? new Date(lead.deleted_at).toLocaleString() : "Recently"}
-                        </td>
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleRestoreLead(lead.id)}
-                              className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-600 hover:bg-blue-500/20 flex items-center gap-1 cursor-pointer"
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                              <span>Restore</span>
-                            </button>
+                    recycleBinLeads.map((lead) => {
+                      const isSelected = selectedRecycleBinIds.has(lead.id);
 
-                            {isSuperAdmin && (
+                      return (
+                        <tr
+                          key={lead.id}
+                          className={`transition-colors ${
+                            isSelected ? "bg-red-50/60" : "hover:bg-slate-50/75"
+                          }`}
+                        >
+                          <td className="px-4 py-3.5">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelectRecycleBin(lead.id)}
+                              className="rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-4 py-3.5 font-bold text-slate-900">{lead.name}</td>
+                          <td className="px-4 py-3.5">
+                            <div className="font-mono text-slate-800">{lead.phone || "N/A"}</div>
+                            <div className="text-slate-400 text-[11px] font-mono">{lead.email}</div>
+                          </td>
+                          <td className="px-4 py-3.5 text-slate-600">{lead.source}</td>
+                          <td className="px-4 py-3.5 text-slate-500 font-mono text-[11px]">
+                            {lead.deleted_at ? new Date(lead.deleted_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "Recently"}
+                          </td>
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-2">
                               <button
-                                onClick={() => handlePermanentDeleteLead(lead.id)}
-                                className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-600 hover:bg-red-500/20 flex items-center gap-1 cursor-pointer"
+                                onClick={() => handleRestoreLead(lead.id)}
+                                className="rounded-lg border border-blue-500/40 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 flex items-center gap-1 cursor-pointer transition-colors"
+                                title="Restore Lead to Active Leads"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                <span>Permanent Erase</span>
+                                <RotateCcw className="h-3.5 w-3.5 text-blue-600" />
+                                <span>Restore</span>
                               </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+
+                              {isSuperAdmin && (
+                                <button
+                                  onClick={() => handlePermanentDeleteLead(lead.id)}
+                                  className="rounded-lg border border-red-500/40 bg-red-50 px-3 py-1 text-xs font-bold text-red-700 hover:bg-red-100 flex items-center gap-1 cursor-pointer transition-colors"
+                                  title="Permanently Erase from Database"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                                  <span>Permanent Erase</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

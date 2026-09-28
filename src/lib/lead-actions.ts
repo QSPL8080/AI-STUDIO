@@ -8,6 +8,7 @@ import {
   softDeleteLead as softDeleteInDb,
   restoreLead as restoreLeadInDb,
   permanentDeleteLead as permanentDeleteInDb,
+  emptyRecycleBin as emptyRecycleBinInDb,
   addActivityLog as addActivityLogInDb,
   getActivityLogs as getActivityLogsFromDb,
   addLoginLog as addLoginLogInDb,
@@ -419,6 +420,74 @@ export const permanentDeleteLeadServerFn = createServerFn({ method: "POST" })
     }
   });
 
+// 9b. Bulk Permanent Delete (Super Admin only)
+export const bulkPermanentDeleteLeadsServerFn = createServerFn({ method: "POST" })
+  .validator((data: { ids: string[]; performedBy?: string; userRole?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      if (!data.ids || data.ids.length === 0) return { success: true, count: 0 };
+      let count = 0;
+      for (const id of data.ids) {
+        const ok = await permanentDeleteInDb(id);
+        if (ok) count++;
+      }
+      if (count > 0) {
+        await addActivityLogInDb({
+          action: "Bulk Leads Permanently Deleted",
+          details: `${count} soft-deleted leads permanently erased from database by ${data.performedBy || "Super Admin"}`,
+          performed_by: data.performedBy || "Super Admin",
+          user_role: data.userRole || "super_admin",
+        });
+      }
+      return { success: true, count };
+    } catch (error: any) {
+      return { success: false, count: 0, error: error.message };
+    }
+  });
+
+// 9c. Bulk Restore Leads (Super Admin / Admin)
+export const bulkRestoreLeadsServerFn = createServerFn({ method: "POST" })
+  .validator((data: { ids: string[]; performedBy?: string; userRole?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      if (!data.ids || data.ids.length === 0) return { success: true, count: 0 };
+      let count = 0;
+      for (const id of data.ids) {
+        const ok = await restoreLeadInDb(id);
+        if (ok) count++;
+      }
+      if (count > 0) {
+        await addActivityLogInDb({
+          action: "Bulk Leads Restored",
+          details: `${count} leads restored from Recycle Bin by ${data.performedBy || "Admin"}`,
+          performed_by: data.performedBy || "Admin",
+          user_role: data.userRole || "admin",
+        });
+      }
+      return { success: true, count };
+    } catch (error: any) {
+      return { success: false, count: 0, error: error.message };
+    }
+  });
+
+// 9d. Empty Entire Recycle Bin (Super Admin only)
+export const emptyRecycleBinServerFn = createServerFn({ method: "POST" })
+  .validator((data: { performedBy?: string; userRole?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const count = await emptyRecycleBinInDb();
+      await addActivityLogInDb({
+        action: "Recycle Bin Emptied",
+        details: `Entire Recycle Bin emptied (${count} records permanently wiped) by ${data.performedBy || "Super Admin"}`,
+        performed_by: data.performedBy || "Super Admin",
+        user_role: data.userRole || "super_admin",
+      });
+      return { success: true, count };
+    } catch (error: any) {
+      return { success: false, count: 0, error: error.message };
+    }
+  });
+
 // 10. Activity Logs
 export const fetchActivityLogsServerFn = createServerFn({ method: "GET" })
   .validator((limit?: number) => limit || 100)
@@ -503,6 +572,10 @@ export const toggleAdminUserStatusServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string; status: "active" | "inactive"; email?: string; performedBy?: string }) => data)
   .handler(async ({ data }) => {
     try {
+      const cleanEmail = (data.email || "").toLowerCase().trim();
+      if (cleanEmail === "sa@aistudio.com" || cleanEmail.includes("superadmin")) {
+        return { success: false, error: "Super Admin account is permanently protected and cannot be deactivated." };
+      }
       const ok = await updateAdminUserStatusInDb(data.id, data.status);
       if (ok) {
         await addActivityLogInDb({
@@ -522,6 +595,10 @@ export const deleteAdminUserServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string; email?: string; performedBy?: string }) => data)
   .handler(async ({ data }) => {
     try {
+      const cleanEmail = (data.email || "").toLowerCase().trim();
+      if (cleanEmail === "sa@aistudio.com" || cleanEmail.includes("superadmin")) {
+        return { success: false, error: "Super Admin account is permanently protected and cannot be deleted." };
+      }
       const ok = await deleteAdminUserInDb(data.id);
       if (ok) {
         await addActivityLogInDb({

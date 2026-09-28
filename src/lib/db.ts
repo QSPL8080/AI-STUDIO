@@ -571,12 +571,13 @@ export async function restoreLead(id: string): Promise<boolean> {
 }
 
 export async function permanentDeleteLead(id: string): Promise<boolean> {
+  let ok = false;
   if (getSupabaseConfig()) {
     try {
       await supabaseRest(`leads?id=eq.${id}`, {
         method: "DELETE",
       });
-      return true;
+      ok = true;
     } catch (err) {
       console.warn("Supabase REST delete fallback:", err);
     }
@@ -587,12 +588,35 @@ export async function permanentDeleteLead(id: string): Promise<boolean> {
     const pool = await getPool();
     if (pool) {
       const res = await pool.query("DELETE FROM leads WHERE id = $1", [id]);
-      return (res.rowCount ?? 0) > 0;
+      if ((res.rowCount ?? 0) > 0) ok = true;
     }
   } catch (error) {
     console.error("PostgreSQL Delete error:", error);
   }
-  return false;
+  return ok;
+}
+
+export async function emptyRecycleBin(): Promise<number> {
+  let deletedCount = 0;
+  if (getSupabaseConfig()) {
+    try {
+      await supabaseRest(`leads?deleted_at=not.is.null`, { method: "DELETE" });
+    } catch (err) {
+      console.warn("Supabase emptyRecycleBin fallback:", err);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      const res = await pool.query("DELETE FROM leads WHERE deleted_at IS NOT NULL");
+      deletedCount = res.rowCount ?? 0;
+    }
+  } catch (error) {
+    console.error("PostgreSQL emptyRecycleBin error:", error);
+  }
+  return deletedCount;
 }
 
 // ==========================================
@@ -819,13 +843,14 @@ export async function saveAdminUser(user: {
 }
 
 export async function updateAdminUserStatus(id: string, status: "active" | "inactive"): Promise<boolean> {
+  let ok = false;
   if (getSupabaseConfig()) {
     try {
       await supabaseRest(`admin_users?id=eq.${id}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
-      return true;
+      ok = true;
     } catch (e) {
       console.warn("Supabase updateAdminUserStatus fallback:", e);
     }
@@ -836,19 +861,20 @@ export async function updateAdminUserStatus(id: string, status: "active" | "inac
     const pool = await getPool();
     if (pool) {
       const res = await pool.query("UPDATE admin_users SET status = $1 WHERE id = $2", [status, id]);
-      return (res.rowCount ?? 0) > 0;
+      if ((res.rowCount ?? 0) > 0) ok = true;
     }
   } catch (err) {
     console.error("PostgreSQL updateAdminUserStatus error:", err);
   }
-  return false;
+  return ok;
 }
 
 export async function deleteAdminUser(id: string): Promise<boolean> {
+  let ok = false;
   if (getSupabaseConfig()) {
     try {
       await supabaseRest(`admin_users?id=eq.${id}`, { method: "DELETE" });
-      return true;
+      ok = true;
     } catch (e) {
       console.warn("Supabase deleteAdminUser fallback:", e);
     }
@@ -859,12 +885,12 @@ export async function deleteAdminUser(id: string): Promise<boolean> {
     const pool = await getPool();
     if (pool) {
       const res = await pool.query("DELETE FROM admin_users WHERE id = $1", [id]);
-      return (res.rowCount ?? 0) > 0;
+      if ((res.rowCount ?? 0) > 0) ok = true;
     }
   } catch (err) {
     console.error("PostgreSQL deleteAdminUser error:", err);
   }
-  return false;
+  return ok;
 }
 
 // ==========================================
