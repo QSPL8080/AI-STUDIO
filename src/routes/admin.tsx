@@ -2782,44 +2782,6 @@ function AdminPage() {
               </div>
             </div>
 
-            {/* Live Webhook Integration Assistant Card */}
-            <div className={`rounded-xl border p-4 ${
-              isDark ? "border-slate-800 bg-[#161327]" : "border-blue-200/80 bg-blue-50/50"
-            }`}>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-blue-500" />
-                    <span className="text-xs font-bold">Calendly Webhook Auto-Sync Listener</span>
-                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 px-2 py-0.2 text-[9px] font-extrabold uppercase">
-                      Active Endpoint
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-300">
-                    To auto-sync external bookings from Calendly into this CRM, paste this webhook endpoint in your Calendly Webhook Developer Settings:
-                  </p>
-                  <div className="flex items-center gap-2 pt-1">
-                    <code className={`px-2.5 py-1 rounded text-[11px] font-mono select-all ${
-                      isDark ? "bg-slate-900 text-blue-300 border border-slate-800" : "bg-white text-blue-700 border border-blue-200"
-                    }`}>
-                      https://quickuppaistudio.us/api/calendly-webhook
-                    </code>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText("https://quickuppaistudio.us/api/calendly-webhook");
-                        setCalendlyWebhookCopied(true);
-                        showToast("Webhook URL copied to clipboard!");
-                        setTimeout(() => setCalendlyWebhookCopied(false), 2500);
-                      }}
-                      className="text-xs text-blue-600 hover:underline font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      <Copy className="h-3 w-3" />
-                      <span>{calendlyWebhookCopied ? "Copied!" : "Copy URL"}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Filter and Search Bar */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
