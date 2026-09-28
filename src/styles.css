@@ -785,22 +785,3 @@
 .animate-aura-pulse {
   animation: ambientAuraPulse 6s ease-in-out infinite;
 }
-
-/* Hide scrollbars for Calendly inline widget and iframes while preserving scrolling */
-.calendly-inline-widget,
-.calendly-inline-widget iframe,
-.calendly-inline-widget > div {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-  overflow-y: auto !important;
-}
-
-.calendly-inline-widget::-webkit-scrollbar,
-.calendly-inline-widget iframe::-webkit-scrollbar,
-.calendly-inline-widget *::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  background: transparent !important;
-}
-
