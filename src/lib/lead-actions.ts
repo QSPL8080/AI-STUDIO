@@ -122,6 +122,7 @@ export const fetchLeadsServerFn = createServerFn({ method: "GET" })
 // 3. Add Manual Lead (Admin / Super Admin)
 export const addManualLeadServerFn = createServerFn({ method: "POST" })
   .validator((data: {
+    source?: string;
     name: string;
     phone: string;
     email?: string;
@@ -145,10 +146,14 @@ export const addManualLeadServerFn = createServerFn({ method: "POST" })
   }) => data)
   .handler(async ({ data }) => {
     try {
-      const isUsa = (data.location || "").toLowerCase().includes("usa") || (data.phone || "").startsWith("+1");
+      const isUsa =
+        (data.source || "").includes("USA") ||
+        (data.location || "").toLowerCase().includes("usa") ||
+        (data.phone || "").startsWith("+1");
+      const leadSource = data.source || "Manual";
       const normalizedData = {
         ...data,
-        source: "Manual",
+        source: leadSource,
         phone: sanitizeLeadPhone(data.phone, isUsa),
       };
 
@@ -156,8 +161,8 @@ export const addManualLeadServerFn = createServerFn({ method: "POST" })
 
       await addActivityLogInDb({
         lead_id: saved.id,
-        action: "Manual Lead Created",
-        details: `Manual lead created for ${saved.name} (${saved.phone}) by ${data.createdBy || "Admin"}`,
+        action: `${leadSource} Lead Created`,
+        details: `${leadSource} lead created for ${saved.name} (${saved.phone}) by ${data.createdBy || "Admin"}`,
         performed_by: data.createdBy || "Admin",
         user_role: data.userRole || "admin",
       });

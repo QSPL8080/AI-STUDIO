@@ -1662,6 +1662,7 @@ function AdminPage() {
                 >
                   <option value="All">All Sources</option>
                   <option value="USA Leads">🇺🇸 USA Leads</option>
+                  <option value="Meta Ads">📊 Meta Ads</option>
                   <option value="Manual">✍️ Manual Leads</option>
                   <option value="Contact Form">Contact Form</option>
                   <option value="Popup Modal">Popup Modal</option>
@@ -1885,6 +1886,11 @@ function AdminPage() {
                                   <span>🇺🇸</span>
                                   <span>{lead.source}</span>
                                 </span>
+                              ) : lead.source === "Meta Ads" || lead.source === "Meta" ? (
+                                <span className="inline-flex items-center gap-1 rounded-md border border-sky-500/40 bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-300">
+                                  <span>📊</span>
+                                  <span>Meta Ads</span>
+                                </span>
                               ) : lead.source === "Manual" ? (
                                 <span className="inline-flex items-center gap-1 rounded-md border border-purple-500/40 bg-purple-500/15 px-2 py-0.5 text-[10px] font-bold text-purple-600 dark:text-purple-300">
                                   <span>✍️</span>
@@ -1917,14 +1923,19 @@ function AdminPage() {
 
                             {/* Client & Business */}
                             <td className="px-4 py-3.5">
-                              <div className="font-bold text-sm flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setViewLeadDetails(lead)}
+                                className="text-left font-bold text-sm flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-pointer"
+                                title="Click to view full lead details"
+                              >
                                 <span>{lead.name}</span>
                                 {isNewlyArrived && (
                                   <span className="rounded bg-blue-600 px-1 py-0.2 text-[8px] font-black text-white animate-pulse">
                                     JUST NOW
                                   </span>
                                 )}
-                              </div>
+                              </button>
                               <div className="text-xs text-slate-500 font-medium">
                                 {lead.business}
                                 {lead.location ? ` · 📍 ${lead.location}` : ""}
@@ -2859,6 +2870,7 @@ function AdminPage() {
                 const email = formData.get("email") as string;
                 const business = formData.get("business") as string;
                 const location = formData.get("location") as string;
+                const source = (formData.get("source") as string) || "Manual";
                 const videoType = formData.get("videoType") as string;
                 const videoQuantity = formData.get("videoQuantity") as string;
                 const status = formData.get("status") as LeadStatus;
@@ -2869,6 +2881,7 @@ function AdminPage() {
                 try {
                   const res = await addManualLeadServerFn({
                     data: {
+                      source,
                       name,
                       phone,
                       email: email || undefined,
@@ -2888,17 +2901,33 @@ function AdminPage() {
                   if (res.success && res.lead) {
                     setLeads((prev) => [res.lead, ...prev]);
                     broadcastLeadEvent({ type: "NEW_LEAD", lead: res.lead });
-                    showToast("Manual lead added successfully");
+                    showToast(`${source} lead added successfully`);
                     setShowAddLeadModal(false);
                     fetchLogsList();
                   }
                 } catch (err) {
-                  alert("Failed to create manual lead.");
+                  alert("Failed to create lead.");
                 }
               }}
               className="space-y-3.5 text-xs"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">Lead Source *</label>
+                  <select
+                    name="source"
+                    defaultValue="Manual"
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    <option value="Manual">✍️ Manual Lead</option>
+                    <option value="Meta Ads">📊 Meta Ads</option>
+                    <option value="USA - Contact Form">🇺🇸 USA - Contact Form</option>
+                    <option value="Contact Form">🇮🇳 Contact Form</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block font-semibold mb-1">Client Full Name *</label>
                   <input
@@ -3071,116 +3100,285 @@ function AdminPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 2: LEAD DETAILS FULL DRAWER / VIEW */}
+      {/* MODAL 2: LEAD DETAILS FULL DRAWER / POPUP (DOC REQUIREMENT 8) */}
       {/* ========================================================================= */}
       {viewLeadDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className={`w-full max-w-2xl rounded-2xl border p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto ${
+          <div className={`w-full max-w-3xl rounded-2xl border p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto ${
             isDark ? "border-slate-700 bg-[#151222] text-white" : "border-slate-200 bg-white text-slate-900"
           }`}>
-            <div className="flex items-center justify-between border-b pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/15 text-blue-600 font-bold">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b pb-4 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-600 font-extrabold text-base">
                   {viewLeadDetails.name.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold">{viewLeadDetails.name}</h3>
-                  <p className="text-xs text-slate-500">{viewLeadDetails.business}</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-black">{viewLeadDetails.name}</h3>
+                    {isLeadUsa(viewLeadDetails) ? (
+                      <span className="rounded-md border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-300">
+                        🇺🇸 USA
+                      </span>
+                    ) : viewLeadDetails.source === "Meta Ads" || viewLeadDetails.source === "Meta" ? (
+                      <span className="rounded-md border border-sky-500/40 bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-300">
+                        📊 Meta Ads
+                      </span>
+                    ) : viewLeadDetails.source === "Manual" ? (
+                      <span className="rounded-md border border-purple-500/40 bg-purple-500/15 px-2 py-0.5 text-[10px] font-bold text-purple-600 dark:text-purple-300">
+                        ✍️ Manual
+                      </span>
+                    ) : (
+                      <span className="rounded-md border border-orange-500/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold text-orange-600 dark:text-orange-300">
+                        🇮🇳 {viewLeadDetails.source}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">{viewLeadDetails.business}</p>
                 </div>
               </div>
 
               <button
                 onClick={() => setViewLeadDetails(null)}
-                className="rounded-lg p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {/* Quick Status Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 p-3 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-semibold">Lead Status:</span>
-                <span className={`rounded-lg border px-2.5 py-0.5 font-bold ${getLeadStatusBadge(viewLeadDetails.status)}`}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 p-3 text-xs">
+              <div>
+                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Lead Status</span>
+                <span className={`inline-block mt-0.5 rounded-lg border px-2.5 py-0.5 font-bold ${getLeadStatusBadge(viewLeadDetails.status)}`}>
                   {viewLeadDetails.status}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-semibold">Project Status:</span>
-                <span className={`rounded-lg border px-2.5 py-0.5 font-bold ${getProjectStatusBadge(viewLeadDetails.project_status)}`}>
+              <div>
+                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Project Status</span>
+                <span className={`inline-block mt-0.5 rounded-lg border px-2.5 py-0.5 font-bold ${getProjectStatusBadge(viewLeadDetails.project_status)}`}>
                   {viewLeadDetails.project_status || "In Progress"}
                 </span>
               </div>
 
-              <div className="text-slate-400 font-mono">
-                Source: {viewLeadDetails.source}
+              <div>
+                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Created Date</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300 text-[11px] block mt-0.5">
+                  {new Date(viewLeadDetails.created_at).toLocaleDateString()}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Delivery Target</span>
+                <span className="font-semibold text-blue-600 dark:text-blue-400 text-xs block mt-0.5">
+                  {viewLeadDetails.delivery_date ? `📅 ${viewLeadDetails.delivery_date}` : "Not scheduled"}
+                </span>
               </div>
             </div>
 
-            {/* Grid Sections */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              {/* Client Info */}
-              <div className="rounded-xl border p-3.5 space-y-2 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Client Information</span>
-                <div>
-                  <p className="text-slate-500">Phone / WhatsApp:</p>
-                  <p className="font-mono font-bold text-sm">{viewLeadDetails.phone}</p>
+            {/* 2-Column Sections: Client Info & Lead Info (Doc Section 8) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              {/* Section 1: Client Information */}
+              <div className="rounded-2xl border p-4 space-y-3 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-xs">
+                <div className="flex items-center gap-1.5 border-b pb-2 dark:border-slate-800">
+                  <User className="h-4 w-4 text-blue-500" />
+                  <span className="font-extrabold uppercase tracking-wider text-[11px] text-slate-700 dark:text-slate-300">
+                    Client Information
+                  </span>
                 </div>
-                {viewLeadDetails.email && (
-                  <div>
-                    <p className="text-slate-500">Email:</p>
-                    <p className="font-mono font-semibold">{viewLeadDetails.email}</p>
+
+                <div className="space-y-2.5">
+                  <div className="flex justify-between items-start">
+                    <span className="text-slate-500">Client Name:</span>
+                    <span className="font-bold text-slate-900 dark:text-white text-right">{viewLeadDetails.name}</span>
                   </div>
-                )}
-                {viewLeadDetails.location && (
-                  <div>
-                    <p className="text-slate-500">Location:</p>
-                    <p className="font-semibold">📍 {viewLeadDetails.location}</p>
+
+                  <div className="flex justify-between items-start">
+                    <span className="text-slate-500">Business Name:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">{viewLeadDetails.business}</span>
                   </div>
-                )}
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Phone Number:</span>
+                    <a
+                      href={`tel:${viewLeadDetails.phone.replace(/[^0-9+]/g, "")}`}
+                      className="font-mono font-bold text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      <Phone className="h-3 w-3" />
+                      <span>{viewLeadDetails.phone}</span>
+                    </a>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">WhatsApp:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenWhatsApp(viewLeadDetails)}
+                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-emerald-700 cursor-pointer"
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      <span>Chat on WhatsApp</span>
+                    </button>
+                  </div>
+
+                  <div className="flex justify-between items-start">
+                    <span className="text-slate-500">Email Address:</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300 text-right">
+                      {viewLeadDetails.email || "Not provided"}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-start">
+                    <span className="text-slate-500">Business Location:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {viewLeadDetails.location ? `📍 ${viewLeadDetails.location}` : "USA / Global"}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Project Scope */}
-              <div className="rounded-xl border p-3.5 space-y-2 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Project Scope</span>
-                <div>
-                  <p className="text-slate-500">Video Type & Qty:</p>
-                  <p className="font-bold text-sm">{viewLeadDetails.video_type} (Quantity: {viewLeadDetails.video_quantity || 1})</p>
+              {/* Section 2: Lead Information */}
+              <div className="rounded-2xl border p-4 space-y-3 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-xs">
+                <div className="flex items-center gap-1.5 border-b pb-2 dark:border-slate-800">
+                  <ShieldCheck className="h-4 w-4 text-purple-500" />
+                  <span className="font-extrabold uppercase tracking-wider text-[11px] text-slate-700 dark:text-slate-300">
+                    Lead & Project Information
+                  </span>
                 </div>
+
+                <div className="space-y-2.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Lead Source:</span>
+                    <span className="font-bold">{viewLeadDetails.source}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Created Timestamp:</span>
+                    <span className="font-mono text-slate-600 dark:text-slate-400 text-[11px]">
+                      {new Date(viewLeadDetails.created_at).toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Lead Status:</span>
+                    <span className={`rounded px-2 py-0.5 text-[10px] font-bold ${getLeadStatusBadge(viewLeadDetails.status)}`}>
+                      {viewLeadDetails.status}
+                    </span>
+                  </div>
+
+                  {viewLeadDetails.closed_by && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Lead Closed By:</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                        {viewLeadDetails.closed_by}
+                      </span>
+                    </div>
+                  )}
+
+                  {viewLeadDetails.closed_at && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Closed Date:</span>
+                      <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                        {new Date(viewLeadDetails.closed_at).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Delivery Date:</span>
+                    <span className="font-semibold text-blue-600 dark:text-blue-400">
+                      {viewLeadDetails.delivery_date || "Pending schedule"}
+                    </span>
+                  </div>
+
+                  {viewLeadDetails.delivered_at && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Delivered Date:</span>
+                      <span className="font-mono text-[11px] text-emerald-600 font-bold">
+                        {new Date(viewLeadDetails.delivered_at).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Assigned / Handled By:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {viewLeadDetails.assigned_admin || session.name || "Admin"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Scope & Requirements */}
+            <div className="rounded-2xl border p-4 space-y-3 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-xs">
+              <div className="flex items-center justify-between border-b pb-2 dark:border-slate-800">
+                <div className="flex items-center gap-1.5">
+                  <Video className="h-4 w-4 text-blue-500" />
+                  <span className="font-extrabold uppercase tracking-wider text-[11px] text-slate-700 dark:text-slate-300">
+                    Video Scope & Project Details
+                  </span>
+                </div>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {viewLeadDetails.video_type} (Quantity: {viewLeadDetails.video_quantity || 1})
+                </span>
+              </div>
+
+              {(viewLeadDetails.requirement || viewLeadDetails.additional) && (
                 <div>
-                  <p className="text-slate-500">Delivery Target Date:</p>
-                  <p className="font-semibold text-blue-600 dark:text-blue-400">
-                    {viewLeadDetails.delivery_date ? `📅 ${viewLeadDetails.delivery_date}` : "Not set"}
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Requirements / Client Notes</span>
+                  <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed bg-white dark:bg-slate-900 p-3 rounded-xl border dark:border-slate-800">
+                    {viewLeadDetails.requirement || viewLeadDetails.additional}
                   </p>
                 </div>
-                {viewLeadDetails.closed_by && (
-                  <div>
-                    <p className="text-slate-500">Lead Closed By:</p>
-                    <p className="font-semibold text-emerald-600">
-                      {viewLeadDetails.closed_by} {viewLeadDetails.closed_at ? `on ${new Date(viewLeadDetails.closed_at).toLocaleDateString()}` : ""}
-                    </p>
-                  </div>
-                )}
-              </div>
+              )}
+
+              {viewLeadDetails.notes && (
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Internal Team Notes</span>
+                  <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap bg-white dark:bg-slate-900 p-3 rounded-xl border dark:border-slate-800">
+                    {viewLeadDetails.notes}
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Scope / Requirement */}
-            {(viewLeadDetails.requirement || viewLeadDetails.additional) && (
-              <div className="rounded-xl border p-3.5 space-y-1 dark:border-slate-800 text-xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Project Requirements & Scope</span>
-                <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
-                  {viewLeadDetails.requirement || viewLeadDetails.additional}
-                </p>
+            {/* Section 4: Live Activity History for this Lead */}
+            <div className="rounded-2xl border p-4 space-y-2 dark:border-slate-800 bg-white dark:bg-slate-900/40 text-xs">
+              <div className="flex items-center gap-1.5 border-b pb-2 dark:border-slate-800">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <span className="font-extrabold uppercase tracking-wider text-[11px] text-slate-700 dark:text-slate-300">
+                  Lead Activity History & Audit Trail
+                </span>
               </div>
-            )}
 
-            {/* Internal Notes */}
-            <div className="rounded-xl border p-3.5 space-y-2 dark:border-slate-800 text-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Internal Team Notes</span>
-              <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                {viewLeadDetails.notes || "No notes added yet."}
-              </p>
+              <div className="space-y-2 pt-1 max-h-40 overflow-y-auto">
+                {activityLogs.filter((a) => a.lead_id === viewLeadDetails.id).length === 0 ? (
+                  <div className="text-slate-400 text-xs italic py-2">
+                    Initial lead submission recorded on {new Date(viewLeadDetails.created_at).toLocaleString()}.
+                  </div>
+                ) : (
+                  activityLogs
+                    .filter((a) => a.lead_id === viewLeadDetails.id)
+                    .map((log) => (
+                      <div key={log.id} className="flex items-start justify-between gap-3 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[11px]">{log.action}</span>
+                            <span className="rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-1 py-0.2 text-[9px] font-extrabold uppercase">
+                              {log.performed_by}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-300">{log.details}</p>
+                        </div>
+                        <span className="font-mono text-[10px] text-slate-400 shrink-0">
+                          {new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    ))
+                )}
+              </div>
             </div>
 
             {/* Quick Actions Footer */}
@@ -3189,7 +3387,7 @@ function AdminPage() {
                 <button
                   type="button"
                   onClick={() => handleOpenWhatsApp(viewLeadDetails)}
-                  className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 flex items-center gap-1.5 cursor-pointer"
+                  className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 flex items-center gap-1.5 cursor-pointer shadow-sm"
                 >
                   <MessageSquare className="h-4 w-4" />
                   <span>Open WhatsApp</span>
