@@ -210,7 +210,8 @@ function AdminPage() {
       fromDate: fromDate,
       toDate: toDate,
     });
-    showToast("Filters applied");
+    const count = filteredLeads.length;
+    showToast(`Filters applied • ${count} lead${count === 1 ? "" : "s"} match`);
   };
 
   const handleClearFilters = () => {
@@ -1442,12 +1443,13 @@ function AdminPage() {
     }
   };
 
-  const getLeadSourceDisplay = (source: string): "USA Website" | "India Website" | "Meta" | "Manual" => {
+  const getLeadSourceDisplay = (source: string): "USA Website" | "India Website" | "Meta" | "Manual" | "Calendly" => {
     if (!source) return "India Website";
     const s = source.toLowerCase();
     if (s.includes("usa")) return "USA Website";
-    if (s.includes("meta")) return "Meta";
+    if (s.includes("meta") || s.includes("facebook") || s.includes("instagram")) return "Meta";
     if (s.includes("manual")) return "Manual";
+    if (s.includes("calendly")) return "Calendly";
     return "India Website";
   };
 
@@ -1470,74 +1472,120 @@ function AdminPage() {
         return isDark
           ? "border-purple-500/40 bg-purple-500/15 text-purple-300"
           : "border-purple-200 bg-purple-50 text-purple-700";
+      case "Calendly":
+        return isDark
+          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+          : "border-emerald-200 bg-emerald-50 text-emerald-700";
     }
   };
 
-  // Filtered Leads Calculation (Matching Section 11 Search & Filter Criteria)
+  // Filtered Leads Calculation (Matching Section 11 Search & Filter Criteria with Real-time & Normalized matching)
   const filteredLeads = useMemo(() => {
     return leads
       .filter((lead) => {
-        // Source Filter
-        const leadSourceCat = getLeadSourceDisplay(lead.source);
-        const matchesSource =
-          appliedFilters.source === "All" ||
-          appliedFilters.source === leadSourceCat ||
-          lead.source === appliedFilters.source;
+        // 1. Source Filter
+        let matchesSource = true;
+        if (filterSource !== "All" && filterSource.trim() !== "") {
+          const rawSrc = (lead.source || "").toLowerCase().trim();
+          const targetSrc = filterSource.toLowerCase().trim();
+          const categorySrc = getLeadSourceDisplay(lead.source).toLowerCase();
+          matchesSource =
+            rawSrc === targetSrc ||
+            categorySrc === targetSrc ||
+            (targetSrc.includes("usa") && (rawSrc.includes("usa") || categorySrc.includes("usa"))) ||
+            (targetSrc.includes("india") && (rawSrc.includes("india") || categorySrc.includes("india"))) ||
+            (targetSrc.includes("meta") && (rawSrc.includes("meta") || rawSrc.includes("facebook") || rawSrc.includes("instagram"))) ||
+            (targetSrc.includes("manual") && rawSrc.includes("manual")) ||
+            (targetSrc.includes("calendly") && (rawSrc.includes("calendly") || !!lead.meeting_date));
+        }
 
-        // Lead Status Filter
-        const matchesStatus = appliedFilters.status === "All" || lead.status === appliedFilters.status;
+        // 2. Lead Status Filter
+        let matchesStatus = true;
+        if (filterStatus !== "All" && filterStatus.trim() !== "") {
+          const st = (lead.status || "").toLowerCase().replace(/[\s_-]/g, "");
+          const fst = filterStatus.toLowerCase().replace(/[\s_-]/g, "");
+          matchesStatus = st === fst || (st.includes("progress") && fst.includes("progress"));
+        }
 
-        // Project Status Filter
-        const matchesProjStatus =
-          appliedFilters.projectStatus === "All" || (lead.project_status || "In Progress") === appliedFilters.projectStatus;
+        // 3. Project Status Filter
+        let matchesProjStatus = true;
+        if (filterProjectStatus !== "All" && filterProjectStatus.trim() !== "") {
+          const ps = (lead.project_status || "In Progress").toLowerCase().replace(/[\s_-]/g, "");
+          const fps = filterProjectStatus.toLowerCase().replace(/[\s_-]/g, "");
+          matchesProjStatus = ps === fps || (ps.includes("progress") && fps.includes("progress"));
+        }
 
-        // Video Type Filter
-        const matchesVideoType =
-          appliedFilters.videoType === "All" ||
-          lead.video_type === appliedFilters.videoType ||
-          (lead.video_type &&
-            (lead.video_type.toLowerCase().includes(appliedFilters.videoType.toLowerCase().replace("ai ", "")) ||
-              appliedFilters.videoType.toLowerCase().includes(lead.video_type.toLowerCase())));
+        // 4. Video Type Filter
+        let matchesVideoType = true;
+        if (filterVideoType !== "All" && filterVideoType.trim() !== "") {
+          const vt = (lead.video_type || "").toLowerCase().replace(/ai\s+/g, "").replace(/[\s_-]/g, "");
+          const fvt = filterVideoType.toLowerCase().replace(/ai\s+/g, "").replace(/[\s_-]/g, "");
+          matchesVideoType =
+            vt === fvt ||
+            vt.includes(fvt) ||
+            fvt.includes(vt) ||
+            (lead.video_type || "").toLowerCase().includes(filterVideoType.toLowerCase().trim());
+        }
 
-        // Business Location Filter
-        const matchesLocation =
-          !appliedFilters.location ||
-          (lead.location && lead.location.toLowerCase().includes(appliedFilters.location.toLowerCase().trim()));
+        // 5. Business Location Filter
+        let matchesLocation = true;
+        if (filterLocation && filterLocation.trim() !== "" && filterLocation !== "All") {
+          const loc = filterLocation.toLowerCase().trim();
+          const leadLoc = (lead.location || "").toLowerCase();
+          const leadBiz = (lead.business || "").toLowerCase();
+          const leadNotes = (lead.notes || "").toLowerCase();
+          matchesLocation = leadLoc.includes(loc) || leadBiz.includes(loc) || leadNotes.includes(loc);
+        }
 
-        // Lead Closed By Filter
-        const matchesClosedBy =
-          appliedFilters.closedBy === "All" ||
-          (lead.closed_by && lead.closed_by.toLowerCase().includes(appliedFilters.closedBy.toLowerCase().trim()));
+        // 6. Lead Closed By Filter
+        let matchesClosedBy = true;
+        if (filterClosedBy !== "All" && filterClosedBy.trim() !== "") {
+          const cb = (lead.closed_by || "").toLowerCase().trim();
+          const fcb = filterClosedBy.toLowerCase().trim();
+          matchesClosedBy = cb.includes(fcb) || fcb.includes(cb);
+        }
 
-        // Text Search (Client Name, Business Name, Phone, Email) - Section 11
-        const q = appliedFilters.search.toLowerCase().trim();
-        const matchesSearch =
-          q === "" ||
-          lead.name.toLowerCase().includes(q) ||
-          lead.business.toLowerCase().includes(q) ||
-          lead.phone.includes(q) ||
-          (lead.email && lead.email.toLowerCase().includes(q));
+        // 7. Text Search (Client Name, Business Name, Phone, Email, Video Type, Location, Notes)
+        let matchesSearch = true;
+        if (searchTerm && searchTerm.trim() !== "") {
+          const q = searchTerm.toLowerCase().trim();
+          const qDigits = q.replace(/\D/g, "");
+          const leadPhoneDigits = (lead.phone || "").replace(/\D/g, "");
+          
+          matchesSearch =
+            (lead.name || "").toLowerCase().includes(q) ||
+            (lead.business || "").toLowerCase().includes(q) ||
+            (lead.phone || "").toLowerCase().includes(q) ||
+            (qDigits.length > 2 && leadPhoneDigits.includes(qDigits)) ||
+            (lead.email || "").toLowerCase().includes(q) ||
+            (lead.video_type || "").toLowerCase().includes(q) ||
+            (lead.source || "").toLowerCase().includes(q) ||
+            (lead.location || "").toLowerCase().includes(q) ||
+            (lead.notes || "").toLowerCase().includes(q);
+        }
 
-        // Date Range Filtering
+        // 8. Date Range Filtering
         let matchesDate = true;
-        let dateValue: string | undefined = undefined;
-        if (appliedFilters.dateType === "created_at") dateValue = lead.created_at;
-        else if (appliedFilters.dateType === "meeting_date") dateValue = lead.meeting_date;
-        else if (appliedFilters.dateType === "closed_at") dateValue = lead.closed_at;
-        else if (appliedFilters.dateType === "delivery_date") dateValue = lead.delivery_date;
+        if (fromDate || toDate) {
+          let dateValue: string | undefined = undefined;
+          if (filterDateType === "created_at") dateValue = lead.created_at;
+          else if (filterDateType === "meeting_date") dateValue = lead.meeting_date;
+          else if (filterDateType === "closed_at") dateValue = lead.closed_at;
+          else if (filterDateType === "delivery_date") dateValue = lead.delivery_date;
 
-        if (dateValue) {
-          const leadD = new Date(dateValue).getTime();
-          if (appliedFilters.fromDate) {
-            const fD = new Date(appliedFilters.fromDate).getTime();
-            if (leadD < fD) matchesDate = false;
+          if (dateValue) {
+            const leadD = new Date(dateValue).getTime();
+            if (fromDate) {
+              const fD = new Date(fromDate + "T00:00:00").getTime();
+              if (!isNaN(fD) && leadD < fD) matchesDate = false;
+            }
+            if (toDate) {
+              const tD = new Date(toDate + "T23:59:59.999").getTime();
+              if (!isNaN(tD) && leadD > tD) matchesDate = false;
+            }
+          } else {
+            matchesDate = false;
           }
-          if (appliedFilters.toDate) {
-            const tD = new Date(appliedFilters.toDate).getTime() + 86400000; // end of day
-            if (leadD > tD) matchesDate = false;
-          }
-        } else if (appliedFilters.fromDate || appliedFilters.toDate) {
-          matchesDate = false;
         }
 
         return (
@@ -1552,7 +1600,19 @@ function AdminPage() {
         );
       })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [leads, appliedFilters]);
+  }, [
+    leads,
+    searchTerm,
+    filterSource,
+    filterStatus,
+    filterProjectStatus,
+    filterVideoType,
+    filterLocation,
+    filterClosedBy,
+    filterDateType,
+    fromDate,
+    toDate,
+  ]);
 
   const uniqueLocations = useMemo(() => {
     const set = new Set<string>();
@@ -1736,7 +1796,7 @@ function AdminPage() {
   // AUTHENTICATED CRM DASHBOARD
   // =========================================================================
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-slate-50/70 text-slate-900 antialiased">
+    <div className="min-h-screen flex flex-col font-sans bg-white text-slate-900 antialiased">
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs">
         <div className="mx-auto flex w-full max-w-[1750px] items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3 gap-2 sm:gap-4">
@@ -2111,9 +2171,21 @@ function AdminPage() {
         {/* ========================================================================= */}
         {activeTab === "leads" && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            {/* KPI Summary Cards - Pure White Theme matching background */}
+            {/* KPI Summary Cards - Pure White Theme with Interactive Clickable Filters */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7 sm:gap-4">
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-slate-300">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterStatus("All");
+                  setFilterProjectStatus("All");
+                }}
+                className={`rounded-2xl border bg-white p-4 shadow-xs transition-all hover:shadow-md text-left cursor-pointer ${
+                  filterStatus === "All" && filterProjectStatus === "All"
+                    ? "border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20"
+                    : "border-slate-200/90 hover:border-slate-300"
+                }`}
+                title="Click to view all leads"
+              >
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
                   <span>Total Leads</span>
                   <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 text-blue-600">
@@ -2121,85 +2193,154 @@ function AdminPage() {
                   </div>
                 </div>
                 <p className="mt-2 text-2xl font-black text-slate-900">{totalLeadsCount}</p>
-              </div>
+              </button>
 
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-blue-300">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterStatus(filterStatus === "New" ? "All" : "New");
+                }}
+                className={`rounded-2xl border bg-white p-4 shadow-xs transition-all hover:shadow-md text-left cursor-pointer ${
+                  filterStatus === "New"
+                    ? "border-blue-500 ring-2 ring-blue-500/30 bg-blue-50/30"
+                    : "border-slate-200/90 hover:border-blue-300"
+                }`}
+                title="Click to filter by New status"
+              >
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
                   <span>New Leads</span>
                   <span className="h-2.5 w-2.5 rounded-full bg-blue-500 shadow-xs" />
                 </div>
                 <p className="mt-2 text-2xl font-black text-blue-600">{newLeadsCount}</p>
-              </div>
+              </button>
 
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-amber-300">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterStatus(filterStatus === "Contacted" ? "All" : "Contacted");
+                }}
+                className={`rounded-2xl border bg-white p-4 shadow-xs transition-all hover:shadow-md text-left cursor-pointer ${
+                  filterStatus === "Contacted"
+                    ? "border-amber-500 ring-2 ring-amber-500/30 bg-amber-50/30"
+                    : "border-slate-200/90 hover:border-amber-300"
+                }`}
+                title="Click to filter by Contacted status"
+              >
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
                   <span>Contacted</span>
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shadow-xs" />
                 </div>
                 <p className="mt-2 text-2xl font-black text-amber-600">{contactedCount}</p>
-              </div>
+              </button>
 
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-orange-300">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterStatus(filterStatus === "In Progress" ? "All" : "In Progress");
+                }}
+                className={`rounded-2xl border bg-white p-4 shadow-xs transition-all hover:shadow-md text-left cursor-pointer ${
+                  filterStatus === "In Progress"
+                    ? "border-orange-500 ring-2 ring-orange-500/30 bg-orange-50/30"
+                    : "border-slate-200/90 hover:border-orange-300"
+                }`}
+                title="Click to filter by In Progress status"
+              >
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
                   <span>In Progress</span>
                   <span className="h-2.5 w-2.5 rounded-full bg-orange-500 shadow-xs" />
                 </div>
                 <p className="mt-2 text-2xl font-black text-orange-600">{inProgressCount}</p>
-              </div>
+              </button>
 
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-slate-300">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterStatus(filterStatus === "Hold" ? "All" : "Hold");
+                }}
+                className={`rounded-2xl border bg-white p-4 shadow-xs transition-all hover:shadow-md text-left cursor-pointer ${
+                  filterStatus === "Hold"
+                    ? "border-slate-500 ring-2 ring-slate-500/30 bg-slate-100/50"
+                    : "border-slate-200/90 hover:border-slate-300"
+                }`}
+                title="Click to filter by On Hold status"
+              >
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
                   <span>On Hold</span>
                   <span className="h-2.5 w-2.5 rounded-full bg-gray-400 shadow-xs" />
                 </div>
                 <p className="mt-2 text-2xl font-black text-slate-700">{holdCount}</p>
-              </div>
+              </button>
 
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-emerald-300">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterStatus(filterStatus === "Closed" ? "All" : "Closed");
+                }}
+                className={`rounded-2xl border bg-white p-4 shadow-xs transition-all hover:shadow-md text-left cursor-pointer ${
+                  filterStatus === "Closed"
+                    ? "border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/30"
+                    : "border-slate-200/90 hover:border-emerald-300"
+                }`}
+                title="Click to filter by Closed status"
+              >
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
                   <span>Closed</span>
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 </div>
                 <p className="mt-2 text-2xl font-black text-emerald-600">{closedCount}</p>
-              </div>
+              </button>
 
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-purple-300 col-span-2 sm:col-span-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterProjectStatus(filterProjectStatus === "Delivered" ? "All" : "Delivered");
+                }}
+                className={`rounded-2xl border bg-white p-4 shadow-xs transition-all hover:shadow-md text-left cursor-pointer col-span-2 sm:col-span-1 ${
+                  filterProjectStatus === "Delivered"
+                    ? "border-purple-500 ring-2 ring-purple-500/30 bg-purple-50/30"
+                    : "border-slate-200/90 hover:border-purple-300"
+                }`}
+                title="Click to filter by Delivered projects"
+              >
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
                   <span>Delivered</span>
                   <Package className="h-4 w-4 text-purple-500" />
                 </div>
                 <p className="mt-2 text-2xl font-black text-purple-600">{projectsDeliveredCount}</p>
-              </div>
+              </button>
             </div>
 
             {/* Actions & Filters Bar (Section 11: Filters & Search) */}
-            <div className={`rounded-2xl border p-4 shadow-sm space-y-3.5 transition-colors ${
-              isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
-            }`}>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3.5 transition-colors">
               {/* Top Row: Search + Quick Action Buttons */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="relative flex-1 min-w-0 max-w-lg">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search by Client Name, Business Name, Phone..."
+                    placeholder="Search by Client Name, Business Name, Phone, Notes..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleApplyFilters();
                     }}
-                    className={`w-full rounded-xl border py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark
-                        ? "border-slate-700 bg-slate-900 text-white placeholder-slate-500"
-                        : "border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400"
-                    }`}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2 pl-9 pr-3 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm("")}
+                      className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => setShowAddLeadModal(true)}
-                    className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-500/20 transition-all cursor-pointer"
                   >
                     <Plus className="h-4 w-4" />
                     <span>+ Add Lead</span>
@@ -2207,11 +2348,7 @@ function AdminPage() {
 
                   <button
                     onClick={() => exportCSV(false)}
-                    className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-                      isDark
-                        ? "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
-                        : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
+                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                   >
                     <Download className="h-4 w-4 text-blue-500" />
                     <span>Export CSV</span>
@@ -2220,22 +2357,21 @@ function AdminPage() {
               </div>
 
               {/* Bottom Row: Detailed Filters Grid */}
-              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
                 {/* Source Filter */}
                 <div className="flex items-center gap-1">
                   <span className="text-[11px] font-semibold text-slate-400">Source:</span>
                   <select
                     value={filterSource}
                     onChange={(e) => setFilterSource(e.target.value)}
-                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                    }`}
+                    className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="All">All Sources</option>
                     <option value="USA Website">USA Website</option>
                     <option value="India Website">India Website</option>
                     <option value="Meta">Meta</option>
                     <option value="Manual">Manual</option>
+                    <option value="Calendly">Calendly</option>
                   </select>
                 </div>
 
@@ -2245,9 +2381,7 @@ function AdminPage() {
                   <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                    }`}
+                    className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="All">All Lead Statuses</option>
                     <option value="New">New</option>
@@ -2264,9 +2398,7 @@ function AdminPage() {
                   <select
                     value={filterProjectStatus}
                     onChange={(e) => setFilterProjectStatus(e.target.value)}
-                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                    }`}
+                    className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="All">All Project Statuses</option>
                     <option value="Hold">Hold</option>
@@ -2281,9 +2413,7 @@ function AdminPage() {
                   <select
                     value={filterVideoType}
                     onChange={(e) => setFilterVideoType(e.target.value)}
-                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                    }`}
+                    className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="All">All Video Types</option>
                     {VIDEO_TYPES.map((t) => (
@@ -2298,9 +2428,7 @@ function AdminPage() {
                   <select
                     value={filterLocation}
                     onChange={(e) => setFilterLocation(e.target.value)}
-                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                    }`}
+                    className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="">All Locations</option>
                     {uniqueLocations.map((loc) => (
@@ -2315,9 +2443,7 @@ function AdminPage() {
                   <select
                     value={filterClosedBy}
                     onChange={(e) => setFilterClosedBy(e.target.value)}
-                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                    }`}
+                    className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="All">All Admins</option>
                     <option value="Super Admin">Super Admin</option>
@@ -2333,9 +2459,7 @@ function AdminPage() {
                   <select
                     value={filterDateType}
                     onChange={(e) => setFilterDateType(e.target.value as any)}
-                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                    }`}
+                    className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="created_at">Created Date</option>
                     <option value="meeting_date">Meeting Date</option>
@@ -2347,9 +2471,7 @@ function AdminPage() {
                     type="date"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
-                    className={`rounded-lg border px-2 py-1 text-xs focus:outline-none ${
-                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50"
-                    }`}
+                    className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1 text-xs text-slate-900 focus:outline-none"
                     title="From Date"
                   />
                   <span className="text-slate-400">to</span>
@@ -2357,9 +2479,7 @@ function AdminPage() {
                     type="date"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className={`rounded-lg border px-2 py-1 text-xs focus:outline-none ${
-                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50"
-                    }`}
+                    className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1 text-xs text-slate-900 focus:outline-none"
                     title="To Date"
                   />
                 </div>
@@ -2368,7 +2488,7 @@ function AdminPage() {
                 <div className="flex items-center gap-1.5 ml-auto">
                   <button
                     onClick={handleApplyFilters}
-                    className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition-all cursor-pointer"
+                    className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition-all cursor-pointer"
                     title="Apply Filters"
                   >
                     <Filter className="h-3.5 w-3.5" />
@@ -2377,11 +2497,7 @@ function AdminPage() {
 
                   <button
                     onClick={handleClearFilters}
-                    className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
-                      isDark
-                        ? "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                        : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
+                    className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
                     title="Clear Filters"
                   >
                     <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
