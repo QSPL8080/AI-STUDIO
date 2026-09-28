@@ -172,15 +172,73 @@ function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Search & Filtering State
+  // Search & Filtering State (Section 11: Filters & Search)
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSource, setFilterSource] = useState<string>("All");
   const [filterStatus, setFilterStatus] = useState<string>("All");
   const [filterProjectStatus, setFilterProjectStatus] = useState<string>("All");
   const [filterVideoType, setFilterVideoType] = useState<string>("All");
+  const [filterLocation, setFilterLocation] = useState<string>("");
+  const [filterClosedBy, setFilterClosedBy] = useState<string>("All");
   const [filterDateType, setFilterDateType] = useState<"created_at" | "meeting_date" | "closed_at" | "delivery_date">("created_at");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+
+  // Applied Filters State (Controlled by Apply Filters / Clear Filters buttons)
+  const [appliedFilters, setAppliedFilters] = useState({
+    search: "",
+    source: "All",
+    status: "All",
+    projectStatus: "All",
+    videoType: "All",
+    location: "",
+    closedBy: "All",
+    dateType: "created_at" as "created_at" | "meeting_date" | "closed_at" | "delivery_date",
+    fromDate: "",
+    toDate: "",
+  });
+
+  const handleApplyFilters = () => {
+    setAppliedFilters({
+      search: searchTerm,
+      source: filterSource,
+      status: filterStatus,
+      projectStatus: filterProjectStatus,
+      videoType: filterVideoType,
+      location: filterLocation,
+      closedBy: filterClosedBy,
+      dateType: filterDateType,
+      fromDate: fromDate,
+      toDate: toDate,
+    });
+    showToast("Filters applied");
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setFilterSource("All");
+    setFilterStatus("All");
+    setFilterProjectStatus("All");
+    setFilterVideoType("All");
+    setFilterLocation("");
+    setFilterClosedBy("All");
+    setFilterDateType("created_at");
+    setFromDate("");
+    setToDate("");
+    setAppliedFilters({
+      search: "",
+      source: "All",
+      status: "All",
+      projectStatus: "All",
+      videoType: "All",
+      location: "",
+      closedBy: "All",
+      dateType: "created_at",
+      fromDate: "",
+      toDate: "",
+    });
+    showToast("All filters cleared");
+  };
 
   // Selection & Bulk Actions
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
@@ -1054,8 +1112,8 @@ function AdminPage() {
           : "bg-blue-50 text-blue-700 border-blue-200";
       case "Contacted":
         return isDark
-          ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-          : "bg-amber-50 text-amber-700 border-amber-200";
+          ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/40"
+          : "bg-yellow-50 text-yellow-800 border-yellow-300";
       case "In Progress":
         return isDark
           ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
@@ -1125,68 +1183,106 @@ function AdminPage() {
     }
   };
 
-  // Filtered Leads Calculation
+  // Filtered Leads Calculation (Matching Section 11 Search & Filter Criteria)
   const filteredLeads = useMemo(() => {
     return leads
       .filter((lead) => {
         // Source Filter
         const leadSourceCat = getLeadSourceDisplay(lead.source);
         const matchesSource =
-          filterSource === "All" ||
-          filterSource === leadSourceCat ||
-          lead.source === filterSource;
+          appliedFilters.source === "All" ||
+          appliedFilters.source === leadSourceCat ||
+          lead.source === appliedFilters.source;
 
-        // Status Filter
-        const matchesStatus = filterStatus === "All" || lead.status === filterStatus;
+        // Lead Status Filter
+        const matchesStatus = appliedFilters.status === "All" || lead.status === appliedFilters.status;
 
         // Project Status Filter
         const matchesProjStatus =
-          filterProjectStatus === "All" || (lead.project_status || "In Progress") === filterProjectStatus;
+          appliedFilters.projectStatus === "All" || (lead.project_status || "In Progress") === appliedFilters.projectStatus;
 
         // Video Type Filter
         const matchesVideoType =
-          filterVideoType === "All" ||
-          lead.video_type === filterVideoType ||
+          appliedFilters.videoType === "All" ||
+          lead.video_type === appliedFilters.videoType ||
           (lead.video_type &&
-            (lead.video_type.toLowerCase().includes(filterVideoType.toLowerCase().replace("ai ", "")) ||
-              filterVideoType.toLowerCase().includes(lead.video_type.toLowerCase())));
+            (lead.video_type.toLowerCase().includes(appliedFilters.videoType.toLowerCase().replace("ai ", "")) ||
+              appliedFilters.videoType.toLowerCase().includes(lead.video_type.toLowerCase())));
 
-        // Text Search (Client Name, Business, Phone, Email, Location)
-        const q = searchTerm.toLowerCase().trim();
+        // Business Location Filter
+        const matchesLocation =
+          !appliedFilters.location ||
+          (lead.location && lead.location.toLowerCase().includes(appliedFilters.location.toLowerCase().trim()));
+
+        // Lead Closed By Filter
+        const matchesClosedBy =
+          appliedFilters.closedBy === "All" ||
+          (lead.closed_by && lead.closed_by.toLowerCase().includes(appliedFilters.closedBy.toLowerCase().trim()));
+
+        // Text Search (Client Name, Business Name, Phone, Email) - Section 11
+        const q = appliedFilters.search.toLowerCase().trim();
         const matchesSearch =
           q === "" ||
           lead.name.toLowerCase().includes(q) ||
-          lead.phone.includes(q) ||
           lead.business.toLowerCase().includes(q) ||
-          (lead.email && lead.email.toLowerCase().includes(q)) ||
-          (lead.location && lead.location.toLowerCase().includes(q));
+          lead.phone.includes(q) ||
+          (lead.email && lead.email.toLowerCase().includes(q));
 
         // Date Range Filtering
         let matchesDate = true;
         let dateValue: string | undefined = undefined;
-        if (filterDateType === "created_at") dateValue = lead.created_at;
-        else if (filterDateType === "meeting_date") dateValue = lead.meeting_date;
-        else if (filterDateType === "closed_at") dateValue = lead.closed_at;
-        else if (filterDateType === "delivery_date") dateValue = lead.delivery_date;
+        if (appliedFilters.dateType === "created_at") dateValue = lead.created_at;
+        else if (appliedFilters.dateType === "meeting_date") dateValue = lead.meeting_date;
+        else if (appliedFilters.dateType === "closed_at") dateValue = lead.closed_at;
+        else if (appliedFilters.dateType === "delivery_date") dateValue = lead.delivery_date;
 
         if (dateValue) {
           const leadD = new Date(dateValue).getTime();
-          if (fromDate) {
-            const fD = new Date(fromDate).getTime();
+          if (appliedFilters.fromDate) {
+            const fD = new Date(appliedFilters.fromDate).getTime();
             if (leadD < fD) matchesDate = false;
           }
-          if (toDate) {
-            const tD = new Date(toDate).getTime() + 86400000; // end of day
+          if (appliedFilters.toDate) {
+            const tD = new Date(appliedFilters.toDate).getTime() + 86400000; // end of day
             if (leadD > tD) matchesDate = false;
           }
-        } else if (fromDate || toDate) {
+        } else if (appliedFilters.fromDate || appliedFilters.toDate) {
           matchesDate = false;
         }
 
-        return matchesSource && matchesStatus && matchesProjStatus && matchesVideoType && matchesSearch && matchesDate;
+        return (
+          matchesSource &&
+          matchesStatus &&
+          matchesProjStatus &&
+          matchesVideoType &&
+          matchesLocation &&
+          matchesClosedBy &&
+          matchesSearch &&
+          matchesDate
+        );
       })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [leads, filterSource, filterStatus, filterProjectStatus, filterVideoType, searchTerm, filterDateType, fromDate, toDate]);
+  }, [leads, appliedFilters]);
+
+  const uniqueLocations = useMemo(() => {
+    const set = new Set<string>();
+    leads.forEach((l) => {
+      if (l.location && l.location.trim()) {
+        set.add(l.location.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [leads]);
+
+  const uniqueClosedByAdmins = useMemo(() => {
+    const set = new Set<string>();
+    leads.forEach((l) => {
+      if (l.closed_by && l.closed_by.trim()) {
+        set.add(l.closed_by.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [leads]);
 
   // KPI Summary Counts
   const totalLeadsCount = leads.length;
@@ -1829,19 +1925,22 @@ function AdminPage() {
               </div>
             </div>
 
-            {/* Actions & Filters Bar */}
-            <div className={`rounded-2xl border p-4 shadow-sm space-y-3 transition-colors ${
+            {/* Actions & Filters Bar (Section 11: Filters & Search) */}
+            <div className={`rounded-2xl border p-4 shadow-sm space-y-3.5 transition-colors ${
               isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
             }`}>
-              {/* Top Row: Search + + Add Lead + Export */}
+              {/* Top Row: Search + Quick Action Buttons */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative flex-1 min-w-0 max-w-md">
+                <div className="relative flex-1 min-w-0 max-w-lg">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search by client name, phone, email, business, location..."
+                    placeholder="Search by Client Name, Business Name, Phone..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleApplyFilters();
+                    }}
                     className={`w-full rounded-xl border py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       isDark
                         ? "border-slate-700 bg-slate-900 text-white placeholder-slate-500"
@@ -1851,9 +1950,31 @@ function AdminPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
+                  {/* Apply Filters Button */}
+                  <button
+                    onClick={handleApplyFilters}
+                    className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700 transition-all cursor-pointer"
+                  >
+                    <Filter className="h-3.5 w-3.5" />
+                    <span>Apply Filters</span>
+                  </button>
+
+                  {/* Clear Filters Button */}
+                  <button
+                    onClick={handleClearFilters}
+                    className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer ${
+                      isDark
+                        ? "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                        : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Clear Filters</span>
+                  </button>
+
                   <button
                     onClick={() => setShowAddLeadModal(true)}
-                    className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700 transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all cursor-pointer"
                   >
                     <Plus className="h-4 w-4" />
                     <span>+ Add Lead</span>
@@ -1873,74 +1994,117 @@ function AdminPage() {
                 </div>
               </div>
 
-              {/* Bottom Row: Detailed Filters */}
-              <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <Filter className="h-3.5 w-3.5 text-blue-500" />
-                  <span className="font-semibold text-slate-500">Filters:</span>
+              {/* Bottom Row: Detailed Filters Grid */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                {/* Source Filter */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-semibold text-slate-400">Source:</span>
+                  <select
+                    value={filterSource}
+                    onChange={(e) => setFilterSource(e.target.value)}
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
+                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
+                    }`}
+                  >
+                    <option value="All">All Sources</option>
+                    <option value="USA Website">USA Website</option>
+                    <option value="India Website">India Website</option>
+                    <option value="Meta">Meta</option>
+                    <option value="Manual">Manual</option>
+                  </select>
                 </div>
 
-                {/* Source Filter */}
-                <select
-                  value={filterSource}
-                  onChange={(e) => setFilterSource(e.target.value)}
-                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                    isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                  }`}
-                >
-                  <option value="All">All Sources</option>
-                  <option value="USA Website">USA Website</option>
-                  <option value="India Website">India Website</option>
-                  <option value="Meta">Meta</option>
-                  <option value="Manual">Manual</option>
-                </select>
-
                 {/* Lead Status Filter */}
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                    isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                  }`}
-                >
-                  <option value="All">All Lead Statuses</option>
-                  <option value="New">New</option>
-                  <option value="Contacted">Contacted</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Hold">Hold</option>
-                  <option value="Closed">Closed</option>
-                </select>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-semibold text-slate-400">Lead Status:</span>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
+                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
+                    }`}
+                  >
+                    <option value="All">All Lead Statuses</option>
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Hold">Hold</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+                </div>
 
                 {/* Project Status Filter */}
-                <select
-                  value={filterProjectStatus}
-                  onChange={(e) => setFilterProjectStatus(e.target.value)}
-                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                    isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                  }`}
-                >
-                  <option value="All">All Project Statuses</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Hold">Hold</option>
-                  <option value="Delivered">Delivered</option>
-                </select>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-semibold text-slate-400">Project Status:</span>
+                  <select
+                    value={filterProjectStatus}
+                    onChange={(e) => setFilterProjectStatus(e.target.value)}
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
+                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
+                    }`}
+                  >
+                    <option value="All">All Project Statuses</option>
+                    <option value="Hold">Hold</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Delivered">Delivered</option>
+                  </select>
+                </div>
 
                 {/* Video Type Filter */}
-                <select
-                  value={filterVideoType}
-                  onChange={(e) => setFilterVideoType(e.target.value)}
-                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
-                    isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
-                  }`}
-                >
-                  <option value="All">All Video Types</option>
-                  {VIDEO_TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-semibold text-slate-400">Video Type:</span>
+                  <select
+                    value={filterVideoType}
+                    onChange={(e) => setFilterVideoType(e.target.value)}
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
+                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
+                    }`}
+                  >
+                    <option value="All">All Video Types</option>
+                    {VIDEO_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Business Location Filter */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-semibold text-slate-400">Location:</span>
+                  <select
+                    value={filterLocation}
+                    onChange={(e) => setFilterLocation(e.target.value)}
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
+                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
+                    }`}
+                  >
+                    <option value="">All Locations</option>
+                    {uniqueLocations.map((loc) => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Lead Closed By Filter */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-semibold text-slate-400">Closed By:</span>
+                  <select
+                    value={filterClosedBy}
+                    onChange={(e) => setFilterClosedBy(e.target.value)}
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer ${
+                      isDark ? "border-slate-700 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-900"
+                    }`}
+                  >
+                    <option value="All">All Admins</option>
+                    <option value="Super Admin">Super Admin</option>
+                    <option value="Admin">Admin</option>
+                    {uniqueClosedByAdmins.map((adm) => (
+                      <option key={adm} value={adm}>{adm}</option>
+                    ))}
+                  </select>
+                </div>
 
                 {/* Date Filter Selection */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <select
                     value={filterDateType}
                     onChange={(e) => setFilterDateType(e.target.value as any)}
@@ -1975,22 +2139,30 @@ function AdminPage() {
                   />
                 </div>
 
-                {(filterSource !== "All" || filterStatus !== "All" || filterProjectStatus !== "All" || filterVideoType !== "All" || fromDate || toDate || searchTerm) && (
+                {/* Apply Filter and Clear Filter Buttons */}
+                <div className="flex items-center gap-1.5 ml-auto">
                   <button
-                    onClick={() => {
-                      setFilterSource("All");
-                      setFilterStatus("All");
-                      setFilterProjectStatus("All");
-                      setFilterVideoType("All");
-                      setFromDate("");
-                      setToDate("");
-                      setSearchTerm("");
-                    }}
-                    className="text-xs font-bold text-red-500 hover:underline cursor-pointer"
+                    onClick={handleApplyFilters}
+                    className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition-all cursor-pointer"
+                    title="Apply Filters"
                   >
-                    Clear Filters
+                    <Filter className="h-3.5 w-3.5" />
+                    <span>Apply Filter</span>
                   </button>
-                )}
+
+                  <button
+                    onClick={handleClearFilters}
+                    className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                      isDark
+                        ? "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                        : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                    title="Clear Filters"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Clear Filter</span>
+                  </button>
+                </div>
               </div>
             </div>
 
