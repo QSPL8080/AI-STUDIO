@@ -2892,7 +2892,7 @@ function AdminPage() {
                       <td colSpan={8} className="py-12 text-center text-xs text-slate-500">
                         <Calendar className="mx-auto h-8 w-8 text-slate-400 mb-2" />
                         <p className="font-bold">No Calendly meetings match your search or filter.</p>
-                        <p className="text-[11px] text-slate-400 mt-1">Click "+ Book / Log Meeting" or "⚡ Send Test Booking" to record one.</p>
+                        <p className="text-[11px] text-slate-400 mt-1">New strategy calls booked via Calendly will appear here automatically.</p>
                       </td>
                     </tr>
                   ) : (
@@ -2907,36 +2907,36 @@ function AdminPage() {
                         return matchSearch && matchStatus;
                       })
                       .map((m) => (
-                        <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+                        <tr key={m.id} className="hover:bg-slate-50/75 transition-colors border-b border-slate-100">
                           {/* 1. Meeting Date & Time */}
                           <td className="px-4 py-3.5">
-                            <div className="font-bold text-blue-600 dark:text-blue-400">{m.meeting_date}</div>
+                            <div className="font-bold text-blue-600">{m.meeting_date}</div>
                             <div className="text-[11px] text-slate-500 font-mono mt-0.5">{m.meeting_time}</div>
                           </td>
 
                           {/* 2. Client Name & Contact */}
                           <td className="px-4 py-3.5">
-                            <div className="font-bold text-sm">{m.client_name}</div>
+                            <div className="font-bold text-sm text-slate-900">{m.client_name}</div>
                             <div className="text-[11px] text-slate-500 font-mono">{m.email}</div>
                             {m.phone && <div className="text-[10px] text-slate-400 font-mono">{m.phone}</div>}
                           </td>
 
                           {/* 3. Meeting Type */}
-                          <td className="px-4 py-3.5 font-medium">
-                            <span>{m.meeting_type || "AI Video Strategy Call (30 min)"}</span>
+                          <td className="px-4 py-3.5 font-medium text-slate-800 text-xs">
+                            <span>{m.meeting_type || "Quickupp AI Studio - 30 Min Strategy Call"}</span>
                           </td>
 
-                          {/* 4. Meeting Status (Editable Dropdown or Locked Badge) */}
+                          {/* 4. Meeting Status (Locked Badge if Cancelled, Dropdown if Active) */}
                           <td className="px-4 py-3.5">
                             {m.meeting_status === "cancelled" ? (
-                              <div className="space-y-1">
-                                <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-extrabold uppercase bg-red-100 text-red-700 border border-red-300 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800 select-none shadow-xs">
-                                  <Lock className="h-3 w-3 text-red-500" />
-                                  <span>Cancelled (Locked)</span>
-                                </span>
-                                <div className="text-[10px] text-red-500 font-semibold leading-tight">
-                                  <div className="text-[9px] uppercase tracking-wider text-red-400 font-bold">Cancelled on:</div>
-                                  <div>
+                              <div className="space-y-1 inline-block">
+                                <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-extrabold tracking-wide uppercase bg-red-50 text-red-700 border border-red-200 select-none cursor-not-allowed shadow-xs">
+                                  <Lock className="h-3 w-3 text-red-500 shrink-0" />
+                                  <span>CANCELLED</span>
+                                </div>
+                                <div className="text-[10px] text-red-600 font-semibold leading-tight">
+                                  <div className="text-[9px] uppercase tracking-wider text-red-500 font-bold">CANCELLED ON:</div>
+                                  <div className="font-mono text-[10px] text-red-600">
                                     {m.cancelled_at
                                       ? new Date(m.cancelled_at).toLocaleString("en-US", {
                                           month: "short",
@@ -2980,12 +2980,12 @@ function AdminPage() {
                                   await fetchNotificationsList();
                                   await fetchLogsList();
                                 }}
-                                className={`rounded-lg px-2 py-1 text-[11px] font-bold uppercase border cursor-pointer ${
+                                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase border cursor-pointer ${
                                   m.meeting_status === "completed"
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                     : m.meeting_status === "rescheduled"
-                                    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
-                                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
+                                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                                    : "bg-blue-50 text-blue-700 border-blue-200"
                                 }`}
                               >
                                 <option value="scheduled">Scheduled</option>
@@ -3000,7 +3000,7 @@ function AdminPage() {
                           {/* 5. Meeting Link */}
                           <td className="px-4 py-3.5">
                             {m.meeting_status === "cancelled" ? (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-red-50 dark:bg-red-950/40 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-800/40">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600 border border-red-200">
                                 Link Removed
                               </span>
                             ) : m.meeting_link ? (
@@ -3034,9 +3034,7 @@ function AdminPage() {
                                 );
                                 showToast("Handling admin assigned");
                               }}
-                              className={`rounded-lg px-2 py-1 text-[11px] font-medium border cursor-pointer outline-none ${
-                                isDark ? "border-slate-800 bg-[#161327] text-white" : "border-slate-200 bg-slate-50 text-slate-800"
-                              }`}
+                              className="rounded-lg px-2 py-1 text-[11px] font-medium border border-slate-200 bg-slate-50 text-slate-800 cursor-pointer outline-none"
                             >
                               <option value="">Unassigned</option>
                               <option value="superadmin@aistudio.com">Super Admin</option>
@@ -3061,19 +3059,21 @@ function AdminPage() {
                                 onClick={() => {
                                   setShowAddLeadModal(true);
                                 }}
-                                className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 cursor-pointer"
-                                title="Lead -> Calendly -> Notification -> Follow-up -> Lead Status"
+                                className="rounded-lg border border-blue-500/40 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:bg-blue-100 cursor-pointer"
+                                title="Link to Lead"
                               >
                                 Link Lead
                               </button>
 
-                              <button
-                                onClick={() => setEditingMeeting(m)}
-                                className="rounded-lg border border-slate-200 dark:border-slate-700 p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                                title="Edit Meeting Details"
-                              >
-                                <Edit className="h-3.5 w-3.5" />
-                              </button>
+                              {m.meeting_status !== "cancelled" && (
+                                <button
+                                  onClick={() => setEditingMeeting(m)}
+                                  className="rounded-lg border border-slate-200 p-1 text-slate-500 hover:bg-slate-100 cursor-pointer"
+                                  title="Edit Meeting Details"
+                                >
+                                  <Edit className="h-3.5 w-3.5" />
+                                </button>
+                              )}
 
                               {m.meeting_status !== "cancelled" && (
                                 <button
@@ -3081,8 +3081,8 @@ function AdminPage() {
                                     setCancellingMeeting(m);
                                     setCancellationReason("");
                                   }}
-                                  className="rounded-lg border border-red-200 dark:border-red-900/60 p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer"
-                                  title="Cancel Meeting (Permanent & Synced with Calendly)"
+                                  className="rounded-lg border border-red-200 p-1 text-red-500 hover:bg-red-50 cursor-pointer"
+                                  title="Cancel Meeting"
                                 >
                                   <X className="h-3.5 w-3.5" />
                                 </button>
@@ -3107,10 +3107,11 @@ function AdminPage() {
                                       showToast("Meeting removed");
                                     }
                                     await fetchMeetingsList();
+                                    await fetchNotificationsList();
                                     await fetchLogsList();
                                   }
                                 }}
-                                className="rounded-lg border border-slate-200 dark:border-slate-700 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
+                                className="rounded-lg border border-slate-200 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 cursor-pointer"
                                 title="Delete Meeting Record"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />

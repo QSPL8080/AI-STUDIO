@@ -995,6 +995,7 @@ export async function updateCalendlyMeetingStatus(
   cancelled_at?: string
 ): Promise<boolean> {
   const cancelTimestamp = status === "cancelled" ? (cancelled_at || new Date().toISOString()) : null;
+  let ok = false;
   if (getSupabaseConfig()) {
     try {
       const updateData: any = { meeting_status: status };
@@ -1004,7 +1005,7 @@ export async function updateCalendlyMeetingStatus(
         method: "PATCH",
         body: JSON.stringify(updateData),
       });
-      return true;
+      ok = true;
     } catch (e) {
       console.warn("Supabase updateCalendlyMeetingStatus fallback:", e);
     }
@@ -1019,12 +1020,12 @@ export async function updateCalendlyMeetingStatus(
       } else {
         await pool.query("UPDATE calendly_meetings SET meeting_status = $1, cancelled_at = $2 WHERE id = $3", [status, cancelTimestamp, id]);
       }
-      return true;
+      ok = true;
     }
   } catch (err) {
     console.error("PostgreSQL updateCalendlyMeetingStatus error:", err);
   }
-  return false;
+  return ok;
 }
 
 export async function updateCalendlyMeetingDetails(
@@ -1034,13 +1035,14 @@ export async function updateCalendlyMeetingDetails(
   if (updates.meeting_status === "cancelled" && !updates.cancelled_at) {
     updates.cancelled_at = new Date().toISOString();
   }
+  let ok = false;
   if (getSupabaseConfig()) {
     try {
       await supabaseRest(`calendly_meetings?id=eq.${id}`, {
         method: "PATCH",
         body: JSON.stringify(updates),
       });
-      return true;
+      ok = true;
     } catch (e) {
       console.warn("Supabase updateCalendlyMeetingDetails fallback:", e);
     }
@@ -1068,19 +1070,20 @@ export async function updateCalendlyMeetingDetails(
         values.push(id);
         await pool.query(`UPDATE calendly_meetings SET ${fields.join(", ")} WHERE id = $${i}`, values);
       }
-      return true;
+      ok = true;
     }
   } catch (err) {
     console.error("PostgreSQL updateCalendlyMeetingDetails error:", err);
   }
-  return false;
+  return ok;
 }
 
 export async function deleteCalendlyMeeting(id: string): Promise<boolean> {
+  let ok = false;
   if (getSupabaseConfig()) {
     try {
       await supabaseRest(`calendly_meetings?id=eq.${id}`, { method: "DELETE" });
-      return true;
+      ok = true;
     } catch (e) {
       console.warn("Supabase deleteCalendlyMeeting fallback:", e);
     }
@@ -1090,13 +1093,13 @@ export async function deleteCalendlyMeeting(id: string): Promise<boolean> {
   try {
     const pool = await getPool();
     if (pool) {
-      await pool.query("DELETE FROM calendly_meetings WHERE id = $1", [id]);
-      return true;
+      const res = await pool.query("DELETE FROM calendly_meetings WHERE id = $1", [id]);
+      if ((res.rowCount ?? 0) > 0) ok = true;
     }
   } catch (err) {
     console.error("PostgreSQL deleteCalendlyMeeting error:", err);
   }
-  return false;
+  return ok;
 }
 
 // ==========================================
