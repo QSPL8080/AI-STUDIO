@@ -27,7 +27,6 @@ import {
   LogOut,
   Mail,
   MessageSquare,
-  Moon,
   Package,
   Phone,
   Plus,
@@ -39,7 +38,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
-  Sun,
   Trash,
   Trash2,
   UserCheck,
@@ -143,19 +141,14 @@ interface AuthSession {
 }
 
 function AdminPage() {
-  // Theme State: White/Light by default as per requirements, switchable to dark
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window === "undefined") return "light";
-    return (localStorage.getItem("ai_studio_crm_theme") as "light" | "dark") || "light";
-  });
+  // Pure Clean Light Theme (Dark Mode completely removed as per requirements)
+  const isDark = false;
 
-  const isDark = theme === "dark";
-
-  const toggleTheme = () => {
-    const next = theme === "light" ? "dark" : "light";
-    setTheme(next);
-    localStorage.setItem("ai_studio_crm_theme", next);
-  };
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("ai_studio_crm_theme");
+    }
+  }, []);
 
   // Authentication & Role State
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -1451,46 +1444,40 @@ function AdminPage() {
   // AUTHENTICATED CRM DASHBOARD
   // =========================================================================
   return (
-    <div className={`min-h-screen flex flex-col font-sans transition-colors ${
-      isDark ? "bg-[#0c0b14] text-slate-100" : "bg-white text-slate-900"
-    }`}>
+    <div className="min-h-screen flex flex-col font-sans bg-slate-50/70 text-slate-900 antialiased">
       {/* Top Navbar */}
-      <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
-        isDark ? "border-slate-800 bg-[#12101e]/90" : "border-slate-200 bg-white/90"
-      }`}>
-        <div className="mx-auto flex w-full items-center justify-between px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs">
+        <div className="mx-auto flex w-full max-w-[1750px] items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3 gap-2 sm:gap-4">
           {/* Brand & Role Badge */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <a
               href="/"
               target="_blank"
               rel="noopener noreferrer"
-              className={`rounded-lg p-1.5 transition-colors ${
-                isDark ? "text-slate-400 hover:bg-slate-800 hover:text-white" : "text-slate-500 hover:bg-slate-100"
-              }`}
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
               title="View Public Website"
             >
               <ArrowLeft className="h-4 w-4" />
             </a>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <a href="/" className="flex items-center transition-opacity hover:opacity-85">
                 <img
                   src="/images/ADMIN LOGO.png"
                   alt="Quickupp AI Studio logo"
-                  className="h-8 sm:h-9 w-auto object-contain"
+                  className="h-7 sm:h-8 md:h-9 w-auto object-contain"
                   width={110}
                   height={34}
                 />
               </a>
 
               {isSuperAdmin ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/40 bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-bold text-purple-600 dark:text-purple-300">
+                <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/40 bg-purple-500/15 px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold text-purple-700">
                   <ShieldCheck className="h-3 w-3" />
                   <span>Super Admin</span>
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/40 bg-blue-500/15 px-2.5 py-0.5 text-[11px] font-bold text-blue-600 dark:text-blue-300">
+                <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/40 bg-blue-500/15 px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold text-blue-700">
                   <ShieldCheck className="h-3 w-3" />
                   <span>Admin</span>
                 </span>
@@ -1498,11 +1485,11 @@ function AdminPage() {
             </div>
           </div>
 
-          {/* Controls: Auto-Sync, Theme Switch, Sound, User Profile */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+          {/* Controls: Auto-Sync, Sound, Notifications, User Profile */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500 font-medium">
               <span>Auto-sync in</span>
-              <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{refreshCountdown}s</span>
+              <span className="font-mono font-bold text-blue-600">{refreshCountdown}s</span>
             </div>
 
             <button
@@ -1510,11 +1497,7 @@ function AdminPage() {
                 fetchAllData(false);
                 setRefreshCountdown(10);
               }}
-              className={`rounded-lg border p-2 transition-colors cursor-pointer ${
-                isDark
-                  ? "border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700"
-                  : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
+              className="rounded-lg border border-slate-200 bg-slate-100 p-2 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
               title="Refresh Data Now"
             >
               <RefreshCw className={`h-4 w-4 ${loading || isSyncing ? "animate-spin text-blue-500" : ""}`} />
@@ -1528,25 +1511,19 @@ function AdminPage() {
                 localStorage.setItem("ai_studio_sound_enabled", String(next));
                 if (next) playNotificationChime();
               }}
-              className={`rounded-lg border p-2 transition-colors cursor-pointer ${
-                isDark
-                  ? "border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700"
-                  : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
+              className="rounded-lg border border-slate-200 bg-slate-100 p-2 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
               title={soundEnabled ? "Mute notification sounds" : "Enable notification sounds"}
             >
               {soundEnabled ? <Volume2 className="h-4 w-4 text-emerald-500" /> : <VolumeX className="h-4 w-4 text-slate-400" />}
             </button>
 
-            {/* Notification Bell (Doc Requirement 15 & 20) */}
+            {/* Notification Bell */}
             <div className="relative">
               <button
                 onClick={() => setShowNotificationsPopover(!showNotificationsPopover)}
                 className={`relative rounded-lg border p-2 transition-colors cursor-pointer ${
                   showNotificationsPopover
-                    ? "border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400"
-                    : isDark
-                    ? "border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700"
+                    ? "border-blue-500 bg-blue-50 text-blue-600"
                     : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
                 }`}
                 title="Notifications Center"
@@ -1561,14 +1538,12 @@ function AdminPage() {
 
               {/* Notification Popover Dropdown */}
               {showNotificationsPopover && (
-                <div className={`absolute right-0 top-11 z-50 w-80 sm:w-96 rounded-2xl border p-3 shadow-2xl space-y-3 animate-in fade-in ${
-                  isDark ? "border-slate-700 bg-[#161327] text-white" : "border-slate-200 bg-white text-slate-900"
-                }`}>
-                  <div className="flex items-center justify-between border-b pb-2 dark:border-slate-800">
+                <div className="absolute right-0 top-11 z-50 w-[calc(100vw-24px)] max-w-sm sm:w-96 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl space-y-3 animate-in fade-in text-slate-900">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                     <div className="flex items-center gap-2">
                       <BellRing className="h-4 w-4 text-blue-500" />
                       <span className="text-xs font-bold">CRM Notifications</span>
-                      <span className="rounded-full bg-blue-100 px-1.5 py-0.2 text-[10px] font-extrabold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                      <span className="rounded-full bg-blue-100 px-1.5 py-0.2 text-[10px] font-extrabold text-blue-700">
                         {notifications.length}
                       </span>
                     </div>
@@ -1603,35 +1578,35 @@ function AdminPage() {
                   </div>
 
                   {/* Filter Pills */}
-                  <div className="flex items-center gap-1 text-[10px]">
+                  <div className="flex items-center gap-1 text-[10px] overflow-x-auto pb-1 scrollbar-none">
                     <button
                       onClick={() => setNotificationFilter("all")}
-                      className={`rounded px-2 py-0.5 font-bold cursor-pointer ${
-                        notificationFilter === "all" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className={`rounded px-2 py-0.5 font-bold cursor-pointer shrink-0 ${
+                        notificationFilter === "all" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"
                       }`}
                     >
                       All
                     </button>
                     <button
                       onClick={() => setNotificationFilter("unread")}
-                      className={`rounded px-2 py-0.5 font-bold cursor-pointer ${
-                        notificationFilter === "unread" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className={`rounded px-2 py-0.5 font-bold cursor-pointer shrink-0 ${
+                        notificationFilter === "unread" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"
                       }`}
                     >
                       Unread ({notifications.filter((n) => !n.is_read).length})
                     </button>
                     <button
                       onClick={() => setNotificationFilter("meeting")}
-                      className={`rounded px-2 py-0.5 font-bold cursor-pointer ${
-                        notificationFilter === "meeting" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className={`rounded px-2 py-0.5 font-bold cursor-pointer shrink-0 ${
+                        notificationFilter === "meeting" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"
                       }`}
                     >
                       Meetings
                     </button>
                     <button
                       onClick={() => setNotificationFilter("lead")}
-                      className={`rounded px-2 py-0.5 font-bold cursor-pointer ${
-                        notificationFilter === "lead" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className={`rounded px-2 py-0.5 font-bold cursor-pointer shrink-0 ${
+                        notificationFilter === "lead" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"
                       }`}
                     >
                       Leads
@@ -1639,7 +1614,7 @@ function AdminPage() {
                   </div>
 
                   {/* Notification List */}
-                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
                     {notifications
                       .filter((n) => {
                         if (notificationFilter === "unread") return !n.is_read;
@@ -1662,16 +1637,16 @@ function AdminPage() {
                         .map((n) => (
                           <div
                             key={n.id}
-                            className={`p-2.5 transition-colors flex items-start justify-between gap-2 hover:bg-slate-50 dark:hover:bg-white/[0.03] ${
-                              !n.is_read ? "bg-blue-50/50 dark:bg-blue-950/20 font-medium" : ""
+                            className={`p-2.5 transition-colors flex items-start justify-between gap-2 hover:bg-slate-50 ${
+                              !n.is_read ? "bg-blue-50/50 font-medium" : ""
                             }`}
                           >
                             <div className="space-y-0.5 flex-1">
                               <div className="flex items-center gap-1.5">
-                                <span className={`h-1.5 w-1.5 rounded-full ${!n.is_read ? "bg-blue-500 animate-ping" : "bg-slate-300 dark:bg-slate-600"}`} />
+                                <span className={`h-1.5 w-1.5 rounded-full ${!n.is_read ? "bg-blue-500 animate-ping" : "bg-slate-300"}`} />
                                 <span className="font-bold text-[11px]">{n.title}</span>
                               </div>
-                              <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2">{n.message}</p>
+                              <p className="text-[11px] text-slate-600 line-clamp-2">{n.message}</p>
                               <div className="flex items-center gap-2 pt-0.5 text-[9px] text-slate-400 font-mono">
                                 <span>{new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                                 <span>{n.actor}</span>
@@ -1698,26 +1673,11 @@ function AdminPage() {
               )}
             </div>
 
-            {/* White/Dark Theme Toggle (Doc Requirement 1) */}
-            <button
-              onClick={toggleTheme}
-              className={`rounded-lg border p-2 transition-colors cursor-pointer ${
-                isDark
-                  ? "border-slate-700 bg-slate-800/80 text-amber-400 hover:bg-slate-700"
-                  : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-              title={`Switch to ${isDark ? "White / Light Theme" : "Dark Theme"}`}
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-
             {/* User Profile & Logout */}
-            <div className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 ${
-              isDark ? "border-slate-800 bg-slate-900/80" : "border-slate-200 bg-slate-100"
-            }`}>
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-2.5 sm:px-3 py-1.5">
               <div className="hidden sm:block text-right">
                 <p className="text-xs font-bold leading-none">{session.name}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">{session.email}</p>
+                <p className="text-[10px] text-slate-500 font-mono mt-0.5">{session.email}</p>
               </div>
 
               <button
@@ -1732,24 +1692,20 @@ function AdminPage() {
         </div>
 
         {/* Tab Navigation Bar */}
-        <div className={`overflow-x-auto border-t transition-colors ${
-          isDark ? "border-slate-800 bg-[#151222]" : "border-slate-200 bg-white"
-        }`}>
-          <div className="mx-auto flex w-full items-center gap-1 px-4 py-1.5 sm:px-6">
+        <div className="overflow-x-auto border-t border-slate-200 bg-white scrollbar-none">
+          <div className="mx-auto flex w-full max-w-[1750px] items-center gap-1 sm:gap-1.5 px-3 sm:px-6 py-1.5 min-w-max">
             <button
               onClick={() => { setActiveTab("leads"); setIsPaymentUnlocked(false); setShowPaymentPinModal(false); }}
               className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "leads"
                   ? "bg-blue-600 text-white shadow-sm"
-                  : isDark
-                  ? "text-slate-400 hover:bg-slate-800 hover:text-white"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
               <Layers className="h-4 w-4" />
               <span>Leads Management</span>
               <span className={`ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
-                activeTab === "leads" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                activeTab === "leads" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
               }`}>
                 {leads.length}
               </span>
@@ -1798,8 +1754,6 @@ function AdminPage() {
               className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "activity"
                   ? "bg-blue-600 text-white shadow-sm"
-                  : isDark
-                  ? "text-slate-400 hover:bg-slate-800 hover:text-white"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
@@ -1815,8 +1769,6 @@ function AdminPage() {
                   className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-bold transition-all cursor-pointer ${
                     activeTab === "users"
                       ? "bg-purple-600 text-white shadow-sm"
-                      : isDark
-                      ? "text-purple-300 hover:bg-purple-950/40 hover:text-white"
                       : "text-purple-700 hover:bg-purple-50"
                   }`}
                 >
@@ -1829,8 +1781,6 @@ function AdminPage() {
                   className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-bold transition-all cursor-pointer ${
                     activeTab === "security"
                       ? "bg-purple-600 text-white shadow-sm"
-                      : isDark
-                      ? "text-purple-300 hover:bg-purple-950/40 hover:text-white"
                       : "text-purple-700 hover:bg-purple-50"
                   }`}
                 >
@@ -1845,15 +1795,13 @@ function AdminPage() {
               className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "recycle_bin"
                   ? "bg-red-600 text-white shadow-sm"
-                  : isDark
-                  ? "text-slate-400 hover:bg-slate-800 hover:text-white"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
               <Trash2 className="h-4 w-4" />
               <span>Recycle Bin</span>
               {recycleBinLeads.length > 0 && (
-                <span className="rounded-full bg-red-500/20 px-1.5 py-0.2 text-[10px] font-extrabold text-red-600 dark:text-red-300">
+                <span className="rounded-full bg-red-100 px-1.5 py-0.2 text-[10px] font-extrabold text-red-700">
                   {recycleBinLeads.length}
                 </span>
               )}
@@ -1863,7 +1811,7 @@ function AdminPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className="w-full flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
+      <main className="w-full max-w-[1750px] mx-auto flex-1 p-3 sm:p-5 lg:p-7 space-y-5 sm:space-y-6">
         {/* ========================================================================= */}
         {/* TAB 1: LEADS MANAGEMENT */}
         {/* ========================================================================= */}
