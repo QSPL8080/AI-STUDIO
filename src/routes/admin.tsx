@@ -1179,56 +1179,62 @@ function AdminPage() {
 
         {activeTab === "leads" && (
           <div>
-        {/* KPI Stats Cards - Responsive */}
+        {/* KPI Stats Cards - Responsive & Light Unified Theme */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-indigo-200 sm:p-5">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-slate-300 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">
                 Total Leads
               </span>
-              <Layers className="h-4 w-4 text-indigo-600" />
+              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-indigo-600">
+                <Layers className="h-4 w-4" />
+              </div>
             </div>
             <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">{leads.length}</p>
           </div>
 
-          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-blue-200 sm:p-5">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-blue-300 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 sm:text-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 sm:text-xs">
                 All USA Leads
               </span>
-              <span className="h-2 w-2 rounded-full bg-blue-500 shadow-xs sm:h-2.5 sm:w-2.5" />
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-100">
+                <span>🇺🇸</span> USA
+              </span>
             </div>
-            <p className="mt-2 text-2xl font-black text-blue-700 sm:mt-3 sm:text-3xl">{usaLeadsCount}</p>
+            <p className="mt-2 text-2xl font-black text-blue-600 sm:mt-3 sm:text-3xl">{usaLeadsCount}</p>
           </div>
 
-          <div className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-orange-200 sm:p-5">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-orange-300 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-orange-800 sm:text-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 sm:text-xs">
                 All India Leads
               </span>
-              <span className="h-2 w-2 rounded-full bg-orange-500 shadow-xs sm:h-2.5 sm:w-2.5" />
+              <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-700 border border-orange-100">
+                <span>🇮🇳</span> IND
+              </span>
             </div>
-            <p className="mt-2 text-2xl font-black text-orange-700 sm:mt-3 sm:text-3xl">{indiaLeadsCount}</p>
+            <p className="mt-2 text-2xl font-black text-orange-600 sm:mt-3 sm:text-3xl">{indiaLeadsCount}</p>
           </div>
 
-          <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-sky-200 sm:p-5">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-sky-300 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-800 sm:text-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 sm:text-xs">
                 Contact Form
               </span>
-              <span className="h-2 w-2 rounded-full bg-sky-500 shadow-xs sm:h-2.5 sm:w-2.5" />
+              <span className="h-2.5 w-2.5 rounded-full bg-sky-500 shadow-xs" />
             </div>
-            <p className="mt-2 text-2xl font-black text-sky-700 sm:mt-3 sm:text-3xl">{contactFormCount}</p>
+            <p className="mt-2 text-2xl font-black text-sky-600 sm:mt-3 sm:text-3xl">{contactFormCount}</p>
           </div>
 
-          <div className="rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50/70 via-white to-white p-4 shadow-xs transition-all hover:shadow-md hover:border-purple-200 sm:p-5 col-span-2 sm:col-span-1">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:shadow-md hover:border-purple-300 sm:p-5 col-span-2 sm:col-span-1">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800 sm:text-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 sm:text-xs">
                 Popup Modal
               </span>
-              <span className="h-2 w-2 rounded-full bg-purple-500 shadow-xs sm:h-2.5 sm:w-2.5" />
+              <span className="h-2.5 w-2.5 rounded-full bg-purple-500 shadow-xs" />
             </div>
-            <p className="mt-2 text-2xl font-black text-purple-700 sm:mt-3 sm:text-3xl">{popupModalCount}</p>
+            <p className="mt-2 text-2xl font-black text-purple-600 sm:mt-3 sm:text-3xl">{popupModalCount}</p>
           </div>
         </div>
 
