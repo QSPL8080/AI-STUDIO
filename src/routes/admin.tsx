@@ -1821,9 +1821,9 @@ function AdminPage() {
             <div className={`overflow-hidden rounded-2xl border shadow-sm transition-colors ${
               isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
             }`}>
-              {/* Desktop Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-left text-xs">
+              {/* Desktop Table with Horizontal Scroll */}
+              <div className="hidden md:block overflow-x-auto w-full">
+                <table className="w-full min-w-[1200px] text-left text-xs">
                   <thead className={`border-b text-[11px] font-bold uppercase tracking-wider ${
                     isDark ? "border-slate-800 bg-[#171427] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-600"
                   }`}>
@@ -2071,70 +2071,118 @@ function AdminPage() {
               </div>
 
               {/* Mobile Cards View */}
-              <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800 p-3 space-y-3">
+              <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800 p-3 space-y-4">
                 {filteredLeads.length === 0 ? (
                   <div className="py-12 text-center text-xs text-slate-500">
                     No leads found matching criteria.
                   </div>
                 ) : (
                   filteredLeads.map((lead) => (
-                    <div key={lead.id} className="pt-3 first:pt-0 space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <div className="font-bold text-sm">{lead.name}</div>
+                    <div key={lead.id} className="pt-3 first:pt-0 space-y-2.5 text-xs">
+                      {/* Header with Name & Source */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                          {lead.name}
+                        </div>
                         {isLeadUsa(lead) ? (
-                          <span className="rounded border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-300">
+                          <span className="shrink-0 rounded border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-300">
                             🇺🇸 USA
                           </span>
+                        ) : lead.source === "Manual" ? (
+                          <span className="shrink-0 rounded border border-purple-500/40 bg-purple-500/15 px-2 py-0.5 text-[10px] font-bold text-purple-600 dark:text-purple-300">
+                            ✍️ Manual
+                          </span>
                         ) : (
-                          <span className="rounded border border-orange-500/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold text-orange-600 dark:text-orange-300">
+                          <span className="shrink-0 rounded border border-orange-500/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold text-orange-600 dark:text-orange-300">
                             🇮🇳 {lead.source}
                           </span>
                         )}
                       </div>
 
+                      {/* Business & Location */}
                       <div className="text-slate-500">
-                        {lead.business} {lead.location ? `· ${lead.location}` : ""}
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">{lead.business}</span>
+                        {lead.location ? ` · 📍 ${lead.location}` : ""}
+                        {lead.email && <div className="text-[11px] font-mono text-slate-400">{lead.email}</div>}
                       </div>
 
-                      <div className="flex items-center justify-between">
+                      {/* Phone & Scope */}
+                      <div className="flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg">
                         <a href={`tel:${lead.phone}`} className="font-mono text-blue-600 font-semibold flex items-center gap-1">
-                          <Phone className="h-3 w-3" /> {lead.phone}
+                          <Phone className="h-3 w-3 text-slate-400" /> {lead.phone}
                         </a>
-                        <span className="font-semibold text-slate-700 dark:text-slate-300">{lead.video_type}</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                          <Video className="h-3 w-3 text-blue-500" /> {lead.video_type}
+                          {lead.video_quantity && ` (x${lead.video_quantity})`}
+                        </span>
                       </div>
 
-                      <div className="flex items-center justify-between pt-1">
-                        <select
-                          value={lead.status}
-                          onChange={(e) => handleUpdateLeadStatus(lead, e.target.value as LeadStatus)}
-                          className={`rounded px-2 py-0.5 text-[11px] font-bold ${getLeadStatusBadge(lead.status)}`}
-                        >
-                          <option value="New">New</option>
-                          <option value="Contacted">Contacted</option>
-                          <option value="In Progress">In Progress</option>
-                          <option value="Hold">Hold</option>
-                          <option value="Closed">Closed</option>
-                        </select>
+                      {/* Status selectors */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400 block mb-0.5">Lead Status</label>
+                          <select
+                            value={lead.status}
+                            onChange={(e) => handleUpdateLeadStatus(lead, e.target.value as LeadStatus)}
+                            className={`w-full rounded-lg px-2 py-1 text-[11px] font-bold ${getLeadStatusBadge(lead.status)}`}
+                          >
+                            <option value="New">New</option>
+                            <option value="Contacted">Contacted</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Hold">Hold</option>
+                            <option value="Closed">Closed</option>
+                          </select>
+                        </div>
 
-                        <div className="flex items-center gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400 block mb-0.5">Project Status</label>
+                          <select
+                            value={lead.project_status || "In Progress"}
+                            onChange={(e) => handleUpdateProjectStatus(lead, e.target.value as ProjectStatus)}
+                            className={`w-full rounded-lg px-2 py-1 text-[11px] font-bold ${getProjectStatusBadge(lead.project_status)}`}
+                          >
+                            <option value="Hold">Hold</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Delivered">Delivered</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/60">
+                        <div className="text-[10px] text-slate-400">
+                          {new Date(lead.created_at).toLocaleDateString()}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleOpenWhatsApp(lead)}
-                            className="rounded bg-emerald-600 p-1.5 text-white cursor-pointer"
+                            className="rounded-lg bg-emerald-600 p-1.5 text-white hover:bg-emerald-700 transition-colors cursor-pointer"
+                            title="WhatsApp"
                           >
                             <MessageSquare className="h-3.5 w-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setViewLeadDetails(lead)}
-                            className="rounded border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs cursor-pointer"
+                            className="rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                           >
                             Details
                           </button>
                           <button
                             type="button"
+                            onClick={() => setEditingLead(lead)}
+                            className="rounded-lg border border-slate-200 dark:border-slate-700 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            title="Edit"
+                          >
+                            <Edit className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleSoftDeleteLead(lead.id)}
-                            className="rounded border border-red-300 dark:border-red-800 p-1 text-red-500 cursor-pointer"
+                            className="rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/30 p-1.5 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors cursor-pointer"
+                            title="Delete"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -2237,10 +2285,10 @@ function AdminPage() {
             </div>
 
             {/* Orders Table */}
-            <div className={`overflow-hidden rounded-2xl border shadow-sm ${
+            <div className={`overflow-x-auto w-full rounded-2xl border shadow-sm ${
               isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
             }`}>
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[900px] text-left text-xs">
                 <thead className={`border-b text-[11px] font-bold uppercase tracking-wider ${
                   isDark ? "border-slate-800 bg-[#171427] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-600"
                 }`}>
@@ -2349,10 +2397,10 @@ function AdminPage() {
             </div>
 
             {/* Meetings Table */}
-            <div className={`overflow-hidden rounded-2xl border shadow-sm ${
+            <div className={`overflow-x-auto w-full rounded-2xl border shadow-sm ${
               isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
             }`}>
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[850px] text-left text-xs">
                 <thead className={`border-b text-[11px] font-bold uppercase tracking-wider ${
                   isDark ? "border-slate-800 bg-[#171427] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-600"
                 }`}>
@@ -2499,10 +2547,10 @@ function AdminPage() {
             </div>
 
             {/* Admin Users Table */}
-            <div className={`overflow-hidden rounded-2xl border shadow-sm ${
+            <div className={`overflow-x-auto w-full rounded-2xl border shadow-sm ${
               isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
             }`}>
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[750px] text-left text-xs">
                 <thead className={`border-b text-[11px] font-bold uppercase tracking-wider ${
                   isDark ? "border-slate-800 bg-[#171427] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-600"
                 }`}>
@@ -2633,10 +2681,10 @@ function AdminPage() {
               </p>
             </div>
 
-            <div className={`overflow-hidden rounded-2xl border shadow-sm ${
+            <div className={`overflow-x-auto w-full rounded-2xl border shadow-sm ${
               isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
             }`}>
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[900px] text-left text-xs">
                 <thead className={`border-b text-[11px] font-bold uppercase tracking-wider ${
                   isDark ? "border-slate-800 bg-[#171427] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-600"
                 }`}>
@@ -2715,10 +2763,10 @@ function AdminPage() {
               </div>
             </div>
 
-            <div className={`overflow-hidden rounded-2xl border shadow-sm ${
+            <div className={`overflow-x-auto w-full rounded-2xl border shadow-sm ${
               isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
             }`}>
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[750px] text-left text-xs">
                 <thead className={`border-b text-[11px] font-bold uppercase tracking-wider ${
                   isDark ? "border-slate-800 bg-[#171427] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-600"
                 }`}>
