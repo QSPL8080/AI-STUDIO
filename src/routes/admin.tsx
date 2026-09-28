@@ -906,23 +906,23 @@ function AdminPage() {
     const isUsa = isLeadUsa(lead);
 
     if (isUsa) {
-      let msg = `Hi ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio USA! 🇺🇸\n\nWe have received your AI Video Production inquiry with the following details:\n\n👤 Client Name: ${lead.name}`;
-      if (lead.business) msg += `\n🏢 Business / Brand: ${lead.business}`;
-      if (lead.video_type) msg += `\n🎬 Video Format: ${lead.video_type}`;
-      if (lead.video_quantity) msg += `\n🔢 Video Quantity: ${lead.video_quantity}`;
-      if (lead.location) msg += `\n📍 Location: ${lead.location}`;
-      if (lead.requirement || lead.additional) msg += `\n📋 Project Scope: ${lead.requirement || lead.additional}`;
+      let msg = `Hi ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio USA!\n\nWe have received your AI Video Production inquiry with the following details:\n\nClient Name: ${lead.name}`;
+      if (lead.business) msg += `\nBusiness / Brand: ${lead.business}`;
+      if (lead.video_type) msg += `\nVideo Format: ${lead.video_type}`;
+      if (lead.video_quantity) msg += `\nVideo Quantity: ${lead.video_quantity}`;
+      if (lead.location) msg += `\nLocation: ${lead.location}`;
+      if (lead.requirement || lead.additional) msg += `\nProject Scope: ${lead.requirement || lead.additional}`;
 
       msg += `\n\nOur team is reviewing your requirements and preparing custom sample concepts, video reels, and a tailored quote for your project.\n\nCould you please confirm if you have a target turnaround timeline or any reference video links in mind?\n\nBest regards,\nQuickupp AI Studio Team (USA)`;
       return msg;
     }
 
-    let msg = `Hello ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio! 🇮🇳\n\nWe have received your AI video inquiry with the following details:\n\n👤 Client Name: ${lead.name}`;
-    if (lead.business) msg += `\n🏢 Business: ${lead.business}`;
-    if (lead.video_type) msg += `\n🎬 Video Type: ${lead.video_type}`;
-    if (lead.video_quantity) msg += `\n🔢 Video Quantity: ${lead.video_quantity}`;
-    if (lead.location) msg += `\n📍 Location: ${lead.location}`;
-    if (lead.requirement || lead.additional) msg += `\n📋 Requirement: ${lead.requirement || lead.additional}`;
+    let msg = `Hello ${lead.name},\n\nThank you for reaching out to Quickupp AI Studio!\n\nWe have received your AI video inquiry with the following details:\n\nClient Name: ${lead.name}`;
+    if (lead.business) msg += `\nBusiness: ${lead.business}`;
+    if (lead.video_type) msg += `\nVideo Type: ${lead.video_type}`;
+    if (lead.video_quantity) msg += `\nVideo Quantity: ${lead.video_quantity}`;
+    if (lead.location) msg += `\nLocation: ${lead.location}`;
+    if (lead.requirement || lead.additional) msg += `\nRequirement: ${lead.requirement || lead.additional}`;
 
     msg += `\n\nOur team is reviewing your requirements and will share the tailored proposal and sample concepts shortly.\n\nCould you please confirm if you have any specific deadline or reference in mind?\n\nBest regards,\nQuickupp AI Studio Team`;
     return msg;
@@ -1055,18 +1055,47 @@ function AdminPage() {
     }
   };
 
+  const getLeadSourceDisplay = (source: string): "USA Website" | "India Website" | "Meta" | "Manual" => {
+    if (!source) return "India Website";
+    const s = source.toLowerCase();
+    if (s.includes("usa")) return "USA Website";
+    if (s.includes("meta")) return "Meta";
+    if (s.includes("manual")) return "Manual";
+    return "India Website";
+  };
+
+  const getLeadSourceBadgeClass = (source: string) => {
+    const type = getLeadSourceDisplay(source);
+    switch (type) {
+      case "USA Website":
+        return isDark
+          ? "border-blue-500/40 bg-blue-500/15 text-blue-300"
+          : "border-blue-200 bg-blue-50 text-blue-700";
+      case "India Website":
+        return isDark
+          ? "border-orange-500/40 bg-orange-500/15 text-orange-300"
+          : "border-orange-200 bg-orange-50 text-orange-700";
+      case "Meta":
+        return isDark
+          ? "border-sky-500/40 bg-sky-500/15 text-sky-300"
+          : "border-sky-200 bg-sky-50 text-sky-700";
+      case "Manual":
+        return isDark
+          ? "border-purple-500/40 bg-purple-500/15 text-purple-300"
+          : "border-purple-200 bg-purple-50 text-purple-700";
+    }
+  };
+
   // Filtered Leads Calculation
   const filteredLeads = useMemo(() => {
     return leads
       .filter((lead) => {
         // Source Filter
+        const leadSourceCat = getLeadSourceDisplay(lead.source);
         const matchesSource =
           filterSource === "All" ||
-          (filterSource === "USA Leads"
-            ? isLeadUsa(lead)
-            : filterSource === "Manual"
-            ? lead.source === "Manual"
-            : lead.source === filterSource);
+          filterSource === leadSourceCat ||
+          lead.source === filterSource;
 
         // Status Filter
         const matchesStatus = filterStatus === "All" || lead.status === filterStatus;
@@ -1317,7 +1346,7 @@ function AdminPage() {
 
               {isSuperAdmin ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/40 bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-bold text-purple-600 dark:text-purple-300">
-                  <span>👑</span>
+                  <ShieldCheck className="h-3 w-3" />
                   <span>Super Admin</span>
                 </span>
               ) : (
@@ -1661,13 +1690,10 @@ function AdminPage() {
                   }`}
                 >
                   <option value="All">All Sources</option>
-                  <option value="USA Leads">🇺🇸 USA Leads</option>
-                  <option value="Meta Ads">📊 Meta Ads</option>
-                  <option value="Manual">✍️ Manual Leads</option>
-                  <option value="Contact Form">Contact Form</option>
-                  <option value="Popup Modal">Popup Modal</option>
-                  <option value="USA - Contact Form">USA - Contact Form</option>
-                  <option value="USA - Popup Modal">USA - Popup Modal</option>
+                  <option value="USA Website">USA Website</option>
+                  <option value="India Website">India Website</option>
+                  <option value="Meta">Meta</option>
+                  <option value="Manual">Manual</option>
                 </select>
 
                 {/* Lead Status Filter */}
@@ -1881,27 +1907,9 @@ function AdminPage() {
 
                             {/* Source */}
                             <td className="whitespace-nowrap px-4 py-3.5">
-                              {isLeadUsa(lead) ? (
-                                <span className="inline-flex items-center gap-1 rounded-md border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-300">
-                                  <span>🇺🇸</span>
-                                  <span>{lead.source}</span>
-                                </span>
-                              ) : lead.source === "Meta Ads" || lead.source === "Meta" ? (
-                                <span className="inline-flex items-center gap-1 rounded-md border border-sky-500/40 bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-300">
-                                  <span>📊</span>
-                                  <span>Meta Ads</span>
-                                </span>
-                              ) : lead.source === "Manual" ? (
-                                <span className="inline-flex items-center gap-1 rounded-md border border-purple-500/40 bg-purple-500/15 px-2 py-0.5 text-[10px] font-bold text-purple-600 dark:text-purple-300">
-                                  <span>✍️</span>
-                                  <span>Manual</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 rounded-md border border-orange-500/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold text-orange-600 dark:text-orange-300">
-                                  <span>🇮🇳</span>
-                                  <span>{lead.source}</span>
-                                </span>
-                              )}
+                              <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold ${getLeadSourceBadgeClass(lead.source)}`}>
+                                {getLeadSourceDisplay(lead.source)}
+                              </span>
                             </td>
 
                             {/* Timestamp */}
@@ -1938,7 +1946,7 @@ function AdminPage() {
                               </button>
                               <div className="text-xs text-slate-500 font-medium">
                                 {lead.business}
-                                {lead.location ? ` · 📍 ${lead.location}` : ""}
+                                {lead.location ? ` · ${lead.location}` : ""}
                               </div>
                               {lead.email && <div className="text-[11px] text-slate-400 font-mono">{lead.email}</div>}
                             </td>
@@ -2095,25 +2103,15 @@ function AdminPage() {
                         <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
                           {lead.name}
                         </div>
-                        {isLeadUsa(lead) ? (
-                          <span className="shrink-0 rounded border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-300">
-                            🇺🇸 USA
-                          </span>
-                        ) : lead.source === "Manual" ? (
-                          <span className="shrink-0 rounded border border-purple-500/40 bg-purple-500/15 px-2 py-0.5 text-[10px] font-bold text-purple-600 dark:text-purple-300">
-                            ✍️ Manual
-                          </span>
-                        ) : (
-                          <span className="shrink-0 rounded border border-orange-500/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold text-orange-600 dark:text-orange-300">
-                            🇮🇳 {lead.source}
-                          </span>
-                        )}
+                        <span className={`shrink-0 rounded border px-2 py-0.5 text-[10px] font-bold ${getLeadSourceBadgeClass(lead.source)}`}>
+                          {getLeadSourceDisplay(lead.source)}
+                        </span>
                       </div>
 
                       {/* Business & Location */}
                       <div className="text-slate-500">
                         <span className="font-semibold text-slate-700 dark:text-slate-300">{lead.business}</span>
-                        {lead.location ? ` · 📍 ${lead.location}` : ""}
+                        {lead.location ? ` · ${lead.location}` : ""}
                         {lead.email && <div className="text-[11px] font-mono text-slate-400">{lead.email}</div>}
                       </div>
 
@@ -2921,10 +2919,10 @@ function AdminPage() {
                       isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
                     }`}
                   >
-                    <option value="Manual">✍️ Manual Lead</option>
-                    <option value="Meta Ads">📊 Meta Ads</option>
-                    <option value="USA - Contact Form">🇺🇸 USA - Contact Form</option>
-                    <option value="Contact Form">🇮🇳 Contact Form</option>
+                    <option value="USA Website">USA Website</option>
+                    <option value="India Website">India Website</option>
+                    <option value="Meta">Meta</option>
+                    <option value="Manual">Manual</option>
                   </select>
                 </div>
 
@@ -3116,23 +3114,9 @@ function AdminPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-black">{viewLeadDetails.name}</h3>
-                    {isLeadUsa(viewLeadDetails) ? (
-                      <span className="rounded-md border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-300">
-                        🇺🇸 USA
-                      </span>
-                    ) : viewLeadDetails.source === "Meta Ads" || viewLeadDetails.source === "Meta" ? (
-                      <span className="rounded-md border border-sky-500/40 bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-300">
-                        📊 Meta Ads
-                      </span>
-                    ) : viewLeadDetails.source === "Manual" ? (
-                      <span className="rounded-md border border-purple-500/40 bg-purple-500/15 px-2 py-0.5 text-[10px] font-bold text-purple-600 dark:text-purple-300">
-                        ✍️ Manual
-                      </span>
-                    ) : (
-                      <span className="rounded-md border border-orange-500/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold text-orange-600 dark:text-orange-300">
-                        🇮🇳 {viewLeadDetails.source}
-                      </span>
-                    )}
+                    <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${getLeadSourceBadgeClass(viewLeadDetails.source)}`}>
+                      {getLeadSourceDisplay(viewLeadDetails.source)}
+                    </span>
                   </div>
                   <p className="text-xs text-slate-500 font-medium">{viewLeadDetails.business}</p>
                 </div>
@@ -3172,7 +3156,7 @@ function AdminPage() {
               <div>
                 <span className="text-slate-500 font-semibold block text-[10px] uppercase">Delivery Target</span>
                 <span className="font-semibold text-blue-600 dark:text-blue-400 text-xs block mt-0.5">
-                  {viewLeadDetails.delivery_date ? `📅 ${viewLeadDetails.delivery_date}` : "Not scheduled"}
+                  {viewLeadDetails.delivery_date || "Not scheduled"}
                 </span>
               </div>
             </div>
@@ -3232,7 +3216,7 @@ function AdminPage() {
                   <div className="flex justify-between items-start">
                     <span className="text-slate-500">Business Location:</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {viewLeadDetails.location ? `📍 ${viewLeadDetails.location}` : "USA / Global"}
+                      {viewLeadDetails.location || "USA / Global"}
                     </span>
                   </div>
                 </div>
@@ -3250,7 +3234,9 @@ function AdminPage() {
                 <div className="space-y-2.5">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500">Lead Source:</span>
-                    <span className="font-bold">{viewLeadDetails.source}</span>
+                    <span className={`rounded px-2 py-0.5 text-[10px] font-bold ${getLeadSourceBadgeClass(viewLeadDetails.source)}`}>
+                      {getLeadSourceDisplay(viewLeadDetails.source)}
+                    </span>
                   </div>
 
                   <div className="flex justify-between items-center">
@@ -4193,8 +4179,9 @@ function AdminPage() {
                 </div>
 
                 {paymentPinError && (
-                  <p className="mt-2 text-xs font-bold text-red-600 animate-in fade-in">
-                    ⚠️ {paymentPinError}
+                  <p className="mt-2 text-xs font-bold text-red-600 animate-in fade-in flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>{paymentPinError}</span>
                   </p>
                 )}
               </div>
