@@ -1270,7 +1270,7 @@ function AdminPage() {
   // =========================================================================
   return (
     <div className={`min-h-screen flex flex-col font-sans transition-colors ${
-      isDark ? "bg-[#0c0b14] text-slate-100" : "bg-slate-50/70 text-slate-900"
+      isDark ? "bg-[#0c0b14] text-slate-100" : "bg-white text-slate-900"
     }`}>
       {/* Top Navbar */}
       <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
@@ -3851,6 +3851,117 @@ function AdminPage() {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Tab Security PIN Modal */}
+      {showPaymentPinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl text-slate-800">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-xs">
+                  <Lock className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">Unlock Payments Tab</h3>
+                  <p className="text-xs text-slate-500">Enter security PIN to view orders &amp; revenue</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPaymentPinModal(false);
+                  setPaymentPinInput("");
+                  setPaymentPinError("");
+                }}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Security PIN
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="security_pin_code"
+                    id="security_pin_code"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-form-type="other"
+                    autoFocus
+                    placeholder="Enter PIN"
+                    value={paymentPinInput}
+                    style={
+                      {
+                        WebkitTextSecurity: showPaymentPin ? "none" : "disc",
+                      } as React.CSSProperties
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleUnlockPaymentPin();
+                      }
+                    }}
+                    onChange={(e) => {
+                      setPaymentPinInput(e.target.value);
+                      if (paymentPinError) setPaymentPinError("");
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all font-mono tracking-wider"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentPin(!showPaymentPin)}
+                    className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                    tabIndex={-1}
+                    title={showPaymentPin ? "Hide PIN" : "Show PIN"}
+                  >
+                    {showPaymentPin ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                  </button>
+                </div>
+
+                {paymentPinError && (
+                  <p className="mt-2 text-xs font-bold text-red-600 animate-in fade-in">
+                    ⚠️ {paymentPinError}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPaymentPinModal(false);
+                    setPaymentPinInput("");
+                    setPaymentPinError("");
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-100 py-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUnlockPaymentPin()}
+                  disabled={isVerifyingPin}
+                  className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md hover:brightness-105 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <span>{isVerifyingPin ? "Verifying..." : "Unlock"}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
