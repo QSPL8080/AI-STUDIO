@@ -1952,28 +1952,6 @@ function AdminPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* Apply Filters Button */}
-                  <button
-                    onClick={handleApplyFilters}
-                    className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700 transition-all cursor-pointer"
-                  >
-                    <Filter className="h-3.5 w-3.5" />
-                    <span>Apply Filters</span>
-                  </button>
-
-                  {/* Clear Filters Button */}
-                  <button
-                    onClick={handleClearFilters}
-                    className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer ${
-                      isDark
-                        ? "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                        : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Clear Filters</span>
-                  </button>
-
                   <button
                     onClick={() => setShowAddLeadModal(true)}
                     className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all cursor-pointer"
