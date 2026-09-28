@@ -77,6 +77,7 @@ export interface CalendlyMeeting {
   assigned_admin?: string;
   notes?: string;
   created_at: string;
+  cancelled_at?: string;
 }
 
 export interface CRMNotification {
@@ -154,7 +155,13 @@ async function supabaseRest(endpoint: string, options: RequestInit = {}) {
     const txt = await res.text();
     throw new Error(`Supabase REST Error (${res.status}): ${txt}`);
   }
-  return res.json();
+  const txt = await res.text();
+  if (!txt || txt.trim() === "") return [];
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return [];
+  }
 }
 
 // 2. Direct PostgreSQL Pool (For localhost development or direct pg connection)
@@ -984,12 +991,15 @@ export async function getCalendlyMeetings(): Promise<CalendlyMeeting[]> {
 export async function updateCalendlyMeetingStatus(
   id: string,
   status: string,
-  notes?: string
+  notes?: string,
+  cancelled_at?: string
 ): Promise<boolean> {
+  const cancelTimestamp = status === "cancelled" ? (cancelled_at || new Date().toISOString()) : null;
   if (getSupabaseConfig()) {
     try {
       const updateData: any = { meeting_status: status };
       if (notes) updateData.notes = notes;
+      if (cancelTimestamp) updateData.cancelled_at = cancelTimestamp;
       await supabaseRest(`calendly_meetings?id=eq.${id}`, {
         method: "PATCH",
         body: JSON.stringify(updateData),
@@ -1005,9 +1015,9 @@ export async function updateCalendlyMeetingStatus(
     const pool = await getPool();
     if (pool) {
       if (notes) {
-        await pool.query("UPDATE calendly_meetings SET meeting_status = $1, notes = $2 WHERE id = $3", [status, notes, id]);
+        await pool.query("UPDATE calendly_meetings SET meeting_status = $1, notes = $2, cancelled_at = $3 WHERE id = $4", [status, notes, cancelTimestamp, id]);
       } else {
-        await pool.query("UPDATE calendly_meetings SET meeting_status = $1 WHERE id = $2", [status, id]);
+        await pool.query("UPDATE calendly_meetings SET meeting_status = $1, cancelled_at = $2 WHERE id = $3", [status, cancelTimestamp, id]);
       }
       return true;
     }
@@ -1021,6 +1031,9 @@ export async function updateCalendlyMeetingDetails(
   id: string,
   updates: Partial<CalendlyMeeting>
 ): Promise<boolean> {
+  if (updates.meeting_status === "cancelled" && !updates.cancelled_at) {
+    updates.cancelled_at = new Date().toISOString();
+  }
   if (getSupabaseConfig()) {
     try {
       await supabaseRest(`calendly_meetings?id=eq.${id}`, {
@@ -1050,6 +1063,7 @@ export async function updateCalendlyMeetingDetails(
       if (updates.meeting_type !== undefined) { fields.push(`meeting_type = $${i++}`); values.push(updates.meeting_type); }
       if (updates.assigned_admin !== undefined) { fields.push(`assigned_admin = $${i++}`); values.push(updates.assigned_admin); }
       if (updates.notes !== undefined) { fields.push(`notes = $${i++}`); values.push(updates.notes); }
+      if (updates.cancelled_at !== undefined) { fields.push(`cancelled_at = $${i++}`); values.push(updates.cancelled_at); }
       if (fields.length > 0) {
         values.push(id);
         await pool.query(`UPDATE calendly_meetings SET ${fields.join(", ")} WHERE id = $${i}`, values);

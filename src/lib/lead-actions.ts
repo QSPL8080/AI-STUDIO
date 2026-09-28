@@ -519,6 +519,7 @@ export const updateCalendlyMeetingServerFn = createServerFn({ method: "POST" })
     meeting_link?: string;
     meeting_type?: string;
     assigned_admin?: string;
+    cancelled_at?: string;
     performedBy?: string;
   }) => data)
   .handler(async ({ data }) => {

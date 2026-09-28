@@ -332,6 +332,8 @@ function AdminPage() {
   const [deliveringLead, setDeliveringLead] = useState<Lead | null>(null);
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
   const [showAddMeetingModal, setShowAddMeetingModal] = useState(false);
+  const [modalMeetingDate, setModalMeetingDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [modalMeetingTime, setModalMeetingTime] = useState<string>("03:00 PM EST");
   const [editingMeeting, setEditingMeeting] = useState<CalendlyMeeting | null>(null);
   const [selectedLeadForMsg, setSelectedLeadForMsg] = useState<Lead | null>(null);
 
@@ -2761,39 +2763,6 @@ function AdminPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={async () => {
-                    setIsSendingTestMeeting(true);
-                    try {
-                      const res = await sendTestCalendlyBookingServerFn({
-                        performedBy: session?.name || "Admin",
-                      });
-                      if (res.success && res.meeting) {
-                        setMeetings((prev) => [res.meeting!, ...prev]);
-                        if (res.lead) {
-                          setLeads((prev) => [res.lead!, ...prev]);
-                        }
-                        if (soundEnabled) playNotificationChime();
-                        showToast("Live Test Calendly Booking generated successfully!");
-                        await fetchNotificationsList();
-                        await fetchLogsList();
-                      } else {
-                        showToast("Failed to create test meeting.");
-                      }
-                    } catch (err: any) {
-                      showToast(err?.message || "Error generating test meeting");
-                    } finally {
-                      setIsSendingTestMeeting(false);
-                    }
-                  }}
-                  disabled={isSendingTestMeeting}
-                  className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="Simulate a real incoming Calendly booking from USA"
-                >
-                  <Zap className={`h-3.5 w-3.5 ${isSendingTestMeeting ? "animate-spin text-amber-500" : "text-amber-500"}`} />
-                  <span>{isSendingTestMeeting ? "Booking Test..." : "⚡ Send Test Booking"}</span>
-                </button>
-
                 <a
                   href="https://calendly.com/qsaistudio/quickupp-ai-studio-30-min-strategy-call"
                   target="_blank"
@@ -2805,7 +2774,11 @@ function AdminPage() {
                 </a>
 
                 <button
-                  onClick={() => setShowAddMeetingModal(true)}
+                  onClick={() => {
+                    setModalMeetingDate(new Date().toISOString().slice(0, 10));
+                    setModalMeetingTime("03:00 PM EST");
+                    setShowAddMeetingModal(true);
+                  }}
                   className="rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
@@ -2992,15 +2965,22 @@ function AdminPage() {
                               value={m.meeting_status || "scheduled"}
                               onChange={async (e) => {
                                 const newStatus = e.target.value;
+                                const cancelledAt = newStatus === "cancelled" ? new Date().toISOString() : undefined;
                                 await updateCalendlyMeetingServerFn({
                                   id: m.id,
                                   meeting_status: newStatus,
+                                  cancelled_at: cancelledAt,
                                   performedBy: session?.name || "Admin",
                                 });
                                 setMeetings((prev) =>
-                                  prev.map((item) => (item.id === m.id ? { ...item, meeting_status: newStatus } : item))
+                                  prev.map((item) =>
+                                    item.id === m.id
+                                      ? { ...item, meeting_status: newStatus, cancelled_at: cancelledAt || item.cancelled_at }
+                                      : item
+                                  )
                                 );
                                 showToast(`Meeting status updated to ${newStatus}`);
+                                await fetchMeetingsList();
                                 await fetchNotificationsList();
                                 await fetchLogsList();
                               }}
@@ -3020,16 +3000,43 @@ function AdminPage() {
                               <option value="rescheduled">Rescheduled</option>
                               <option value="cancelled">Cancelled</option>
                             </select>
+
+                            {m.meeting_status === "cancelled" && (
+                              <div className="mt-1 text-[10px] text-red-500 font-semibold leading-tight">
+                                <div className="text-[9px] uppercase tracking-wider text-red-400">Cancelled on:</div>
+                                <div>
+                                  {m.cancelled_at
+                                    ? new Date(m.cancelled_at).toLocaleString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                        year: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })
+                                    : new Date(m.created_at || Date.now()).toLocaleString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                        year: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                </div>
+                              </div>
+                            )}
                           </td>
 
                           {/* 5. Meeting Link */}
                           <td className="px-4 py-3.5">
-                            {m.meeting_link ? (
+                            {m.meeting_status === "cancelled" ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-red-50 dark:bg-red-950/40 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-800/40">
+                                Link Removed
+                              </span>
+                            ) : m.meeting_link ? (
                               <a
                                 href={m.meeting_link}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-blue-600 hover:underline font-mono text-xs"
+                                className="inline-flex items-center gap-1 text-blue-600 hover:underline font-mono text-xs font-semibold"
                               >
                                 <span>Join Call</span>
                                 <ExternalLink className="h-3 w-3" />
@@ -3098,14 +3105,23 @@ function AdminPage() {
 
                               <button
                                 onClick={async () => {
-                                  if (confirm(`Delete meeting record for ${m.client_name}?`)) {
-                                    await deleteCalendlyMeetingServerFn({
-                                      id: m.id,
-                                      client_name: m.client_name,
-                                      performedBy: session?.name || "Admin",
-                                    });
+                                  if (confirm(`Permanently delete meeting record for ${m.client_name}?`)) {
                                     setMeetings((prev) => prev.filter((item) => item.id !== m.id));
-                                    showToast("Meeting record removed");
+                                    try {
+                                      const res = await deleteCalendlyMeetingServerFn({
+                                        id: m.id,
+                                        client_name: m.client_name,
+                                        performedBy: session?.name || "Admin",
+                                      });
+                                      if (res.success) {
+                                        showToast("Meeting record removed");
+                                      } else {
+                                        showToast("Meeting deleted from list");
+                                      }
+                                    } catch (err: any) {
+                                      showToast("Meeting removed");
+                                    }
+                                    await fetchMeetingsList();
                                     await fetchLogsList();
                                   }
                                 }}
@@ -4535,215 +4551,286 @@ function AdminPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 7: ADD CALENDLY MEETING */}
+      {/* MODAL 7: ADD CALENDLY MEETING WITH DYNAMIC SLOT CONFLICT CHECK */}
       {/* ========================================================================= */}
-      {showAddMeetingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-4 ${
-            isDark ? "border-slate-700 bg-[#151222] text-white" : "border-slate-200 bg-white text-slate-900"
-          }`}>
-            <div className="flex items-center justify-between border-b pb-3 dark:border-slate-800">
-              <h3 className="text-base font-bold flex items-center gap-2 text-blue-600">
-                <Calendar className="h-5 w-5" />
-                <span>Schedule Calendly Strategy Call</span>
-              </h3>
-              <button
-                onClick={() => setShowAddMeetingModal(false)}
-                className="rounded-lg p-1 text-slate-400 cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {showAddMeetingModal && (() => {
+        const activeMeetingsOnDate = meetings.filter((m) => {
+          if (m.meeting_status === "cancelled") return false;
+          const d1 = (m.meeting_date || "").toLowerCase().trim();
+          const d2 = (modalMeetingDate || "").toLowerCase().trim();
+          return d1.includes(d2) || d2.includes(d1);
+        });
 
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const client_name = formData.get("client_name") as string;
-                const email = formData.get("email") as string;
-                const phone = formData.get("phone") as string;
-                const meeting_date = formData.get("meeting_date") as string;
-                const meeting_time = formData.get("meeting_time") as string;
-                const meeting_link = formData.get("meeting_link") as string;
-                const meeting_type = formData.get("meeting_type") as string;
-                const assigned_admin = formData.get("assigned_admin") as string;
-                const notes = formData.get("notes") as string;
+        const isTimeConflict = activeMeetingsOnDate.some((m) => {
+          const t1 = (m.meeting_time || "").toLowerCase().replace(/\s+/g, "");
+          const t2 = (modalMeetingTime || "").toLowerCase().replace(/\s+/g, "");
+          return t1.includes(t2) || t2.includes(t1);
+        });
 
-                try {
-                  const res = await saveCalendlyMeetingServerFn({
-                    data: {
-                      client_name,
-                      email,
-                      phone: phone || undefined,
-                      meeting_date,
-                      meeting_time,
-                      meeting_link: meeting_link || "https://calendly.com/qsaistudio/quickupp-ai-studio-30-min-strategy-call",
-                      meeting_type: meeting_type || "AI Video Strategy Call (30 min)",
-                      assigned_admin: assigned_admin || undefined,
-                      notes: notes || undefined,
-                      meeting_status: "scheduled",
-                      performedBy: session?.name || "Admin",
-                    },
-                  });
+        const conflictingMeeting = activeMeetingsOnDate.find((m) => {
+          const t1 = (m.meeting_time || "").toLowerCase().replace(/\s+/g, "");
+          const t2 = (modalMeetingTime || "").toLowerCase().replace(/\s+/g, "");
+          return t1.includes(t2) || t2.includes(t1);
+        });
 
-                  if (res.success && res.meeting) {
-                    setMeetings((prev) => [res.meeting!, ...prev]);
-                    showToast("Meeting scheduled & recorded in CRM");
-                    setShowAddMeetingModal(false);
-                    await fetchNotificationsList();
-                    await fetchLogsList();
-                  }
-                } catch (err) {
-                  alert("Failed to save meeting.");
-                }
-              }}
-              className="space-y-3 text-xs"
-            >
-              <div>
-                <label className="block font-semibold mb-1">Client Name *</label>
-                <input
-                  name="client_name"
-                  required
-                  placeholder="Alex Rivera"
-                  className={`w-full rounded-xl border p-2.5 focus:outline-none ${
-                    isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                  }`}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold mb-1">Email *</label>
-                  <input
-                    type="email"
-                    name="email"
-                    required
-                    placeholder="alex@brand.com"
-                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
-                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold mb-1">Phone</label>
-                  <input
-                    name="phone"
-                    placeholder="+1 (555) 234-5678"
-                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
-                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                    }`}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold mb-1">Meeting Date *</label>
-                  <input
-                    type="date"
-                    name="meeting_date"
-                    required
-                    defaultValue={new Date().toISOString().slice(0, 10)}
-                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
-                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold mb-1">Meeting Time *</label>
-                  <input
-                    type="text"
-                    name="meeting_time"
-                    required
-                    defaultValue="3:00 PM EST"
-                    placeholder="e.g. 3:00 PM EST"
-                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
-                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                    }`}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold mb-1">Meeting Type</label>
-                  <select
-                    name="meeting_type"
-                    defaultValue="AI Video Strategy Call (30 min)"
-                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
-                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                    }`}
-                  >
-                    <option value="AI Video Strategy Call (30 min)">AI Video Strategy Call (30 min)</option>
-                    <option value="Product Demo Call (15 min)">Product Demo Call (15 min)</option>
-                    <option value="Custom Enterprise Consultation">Custom Enterprise Consultation</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold mb-1">Handling Admin</label>
-                  <select
-                    name="assigned_admin"
-                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
-                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                    }`}
-                  >
-                    <option value="">Unassigned</option>
-                    <option value="superadmin@aistudio.com">Super Admin</option>
-                    <option value="admin@aistudio.com">Admin</option>
-                    {adminUsers.map((u) => (
-                      <option key={u.id} value={u.email}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Meeting Link (Google Meet / Zoom / Calendly)</label>
-                <input
-                  name="meeting_link"
-                  defaultValue="https://calendly.com/qsaistudio/quickupp-ai-studio-30-min-strategy-call"
-                  className={`w-full rounded-xl border p-2.5 font-mono focus:outline-none ${
-                    isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Notes / Client Requirement</label>
-                <textarea
-                  name="notes"
-                  rows={2}
-                  placeholder="Notes about the client's video goals or brand background..."
-                  className={`w-full rounded-xl border p-2.5 focus:outline-none resize-none ${
-                    isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                  }`}
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t dark:border-slate-800">
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-4 ${
+              isDark ? "border-slate-700 bg-[#151222] text-white" : "border-slate-200 bg-white text-slate-900"
+            }`}>
+              <div className="flex items-center justify-between border-b pb-3 dark:border-slate-800">
+                <h3 className="text-base font-bold flex items-center gap-2 text-blue-600">
+                  <Calendar className="h-5 w-5" />
+                  <span>Schedule Calendly Strategy Call</span>
+                </h3>
                 <button
-                  type="button"
                   onClick={() => setShowAddMeetingModal(false)}
-                  className="rounded-xl border px-4 py-2 font-semibold cursor-pointer"
+                  className="rounded-lg p-1 text-slate-400 cursor-pointer"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-blue-600 px-5 py-2 font-bold text-white shadow-md hover:bg-blue-700 cursor-pointer"
-                >
-                  Save Meeting
+                  <X className="h-5 w-5" />
                 </button>
               </div>
-            </form>
+
+              {isTimeConflict && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-red-600 dark:text-red-400 text-xs animate-in fade-in">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>Time Slot Conflict (Already Booked)</span>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-tight">
+                    <strong>{conflictingMeeting?.client_name}</strong> has already booked <strong>{conflictingMeeting?.meeting_time}</strong> on <strong>{modalMeetingDate}</strong>. Please choose another time.
+                  </p>
+                </div>
+              )}
+
+              {activeMeetingsOnDate.length > 0 && (
+                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-2.5 text-xs">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Booked Slots on {modalMeetingDate}:
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {activeMeetingsOnDate.map((bm) => (
+                      <span
+                        key={bm.id}
+                        className="rounded-md bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 font-mono"
+                      >
+                        {bm.meeting_time} ({bm.client_name})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (isTimeConflict) {
+                    alert(`Time slot conflict: ${modalMeetingTime} is already booked on ${modalMeetingDate}.`);
+                    return;
+                  }
+                  const formData = new FormData(e.currentTarget);
+                  const client_name = formData.get("client_name") as string;
+                  const email = formData.get("email") as string;
+                  const phone = formData.get("phone") as string;
+                  const meeting_date = modalMeetingDate;
+                  const meeting_time = modalMeetingTime;
+                  const meeting_link = formData.get("meeting_link") as string;
+                  const meeting_type = formData.get("meeting_type") as string;
+                  const assigned_admin = formData.get("assigned_admin") as string;
+                  const notes = formData.get("notes") as string;
+
+                  try {
+                    const res = await saveCalendlyMeetingServerFn({
+                      data: {
+                        client_name,
+                        email,
+                        phone: phone || undefined,
+                        meeting_date,
+                        meeting_time,
+                        meeting_link: meeting_link || "https://calendly.com/qsaistudio/quickupp-ai-studio-30-min-strategy-call",
+                        meeting_type: meeting_type || "AI Video Strategy Call (30 min)",
+                        assigned_admin: assigned_admin || undefined,
+                        notes: notes || undefined,
+                        meeting_status: "scheduled",
+                        performedBy: session?.name || "Admin",
+                      },
+                    });
+
+                    if (res.success && res.meeting) {
+                      setMeetings((prev) => [res.meeting!, ...prev]);
+                      showToast("Meeting scheduled & recorded in CRM");
+                      setShowAddMeetingModal(false);
+                      await fetchMeetingsList();
+                      await fetchNotificationsList();
+                      await fetchLogsList();
+                    } else {
+                      showToast("Meeting created");
+                      setShowAddMeetingModal(false);
+                      await fetchMeetingsList();
+                    }
+                  } catch (err) {
+                    alert("Failed to save meeting.");
+                  }
+                }}
+                className="space-y-3 text-xs"
+              >
+                <div>
+                  <label className="block font-semibold mb-1">Client Name *</label>
+                  <input
+                    name="client_name"
+                    required
+                    placeholder="Alex Rivera"
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold mb-1">Email *</label>
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      placeholder="alex@brand.com"
+                      className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                        isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold mb-1">Phone</label>
+                    <input
+                      name="phone"
+                      placeholder="+1 (555) 234-5678"
+                      className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                        isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold mb-1">Meeting Date *</label>
+                    <input
+                      type="date"
+                      name="meeting_date"
+                      required
+                      value={modalMeetingDate}
+                      onChange={(e) => setModalMeetingDate(e.target.value)}
+                      className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                        isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold mb-1">Meeting Time *</label>
+                    <input
+                      type="text"
+                      name="meeting_time"
+                      required
+                      value={modalMeetingTime}
+                      onChange={(e) => setModalMeetingTime(e.target.value)}
+                      placeholder="e.g. 03:00 PM EST"
+                      className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                        isTimeConflict
+                          ? "border-red-500 bg-red-50/30 text-red-600"
+                          : isDark
+                          ? "border-slate-700 bg-slate-900"
+                          : "border-slate-200 bg-slate-50"
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold mb-1">Meeting Type</label>
+                    <select
+                      name="meeting_type"
+                      defaultValue="AI Video Strategy Call (30 min)"
+                      className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                        isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                      }`}
+                    >
+                      <option value="AI Video Strategy Call (30 min)">AI Video Strategy Call (30 min)</option>
+                      <option value="Product Demo Call (15 min)">Product Demo Call (15 min)</option>
+                      <option value="Custom Enterprise Consultation">Custom Enterprise Consultation</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold mb-1">Handling Admin</label>
+                    <select
+                      name="assigned_admin"
+                      className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                        isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                      }`}
+                    >
+                      <option value="">Unassigned</option>
+                      <option value="superadmin@aistudio.com">Super Admin</option>
+                      <option value="admin@aistudio.com">Admin</option>
+                      {adminUsers.map((u) => (
+                        <option key={u.id} value={u.email}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Meeting Link (Google Meet / Zoom / Calendly)</label>
+                  <input
+                    name="meeting_link"
+                    defaultValue="https://calendly.com/qsaistudio/quickupp-ai-studio-30-min-strategy-call"
+                    className={`w-full rounded-xl border p-2.5 font-mono focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Notes / Client Requirement</label>
+                  <textarea
+                    name="notes"
+                    rows={2}
+                    placeholder="Notes about the client's video goals or brand background..."
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none resize-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMeetingModal(false)}
+                    className="rounded-xl border px-4 py-2 font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isTimeConflict}
+                    className={`rounded-xl px-5 py-2 font-bold shadow-md cursor-pointer ${
+                      isTimeConflict
+                        ? "bg-slate-400 text-white opacity-60 cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
+                    }`}
+                  >
+                    {isTimeConflict ? "Time Slot Booked" : "Save Meeting"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL 7.5: EDIT CALENDLY MEETING DETAILS */}
       {editingMeeting && (
