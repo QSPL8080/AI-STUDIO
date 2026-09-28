@@ -2795,7 +2795,7 @@ function AdminPage() {
                 </button>
 
                 <a
-                  href="https://calendly.com/qsaistudio"
+                  href="https://calendly.com/qsaistudio/quickupp-ai-studio-30-min-strategy-call"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3.5 py-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 flex items-center gap-1.5"
@@ -4577,7 +4577,7 @@ function AdminPage() {
                       phone: phone || undefined,
                       meeting_date,
                       meeting_time,
-                      meeting_link: meeting_link || "https://calendly.com/qsaistudio",
+                      meeting_link: meeting_link || "https://calendly.com/qsaistudio/quickupp-ai-studio-30-min-strategy-call",
                       meeting_type: meeting_type || "AI Video Strategy Call (30 min)",
                       assigned_admin: assigned_admin || undefined,
                       notes: notes || undefined,
@@ -4706,7 +4706,7 @@ function AdminPage() {
                 <label className="block font-semibold mb-1">Meeting Link (Google Meet / Zoom / Calendly)</label>
                 <input
                   name="meeting_link"
-                  defaultValue="https://calendly.com/qsaistudio"
+                  defaultValue="https://calendly.com/qsaistudio/quickupp-ai-studio-30-min-strategy-call"
                   className={`w-full rounded-xl border p-2.5 font-mono focus:outline-none ${
                     isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
                   }`}
