@@ -896,6 +896,26 @@ export async function saveCalendlyMeeting(data: {
 
   if (getSupabaseConfig()) {
     try {
+      // Check for duplicate meeting by email, date, and time
+      const existing = await supabaseRest(
+        `calendly_meetings?email=eq.${encodeURIComponent(data.email)}&meeting_date=eq.${encodeURIComponent(
+          data.meeting_date
+        )}&meeting_time=eq.${encodeURIComponent(data.meeting_time)}&select=*`
+      );
+      if (Array.isArray(existing) && existing.length > 0) {
+        const existingMeeting = existing[0];
+        const updated = await supabaseRest(`calendly_meetings?id=eq.${existingMeeting.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            meeting_status: data.meeting_status || existingMeeting.meeting_status,
+            meeting_link: data.meeting_link || existingMeeting.meeting_link,
+            notes: data.notes || existingMeeting.notes,
+          }),
+        });
+        if (Array.isArray(updated) && updated[0]) return updated[0];
+        return existingMeeting;
+      }
+
       const rows = await supabaseRest("calendly_meetings", {
         method: "POST",
         body: JSON.stringify(record),
