@@ -18,6 +18,14 @@ import {
   deleteAdminUser as deleteAdminUserInDb,
   saveCalendlyMeeting as saveCalendlyMeetingInDb,
   getCalendlyMeetings as getCalendlyMeetingsFromDb,
+  updateCalendlyMeetingStatus as updateCalendlyMeetingStatusInDb,
+  updateCalendlyMeetingDetails as updateCalendlyMeetingDetailsInDb,
+  deleteCalendlyMeeting as deleteCalendlyMeetingInDb,
+  saveCRMNotification as saveCRMNotificationInDb,
+  getCRMNotifications as getCRMNotificationsFromDb,
+  markNotificationRead as markNotificationReadInDb,
+  markAllNotificationsRead as markAllNotificationsReadInDb,
+  clearNotifications as clearNotificationsInDb,
   type Lead,
   type LeadStatus,
   type ProjectStatus,
@@ -25,6 +33,7 @@ import {
   type LoginLog,
   type AdminUser,
   type CalendlyMeeting,
+  type CRMNotification,
 } from "./db";
 import { sendLeadNotificationEmail } from "./email";
 
@@ -497,10 +506,259 @@ export const saveCalendlyMeetingServerFn = createServerFn({ method: "POST" })
     }
   });
 
+export const updateCalendlyMeetingServerFn = createServerFn({ method: "POST" })
+  .validator((data: {
+    id: string;
+    meeting_status?: string;
+    notes?: string;
+    client_name?: string;
+    email?: string;
+    phone?: string;
+    meeting_date?: string;
+    meeting_time?: string;
+    meeting_link?: string;
+    meeting_type?: string;
+    assigned_admin?: string;
+    performedBy?: string;
+  }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const { id, performedBy, ...updates } = data;
+      const ok = await updateCalendlyMeetingDetailsInDb(id, updates);
+      if (ok) {
+        await addActivityLogInDb({
+          action: "Calendly Meeting Updated",
+          details: `Meeting #${id.slice(-6)} updated (${updates.meeting_status || "details updated"}) by ${performedBy || "Admin"}`,
+          performed_by: performedBy || "Admin",
+          user_role: "admin",
+        });
+
+        if (updates.meeting_status) {
+          const notifType = updates.meeting_status === "cancelled" ? "meeting_cancelled" : updates.meeting_status === "rescheduled" ? "meeting_rescheduled" : updates.meeting_status === "completed" ? "meeting_completed" : "meeting_upcoming";
+          await saveCRMNotificationInDb({
+            type: notifType,
+            title: `Meeting ${updates.meeting_status.charAt(0).toUpperCase() + updates.meeting_status.slice(1)}`,
+            message: `Calendly meeting #${id.slice(-6)} marked as ${updates.meeting_status} by ${performedBy || "Admin"}`,
+            entity_id: id,
+            actor: performedBy || "Admin",
+          });
+        }
+      }
+      return { success: ok };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+export const deleteCalendlyMeetingServerFn = createServerFn({ method: "POST" })
+  .validator((data: { id: string; client_name?: string; performedBy?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const ok = await deleteCalendlyMeetingInDb(data.id);
+      if (ok) {
+        await addActivityLogInDb({
+          action: "Calendly Meeting Deleted",
+          details: `Meeting record for ${data.client_name || data.id} removed`,
+          performed_by: data.performedBy || "Admin",
+          user_role: "admin",
+        });
+      }
+      return { success: ok };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+// 14. Record Calendly Booking (from widget listener or webhook)
+export const recordCalendlyBookingServerFn = createServerFn({ method: "POST" })
+  .validator((data: {
+    client_name: string;
+    email: string;
+    phone?: string;
+    meeting_date: string;
+    meeting_time: string;
+    meeting_status?: string;
+    meeting_link: string;
+    meeting_type?: string;
+    notes?: string;
+    raw_event?: string;
+  }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const meeting = await saveCalendlyMeetingInDb({
+        client_name: data.client_name,
+        email: data.email,
+        phone: data.phone,
+        meeting_date: data.meeting_date,
+        meeting_time: data.meeting_time,
+        meeting_status: data.meeting_status || "scheduled",
+        meeting_link: data.meeting_link,
+        meeting_type: data.meeting_type || "AI Video Strategy Call (30 min)",
+        notes: data.notes || "Booked via Calendly",
+      });
+
+      // Also create a linked Lead
+      const lead = await saveLeadToDb({
+        source: "USA Website - Calendly",
+        name: data.client_name,
+        email: data.email,
+        phone: data.phone || "N/A",
+        videoType: data.meeting_type || "AI Video Strategy Call (30 min)",
+        business: "Inbound Calendly Strategy Call",
+        status: "New",
+        notes: `Calendly booking on ${data.meeting_date} at ${data.meeting_time}. Meeting Link: ${data.meeting_link}`,
+        meetingDate: data.meeting_date,
+        meetingTime: data.meeting_time,
+        meetingLink: data.meeting_link,
+      });
+
+      // Activity log
+      await addActivityLogInDb({
+        lead_id: lead.id,
+        action: "Calendly Meeting Booked",
+        details: `Strategy call scheduled for ${data.client_name} (${data.email}) on ${data.meeting_date} at ${data.meeting_time}`,
+        performed_by: "Calendly Integration",
+        user_role: "system",
+      });
+
+      // Notification
+      await saveCRMNotificationInDb({
+        type: "meeting_new",
+        title: "New Calendly Meeting Booked",
+        message: `${data.client_name} scheduled a strategy call for ${data.meeting_date} at ${data.meeting_time}`,
+        entity_id: meeting.id,
+        actor: "Calendly",
+      });
+
+      return { success: true, meeting, lead };
+    } catch (error: any) {
+      console.error("recordCalendlyBookingServerFn error:", error);
+      return { success: false, error: error.message };
+    }
+  });
+
+// 15. Send Test Calendly Booking Event (for Admins to test live sync)
+export const sendTestCalendlyBookingServerFn = createServerFn({ method: "POST" })
+  .validator((data: { performedBy?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const names = [
+        "Marcus Vance (USA Luxury Real Estate)",
+        "Elena Rostova (Fashion Brand USA)",
+        "David Sterling (SaaS Founder, Austin TX)",
+        "Sophia Chen (E-Commerce CEO, NYC)",
+        "Alexander Hayes (Beverly Hills Dental Group)",
+      ];
+      const randomName = names[Math.floor(Math.random() * names.length)];
+      const randomSlug = randomName.split(" ")[0].toLowerCase() + Math.floor(Math.random() * 900 + 100);
+      const email = `${randomSlug}@brandventures.us`;
+      const phone = `+1 (${Math.floor(Math.random() * 800 + 200)}) ${Math.floor(Math.random() * 800 + 200)}-${Math.floor(Math.random() * 8900 + 1000)}`;
+
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const meetingDate = tomorrow.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const meetingTime = "3:30 PM EST";
+
+      const meeting = await saveCalendlyMeetingInDb({
+        client_name: randomName,
+        email,
+        phone,
+        meeting_date: meetingDate,
+        meeting_time: meetingTime,
+        meeting_status: "scheduled",
+        meeting_link: "https://calendly.com/quickuppaistudio/strategy-call",
+        meeting_type: "AI Video Strategy Call (30 min)",
+        notes: `Simulated live Calendly booking test initiated by ${data.performedBy || "Admin"}`,
+      });
+
+      const lead = await saveLeadToDb({
+        source: "USA Website - Calendly",
+        name: randomName,
+        email,
+        phone,
+        videoType: "AI Video Strategy Call (30 min)",
+        business: "High-Ticket Brand Campaign",
+        location: "United States",
+        industry: "E-Commerce / Real Estate",
+        requirement: "Looking for 10-15 AI Avatar and UGC video ads per month for US market expansion.",
+        status: "New",
+        notes: `Test Calendly Meeting scheduled on ${meetingDate} at ${meetingTime}.`,
+        meetingDate: meetingDate,
+        meetingTime: meetingTime,
+        meetingLink: "https://calendly.com/quickuppaistudio/strategy-call",
+      });
+
+      await addActivityLogInDb({
+        lead_id: lead.id,
+        action: "Test Calendly Call Created",
+        details: `Live test call created for ${randomName} (${email}) for ${meetingDate} at ${meetingTime}`,
+        performed_by: data.performedBy || "Admin Test",
+        user_role: "admin",
+      });
+
+      await saveCRMNotificationInDb({
+        type: "meeting_new",
+        title: "New Calendly Meeting Booked",
+        message: `${randomName} scheduled a Strategy Call for ${meetingDate} at ${meetingTime}`,
+        entity_id: meeting.id,
+        actor: "Calendly Live Test",
+      });
+
+      return { success: true, meeting, lead };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+// 16. CRM Notifications Server Functions
+export const fetchNotificationsServerFn = createServerFn({ method: "GET" })
+  .validator((data?: { limit?: number }) => data || {})
+  .handler(async ({ data }) => {
+    try {
+      const notifications = await getCRMNotificationsFromDb(data?.limit || 50);
+      return { success: true, notifications };
+    } catch (error: any) {
+      return { success: false, notifications: [] as CRMNotification[], error: error.message };
+    }
+  });
+
+export const markNotificationReadServerFn = createServerFn({ method: "POST" })
+  .validator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const ok = await markNotificationReadInDb(data.id);
+      return { success: ok };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+export const markAllNotificationsReadServerFn = createServerFn({ method: "POST" })
+  .handler(async () => {
+    try {
+      const ok = await markAllNotificationsReadInDb();
+      return { success: ok };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+export const clearNotificationsServerFn = createServerFn({ method: "POST" })
+  .handler(async () => {
+    try {
+      const ok = await clearNotificationsInDb();
+      return { success: ok };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
 // Broadcast Channel utility
 export function broadcastLeadEvent(event: {
-  type: "NEW_LEAD" | "UPDATE_LEAD" | "DELETE_LEAD" | "RESTORE_LEAD" | "REFRESH_ALL";
+  type: "NEW_LEAD" | "UPDATE_LEAD" | "DELETE_LEAD" | "RESTORE_LEAD" | "REFRESH_ALL" | "NEW_MEETING" | "NEW_NOTIFICATION";
   lead?: Lead;
+  meeting?: CalendlyMeeting;
+  notification?: CRMNotification;
   id?: string;
 }) {
   if (typeof window === "undefined") return;

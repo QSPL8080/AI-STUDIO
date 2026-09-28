@@ -71,11 +71,35 @@ export interface CalendlyMeeting {
   phone?: string;
   meeting_date: string;
   meeting_time: string;
-  meeting_status: "scheduled" | "completed" | "rescheduled" | "cancelled" | string;
+  meeting_status: "scheduled" | "upcoming" | "completed" | "rescheduled" | "cancelled" | string;
   meeting_link: string;
   meeting_type?: string;
   assigned_admin?: string;
   notes?: string;
+  created_at: string;
+}
+
+export interface CRMNotification {
+  id: string;
+  type:
+    | "meeting_new"
+    | "meeting_upcoming"
+    | "meeting_rescheduled"
+    | "meeting_cancelled"
+    | "meeting_completed"
+    | "lead_new"
+    | "lead_meta"
+    | "lead_manual"
+    | "lead_status"
+    | "lead_closed"
+    | "project_status"
+    | "project_delivered"
+    | string;
+  title: string;
+  message: string;
+  entity_id?: string;
+  actor?: string;
+  is_read: boolean;
   created_at: string;
 }
 
@@ -265,6 +289,17 @@ export async function initDb() {
             meeting_type VARCHAR(128),
             assigned_admin VARCHAR(255),
             notes TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE IF NOT EXISTS crm_notifications (
+            id VARCHAR(64) PRIMARY KEY,
+            type VARCHAR(64) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            entity_id VARCHAR(64),
+            actor VARCHAR(255),
+            is_read BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
           );
 
@@ -924,6 +959,262 @@ export async function getCalendlyMeetings(): Promise<CalendlyMeeting[]> {
     console.error("PostgreSQL getCalendlyMeetings error:", err);
   }
   return [];
+}
+
+export async function updateCalendlyMeetingStatus(
+  id: string,
+  status: string,
+  notes?: string
+): Promise<boolean> {
+  if (getSupabaseConfig()) {
+    try {
+      const updateData: any = { meeting_status: status };
+      if (notes) updateData.notes = notes;
+      await supabaseRest(`calendly_meetings?id=eq.${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(updateData),
+      });
+      return true;
+    } catch (e) {
+      console.warn("Supabase updateCalendlyMeetingStatus fallback:", e);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      if (notes) {
+        await pool.query("UPDATE calendly_meetings SET meeting_status = $1, notes = $2 WHERE id = $3", [status, notes, id]);
+      } else {
+        await pool.query("UPDATE calendly_meetings SET meeting_status = $1 WHERE id = $2", [status, id]);
+      }
+      return true;
+    }
+  } catch (err) {
+    console.error("PostgreSQL updateCalendlyMeetingStatus error:", err);
+  }
+  return false;
+}
+
+export async function updateCalendlyMeetingDetails(
+  id: string,
+  updates: Partial<CalendlyMeeting>
+): Promise<boolean> {
+  if (getSupabaseConfig()) {
+    try {
+      await supabaseRest(`calendly_meetings?id=eq.${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+      return true;
+    } catch (e) {
+      console.warn("Supabase updateCalendlyMeetingDetails fallback:", e);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      const fields: string[] = [];
+      const values: any[] = [];
+      let i = 1;
+      if (updates.client_name !== undefined) { fields.push(`client_name = $${i++}`); values.push(updates.client_name); }
+      if (updates.email !== undefined) { fields.push(`email = $${i++}`); values.push(updates.email); }
+      if (updates.phone !== undefined) { fields.push(`phone = $${i++}`); values.push(updates.phone); }
+      if (updates.meeting_date !== undefined) { fields.push(`meeting_date = $${i++}`); values.push(updates.meeting_date); }
+      if (updates.meeting_time !== undefined) { fields.push(`meeting_time = $${i++}`); values.push(updates.meeting_time); }
+      if (updates.meeting_status !== undefined) { fields.push(`meeting_status = $${i++}`); values.push(updates.meeting_status); }
+      if (updates.meeting_link !== undefined) { fields.push(`meeting_link = $${i++}`); values.push(updates.meeting_link); }
+      if (updates.meeting_type !== undefined) { fields.push(`meeting_type = $${i++}`); values.push(updates.meeting_type); }
+      if (updates.assigned_admin !== undefined) { fields.push(`assigned_admin = $${i++}`); values.push(updates.assigned_admin); }
+      if (updates.notes !== undefined) { fields.push(`notes = $${i++}`); values.push(updates.notes); }
+      if (fields.length > 0) {
+        values.push(id);
+        await pool.query(`UPDATE calendly_meetings SET ${fields.join(", ")} WHERE id = $${i}`, values);
+      }
+      return true;
+    }
+  } catch (err) {
+    console.error("PostgreSQL updateCalendlyMeetingDetails error:", err);
+  }
+  return false;
+}
+
+export async function deleteCalendlyMeeting(id: string): Promise<boolean> {
+  if (getSupabaseConfig()) {
+    try {
+      await supabaseRest(`calendly_meetings?id=eq.${id}`, { method: "DELETE" });
+      return true;
+    } catch (e) {
+      console.warn("Supabase deleteCalendlyMeeting fallback:", e);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      await pool.query("DELETE FROM calendly_meetings WHERE id = $1", [id]);
+      return true;
+    }
+  } catch (err) {
+    console.error("PostgreSQL deleteCalendlyMeeting error:", err);
+  }
+  return false;
+}
+
+// ==========================================
+// CRM NOTIFICATIONS PERSISTENCE
+// ==========================================
+
+export async function saveCRMNotification(data: {
+  type: string;
+  title: string;
+  message: string;
+  entity_id?: string;
+  actor?: string;
+}): Promise<CRMNotification> {
+  const id = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const now = new Date().toISOString();
+  const record: CRMNotification = {
+    id,
+    type: data.type,
+    title: data.title,
+    message: data.message,
+    entity_id: data.entity_id,
+    actor: data.actor || "System",
+    is_read: false,
+    created_at: now,
+  };
+
+  if (getSupabaseConfig()) {
+    try {
+      const rows = await supabaseRest("crm_notifications", {
+        method: "POST",
+        body: JSON.stringify(record),
+      });
+      if (Array.isArray(rows) && rows[0]) return rows[0] as CRMNotification;
+    } catch (e) {
+      console.warn("Supabase saveCRMNotification fallback:", e);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      const res = await pool.query(
+        `INSERT INTO crm_notifications (id, type, title, message, entity_id, actor, is_read, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+         RETURNING *`,
+        [id, data.type, data.title, data.message, data.entity_id || null, data.actor || "System", false]
+      );
+      return res.rows[0];
+    }
+  } catch (err) {
+    console.error("PostgreSQL saveCRMNotification error:", err);
+  }
+  return record;
+}
+
+export async function getCRMNotifications(limit = 50): Promise<CRMNotification[]> {
+  if (getSupabaseConfig()) {
+    try {
+      const rows = await supabaseRest(`crm_notifications?select=*&order=created_at.desc&limit=${limit}`);
+      if (Array.isArray(rows)) return rows as CRMNotification[];
+    } catch (e) {
+      console.warn("Supabase getCRMNotifications fallback:", e);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      const res = await pool.query("SELECT * FROM crm_notifications ORDER BY created_at DESC LIMIT $1", [limit]);
+      return res.rows;
+    }
+  } catch (err) {
+    console.error("PostgreSQL getCRMNotifications error:", err);
+  }
+  return [];
+}
+
+export async function markNotificationRead(id: string): Promise<boolean> {
+  if (getSupabaseConfig()) {
+    try {
+      await supabaseRest(`crm_notifications?id=eq.${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_read: true }),
+      });
+      return true;
+    } catch (e) {
+      console.warn("Supabase markNotificationRead fallback:", e);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      await pool.query("UPDATE crm_notifications SET is_read = TRUE WHERE id = $1", [id]);
+      return true;
+    }
+  } catch (err) {
+    console.error("PostgreSQL markNotificationRead error:", err);
+  }
+  return false;
+}
+
+export async function markAllNotificationsRead(): Promise<boolean> {
+  if (getSupabaseConfig()) {
+    try {
+      await supabaseRest("crm_notifications?is_read=eq.false", {
+        method: "PATCH",
+        body: JSON.stringify({ is_read: true }),
+      });
+      return true;
+    } catch (e) {
+      console.warn("Supabase markAllNotificationsRead fallback:", e);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      await pool.query("UPDATE crm_notifications SET is_read = TRUE WHERE is_read = FALSE");
+      return true;
+    }
+  } catch (err) {
+    console.error("PostgreSQL markAllNotificationsRead error:", err);
+  }
+  return false;
+}
+
+export async function clearNotifications(): Promise<boolean> {
+  if (getSupabaseConfig()) {
+    try {
+      await supabaseRest("crm_notifications", { method: "DELETE" });
+      return true;
+    } catch (e) {
+      console.warn("Supabase clearNotifications fallback:", e);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      await pool.query("DELETE FROM crm_notifications");
+      return true;
+    }
+  } catch (err) {
+    console.error("PostgreSQL clearNotifications error:", err);
+  }
+  return false;
 }
 
 // Backward-compatible alias for deleteLead

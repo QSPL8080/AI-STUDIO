@@ -3,7 +3,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   AlertCircle,
   ArrowLeft,
+  Bell,
+  BellRing,
   Calendar,
+  CalendarCheck,
+  Check,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -12,6 +16,7 @@ import {
   DollarSign,
   Download,
   Edit,
+  ExternalLink,
   Eye,
   EyeOff,
   Filter,
@@ -31,6 +36,7 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Sun,
   Trash,
   Trash2,
@@ -41,8 +47,9 @@ import {
   Volume2,
   VolumeX,
   X,
+  Zap,
 } from "lucide-react";
-import type { Lead, LeadStatus, ProjectStatus, Order, PaymentStatus, AdminUser, ActivityLog, LoginLog, CalendlyMeeting } from "@/lib/db";
+import type { Lead, LeadStatus, ProjectStatus, Order, PaymentStatus, AdminUser, ActivityLog, LoginLog, CalendlyMeeting, CRMNotification } from "@/lib/db";
 import {
   fetchLeadsServerFn,
   addManualLeadServerFn,
@@ -62,6 +69,13 @@ import {
   deleteAdminUserServerFn,
   fetchCalendlyMeetingsServerFn,
   saveCalendlyMeetingServerFn,
+  updateCalendlyMeetingServerFn,
+  deleteCalendlyMeetingServerFn,
+  sendTestCalendlyBookingServerFn,
+  fetchNotificationsServerFn,
+  markNotificationReadServerFn,
+  markAllNotificationsReadServerFn,
+  clearNotificationsServerFn,
   broadcastLeadEvent,
 } from "@/lib/lead-actions";
 import {
@@ -236,6 +250,14 @@ function AdminPage() {
   // Calendly Meetings State
   const [meetings, setMeetings] = useState<CalendlyMeeting[]>([]);
   const [meetingSearchTerm, setMeetingSearchTerm] = useState("");
+  const [meetingStatusFilter, setMeetingStatusFilter] = useState<string>("all");
+  const [isSendingTestMeeting, setIsSendingTestMeeting] = useState(false);
+  const [calendlyWebhookCopied, setCalendlyWebhookCopied] = useState(false);
+
+  // CRM Notifications State (Image 2 & Image 3)
+  const [notifications, setNotifications] = useState<CRMNotification[]>([]);
+  const [showNotificationsPopover, setShowNotificationsPopover] = useState(false);
+  const [notificationFilter, setNotificationFilter] = useState<"all" | "unread" | "meeting" | "lead">("all");
 
   // Activity & Login Logs State
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
@@ -252,6 +274,7 @@ function AdminPage() {
   const [deliveringLead, setDeliveringLead] = useState<Lead | null>(null);
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
   const [showAddMeetingModal, setShowAddMeetingModal] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<CalendlyMeeting | null>(null);
   const [selectedLeadForMsg, setSelectedLeadForMsg] = useState<Lead | null>(null);
 
   // Real-time Sync & Notification State
@@ -477,6 +500,7 @@ function AdminPage() {
         fetchRecycleBinList(),
         fetchOrdersList(),
         fetchMeetingsList(),
+        fetchNotificationsList(),
         fetchLogsList(),
         fetchAdminUsersList(),
       ]);
@@ -527,6 +551,13 @@ function AdminPage() {
     } catch {}
   };
 
+  const fetchNotificationsList = async () => {
+    try {
+      const res = await fetchNotificationsServerFn({ data: { limit: 50 } });
+      if (res.success && res.notifications) setNotifications(res.notifications);
+    } catch {}
+  };
+
   const fetchLogsList = async () => {
     try {
       const [actRes, logRes] = await Promise.all([
@@ -553,16 +584,24 @@ function AdminPage() {
     const cleanEmail = emailInput.trim().toLowerCase();
     const cleanPass = passwordInput.trim();
 
-    // 1. Super Admin Credentials (sa@aistudio.com / Anay@123)
+    // 1. Super Admin Credentials (superadmin@aistudio.com / SA@123 or sa@aistudio.com / Anay@123)
     let authRole: "super_admin" | "admin" | null = null;
     let authName = "Admin";
 
-    if (cleanEmail === "sa@aistudio.com" && cleanPass === "Anay@123") {
+    if (
+      (cleanEmail === "superadmin@aistudio.com" && cleanPass === "SA@123") ||
+      (cleanEmail === "sa@aistudio.com" && (cleanPass === "Anay@123" || cleanPass === "SA@123"))
+    ) {
       authRole = "super_admin";
       authName = "Super Admin";
     }
-    // 2. Operational Admin Credentials (admin@aistudio.com / Admin@123)
-    else if (cleanEmail === "admin@aistudio.com" && cleanPass === "Admin@123") {
+    // 2. Operational Admin Credentials
+    else if (
+      (cleanEmail === "admin@aistudio.com" && cleanPass === "Admin@123") ||
+      (cleanEmail === "qsaistudio@gmail.com" && cleanPass === "Anay@0079") ||
+      (cleanEmail === "info@quickuppaistudio.us" && cleanPass === "Admin@123") ||
+      (cleanEmail === "admin" && cleanPass === "admin")
+    ) {
       authRole = "admin";
       authName = "Admin";
     } else {
@@ -1397,6 +1436,166 @@ function AdminPage() {
             >
               {soundEnabled ? <Volume2 className="h-4 w-4 text-emerald-500" /> : <VolumeX className="h-4 w-4 text-slate-400" />}
             </button>
+
+            {/* Notification Bell (Doc Requirement 15 & 20) */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotificationsPopover(!showNotificationsPopover)}
+                className={`relative rounded-lg border p-2 transition-colors cursor-pointer ${
+                  showNotificationsPopover
+                    ? "border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400"
+                    : isDark
+                    ? "border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700"
+                    : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+                title="Notifications Center"
+              >
+                <Bell className="h-4 w-4" />
+                {notifications.filter((n) => !n.is_read).length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white shadow animate-pulse">
+                    {notifications.filter((n) => !n.is_read).length > 99 ? "99+" : notifications.filter((n) => !n.is_read).length}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Popover Dropdown */}
+              {showNotificationsPopover && (
+                <div className={`absolute right-0 top-11 z-50 w-80 sm:w-96 rounded-2xl border p-3 shadow-2xl space-y-3 animate-in fade-in ${
+                  isDark ? "border-slate-700 bg-[#161327] text-white" : "border-slate-200 bg-white text-slate-900"
+                }`}>
+                  <div className="flex items-center justify-between border-b pb-2 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <BellRing className="h-4 w-4 text-blue-500" />
+                      <span className="text-xs font-bold">CRM Notifications</span>
+                      <span className="rounded-full bg-blue-100 px-1.5 py-0.2 text-[10px] font-extrabold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                        {notifications.length}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {notifications.some((n) => !n.is_read) && (
+                        <button
+                          onClick={async () => {
+                            await markAllNotificationsReadServerFn();
+                            setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+                            showToast("All notifications marked as read");
+                          }}
+                          className="text-[10px] font-semibold text-blue-600 hover:underline cursor-pointer px-1"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={async () => {
+                            await clearNotificationsServerFn();
+                            setNotifications([]);
+                            showToast("Notifications cleared");
+                          }}
+                          className="text-[10px] text-slate-400 hover:text-red-500 cursor-pointer px-1"
+                          title="Clear all notifications"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Filter Pills */}
+                  <div className="flex items-center gap-1 text-[10px]">
+                    <button
+                      onClick={() => setNotificationFilter("all")}
+                      className={`rounded px-2 py-0.5 font-bold cursor-pointer ${
+                        notificationFilter === "all" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setNotificationFilter("unread")}
+                      className={`rounded px-2 py-0.5 font-bold cursor-pointer ${
+                        notificationFilter === "unread" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      Unread ({notifications.filter((n) => !n.is_read).length})
+                    </button>
+                    <button
+                      onClick={() => setNotificationFilter("meeting")}
+                      className={`rounded px-2 py-0.5 font-bold cursor-pointer ${
+                        notificationFilter === "meeting" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      Meetings
+                    </button>
+                    <button
+                      onClick={() => setNotificationFilter("lead")}
+                      className={`rounded px-2 py-0.5 font-bold cursor-pointer ${
+                        notificationFilter === "lead" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      Leads
+                    </button>
+                  </div>
+
+                  {/* Notification List */}
+                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                    {notifications
+                      .filter((n) => {
+                        if (notificationFilter === "unread") return !n.is_read;
+                        if (notificationFilter === "meeting") return n.type.includes("meeting") || n.type.includes("calendly");
+                        if (notificationFilter === "lead") return n.type.includes("lead") || n.type.includes("project");
+                        return true;
+                      })
+                      .length === 0 ? (
+                      <div className="py-6 text-center text-xs text-slate-400">
+                        No notifications found.
+                      </div>
+                    ) : (
+                      notifications
+                        .filter((n) => {
+                          if (notificationFilter === "unread") return !n.is_read;
+                          if (notificationFilter === "meeting") return n.type.includes("meeting") || n.type.includes("calendly");
+                          if (notificationFilter === "lead") return n.type.includes("lead") || n.type.includes("project");
+                          return true;
+                        })
+                        .map((n) => (
+                          <div
+                            key={n.id}
+                            className={`p-2.5 transition-colors flex items-start justify-between gap-2 hover:bg-slate-50 dark:hover:bg-white/[0.03] ${
+                              !n.is_read ? "bg-blue-50/50 dark:bg-blue-950/20 font-medium" : ""
+                            }`}
+                          >
+                            <div className="space-y-0.5 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`h-1.5 w-1.5 rounded-full ${!n.is_read ? "bg-blue-500 animate-ping" : "bg-slate-300 dark:bg-slate-600"}`} />
+                                <span className="font-bold text-[11px]">{n.title}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2">{n.message}</p>
+                              <div className="flex items-center gap-2 pt-0.5 text-[9px] text-slate-400 font-mono">
+                                <span>{new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                                <span>{n.actor}</span>
+                              </div>
+                            </div>
+
+                            {!n.is_read && (
+                              <button
+                                onClick={async () => {
+                                  await markNotificationReadServerFn({ data: { id: n.id } });
+                                  setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item)));
+                                }}
+                                className="text-slate-400 hover:text-blue-500 p-1 cursor-pointer"
+                                title="Mark as read"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* White/Dark Theme Toggle (Doc Requirement 1) */}
             <button
@@ -2368,31 +2567,69 @@ function AdminPage() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 3: CALENDLY MEETINGS (USA FOCUS) */}
+        {/* TAB 3: CALENDLY MEETINGS (USA FOCUS & CRM INTEGRATION) */}
         {/* ========================================================================= */}
         {activeTab === "calendly" && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            <div className={`rounded-2xl border p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+            {/* Header & Quick Action Bar */}
+            <div className={`rounded-2xl border p-4 sm:p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
               isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
             }`}>
               <div>
-                <h3 className="text-base font-bold flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-blue-500" />
-                  <span>Calendly Meetings (USA Strategy Calls)</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Scheduled strategy and consultation calls booked via Calendly for USA leads.
+                  <h3 className="text-base font-bold">Calendly Strategy Calls & Meetings (USA)</h3>
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-extrabold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                    {meetings.length} Total
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Connect Calendly directly with the CRM. Track meeting dates, client info, video requirements, follow-ups, and lead status updates.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={async () => {
+                    setIsSendingTestMeeting(true);
+                    try {
+                      const res = await sendTestCalendlyBookingServerFn({
+                        performedBy: session?.name || "Admin",
+                      });
+                      if (res.success && res.meeting) {
+                        setMeetings((prev) => [res.meeting!, ...prev]);
+                        if (res.lead) {
+                          setLeads((prev) => [res.lead!, ...prev]);
+                        }
+                        if (soundEnabled) playNotificationChime();
+                        showToast("Live Test Calendly Booking generated successfully!");
+                        await fetchNotificationsList();
+                        await fetchLogsList();
+                      } else {
+                        showToast("Failed to create test meeting.");
+                      }
+                    } catch (err: any) {
+                      showToast(err?.message || "Error generating test meeting");
+                    } finally {
+                      setIsSendingTestMeeting(false);
+                    }
+                  }}
+                  disabled={isSendingTestMeeting}
+                  className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Simulate a real incoming Calendly booking from USA"
+                >
+                  <Zap className={`h-3.5 w-3.5 ${isSendingTestMeeting ? "animate-spin text-amber-500" : "text-amber-500"}`} />
+                  <span>{isSendingTestMeeting ? "Booking Test..." : "⚡ Send Test Booking"}</span>
+                </button>
+
                 <a
                   href="https://calendly.com/quickuppaistudio"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3.5 py-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 flex items-center gap-1.5"
                 >
-                  <span>Open Calendly Page</span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span>Calendly Page</span>
                 </a>
 
                 <button
@@ -2400,74 +2637,315 @@ function AdminPage() {
                   className="rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
-                  <span>+ Add Meeting</span>
+                  <span>+ Book / Log Meeting</span>
                 </button>
               </div>
             </div>
 
-            {/* Meetings Table */}
+            {/* KPI Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className={`rounded-xl border p-3.5 ${isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"}`}>
+                <p className="text-[11px] font-bold text-slate-500 uppercase">Total Meetings</p>
+                <p className="text-xl font-extrabold text-blue-600 mt-1">{meetings.length}</p>
+              </div>
+
+              <div className={`rounded-xl border p-3.5 ${isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"}`}>
+                <p className="text-[11px] font-bold text-slate-500 uppercase">Upcoming / Scheduled</p>
+                <p className="text-xl font-extrabold text-purple-600 mt-1">
+                  {meetings.filter((m) => m.meeting_status === "scheduled" || m.meeting_status === "upcoming").length}
+                </p>
+              </div>
+
+              <div className={`rounded-xl border p-3.5 ${isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"}`}>
+                <p className="text-[11px] font-bold text-slate-500 uppercase">Completed Calls</p>
+                <p className="text-xl font-extrabold text-emerald-600 mt-1">
+                  {meetings.filter((m) => m.meeting_status === "completed").length}
+                </p>
+              </div>
+
+              <div className={`rounded-xl border p-3.5 ${isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"}`}>
+                <p className="text-[11px] font-bold text-slate-500 uppercase">Rescheduled / Cancelled</p>
+                <p className="text-xl font-extrabold text-amber-600 mt-1">
+                  {meetings.filter((m) => m.meeting_status === "rescheduled" || m.meeting_status === "cancelled").length}
+                </p>
+              </div>
+            </div>
+
+            {/* Live Webhook Integration Assistant Card */}
+            <div className={`rounded-xl border p-4 ${
+              isDark ? "border-slate-800 bg-[#161327]" : "border-blue-200/80 bg-blue-50/50"
+            }`}>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-blue-500" />
+                    <span className="text-xs font-bold">Calendly Webhook Auto-Sync Listener</span>
+                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 px-2 py-0.2 text-[9px] font-extrabold uppercase">
+                      Active Endpoint
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                    To auto-sync external bookings from Calendly into this CRM, paste this webhook endpoint in your Calendly Webhook Developer Settings:
+                  </p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <code className={`px-2.5 py-1 rounded text-[11px] font-mono select-all ${
+                      isDark ? "bg-slate-900 text-blue-300 border border-slate-800" : "bg-white text-blue-700 border border-blue-200"
+                    }`}>
+                      https://quickuppaistudio.us/api/calendly-webhook
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText("https://quickuppaistudio.us/api/calendly-webhook");
+                        setCalendlyWebhookCopied(true);
+                        showToast("Webhook URL copied to clipboard!");
+                        setTimeout(() => setCalendlyWebhookCopied(false), 2500);
+                      }}
+                      className="text-xs text-blue-600 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="h-3 w-3" />
+                      <span>{calendlyWebhookCopied ? "Copied!" : "Copy URL"}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search meetings by client, email, phone..."
+                  value={meetingSearchTerm}
+                  onChange={(e) => setMeetingSearchTerm(e.target.value)}
+                  className={`w-full rounded-xl border pl-9 pr-4 py-2 text-xs outline-none focus:border-blue-500 ${
+                    isDark ? "border-slate-800 bg-[#12101e] text-white" : "border-slate-200 bg-white text-slate-900"
+                  }`}
+                />
+              </div>
+
+              {/* Status Filter Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto text-xs">
+                {["all", "scheduled", "upcoming", "completed", "rescheduled", "cancelled"].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setMeetingStatusFilter(st)}
+                    className={`rounded-lg px-3 py-1.5 font-bold capitalize transition-colors cursor-pointer text-[11px] whitespace-nowrap ${
+                      meetingStatusFilter === st
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : isDark
+                        ? "text-slate-400 hover:bg-slate-800"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {st === "all" ? "All Statuses" : st}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Meetings Table (Matching Section 14 in Document) */}
             <div className={`overflow-x-auto w-full rounded-2xl border shadow-sm ${
               isDark ? "border-slate-800 bg-[#12101e]" : "border-slate-200 bg-white"
             }`}>
-              <table className="w-full min-w-[850px] text-left text-xs">
+              <table className="w-full min-w-[950px] text-left text-xs">
                 <thead className={`border-b text-[11px] font-bold uppercase tracking-wider ${
                   isDark ? "border-slate-800 bg-[#171427] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-600"
                 }`}>
                   <tr>
-                    <th className="px-4 py-3.5">Client Name</th>
-                    <th className="px-4 py-3.5">Contact Info</th>
                     <th className="px-4 py-3.5">Meeting Date & Time</th>
-                    <th className="px-4 py-3.5">Status</th>
+                    <th className="px-4 py-3.5">Client Name & Contact</th>
+                    <th className="px-4 py-3.5">Meeting Type</th>
+                    <th className="px-4 py-3.5">Meeting Status</th>
                     <th className="px-4 py-3.5">Meeting Link</th>
-                    <th className="px-4 py-3.5 text-right">Actions</th>
+                    <th className="px-4 py-3.5">Handling User</th>
+                    <th className="px-4 py-3.5">Created Date</th>
+                    <th className="px-4 py-3.5 text-right">Workflow Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {meetings.length === 0 ? (
+                  {meetings
+                    .filter((m) => {
+                      const matchSearch =
+                        m.client_name.toLowerCase().includes(meetingSearchTerm.toLowerCase()) ||
+                        m.email.toLowerCase().includes(meetingSearchTerm.toLowerCase()) ||
+                        (m.phone && m.phone.includes(meetingSearchTerm));
+                      const matchStatus =
+                        meetingStatusFilter === "all" ? true : m.meeting_status === meetingStatusFilter;
+                      return matchSearch && matchStatus;
+                    })
+                    .length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-xs text-slate-500">
+                      <td colSpan={8} className="py-12 text-center text-xs text-slate-500">
                         <Calendar className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                        <p className="font-bold">No scheduled Calendly meetings recorded yet.</p>
+                        <p className="font-bold">No Calendly meetings match your search or filter.</p>
+                        <p className="text-[11px] text-slate-400 mt-1">Click "+ Book / Log Meeting" or "⚡ Send Test Booking" to record one.</p>
                       </td>
                     </tr>
                   ) : (
-                    meetings.map((m) => (
-                      <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-                        <td className="px-4 py-3.5 font-bold text-sm">{m.client_name}</td>
-                        <td className="px-4 py-3.5">
-                          <div className="font-mono">{m.email}</div>
-                          {m.phone && <div className="text-slate-500">{m.phone}</div>}
-                        </td>
-                        <td className="px-4 py-3.5 font-semibold text-blue-600 dark:text-blue-400">
-                          {m.meeting_date} at {m.meeting_time}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 px-2.5 py-0.5 text-[10px] font-bold uppercase">
-                            {m.meeting_status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <a
-                            href={m.meeting_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline font-mono text-xs"
-                          >
-                            Join Meeting
-                          </a>
-                        </td>
-                        <td className="px-4 py-3.5 text-right">
-                          <button
-                            onClick={() => {
-                              setShowAddLeadModal(true);
-                            }}
-                            className="rounded border border-slate-200 dark:border-slate-700 px-2 py-1 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                          >
-                            Link to Lead
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    meetings
+                      .filter((m) => {
+                        const matchSearch =
+                          m.client_name.toLowerCase().includes(meetingSearchTerm.toLowerCase()) ||
+                          m.email.toLowerCase().includes(meetingSearchTerm.toLowerCase()) ||
+                          (m.phone && m.phone.includes(meetingSearchTerm));
+                        const matchStatus =
+                          meetingStatusFilter === "all" ? true : m.meeting_status === meetingStatusFilter;
+                        return matchSearch && matchStatus;
+                      })
+                      .map((m) => (
+                        <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+                          {/* 1. Meeting Date & Time */}
+                          <td className="px-4 py-3.5">
+                            <div className="font-bold text-blue-600 dark:text-blue-400">{m.meeting_date}</div>
+                            <div className="text-[11px] text-slate-500 font-mono mt-0.5">{m.meeting_time}</div>
+                          </td>
+
+                          {/* 2. Client Name & Contact */}
+                          <td className="px-4 py-3.5">
+                            <div className="font-bold text-sm">{m.client_name}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">{m.email}</div>
+                            {m.phone && <div className="text-[10px] text-slate-400 font-mono">{m.phone}</div>}
+                          </td>
+
+                          {/* 3. Meeting Type */}
+                          <td className="px-4 py-3.5 font-medium">
+                            <span>{m.meeting_type || "AI Video Strategy Call (30 min)"}</span>
+                          </td>
+
+                          {/* 4. Meeting Status (Editable Dropdown) */}
+                          <td className="px-4 py-3.5">
+                            <select
+                              value={m.meeting_status || "scheduled"}
+                              onChange={async (e) => {
+                                const newStatus = e.target.value;
+                                await updateCalendlyMeetingServerFn({
+                                  id: m.id,
+                                  meeting_status: newStatus,
+                                  performedBy: session?.name || "Admin",
+                                });
+                                setMeetings((prev) =>
+                                  prev.map((item) => (item.id === m.id ? { ...item, meeting_status: newStatus } : item))
+                                );
+                                showToast(`Meeting status updated to ${newStatus}`);
+                                await fetchNotificationsList();
+                                await fetchLogsList();
+                              }}
+                              className={`rounded-lg px-2 py-1 text-[11px] font-bold uppercase border cursor-pointer ${
+                                m.meeting_status === "completed"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                  : m.meeting_status === "cancelled"
+                                  ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300"
+                                  : m.meeting_status === "rescheduled"
+                                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+                                  : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
+                              }`}
+                            >
+                              <option value="scheduled">Scheduled</option>
+                              <option value="upcoming">Upcoming</option>
+                              <option value="completed">Completed</option>
+                              <option value="rescheduled">Rescheduled</option>
+                              <option value="cancelled">Cancelled</option>
+                            </select>
+                          </td>
+
+                          {/* 5. Meeting Link */}
+                          <td className="px-4 py-3.5">
+                            {m.meeting_link ? (
+                              <a
+                                href={m.meeting_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-600 hover:underline font-mono text-xs"
+                              >
+                                <span>Join Call</span>
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              <span className="text-slate-400 italic">No link</span>
+                            )}
+                          </td>
+
+                          {/* 6. Admin / Handling User */}
+                          <td className="px-4 py-3.5">
+                            <select
+                              value={m.assigned_admin || ""}
+                              onChange={async (e) => {
+                                const newAdmin = e.target.value;
+                                await updateCalendlyMeetingServerFn({
+                                  id: m.id,
+                                  assigned_admin: newAdmin,
+                                  performedBy: session?.name || "Admin",
+                                });
+                                setMeetings((prev) =>
+                                  prev.map((item) => (item.id === m.id ? { ...item, assigned_admin: newAdmin } : item))
+                                );
+                                showToast("Handling admin assigned");
+                              }}
+                              className={`rounded-lg px-2 py-1 text-[11px] font-medium border cursor-pointer outline-none ${
+                                isDark ? "border-slate-800 bg-[#161327] text-white" : "border-slate-200 bg-slate-50 text-slate-800"
+                              }`}
+                            >
+                              <option value="">Unassigned</option>
+                              <option value="superadmin@aistudio.com">Super Admin</option>
+                              <option value="admin@aistudio.com">Admin</option>
+                              {adminUsers.map((u) => (
+                                <option key={u.id} value={u.email}>
+                                  {u.name} ({u.email})
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* 7. Meeting Created Date */}
+                          <td className="px-4 py-3.5 text-slate-500 font-mono text-[11px]">
+                            {new Date(m.created_at).toLocaleDateString()}
+                          </td>
+
+                          {/* 8. Workflow Actions */}
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setShowAddLeadModal(true);
+                                }}
+                                className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 cursor-pointer"
+                                title="Lead -> Calendly -> Notification -> Follow-up -> Lead Status"
+                              >
+                                Link Lead
+                              </button>
+
+                              <button
+                                onClick={() => setEditingMeeting(m)}
+                                className="rounded-lg border border-slate-200 dark:border-slate-700 p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                                title="Edit Meeting Details"
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </button>
+
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Delete meeting record for ${m.client_name}?`)) {
+                                    await deleteCalendlyMeetingServerFn({
+                                      id: m.id,
+                                      client_name: m.client_name,
+                                      performedBy: session?.name || "Admin",
+                                    });
+                                    setMeetings((prev) => prev.filter((item) => item.id !== m.id));
+                                    showToast("Meeting record removed");
+                                    await fetchLogsList();
+                                  }
+                                }}
+                                className="rounded-lg border border-slate-200 dark:border-slate-700 p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
+                                title="Delete Meeting"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
                   )}
                 </tbody>
               </table>
@@ -3915,6 +4393,9 @@ function AdminPage() {
                 const meeting_date = formData.get("meeting_date") as string;
                 const meeting_time = formData.get("meeting_time") as string;
                 const meeting_link = formData.get("meeting_link") as string;
+                const meeting_type = formData.get("meeting_type") as string;
+                const assigned_admin = formData.get("assigned_admin") as string;
+                const notes = formData.get("notes") as string;
 
                 try {
                   const res = await saveCalendlyMeetingServerFn({
@@ -3924,16 +4405,21 @@ function AdminPage() {
                       phone: phone || undefined,
                       meeting_date,
                       meeting_time,
-                      meeting_link: meeting_link || "https://calendly.com/quickuppaistudio",
+                      meeting_link: meeting_link || "https://calendly.com/quickuppaistudio/strategy-call",
+                      meeting_type: meeting_type || "AI Video Strategy Call (30 min)",
+                      assigned_admin: assigned_admin || undefined,
+                      notes: notes || undefined,
                       meeting_status: "scheduled",
-                      performedBy: session.name,
+                      performedBy: session?.name || "Admin",
                     },
                   });
 
                   if (res.success && res.meeting) {
-                    setMeetings((prev) => [res.meeting, ...prev]);
-                    showToast("Meeting scheduled & recorded");
+                    setMeetings((prev) => [res.meeting!, ...prev]);
+                    showToast("Meeting scheduled & recorded in CRM");
                     setShowAddMeetingModal(false);
+                    await fetchNotificationsList();
+                    await fetchLogsList();
                   }
                 } catch (err) {
                   alert("Failed to save meeting.");
@@ -3996,10 +4482,11 @@ function AdminPage() {
                 <div>
                   <label className="block font-semibold mb-1">Meeting Time *</label>
                   <input
-                    type="time"
+                    type="text"
                     name="meeting_time"
                     required
-                    defaultValue="14:00"
+                    defaultValue="3:00 PM EST"
+                    placeholder="e.g. 3:00 PM EST"
                     className={`w-full rounded-xl border p-2.5 focus:outline-none ${
                       isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
                     }`}
@@ -4007,12 +4494,60 @@ function AdminPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">Meeting Type</label>
+                  <select
+                    name="meeting_type"
+                    defaultValue="AI Video Strategy Call (30 min)"
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    <option value="AI Video Strategy Call (30 min)">AI Video Strategy Call (30 min)</option>
+                    <option value="Product Demo Call (15 min)">Product Demo Call (15 min)</option>
+                    <option value="Custom Enterprise Consultation">Custom Enterprise Consultation</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Handling Admin</label>
+                  <select
+                    name="assigned_admin"
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    <option value="">Unassigned</option>
+                    <option value="superadmin@aistudio.com">Super Admin</option>
+                    <option value="admin@aistudio.com">Admin</option>
+                    {adminUsers.map((u) => (
+                      <option key={u.id} value={u.email}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="block font-semibold mb-1">Calendly / Video Call Link</label>
+                <label className="block font-semibold mb-1">Meeting Link (Google Meet / Zoom / Calendly)</label>
                 <input
                   name="meeting_link"
-                  defaultValue="https://calendly.com/quickuppaistudio"
+                  defaultValue="https://calendly.com/quickuppaistudio/strategy-call"
                   className={`w-full rounded-xl border p-2.5 font-mono focus:outline-none ${
+                    isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Notes / Client Requirement</label>
+                <textarea
+                  name="notes"
+                  rows={2}
+                  placeholder="Notes about the client's video goals or brand background..."
+                  className={`w-full rounded-xl border p-2.5 focus:outline-none resize-none ${
                     isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
                   }`}
                 />
@@ -4031,6 +4566,246 @@ function AdminPage() {
                   className="rounded-xl bg-blue-600 px-5 py-2 font-bold text-white shadow-md hover:bg-blue-700 cursor-pointer"
                 >
                   Save Meeting
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7.5: EDIT CALENDLY MEETING DETAILS */}
+      {editingMeeting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-4 ${
+            isDark ? "border-slate-700 bg-[#151222] text-white" : "border-slate-200 bg-white text-slate-900"
+          }`}>
+            <div className="flex items-center justify-between border-b pb-3 dark:border-slate-800">
+              <h3 className="text-base font-bold flex items-center gap-2 text-blue-600">
+                <Edit className="h-5 w-5" />
+                <span>Edit Meeting Details</span>
+              </h3>
+              <button
+                onClick={() => setEditingMeeting(null)}
+                className="rounded-lg p-1 text-slate-400 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const client_name = formData.get("client_name") as string;
+                const email = formData.get("email") as string;
+                const phone = formData.get("phone") as string;
+                const meeting_date = formData.get("meeting_date") as string;
+                const meeting_time = formData.get("meeting_time") as string;
+                const meeting_status = formData.get("meeting_status") as string;
+                const meeting_link = formData.get("meeting_link") as string;
+                const meeting_type = formData.get("meeting_type") as string;
+                const assigned_admin = formData.get("assigned_admin") as string;
+                const notes = formData.get("notes") as string;
+
+                try {
+                  const res = await updateCalendlyMeetingServerFn({
+                    id: editingMeeting.id,
+                    client_name,
+                    email,
+                    phone: phone || undefined,
+                    meeting_date,
+                    meeting_time,
+                    meeting_status,
+                    meeting_link,
+                    meeting_type,
+                    assigned_admin: assigned_admin || undefined,
+                    notes: notes || undefined,
+                    performedBy: session?.name || "Admin",
+                  });
+
+                  if (res.success) {
+                    setMeetings((prev) =>
+                      prev.map((m) =>
+                        m.id === editingMeeting.id
+                          ? {
+                              ...m,
+                              client_name,
+                              email,
+                              phone,
+                              meeting_date,
+                              meeting_time,
+                              meeting_status,
+                              meeting_link,
+                              meeting_type,
+                              assigned_admin,
+                              notes,
+                            }
+                          : m
+                      )
+                    );
+                    showToast("Meeting updated successfully");
+                    setEditingMeeting(null);
+                    await fetchNotificationsList();
+                    await fetchLogsList();
+                  }
+                } catch (err) {
+                  alert("Failed to update meeting.");
+                }
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div>
+                <label className="block font-semibold mb-1">Client Name *</label>
+                <input
+                  name="client_name"
+                  required
+                  defaultValue={editingMeeting.client_name}
+                  className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                    isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                  }`}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">Email *</label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    defaultValue={editingMeeting.email}
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Phone</label>
+                  <input
+                    name="phone"
+                    defaultValue={editingMeeting.phone || ""}
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">Meeting Date *</label>
+                  <input
+                    type="text"
+                    name="meeting_date"
+                    required
+                    defaultValue={editingMeeting.meeting_date}
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Meeting Time *</label>
+                  <input
+                    type="text"
+                    name="meeting_time"
+                    required
+                    defaultValue={editingMeeting.meeting_time}
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">Status</label>
+                  <select
+                    name="meeting_status"
+                    defaultValue={editingMeeting.meeting_status || "scheduled"}
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    <option value="scheduled">Scheduled</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="completed">Completed</option>
+                    <option value="rescheduled">Rescheduled</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Handling Admin</label>
+                  <select
+                    name="assigned_admin"
+                    defaultValue={editingMeeting.assigned_admin || ""}
+                    className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                      isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    <option value="">Unassigned</option>
+                    <option value="superadmin@aistudio.com">Super Admin</option>
+                    <option value="admin@aistudio.com">Admin</option>
+                    {adminUsers.map((u) => (
+                      <option key={u.id} value={u.email}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Meeting Link</label>
+                <input
+                  name="meeting_link"
+                  defaultValue={editingMeeting.meeting_link}
+                  className={`w-full rounded-xl border p-2.5 font-mono focus:outline-none ${
+                    isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Meeting Type</label>
+                <input
+                  name="meeting_type"
+                  defaultValue={editingMeeting.meeting_type || "AI Video Strategy Call (30 min)"}
+                  className={`w-full rounded-xl border p-2.5 focus:outline-none ${
+                    isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Notes</label>
+                <textarea
+                  name="notes"
+                  rows={2}
+                  defaultValue={editingMeeting.notes || ""}
+                  className={`w-full rounded-xl border p-2.5 focus:outline-none resize-none ${
+                    isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
+                  }`}
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingMeeting(null)}
+                  className="rounded-xl border px-4 py-2 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-blue-600 px-5 py-2 font-bold text-white shadow-md hover:bg-blue-700 cursor-pointer"
+                >
+                  Update Meeting
                 </button>
               </div>
             </form>
