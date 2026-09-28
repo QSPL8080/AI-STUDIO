@@ -98,6 +98,25 @@ export const submitLeadServerFn = createServerFn({ method: "POST" })
         });
       } catch {}
 
+      // Create CRM Notification
+      try {
+        const notif = await saveCRMNotificationInDb({
+          type: "lead_new",
+          title: "New Website Lead Submitted",
+          message: `${saved.name} (${saved.phone}) submitted from ${saved.source} - ${saved.video_type || "AI Video"}`,
+          entity_id: saved.id,
+          actor: saved.name,
+        });
+
+        broadcastLeadEvent({
+          type: "NEW_LEAD",
+          lead: saved,
+          notification: notif,
+        });
+      } catch (notifErr) {
+        console.warn("Failed to create CRM notification for new lead:", notifErr);
+      }
+
       // Dispatch Email Notification
       try {
         await sendLeadNotificationEmail({
@@ -176,6 +195,25 @@ export const addManualLeadServerFn = createServerFn({ method: "POST" })
         user_role: data.userRole || "admin",
       });
 
+      // Create CRM Notification
+      try {
+        const notif = await saveCRMNotificationInDb({
+          type: "lead_manual",
+          title: "New Manual Lead Created",
+          message: `${leadSource} lead created for ${saved.name} (${saved.phone}) by ${data.createdBy || "Admin"}`,
+          entity_id: saved.id,
+          actor: data.createdBy || "Admin",
+        });
+
+        broadcastLeadEvent({
+          type: "NEW_LEAD",
+          lead: saved,
+          notification: notif,
+        });
+      } catch (notifErr) {
+        console.warn("Failed to create manual lead CRM notification:", notifErr);
+      }
+
       return { success: true, lead: saved };
     } catch (error: any) {
       console.error("Error adding manual lead:", error);
@@ -241,6 +279,23 @@ export const updateLeadStatusServerFn = createServerFn({ method: "POST" })
           performed_by: data.closedBy || "Admin",
           user_role: data.userRole || "admin",
         });
+
+        try {
+          const notif = await saveCRMNotificationInDb({
+            type: data.status === "Closed" ? "lead_closed" : "lead_status",
+            title: data.status === "Closed" ? "Lead Closed" : "Lead Status Updated",
+            message: data.status === "Closed"
+              ? `Lead #${data.id.slice(-6)} marked Closed by ${data.closedBy || "Admin"}${data.deliveryDate ? ` (Delivery: ${data.deliveryDate})` : ""}`
+              : `Lead #${data.id.slice(-6)} status set to ${data.status} by ${data.closedBy || "Admin"}`,
+            entity_id: data.id,
+            actor: data.closedBy || "Admin",
+          });
+
+          broadcastLeadEvent({
+            type: "UPDATE_LEAD",
+            notification: notif,
+          });
+        } catch {}
       }
 
       return { success: ok };
@@ -274,6 +329,23 @@ export const updateProjectStatusServerFn = createServerFn({ method: "POST" })
           performed_by: data.performedBy || "Admin",
           user_role: data.userRole || "admin",
         });
+
+        try {
+          const notif = await saveCRMNotificationInDb({
+            type: data.projectStatus === "Delivered" ? "project_delivered" : "project_status",
+            title: data.projectStatus === "Delivered" ? "Project Delivered" : "Project Status Updated",
+            message: data.projectStatus === "Delivered"
+              ? `Project #${data.id.slice(-6)} marked as Delivered by ${data.performedBy || "Admin"}`
+              : `Project #${data.id.slice(-6)} status set to ${data.projectStatus} by ${data.performedBy || "Admin"}`,
+            entity_id: data.id,
+            actor: data.performedBy || "Admin",
+          });
+
+          broadcastLeadEvent({
+            type: "UPDATE_LEAD",
+            notification: notif,
+          });
+        } catch {}
       }
       return { success: ok };
     } catch (error: any) {

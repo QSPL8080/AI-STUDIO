@@ -308,10 +308,37 @@ function AdminPage() {
   const [isSendingTestMeeting, setIsSendingTestMeeting] = useState(false);
   const [calendlyWebhookCopied, setCalendlyWebhookCopied] = useState(false);
 
-  // CRM Notifications State (Image 2 & Image 3)
+  // CRM Notifications State
   const [notifications, setNotifications] = useState<CRMNotification[]>([]);
   const [showNotificationsPopover, setShowNotificationsPopover] = useState(false);
-  const [notificationFilter, setNotificationFilter] = useState<"all" | "unread" | "meeting" | "lead">("all");
+  const [notificationFilter, setNotificationFilter] = useState<"all" | "unread" | "lead" | "meeting" | "order">("all");
+
+  const unreadNotifsCount = useMemo(() => notifications.filter((n) => !n.is_read).length, [notifications]);
+  const leadNotifs = useMemo(() => notifications.filter((n) => {
+    const t = (n.type || "").toLowerCase();
+    const title = (n.title || "").toLowerCase();
+    return t.includes("lead") || t.includes("project") || title.includes("lead") || title.includes("project");
+  }), [notifications]);
+
+  const meetingNotifs = useMemo(() => notifications.filter((n) => {
+    const t = (n.type || "").toLowerCase();
+    const title = (n.title || "").toLowerCase();
+    return t.includes("meeting") || t.includes("calendly") || title.includes("meeting") || title.includes("calendly") || title.includes("strategy call") || title.includes("call");
+  }), [notifications]);
+
+  const orderNotifs = useMemo(() => notifications.filter((n) => {
+    const t = (n.type || "").toLowerCase();
+    const title = (n.title || "").toLowerCase();
+    return t.includes("order") || t.includes("payment") || t.includes("paypal") || title.includes("order") || title.includes("payment") || title.includes("paypal");
+  }), [notifications]);
+
+  const filteredNotificationsList = useMemo(() => {
+    if (notificationFilter === "unread") return notifications.filter((n) => !n.is_read);
+    if (notificationFilter === "lead") return leadNotifs;
+    if (notificationFilter === "meeting") return meetingNotifs;
+    if (notificationFilter === "order") return orderNotifs;
+    return notifications;
+  }, [notifications, notificationFilter, leadNotifs, meetingNotifs, orderNotifs]);
 
   // Activity & Login Logs State
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
@@ -424,6 +451,19 @@ function AdminPage() {
       return [newLead, ...prev];
     });
 
+    // Add to CRM Notifications Center
+    const notifItem: CRMNotification = {
+      id: `notif_lead_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type: "lead_new",
+      title: "New Lead Submitted",
+      message: `${newLead.name} (${newLead.phone || "No phone"}) from ${newLead.source || "Website"} - ${newLead.video_type || "AI Video"}`,
+      entity_id: newLead.id,
+      actor: newLead.name,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    setNotifications((prev) => [notifItem, ...prev.filter((n) => n.entity_id !== newLead.id)]);
+
     setHighlightedLeadIds((prev) => new Set([...prev, newLead.id]));
     setTimeout(() => {
       setHighlightedLeadIds((prev) => {
@@ -452,6 +492,19 @@ function AdminPage() {
       }
       return [newOrder, ...prev];
     });
+
+    // Add to CRM Notifications Center
+    const notifItem: CRMNotification = {
+      id: `notif_order_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type: "order_payment",
+      title: "New Payment Received",
+      message: `${newOrder.customer_name} completed payment of $${newOrder.amount} for ${newOrder.item_name}`,
+      entity_id: newOrder.id,
+      actor: newOrder.customer_name,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    setNotifications((prev) => [notifItem, ...prev.filter((n) => n.entity_id !== newOrder.id)]);
 
     setHighlightedOrderIds((prev) => new Set([...prev, newOrder.id]));
     setTimeout(() => {
@@ -609,8 +662,41 @@ function AdminPage() {
 
   const fetchNotificationsList = async () => {
     try {
-      const res = await fetchNotificationsServerFn({ data: { limit: 50 } });
-      if (res.success && res.notifications) setNotifications(res.notifications);
+      const res = await fetchNotificationsServerFn({ data: { limit: 100 } });
+      if (res.success && res.notifications && res.notifications.length > 0) {
+        setNotifications(res.notifications);
+      } else {
+        // Fallback: Populate notifications from existing leads and meetings if DB table was empty
+        const fallbackList: CRMNotification[] = [];
+        leads.slice(0, 15).forEach((l) => {
+          fallbackList.push({
+            id: `notif_lead_${l.id}`,
+            type: "lead_new",
+            title: "Website Lead Recorded",
+            message: `${l.name} (${l.phone || "No phone"}) from ${l.source} - ${l.video_type || "AI Video"}`,
+            entity_id: l.id,
+            actor: l.name,
+            is_read: false,
+            created_at: l.created_at || new Date().toISOString(),
+          });
+        });
+        meetings.slice(0, 10).forEach((m) => {
+          fallbackList.push({
+            id: `notif_meet_${m.id}`,
+            type: m.meeting_status === "cancelled" ? "meeting_cancelled" : "meeting_new",
+            title: m.meeting_status === "cancelled" ? "Calendly Meeting Cancelled" : "Calendly Strategy Call",
+            message: `${m.client_name} · ${m.meeting_date} at ${m.meeting_time} (${m.meeting_status})`,
+            entity_id: m.id,
+            actor: m.client_name,
+            is_read: false,
+            created_at: m.created_at || new Date().toISOString(),
+          });
+        });
+        fallbackList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        if (fallbackList.length > 0) {
+          setNotifications((curr) => (curr.length > 0 ? curr : fallbackList));
+        }
+      }
     } catch {}
   };
 
@@ -1529,34 +1615,38 @@ function AdminPage() {
                 title="Notifications Center"
               >
                 <Bell className="h-4 w-4" />
-                {notifications.filter((n) => !n.is_read).length > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white shadow animate-pulse">
-                    {notifications.filter((n) => !n.is_read).length > 99 ? "99+" : notifications.filter((n) => !n.is_read).length}
+                {unreadNotifsCount > 0 ? (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white shadow-md animate-pulse">
+                    {unreadNotifsCount > 99 ? "99+" : unreadNotifsCount}
                   </span>
-                )}
+                ) : notifications.length > 0 ? (
+                  <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-slate-400 px-1 text-[8px] font-bold text-white shadow">
+                    {notifications.length > 99 ? "99+" : notifications.length}
+                  </span>
+                ) : null}
               </button>
 
               {/* Notification Popover Dropdown */}
               {showNotificationsPopover && (
-                <div className="absolute right-0 top-11 z-50 w-[calc(100vw-24px)] max-w-sm sm:w-96 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl space-y-3 animate-in fade-in text-slate-900">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="absolute right-0 top-11 z-50 w-[calc(100vw-24px)] max-w-sm sm:w-[420px] rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl space-y-3 animate-in fade-in text-slate-900">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                     <div className="flex items-center gap-2">
                       <BellRing className="h-4 w-4 text-blue-500" />
-                      <span className="text-xs font-bold">CRM Notifications</span>
-                      <span className="rounded-full bg-blue-100 px-1.5 py-0.2 text-[10px] font-extrabold text-blue-700">
-                        {notifications.length}
+                      <span className="text-xs font-bold text-slate-800">CRM Notifications</span>
+                      <span className="rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                        {notifications.length} Total {unreadNotifsCount > 0 ? `(${unreadNotifsCount} unread)` : ""}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      {notifications.some((n) => !n.is_read) && (
+                    <div className="flex items-center gap-1.5">
+                      {unreadNotifsCount > 0 && (
                         <button
                           onClick={async () => {
                             await markAllNotificationsReadServerFn();
                             setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
                             showToast("All notifications marked as read");
                           }}
-                          className="text-[10px] font-semibold text-blue-600 hover:underline cursor-pointer px-1"
+                          className="text-[10px] font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer px-1 py-0.5"
                         >
                           Mark all read
                         </button>
@@ -1568,7 +1658,7 @@ function AdminPage() {
                             setNotifications([]);
                             showToast("Notifications cleared");
                           }}
-                          className="text-[10px] text-slate-400 hover:text-red-500 cursor-pointer px-1"
+                          className="text-[10px] text-slate-400 hover:text-red-500 cursor-pointer px-1 py-0.5"
                           title="Clear all notifications"
                         >
                           Clear
@@ -1577,96 +1667,94 @@ function AdminPage() {
                     </div>
                   </div>
 
-                  {/* Filter Pills */}
-                  <div className="flex items-center gap-1 text-[10px] overflow-x-auto pb-1 scrollbar-none">
+                  {/* Filter Pills with dynamic counts */}
+                  <div className="flex items-center gap-1.5 text-[10px] overflow-x-auto pb-1 scrollbar-none">
                     <button
                       onClick={() => setNotificationFilter("all")}
-                      className={`rounded px-2 py-0.5 font-bold cursor-pointer shrink-0 ${
-                        notificationFilter === "all" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"
+                      className={`rounded-full px-2.5 py-1 font-bold cursor-pointer shrink-0 transition-colors ${
+                        notificationFilter === "all" ? "bg-blue-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
-                      All
+                      All ({notifications.length})
                     </button>
                     <button
                       onClick={() => setNotificationFilter("unread")}
-                      className={`rounded px-2 py-0.5 font-bold cursor-pointer shrink-0 ${
-                        notificationFilter === "unread" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"
+                      className={`rounded-full px-2.5 py-1 font-bold cursor-pointer shrink-0 transition-colors ${
+                        notificationFilter === "unread" ? "bg-blue-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
-                      Unread ({notifications.filter((n) => !n.is_read).length})
-                    </button>
-                    <button
-                      onClick={() => setNotificationFilter("meeting")}
-                      className={`rounded px-2 py-0.5 font-bold cursor-pointer shrink-0 ${
-                        notificationFilter === "meeting" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"
-                      }`}
-                    >
-                      Meetings
+                      Unread ({unreadNotifsCount})
                     </button>
                     <button
                       onClick={() => setNotificationFilter("lead")}
-                      className={`rounded px-2 py-0.5 font-bold cursor-pointer shrink-0 ${
-                        notificationFilter === "lead" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"
+                      className={`rounded-full px-2.5 py-1 font-bold cursor-pointer shrink-0 transition-colors ${
+                        notificationFilter === "lead" ? "bg-blue-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
-                      Leads
+                      Leads ({leadNotifs.length})
+                    </button>
+                    <button
+                      onClick={() => setNotificationFilter("meeting")}
+                      className={`rounded-full px-2.5 py-1 font-bold cursor-pointer shrink-0 transition-colors ${
+                        notificationFilter === "meeting" ? "bg-blue-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      Meetings ({meetingNotifs.length})
+                    </button>
+                    <button
+                      onClick={() => setNotificationFilter("order")}
+                      className={`rounded-full px-2.5 py-1 font-bold cursor-pointer shrink-0 transition-colors ${
+                        notificationFilter === "order" ? "bg-blue-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      Orders ({orderNotifs.length})
                     </button>
                   </div>
 
                   {/* Notification List */}
-                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
-                    {notifications
-                      .filter((n) => {
-                        if (notificationFilter === "unread") return !n.is_read;
-                        if (notificationFilter === "meeting") return n.type.includes("meeting") || n.type.includes("calendly");
-                        if (notificationFilter === "lead") return n.type.includes("lead") || n.type.includes("project");
-                        return true;
-                      })
-                      .length === 0 ? (
-                      <div className="py-6 text-center text-xs text-slate-400">
-                        No notifications found.
+                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 text-xs">
+                    {filteredNotificationsList.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-slate-400">
+                        No notifications found for this filter.
                       </div>
                     ) : (
-                      notifications
-                        .filter((n) => {
-                          if (notificationFilter === "unread") return !n.is_read;
-                          if (notificationFilter === "meeting") return n.type.includes("meeting") || n.type.includes("calendly");
-                          if (notificationFilter === "lead") return n.type.includes("lead") || n.type.includes("project");
-                          return true;
-                        })
-                        .map((n) => (
-                          <div
-                            key={n.id}
-                            className={`p-2.5 transition-colors flex items-start justify-between gap-2 hover:bg-slate-50 ${
-                              !n.is_read ? "bg-blue-50/50 font-medium" : ""
-                            }`}
-                          >
-                            <div className="space-y-0.5 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className={`h-1.5 w-1.5 rounded-full ${!n.is_read ? "bg-blue-500 animate-ping" : "bg-slate-300"}`} />
-                                <span className="font-bold text-[11px]">{n.title}</span>
-                              </div>
-                              <p className="text-[11px] text-slate-600 line-clamp-2">{n.message}</p>
-                              <div className="flex items-center gap-2 pt-0.5 text-[9px] text-slate-400 font-mono">
-                                <span>{new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                                <span>{n.actor}</span>
-                              </div>
+                      filteredNotificationsList.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`p-2.5 transition-colors flex items-start justify-between gap-2.5 hover:bg-slate-50 rounded-lg ${
+                            !n.is_read ? "bg-blue-50/60 font-medium" : ""
+                          }`}
+                        >
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`h-2 w-2 rounded-full shrink-0 ${!n.is_read ? "bg-blue-600 animate-pulse" : "bg-slate-300"}`} />
+                              <span className="font-bold text-[11px] text-slate-900 truncate">{n.title}</span>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold uppercase bg-slate-100 text-slate-500">
+                                {n.type.replace(/_/g, " ")}
+                              </span>
                             </div>
-
-                            {!n.is_read && (
-                              <button
-                                onClick={async () => {
-                                  await markNotificationReadServerFn({ data: { id: n.id } });
-                                  setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item)));
-                                }}
-                                className="text-slate-400 hover:text-blue-500 p-1 cursor-pointer"
-                                title="Mark as read"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </button>
-                            )}
+                            <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">{n.message}</p>
+                            <div className="flex items-center gap-2 pt-0.5 text-[9px] text-slate-400 font-mono">
+                              <span>{new Date(n.created_at).toLocaleDateString([], { month: "short", day: "numeric" })} {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                              <span>•</span>
+                              <span className="truncate">{n.actor}</span>
+                            </div>
                           </div>
-                        ))
+
+                          {!n.is_read && (
+                            <button
+                              onClick={async () => {
+                                await markNotificationReadServerFn({ data: { id: n.id } });
+                                setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item)));
+                              }}
+                              className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1.5 rounded-md cursor-pointer shrink-0 transition-colors"
+                              title="Mark as read"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>

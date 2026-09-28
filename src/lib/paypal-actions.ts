@@ -9,11 +9,16 @@ import {
   saveOrder as saveOrderToDb,
   updateOrderPayment as updateOrderPaymentInDb,
   getOrders as getOrdersFromDb,
+  getOrderById as getOrderByIdFromDb,
+  getOrderByAnyId as getOrderByAnyIdFromDb,
   updateOrderStatus as updateOrderStatusInDb,
   deleteOrder as deleteOrderFromDb,
+  saveCRMNotification as saveCRMNotificationInDb,
   type Order,
   type PaymentStatus,
 } from "./db";
+import { sendPaymentReceiptEmail } from "./email";
+import { generateInvoicePdfBuffer } from "./pdf-receipt";
 
 /**
  * Public configuration helper for client-side PayPal Script initialization.
@@ -135,7 +140,7 @@ export const capturePayPalOrderServerFn = createServerFn({ method: "POST" })
       let captureId: string | undefined;
       const captures =
         captureResult.purchase_units?.[0]?.payments?.captures;
-      if (captures && captures.length > 0) {
+      if (captures && captures.length > 0 && captures[0]) {
         captureId = captures[0].id;
       }
 
@@ -148,6 +153,34 @@ export const capturePayPalOrderServerFn = createServerFn({ method: "POST" })
         paypalStatus: captureResult.status,
         rawDetails: JSON.stringify(captureResult),
       });
+
+      // Automated Payment Receipt Email Dispatch (Hostinger SMTP)
+      if (isCompleted && updatedOrder && updatedOrder.customer_email) {
+        sendPaymentReceiptEmail({
+          customerName: updatedOrder.customer_name,
+          customerEmail: updatedOrder.customer_email,
+          customerPhone: updatedOrder.customer_phone || undefined,
+          customerCompany: updatedOrder.customer_company || undefined,
+          orderId: data.orderId,
+          captureId,
+          itemName: updatedOrder.item_name,
+          amount: Number(updatedOrder.amount),
+          currency: updatedOrder.currency || "USD",
+          paymentMethod: "PayPal / Credit Card",
+        }).catch((err) => {
+          console.error("Automated payment receipt dispatch error:", err);
+        });
+
+        try {
+          await saveCRMNotificationInDb({
+            type: "order_payment",
+            title: "New PayPal Payment Received",
+            message: `${updatedOrder.customer_name} completed payment of $${updatedOrder.amount} for ${updatedOrder.item_name}`,
+            entity_id: updatedOrder.id,
+            actor: updatedOrder.customer_name,
+          });
+        } catch {}
+      }
 
       return {
         success: isCompleted,
@@ -214,25 +247,115 @@ export const deleteOrderServerFn = createServerFn({ method: "POST" })
   });
 
 /**
- * Client Broadcast helper for real-time order synchronization across tabs.
+ * Send or re-send payment receipt email to customer (Admin / Client).
  */
-export function broadcastOrderEvent(event: {
-  type: "NEW_ORDER" | "UPDATE_ORDER" | "DELETE_ORDER";
-  order?: Order;
-  id?: string;
-}) {
-  if (typeof window === "undefined") return;
-  try {
-    if ("BroadcastChannel" in window) {
-      const bc = new BroadcastChannel("ai_studio_orders_sync");
-      bc.postMessage(event);
-      bc.close();
+export const sendReceiptEmailServerFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      customerName: string;
+      customerEmail: string;
+      customerPhone?: string;
+      customerCompany?: string;
+      orderId: string;
+      captureId?: string;
+      itemName: string;
+      amount: number;
+      currency?: string;
+      paymentMethod?: string;
+    }) => data
+  )
+  .handler(async ({ data }) => {
+    try {
+      const res = await sendPaymentReceiptEmail(data);
+      return res;
+    } catch (error: any) {
+      return { success: false, error: error.message };
     }
-    window.dispatchEvent(new CustomEvent("ai_studio_order_event", { detail: event }));
-  } catch (e) {
-    console.error("Broadcast order event failed:", e);
-  }
+  });
+
+export function formatOrderInvoiceNumber(orderId: string, createdAt?: string): string {
+  if (orderId.startsWith("QAS-")) return orderId;
+  const year = createdAt ? new Date(createdAt).getFullYear() : new Date().getFullYear();
+  const rawId = orderId.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase();
+  return `QAS-${year}-${rawId.padStart(6, "0")}`;
 }
+
+/**
+ * Lookup order by internal ID, PayPal order ID, or capture ID
+ */
+export const lookupOrderServerFn = createServerFn({ method: "POST" })
+  .validator((data: { identifier: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      if (!data.identifier) {
+        return { success: false, error: "Missing order identifier." };
+      }
+      const order = await getOrderByAnyIdFromDb(data.identifier);
+      if (!order) {
+        return { success: false, error: "Order not found." };
+      }
+      return { success: true, order };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+/**
+ * Generate official PDF receipt buffer for in-browser download
+ */
+export const downloadReceiptPdfServerFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      orderNumber: string;
+      issueDate?: string | undefined;
+      paymentDate?: string | undefined;
+      paymentTime?: string | undefined;
+      customerName: string;
+      customerEmail: string;
+      customerCompany?: string | undefined;
+      billingAddress?: string | undefined;
+      serviceName: string;
+      packageDescription?: string | undefined;
+      amount: number;
+      currency?: string | undefined;
+      paymentMethod?: string | undefined;
+      transactionId: string;
+    }) => data
+  )
+  .handler(async ({ data }) => {
+    try {
+      const buffer = await generateInvoicePdfBuffer({
+        orderNumber: data.orderNumber,
+        issueDate: data.issueDate,
+        paymentDate: data.paymentDate,
+        paymentTime: data.paymentTime,
+        paymentStatus: "PAID",
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerCompany: data.customerCompany,
+        billingAddress: data.billingAddress || "United States",
+        serviceName: data.serviceName,
+        packageDescription: data.packageDescription || "60 Seconds",
+        qty: 1,
+        amount: data.amount,
+        currency: data.currency || "USD",
+        subtotal: data.amount,
+        tax: 0,
+        total: data.amount,
+        paymentMethod: data.paymentMethod || "PayPal",
+        transactionId: data.transactionId,
+      });
+
+      return {
+        success: true,
+        filename: `Receipt_${data.orderNumber}.pdf`,
+        base64: buffer.toString("base64"),
+      };
+    } catch (error: any) {
+      console.error("PDF Receipt generation failed:", error);
+      return { success: false, error: error.message };
+    }
+  });
 
 /**
  * Server-authoritative Payment Tab Security PIN Verification.
@@ -260,37 +383,23 @@ export const verifyPaymentPinServerFn = createServerFn({ method: "POST" })
   });
 
 /**
- * Server-authoritative Admin Login Verification.
+ * Client Broadcast helper for real-time order synchronization across tabs.
  */
-export const verifyAdminLoginServerFn = createServerFn({ method: "POST" })
-  .validator((data: { email: string; password: string }) => data)
-  .handler(async ({ data }) => {
-    try {
-      if (!data || !data.email || !data.password) {
-        return { success: false, error: "Email and password are required." };
-      }
-
-      const cleanEmail = data.email.trim().toLowerCase();
-      const enteredPass = data.password;
-
-      const envEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-      const envPass = process.env.ADMIN_PASSWORD;
-
-      const isValid =
-        (envEmail && envPass && cleanEmail === envEmail && enteredPass === envPass) ||
-        (cleanEmail === "qsaistudio@gmail.com" && enteredPass === "Anay@0079") ||
-        (cleanEmail === "admin@aistudio.com" && enteredPass === "Admin@123") ||
-        (cleanEmail === "info@quickuppaistudio.in" && enteredPass === "Admin@123") ||
-        (cleanEmail === "info@quickuppaistudio.us" && enteredPass === "Admin@123");
-
-      if (isValid) {
-        return { success: true };
-      }
-
-      return { success: false, error: "Invalid admin credentials. Please check your email and password." };
-    } catch (error: any) {
-      console.error("Admin login verification error on server:", error);
-      return { success: false, error: "Server authentication error." };
+export function broadcastOrderEvent(event: {
+  type: "NEW_ORDER" | "UPDATE_ORDER" | "DELETE_ORDER";
+  order?: Order;
+  id?: string;
+}) {
+  if (typeof window === "undefined") return;
+  try {
+    if ("BroadcastChannel" in window) {
+      const bc = new BroadcastChannel("ai_studio_orders_sync");
+      bc.postMessage(event);
+      bc.close();
     }
-  });
+    window.dispatchEvent(new CustomEvent("ai_studio_order_event", { detail: event }));
+  } catch (e) {
+    console.error("Broadcast order event failed:", e);
+  }
+}
 
