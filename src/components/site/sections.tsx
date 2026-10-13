@@ -3014,7 +3014,7 @@ export function LeadFormSection() {
                   className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground focus:border-neon focus:outline-none"
                 >
                   <option value="">Select budget</option>
-                  <option value="₹2,500 - ₹5,000">₹2,500 - ₹5,000</option>
+                  <option value="₹2,000 - ₹5,000">₹2,000 - ₹5,000</option>
                   <option value="₹5,000 - ₹15,000">₹5,000 - ₹15,000</option>
                   <option value="₹15,000 - ₹35,000">₹15,000 - ₹35,000</option>
                   <option value="₹35,000 - ₹75,000">₹35,000 - ₹75,000</option>
@@ -3460,6 +3460,10 @@ export function Footer() {
             <span>•</span>
             <a href="/terms" className="hover:text-neon transition-colors">
               Terms & Conditions
+            </a>
+            <span>•</span>
+            <a href="/crm/login" className="hover:text-neon transition-colors">
+              CRM Portal
             </a>
           </div>
         </div>

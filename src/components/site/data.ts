@@ -96,7 +96,7 @@ export const services = [
       "Problem → Solution Videos",
       "Social Media Advertisements",
     ],
-    price: "₹2,499 / Reel",
+    price: "₹1,999 / Reel",
     cta: "Create AI UGC Video",
   },
   {
@@ -112,7 +112,7 @@ export const services = [
       "Character-Based Videos",
       "Product Explainers",
     ],
-    price: "₹2,499 / Reel",
+    price: "₹1,999 / Reel",
     cta: "Create Cartoon Video",
   },
   {
@@ -129,7 +129,7 @@ export const services = [
       "Corporate Videos",
       "Social Media Reels",
     ],
-    price: "₹3,999 / Reel",
+    price: "₹1,999 / Reel",
     cta: "Create AI Avatar Video",
   },
   {
@@ -145,7 +145,7 @@ export const services = [
       "Premium Social Media Content",
       "Advertising Campaigns",
     ],
-    price: "₹4,999 / Reel",
+    price: "₹2,999 / Reel",
     cta: "Create Hyper-Realistic Video",
   },
   {
@@ -162,7 +162,7 @@ export const services = [
       "Promotional Videos",
       "Social Media Content",
     ],
-    price: "₹5,999 / Reel",
+    price: "₹4,999 / Reel",
     cta: "Create My Digital Twin",
   },
 ];
@@ -213,46 +213,46 @@ export const pricingRows: PricingRow[] = [
   {
     service: "AI UGC Video",
     prices: [
-      { discounted: "₹2,499" },
-      { discounted: "₹12,499" },
-      { discounted: "₹24,499" },
-      { discounted: "₹37,499" },
+      { discounted: "₹1,999" },
+      { discounted: "₹8,999" },
+      { discounted: "₹16,999" },
+      { discounted: "₹23,999" },
     ],
   },
   {
     service: "AI Cartoon Animation",
     prices: [
-      { discounted: "₹2,499" },
-      { discounted: "₹12,499" },
-      { discounted: "₹24,499" },
-      { discounted: "₹37,499" },
+      { discounted: "₹1,999" },
+      { discounted: "₹8,999" },
+      { discounted: "₹16,999" },
+      { discounted: "₹23,999" },
     ],
   },
   {
     service: "AI Avatar Video",
     prices: [
-      { discounted: "₹3,999" },
-      { discounted: "₹19,999" },
-      { discounted: "₹39,999" },
-      { discounted: "₹59,999" },
+      { discounted: "₹1,999" },
+      { discounted: "₹8,999" },
+      { discounted: "₹16,999" },
+      { discounted: "₹23,999" },
     ],
   },
   {
     service: "Hyper-Realistic AI Video",
     prices: [
-      { discounted: "₹4,999" },
-      { discounted: "₹24,999" },
-      { discounted: "₹49,999" },
-      { discounted: "₹74,999" },
+      { discounted: "₹2,999" },
+      { discounted: "₹13,999" },
+      { discounted: "₹25,499" },
+      { discounted: "₹35,999" },
     ],
   },
   {
     service: "AI Digital Twin / Clone",
     prices: [
-      { discounted: "₹5,999" },
-      { discounted: "₹29,999" },
+      { discounted: "₹4,999" },
+      { discounted: "₹22,999" },
+      { discounted: "₹42,499" },
       { discounted: "₹59,999" },
-      { discounted: "₹89,999" },
     ],
   },
 ];
@@ -530,7 +530,7 @@ export const faqs = [
   {
     question: "How much does AI video production cost?",
     answer:
-      "Our AI video production services start from ₹2,499 per reel. Pricing depends on the selected video format, production requirements and package size.",
+      "Our AI video production services start from ₹1,999 per reel. Pricing depends on the selected video format, production requirements and package size.",
   },
   {
     question: "What is included in an AI video?",
