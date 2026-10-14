@@ -25,6 +25,7 @@ import {
   Search,
   Settings,
   Shield,
+  ShieldAlert,
   Trash2,
   TrendingUp,
   User,
@@ -53,6 +54,7 @@ import {
   crmPurgeLeadsFn,
   crmUnlockUserFn,
   crmTestAlertEmailFn,
+  crmMarkNotificationsFn,
   crmDeleteUserFn,
   crmEmptyRecycleBinFn,
   crmLogoutFn,
@@ -79,6 +81,8 @@ import {
 } from "@/lib/crm-permissions";
 import { displayLeadSource } from "@/lib/lead-source";
 import type { ActivityItem, LeadItem, OrderItem, RecordCounts, UserItem } from "./crm-types";
+
+type NotifItem = { id: string; type: "lead" | "security" | "email"; createdAt: string; title: string; sub: string; lead?: LeadItem };
 
 export const LOGOUT_REASON_KEY = "quickupp_crm_logout_reason";
 
@@ -220,7 +224,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncCountdown, setSyncCountdown] = useState(10);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [unseenLeadIds, setUnseenLeadIds] = useState<string[]>([]);
+  const [notif, setNotif] = useState<{ seenAt: string; readIds: string[] } | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -270,7 +274,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [matrixDraft, setMatrixDraft] = useState<PermissionMatrix>(DEFAULT_MATRIX);
   const [matrixDirty, setMatrixDirty] = useState(false);
 
-  const knownLeadIds = useRef<Set<string> | null>(null);
+  const knownNotifIds = useRef<Set<string> | null>(null);
   const soundRef = useRef(soundEnabled);
   soundRef.current = soundEnabled && config.audioChimeEnabled;
   const configDirtyRef = useRef(false);
@@ -287,52 +291,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
   }, []);
 
-  // New-lead alert cards (bottom-right), desktop notifications and tab-title badge
-  const [leadAlerts, setLeadAlerts] = useState<{ key: number; lead: LeadItem }[]>([]);
-  const dismissAlert = (key: number) => setLeadAlerts((a) => a.filter((x) => x.key !== key));
-  const announceNewLeads = (fresh: LeadItem[]) => {
-    const shown = fresh.slice(0, 3).map((lead, i) => ({ key: Date.now() + i + Math.random(), lead }));
-    setLeadAlerts((a) => [...shown, ...a].slice(0, 4));
-    shown.forEach((al) => setTimeout(() => dismissAlert(al.key), 12000));
-    if (fresh.length > 3) toast(`+${fresh.length - 3} more new leads`, "info");
-    try {
-      if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.visibilityState !== "visible") {
-        fresh.slice(0, 3).forEach((l) => {
-          const n = new Notification(`New lead: ${l.clientName}`, {
-            body: `${l.kind === "meta" ? "Meta Ads" : displayLeadSource(l.source)} • ${l.videoScope}${l.phone ? ` • ${l.phone}` : ""}`,
-            icon: "/favicon.png",
-            tag: l.id,
-          });
-          n.onclick = () => {
-            window.focus();
-            setSelectedLead(l);
-            n.close();
-          };
-        });
-      }
-    } catch {
-      /* notifications unsupported */
-    }
+  // In-CRM notification alert cards (bottom-right). No browser / desktop notifications.
+  const [notifAlerts, setNotifAlerts] = useState<{ key: number; item: NotifItem }[]>([]);
+  const dismissAlert = (key: number) => setNotifAlerts((a) => a.filter((x) => x.key !== key));
+  const announce = (fresh: NotifItem[]) => {
+    const shown = fresh.slice(0, 3).map((item, i) => ({ key: Date.now() + i + Math.random(), item }));
+    setNotifAlerts((a) => [...shown, ...a].slice(0, 4));
+    shown.forEach((al) => setTimeout(() => dismissAlert(al.key), 15000));
+    if (fresh.length > 3) toast(`+${fresh.length - 3} more new notifications`, "info");
   };
-
-  // Ask once for desktop-notification permission on the first click in the CRM.
-  useEffect(() => {
-    if (typeof Notification === "undefined" || Notification.permission !== "default") return;
-    const ask = () => {
-      Notification.requestPermission().catch(() => null);
-      window.removeEventListener("click", ask);
-    };
-    window.addEventListener("click", ask);
-    return () => window.removeEventListener("click", ask);
-  }, []);
-
-  // Unread count in the browser tab title
-  useEffect(() => {
-    const base = "AI STUDIO INDIA – Enterprise CRM";
-    document.title = unseenLeadIds.length ? `(${unseenLeadIds.length}) New lead${unseenLeadIds.length > 1 ? "s" : ""} – ${base}` : base;
-  }, [unseenLeadIds.length]);
-
-  const markSeen = (id: string) => setUnseenLeadIds((u) => (u.includes(id) ? u.filter((x) => x !== id) : u));
 
   const forceLogout = useCallback(
     (reason?: string) => {
@@ -380,6 +347,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       }
       setOnline(true);
       setPerms(r.perms);
+      if (r.notif) setNotif(r.notif);
       setConfig(r.config);
       if (!configDirtyRef.current) setConfigDraft(r.config);
       setLeads([...r.leads].sort((a: LeadItem, b: LeadItem) => String(b.createdAt).localeCompare(String(a.createdAt))));
@@ -402,18 +370,6 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         setMe(updated);
         setStoredCrmUser(updated, false);
       }
-      // New lead detection → chime + notification dot
-      const ids = new Set<string>(r.leads.map((l: LeadItem) => l.id));
-      if (knownLeadIds.current) {
-        const fresh = r.leads.filter((l: LeadItem) => !knownLeadIds.current!.has(l.id)).map((l: LeadItem) => l.id);
-        if (fresh.length) {
-          setUnseenLeadIds((u) => [...fresh, ...u].slice(0, 50));
-          if (soundRef.current) playAudioChime();
-          const freshLeads: LeadItem[] = r.leads.filter((l: LeadItem) => fresh.includes(l.id));
-          announceNewLeads(freshLeads);
-        }
-      }
-      knownLeadIds.current = ids;
       setLoaded(true);
     } catch (e) {
       console.warn("CRM sync failed", e);
@@ -467,6 +423,81 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   // -------------------------------------------------------------------------
   const websiteLeads = useMemo(() => leads.filter((l) => l.kind === "website"), [leads]);
   const metaLeads = useMemo(() => leads.filter((l) => l.kind === "meta"), [leads]);
+
+  // -------------------------------------------------------------------------
+  // Notifications: new leads for everyone; for the Super Admin also account locks
+  // and email-delivery failures. Read state is saved per user on the server, so
+  // everything that arrived while someone was away is shown when they open the CRM.
+  // -------------------------------------------------------------------------
+  const notifItems = useMemo<NotifItem[]>(() => {
+    const items: NotifItem[] = leads.slice(0, 100).map((l) => ({
+      id: l.id,
+      type: "lead",
+      createdAt: l.createdAt,
+      title: `New ${l.kind === "meta" ? "Meta" : "website"} lead: ${l.clientName}`,
+      sub: `${l.kind === "meta" ? "Meta Ads" : displayLeadSource(l.source)} • ${l.videoScope}${l.phone ? ` • ${l.phone}` : ""}`,
+      lead: l,
+    }));
+    if (isSuperAdmin) {
+      for (const a of activity.slice(0, 300)) {
+        if (a.title === "Account locked") items.push({ id: a.id, type: "security", createdAt: a.createdAt, title: `Account locked: ${a.actorEmail}`, sub: a.description });
+        else if (/email FAILED$/.test(a.title)) items.push({ id: a.id, type: "email", createdAt: a.createdAt, title: a.title, sub: a.description });
+      }
+    }
+    return items.sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt))).slice(0, 60);
+  }, [leads, activity, isSuperAdmin]);
+
+  const isUnread = useCallback(
+    (n: { id: string; createdAt: string }) => !!notif && String(n.createdAt) > notif.seenAt && !notif.readIds.includes(n.id),
+    [notif],
+  );
+  const unreadItems = useMemo(() => notifItems.filter(isUnread), [notifItems, isUnread]);
+  const unseenLeadIds = useMemo(() => unreadItems.filter((n) => n.type === "lead").map((n) => n.id), [unreadItems]);
+
+  const markRead = (ids: string[]) => {
+    const todo = ids.filter((id) => notifItems.some((n) => n.id === id && isUnread(n)));
+    if (!todo.length) return;
+    setNotif((st) => (st ? { ...st, readIds: [...new Set([...todo, ...st.readIds])] } : st));
+    crmMarkNotificationsFn({ data: { token: tokenRef.current, ids: todo } }).catch(() => null);
+  };
+  const markSeen = (id: string) => markRead([id]);
+  const markAllRead = () => {
+    setNotif({ seenAt: new Date().toISOString(), readIds: [] });
+    crmMarkNotificationsFn({ data: { token: tokenRef.current, all: true } }).catch(() => null);
+  };
+  const openNotif = (n: NotifItem) => {
+    markRead([n.id]);
+    setShowNotifications(false);
+    if (n.lead) setSelectedLead(n.lead);
+    else if (n.type === "security") setActiveTab("users");
+    else setActiveTab("activity");
+  };
+
+  // Unread count in the browser tab title
+  useEffect(() => {
+    const base = "AI STUDIO INDIA – Enterprise CRM";
+    const n = unreadItems.length;
+    document.title = n ? `(${n}) ${base}` : base;
+  }, [unreadItems.length]);
+
+  // On opening the CRM: show the notification panel when anything is unread.
+  // While open: alert card (+ chime for leads) for every new item that arrives.
+  useEffect(() => {
+    if (!loaded || !notif) return;
+    const ids = new Set(notifItems.map((n) => n.id));
+    if (knownNotifIds.current === null) {
+      knownNotifIds.current = ids;
+      if (unreadItems.length) setShowNotifications(true);
+      return;
+    }
+    const fresh = notifItems.filter((n) => !knownNotifIds.current!.has(n.id) && isUnread(n));
+    knownNotifIds.current = ids;
+    if (fresh.length) {
+      if (soundRef.current && fresh.some((n) => n.type === "lead")) playAudioChime();
+      announce(fresh);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifItems, loaded, notif]);
 
   const tabs = useMemo(() => {
     if (!perms) return [];
@@ -564,7 +595,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     const r = await call(crmCreateLeadFn({ data: { token: tok(), lead: { kind, ...form } } }));
     setBusy(null);
     if (!r) return;
-    knownLeadIds.current?.add(r.lead.id);
+    // Your own manual entry doesn't need to notify you.
+    knownNotifIds.current?.add(r.lead.id);
+    setNotif((st) => (st ? { ...st, readIds: [r.lead.id, ...st.readIds] } : st));
+    crmMarkNotificationsFn({ data: { token: tok(), ids: [r.lead.id] } }).catch(() => null);
     toast(kind === "meta" ? "Meta lead saved to database." : "Lead saved to database.");
     if (kind === "website") {
       setShowAddLeadModal(false);
@@ -890,49 +924,57 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </button>
 
               <div className="relative">
-                <button
-                  onClick={() => {
-                    setShowNotifications(!showNotifications);
-                    setUnseenLeadIds([]);
-                  }}
-                  className={`${iconBtn} relative`}
-                  title="Notifications"
-                >
+                <button onClick={() => setShowNotifications(!showNotifications)} className={`${iconBtn} relative`} title="Notifications">
                   <Bell className="w-4 h-4" />
-                  {unseenLeadIds.length > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-md bg-cyan-500 text-[11px] font-bold text-black flex items-center justify-center">
-                      {unseenLeadIds.length}
+                  {unreadItems.length > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[19px] h-[19px] px-1 rounded-full bg-red-500 text-[11px] font-bold text-white flex items-center justify-center">
+                      {unreadItems.length > 99 ? "99+" : unreadItems.length}
                     </span>
                   )}
                 </button>
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 rounded-md border border-white/10 bg-[#0e121d] p-3 shadow-2xl z-50 text-[13px]">
-                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                      <span className="font-semibold text-white">Latest leads</span>
-                      <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-white">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <div className="py-2 space-y-1.5 max-h-80 overflow-y-auto">
-                      {latestLeads.length === 0 ? (
-                        <div className="p-3 text-slate-500 text-center">No leads yet. New submissions appear here live.</div>
-                      ) : (
-                        latestLeads.map((l) => (
-                          <button
-                            key={l.id}
-                            onClick={() => {
-                              setSelectedLead(l);
-                              setShowNotifications(false);
-                            }}
-                            className="w-full text-left p-2 rounded-md bg-white/[0.03] hover:bg-white/[0.06]"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-medium text-white truncate">{l.clientName}</span>
-                              <span className="text-[11px] text-slate-500 shrink-0">{l.kind === "meta" ? "Meta" : "Website"}</span>
-                            </div>
-                            <div className="text-xs text-slate-400">{fmtIst(l.createdAt)}</div>
+                  <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[26rem] rounded-lg border border-white/10 bg-[#0e121d] shadow-2xl z-50 text-[13px] flex flex-col max-h-[75vh]">
+                    <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10">
+                      <div>
+                        <div className="font-semibold text-white text-sm">Notifications</div>
+                        <div className="text-xs text-slate-400">{unreadItems.length ? `${unreadItems.length} unread` : "You're all caught up"}</div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {unreadItems.length > 0 && (
+                          <button onClick={markAllRead} className="h-8 px-2.5 rounded-md text-xs font-medium text-cyan-300 hover:bg-white/5">
+                            Mark all as read
                           </button>
-                        ))
+                        )}
+                        <button onClick={() => setShowNotifications(false)} className="w-8 h-8 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-white/5" title="Close">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="overflow-y-auto p-2 space-y-1">
+                      {notifItems.length === 0 ? (
+                        <div className="p-6 text-slate-500 text-center">No notifications yet. New leads appear here live.</div>
+                      ) : (
+                        notifItems.map((n) => {
+                          const unread = isUnread(n);
+                          const tone = n.type === "lead" ? "text-emerald-300 bg-emerald-500/10" : n.type === "security" ? "text-red-300 bg-red-500/10" : "text-amber-300 bg-amber-500/10";
+                          return (
+                            <button
+                              key={n.id}
+                              onClick={() => openNotif(n)}
+                              className={`w-full text-left p-2.5 rounded-md flex items-start gap-2.5 transition-colors ${unread ? "bg-cyan-500/[0.07] hover:bg-cyan-500/[0.12]" : "hover:bg-white/[0.04]"}`}
+                            >
+                              <span className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${tone}`}>
+                                {n.type === "lead" ? <Users className="w-4 h-4" /> : n.type === "security" ? <ShieldAlert className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
+                              </span>
+                              <span className="flex-1 min-w-0">
+                                <span className={`block truncate ${unread ? "font-semibold text-white" : "text-slate-300"}`}>{n.title}</span>
+                                <span className="block text-xs text-slate-400 truncate">{n.sub}</span>
+                                <span className="block text-[11px] text-slate-500 mt-0.5">{fmtIst(n.createdAt)}</span>
+                              </span>
+                              {unread && <span className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 shrink-0" />}
+                            </button>
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -2466,30 +2508,36 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
       {/* Toasts + new-lead alerts */}
       <div className="fixed bottom-5 right-5 z-[60] space-y-2 w-[min(380px,calc(100vw-40px))]">
-        {leadAlerts.map(({ key, lead }) => (
-          <div key={key} className="rounded-md border border-emerald-500/40 bg-[#0b1a16]/95 backdrop-blur shadow-2xl p-3.5 flex items-start gap-3 animate-in slide-in-from-right-4 fade-in">
-            <div className="w-9 h-9 rounded-full bg-emerald-500/15 text-emerald-300 flex items-center justify-center shrink-0">
-              <Bell className="w-4 h-4" />
-            </div>
-            <button
-              className="flex-1 min-w-0 text-left"
-              onClick={() => {
-                setSelectedLead(lead);
-                dismissAlert(key);
-              }}
-            >
-              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">New lead received</div>
-              <div className="text-sm font-semibold text-white truncate mt-0.5">{lead.clientName}</div>
-              <div className="text-xs text-slate-400 truncate">
-                {lead.kind === "meta" ? "Meta Ads" : displayLeadSource(lead.source)} • {lead.videoScope}
+        {notifAlerts.map(({ key, item }) => {
+          const tone =
+            item.type === "lead"
+              ? { box: "border-emerald-500/40 bg-[#0b1a16]/95", icon: "bg-emerald-500/15 text-emerald-300", label: "text-emerald-300", text: "New lead received" }
+              : item.type === "security"
+                ? { box: "border-red-500/40 bg-[#1a0b0d]/95", icon: "bg-red-500/15 text-red-300", label: "text-red-300", text: "Security alert" }
+                : { box: "border-amber-500/40 bg-[#1a150b]/95", icon: "bg-amber-500/15 text-amber-300", label: "text-amber-300", text: "Email delivery problem" };
+          return (
+            <div key={key} className={`rounded-md border backdrop-blur shadow-2xl p-3.5 flex items-start gap-3 animate-in slide-in-from-right-4 fade-in ${tone.box}`}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${tone.icon}`}>
+                <Bell className="w-4 h-4" />
               </div>
-              <div className="text-xs text-emerald-300/80 mt-1">View details →</div>
-            </button>
-            <button onClick={() => dismissAlert(key)} className="text-slate-500 hover:text-white p-0.5" title="Dismiss">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
+              <button
+                className="flex-1 min-w-0 text-left"
+                onClick={() => {
+                  openNotif(item);
+                  dismissAlert(key);
+                }}
+              >
+                <div className={`text-[11px] font-bold uppercase tracking-wider ${tone.label}`}>{tone.text}</div>
+                <div className="text-sm font-semibold text-white truncate mt-0.5">{item.lead ? item.lead.clientName : item.title}</div>
+                <div className="text-xs text-slate-400 truncate">{item.sub}</div>
+                <div className={`text-xs mt-1 opacity-80 ${tone.label}`}>View details →</div>
+              </button>
+              <button onClick={() => dismissAlert(key)} className="text-slate-500 hover:text-white p-0.5" title="Dismiss">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          );
+        })}
         {toasts.map((t) => (
           <div
             key={t.id}

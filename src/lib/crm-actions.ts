@@ -214,3 +214,10 @@ export const crmTestAlertEmailFn = createServerFn({ method: "POST" })
     const s = await srv();
     return s.guard(() => s.testAlertEmail(data.token));
   });
+
+export const crmMarkNotificationsFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { all?: boolean; ids?: string[] }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.markNotifications(data.token, { ...(data.all ? { all: true } : {}), ...(data.ids ? { ids: data.ids } : {}) }));
+  });

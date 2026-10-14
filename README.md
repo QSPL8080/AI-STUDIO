@@ -95,7 +95,7 @@ The application captures inquiries from two primary sources and syncs them autom
 
 ### Clean White Email Notification Template (`src/lib/email.ts`)
 Whenever a lead is submitted:
-- A clean, modern **pure white email notification** is instantly sent to `quickuppaistudio1@gmail.com`.
+- A branded email notification (logo header, lead details, action buttons) is sent to `qsaistudio@gmail.com`.
 - **Instant Response Buttons Included:**
   - 🟢 **💬 WhatsApp Chat:** Opens WhatsApp chat directly with the client's phone number.
   - 🔵 **📞 Call Client:** Dials the client's phone number directly with 1 tap.
@@ -187,14 +187,14 @@ Create a `.env` file in the project root:
 # Local PostgreSQL Connection
 DATABASE_URL=postgres://postgres:8080@localhost:5432/ai_studio
 
-# Production Supabase Credentials (Configured in Hostinger)
-SUPABASE_URL=https://oxydwcusxvlsvjkwexsz.supabase.co
-SUPABASE_API_KEY=sb_secret_YourSecretApiKeyHere
+# India Supabase project (Configured in Hostinger) — never the US project
+IND_SUPABASE_URL=https://your-india-project.supabase.co
+IND_SUPABASE_SERVICE_KEY=sb_secret_YourSecretApiKeyHere
 
-# Gmail SMTP Email Dispatch (Direct Google Delivery)
-SMTP_USER=quickuppaistudio1@gmail.com
-SMTP_PASS=ggtodbgiucfdypcj
-LEAD_NOTIFICATION_EMAIL=quickuppaistudio1@gmail.com
+# Gmail SMTP (set the real app password only in Hostinger, never in this file)
+SMTP_USER=qsaistudio@gmail.com
+SMTP_PASS=your-16-letter-gmail-app-password
+LEAD_NOTIFICATION_EMAIL=qsaistudio@gmail.com
 
 # Application Server Port
 PORT=3000
@@ -260,11 +260,11 @@ npm start
    - Link `https://github.com/QSPL8080/AI-STUDIO.git` to your Hostinger Cloud/Web Hosting project.
    - Branch: `main`
 2. **Configure Environment Variables in Hostinger Dashboard:**
-   - `SUPABASE_URL`: `https://oxydwcusxvlsvjkwexsz.supabase.co`
-   - `SUPABASE_API_KEY`: Your Supabase service role / API key
-   - `SMTP_USER`: `quickuppaistudio1@gmail.com`
-   - `SMTP_PASS`: `ggtodbgiucfdypcj`
-   - `LEAD_NOTIFICATION_EMAIL`: `quickuppaistudio1@gmail.com`
+   - `IND_SUPABASE_URL`: your India Supabase project URL
+   - `IND_SUPABASE_SERVICE_KEY`: your India Supabase secret key
+   - `SMTP_USER`: `qsaistudio@gmail.com`
+   - `SMTP_PASS`: the Gmail app password (keep it only in Hostinger)
+   - `LEAD_NOTIFICATION_EMAIL`: `qsaistudio@gmail.com`
    - `PORT`: `3000`
 3. **Build & Start Settings:**
    - Build Command: `npm run build`

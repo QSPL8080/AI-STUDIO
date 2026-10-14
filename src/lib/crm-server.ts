@@ -13,6 +13,7 @@ import {
   logActivity,
   newId,
   setSetting,
+  getSetting,
   type Filter,
 } from "./crm-db";
 import { LEADS_TABLE, ORDERS_TABLE } from "./db-tables";
@@ -339,6 +340,7 @@ export async function sync(token: string, ordersPin?: string) {
     ok: true as const,
     user: publicUser(ctx.user),
     perms: ctx.perms,
+    notif: await loadNotifState(ctx.user.id),
     config,
     leads,
     recycleBin,
@@ -349,6 +351,40 @@ export async function sync(token: string, ordersPin?: string) {
     counts,
     matrix,
   };
+}
+
+// ---------------------------------------------------------------------------
+// In-CRM notifications: each user's "read" state is stored in crm_settings, so
+// whatever arrived while they were away is shown the next time they open the CRM
+// (on any device) until they read it.
+// ---------------------------------------------------------------------------
+export interface NotifState {
+  /** Everything created at or before this time counts as read. */
+  seenAt: string;
+  /** Items after seenAt that were opened individually. */
+  readIds: string[];
+}
+
+async function loadNotifState(userId: string): Promise<NotifState> {
+  const raw = await getSetting<Partial<NotifState>>(`notif_seen:${userId}`);
+  if (raw && typeof raw.seenAt === "string") return { seenAt: raw.seenAt, readIds: Array.isArray(raw.readIds) ? raw.readIds.slice(0, 500) : [] };
+  // First time: anything from the last 24 hours shows as new.
+  const state = { seenAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), readIds: [] };
+  await setSetting(`notif_seen:${userId}`, state);
+  return state;
+}
+
+export async function markNotifications(token: string, data: { all?: boolean; ids?: string[] }) {
+  const ctx = await requireSession(token);
+  const key = `notif_seen:${ctx.user.id}`;
+  let state = await loadNotifState(ctx.user.id);
+  if (data.all) state = { seenAt: new Date().toISOString(), readIds: [] };
+  else if (Array.isArray(data.ids) && data.ids.length) {
+    const ids = data.ids.filter((x) => typeof x === "string").slice(0, 200);
+    state = { seenAt: state.seenAt, readIds: [...new Set([...ids, ...state.readIds])].slice(0, 500) };
+  }
+  await setSetting(key, state);
+  return { ok: true as const, notif: state };
 }
 
 export async function unlockOrders(token: string, pin: string) {

@@ -21,26 +21,27 @@ export const submitLeadServerFn = createServerFn({ method: "POST" })
       // 1. Save lead to PostgreSQL / Supabase Database for Admin Panel
       const saved = await saveLeadToDb(data);
 
-      // 2. Dispatch new-lead email notification (qsaistudio@gmail.com)
-      try {
-        const mail = await sendLeadNotificationEmail({
-          ...data,
-          leadId: saved.id,
-        });
-        // Record how the email went out so it can be checked in CRM → Activity History.
-        const { logActivity } = await import("./crm-db");
-        await logActivity({
-          title: mail.success ? "New-lead email sent" : "New-lead email FAILED",
-          category: "LEADS",
-          actorEmail: "website",
-          description: mail.success
-            ? `Lead ${data.name}: emailed via ${mail.via}.`
-            : `Lead ${data.name}: ${mail.errors.join(" | ").slice(0, 900)}`,
-          leadId: saved.id,
-        });
-      } catch (mailError) {
-        console.error("Failed to send lead notification email:", mailError);
-      }
+      // 2. New-lead email to qsaistudio@gmail.com — sent in the background so the website
+      //    form answers instantly. The outcome (route used, or the exact error) goes to
+      //    CRM → Activity History.
+      void (async () => {
+        try {
+          const mail = await sendLeadNotificationEmail({ ...data, leadId: saved.id });
+          const { logActivity } = await import("./crm-db");
+          await logActivity({
+            title: mail.success ? "New-lead email sent" : "New-lead email FAILED",
+            category: "LEADS",
+            actorEmail: "website",
+            description: (mail.success
+              ? `Lead ${data.name}: emailed via ${mail.via}.${mail.errors.length ? ` Earlier routes failed: ${mail.errors.join(" | ")}` : ""}`
+              : `Lead ${data.name} is saved in the CRM, but the email could not be sent: ${mail.errors.join(" | ")}`
+            ).slice(0, 1200),
+            leadId: saved.id,
+          });
+        } catch (mailError) {
+          console.error("Failed to send lead notification email:", mailError);
+        }
+      })();
 
       return { success: true, lead: saved };
     } catch (error: any) {

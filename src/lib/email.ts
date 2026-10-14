@@ -83,39 +83,87 @@ export function renderBrandedEmail(opts: {
 </body></html>`;
 }
 
-/** Gmail SMTP with automatic port fallback (465 SSL, then 587 STARTTLS). */
+interface SmtpAccount {
+  label: string;
+  host: string;
+  user: string;
+  pass: string;
+}
+
+/** SMTP accounts tried in order. Nothing is hard-coded: the passwords live only in the
+ *  Hostinger environment variables.
+ *   1. SMTP_HOST / SMTP_USER / SMTP_PASS          (Gmail: qsaistudio@gmail.com + app password)
+ *   2. HOSTINGER_SMTP_USER / HOSTINGER_SMTP_PASS  (Hostinger mailbox, e.g. info@quickuppaistudio.in) */
+function smtpAccounts(): { accounts: SmtpAccount[]; missing: string[] } {
+  const accounts: SmtpAccount[] = [];
+  const missing: string[] = [];
+  const user = (process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || "").trim();
+  const pass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+  if (user && pass) accounts.push({ label: "SMTP", host: (process.env.SMTP_HOST || "smtp.gmail.com").trim(), user, pass });
+  else missing.push("SMTP_USER / SMTP_PASS are not set in the Hostinger environment variables");
+  const hUser = (process.env.HOSTINGER_SMTP_USER || "").trim();
+  const hPass = (process.env.HOSTINGER_SMTP_PASS || "").trim();
+  if (hUser && hPass) accounts.push({ label: "Hostinger SMTP", host: (process.env.HOSTINGER_SMTP_HOST || "smtp.hostinger.com").trim(), user: hUser, pass: hPass });
+  return { accounts, missing };
+}
+
+/** Sends the branded HTML email over SMTP. Each account is tried on port 465 (SSL), then 587 (STARTTLS). */
 async function sendViaSmtp(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; fromName: string }) {
-  const errors: string[] = [];
-  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || "quickuppaistudio1@gmail.com";
-  const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || "ggtodbgiucfdypcj").replace(/\s+/g, "");
-  for (const port of [465, 587]) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port,
-        secure: port === 465,
-        requireTLS: port === 587,
-        auth: { user: smtpUser, pass: smtpPass },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-      });
-      await transporter.sendMail({
-        from: `"${mail.fromName}" <${smtpUser}>`,
-        to: mail.to,
-        replyTo: mail.replyTo,
-        subject: mail.subject,
-        text: mail.text,
-        html: mail.html,
-      });
-      return { success: true as const, via: `Gmail SMTP ${port} (${smtpUser})`, errors };
-    } catch (e: any) {
-      errors.push(`SMTP ${port}: ${e?.code ? e.code + " " : ""}${e?.message || e}`);
-      if (e?.code === "EAUTH" || /Invalid login|Username and Password not accepted/i.test(String(e?.message))) break;
+  const { accounts, missing } = smtpAccounts();
+  const errors: string[] = [...missing];
+  for (const acc of accounts) {
+    for (const port of [465, 587]) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: acc.host,
+          port,
+          secure: port === 465,
+          requireTLS: port === 587,
+          auth: { user: acc.user, pass: acc.pass },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 15000,
+        });
+        await transporter.sendMail({
+          from: `"${mail.fromName}" <${acc.user}>`,
+          to: mail.to,
+          replyTo: mail.replyTo,
+          subject: mail.subject,
+          text: mail.text,
+          html: mail.html,
+        });
+        return { success: true as const, via: `${acc.host}:${port} (${acc.user})`, errors };
+      } catch (e: any) {
+        const msg = `${acc.host}:${port} (${acc.user}): ${e?.code ? e.code + " " : ""}${e?.message || e}`;
+        errors.push(
+          e?.code === "EAUTH"
+            ? `${msg} — wrong email or password${acc.host.includes("gmail") ? " (Gmail needs a 16-letter App Password, not the normal password)" : ""}`
+            : e?.code === "ETIMEDOUT" || e?.code === "ECONNECTION" || e?.code === "ESOCKET"
+              ? `${msg} — the server could not reach the mail server on this port (blocked by the host?)`
+              : msg,
+        );
+        if (e?.code === "EAUTH") break; // same password fails on the other port too
+      }
     }
   }
   return { success: false as const, via: "", errors };
+}
+
+/** Optional HTTPS route (no SMTP ports needed): Resend, if RESEND_API_KEY is set. Sends the same branded HTML. */
+async function sendViaResend(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; from: string }) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: process.env.RESEND_FROM || mail.from, to: [mail.to], reply_to: mail.replyTo, subject: mail.subject, html: mail.html, text: mail.text }),
+    });
+    if (res.ok) return { ok: true as const, error: "" };
+    return { ok: false as const, error: `Resend: ${res.status} ${(await res.text()).slice(0, 200)}` };
+  } catch (e: any) {
+    return { ok: false as const, error: `Resend: ${e?.message || e}` };
+  }
 }
 
 export async function sendLeadNotificationEmail(lead: LeadEmailPayload): Promise<{ success: boolean; via?: string; errors: string[]; error?: string }> {
@@ -186,82 +234,23 @@ Call: tel:${cleanPhone}
     replyTo: lead.email || undefined,
     fromName: "Quickupp AI Studio",
   });
-  if (smtp.success) return { success: true, via: smtp.via, errors: [] };
+  if (smtp.success) return { success: true, via: smtp.via, errors: smtp.errors };
   const errors: string[] = [...smtp.errors];
   console.error("Lead email SMTP failed:", errors.join(" | "));
 
-  // 2. Check for Resend API Key
-  const resendApiKey = process.env.RESEND_API_KEY;
-  if (resendApiKey) {
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM || "Quickupp Leads <leads@quickuppaistudio.in>",
-          to: [NOTIFICATION_EMAIL],
-          reply_to: lead.email || undefined,
-          subject,
-          html: htmlContent,
-          text: textContent,
-        }),
-      });
-
-      if (res.ok) {
-        return { success: true, via: "Resend", errors };
-      }
-      errors.push(`Resend: ${res.status} ${await res.text()}`);
-    } catch (resendErr: any) {
-      errors.push(`Resend: ${resendErr?.message}`);
-    }
-  }
-
-  // 3. Fallback HTTP delivery via FormSubmit AJAX to the lead notification address
-  try {
-    const response = await fetch(`https://formsubmit.co/ajax/${NOTIFICATION_EMAIL}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Origin": "https://quickuppaistudio.in",
-        "Referer": "https://quickuppaistudio.in",
-      },
-      body: JSON.stringify({
-        _subject: subject,
-        _template: "table",
-        "Lead Source": lead.source,
-        "Customer Name": lead.name,
-        "Phone Number": lead.phone,
-        "Email Address": lead.email || "Not provided",
-        "Video Service": lead.videoType,
-        "Business / Company": lead.business,
-        "Industry": lead.industry || "N/A",
-        "Location / City": lead.location || "N/A",
-        "Requirement": lead.requirement || "N/A",
-        "Additional Details": lead.additional || "N/A",
-        "Submission Time": timestamp,
-      }),
-    });
-
-    const resData = await response.text();
-    if (response.ok && !/"success":\s*"?false/i.test(resData)) {
-      return { success: true, via: "FormSubmit backup (plain layout — Gmail SMTP failed)", errors };
-    }
-    errors.push(`FormSubmit: ${response.status} ${resData.slice(0, 200)}`);
-    return { success: false, errors, error: errors.join(" | ") };
-  } catch (httpErr: any) {
-    errors.push(`FormSubmit: ${httpErr?.message}`);
-    return { success: false, errors, error: errors.join(" | ") };
-  }
+  // 2. Resend over HTTPS (only if RESEND_API_KEY is configured)
+  const resend = await sendViaResend({ to: NOTIFICATION_EMAIL, subject, html: htmlContent, text: textContent, replyTo: lead.email || undefined, from: "Quickupp Leads <leads@quickuppaistudio.in>" });
+  if (resend?.ok) return { success: true, via: "Resend", errors };
+  if (resend) errors.push(resend.error);
+  // No plain-text backup service: the lead is already saved in the CRM (and shows there as a
+  // notification); the exact reason is recorded in Activity History so SMTP can be fixed.
+  return { success: false, errors, error: errors.join(" | ") };
 }
 
 
 /** Security alert (failed CRM sign-ins, lockouts). Sent to the CRM alert address.
- *  Tries Gmail SMTP on port 465, then 587 (some hosts block one of them), then Resend,
- *  then FormSubmit. Returns which route worked, or every error so it can be shown in the CRM. */
+ *  Tries every SMTP account (port 465, then 587), then Resend if configured.
+ *  Returns which route worked, or every error so it can be shown in the CRM. */
 export async function sendSecurityAlertEmail(opts: {
   to: string;
   subject: string;
@@ -269,42 +258,11 @@ export async function sendSecurityAlertEmail(opts: {
   text: string;
 }): Promise<{ success: boolean; via?: string; errors: string[] }> {
   const smtp = await sendViaSmtp({ ...opts, fromName: "Quickupp AI Studio CRM" });
-  if (smtp.success) return { success: true, via: smtp.via, errors: [] };
+  if (smtp.success) return { success: true, via: smtp.via, errors: smtp.errors };
   const errors: string[] = [...smtp.errors];
 
-  const resendApiKey = process.env.RESEND_API_KEY;
-  if (resendApiKey) {
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM || "Quickupp CRM <crm@quickuppaistudio.in>",
-          to: [opts.to],
-          subject: opts.subject,
-          html: opts.html,
-          text: opts.text,
-        }),
-      });
-      if (res.ok) return { success: true, via: "Resend", errors };
-      errors.push(`Resend: ${res.status} ${await res.text()}`);
-    } catch (e: any) {
-      errors.push(`Resend: ${e?.message || e}`);
-    }
-  }
-
-  // Last resort: FormSubmit (the first message to a new address asks that inbox to confirm once).
-  try {
-    const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(opts.to)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json", Origin: "https://quickuppaistudio.in", Referer: "https://quickuppaistudio.in" },
-      body: JSON.stringify({ _subject: opts.subject, _template: "box", message: opts.text }),
-    });
-    const body = await res.text();
-    if (res.ok && !/"success":\s*"?false/i.test(body)) return { success: true, via: "FormSubmit", errors };
-    errors.push(`FormSubmit: ${res.status} ${body.slice(0, 200)}`);
-  } catch (e: any) {
-    errors.push(`FormSubmit: ${e?.message || e}`);
-  }
+  const resend = await sendViaResend({ ...opts, from: "Quickupp CRM <crm@quickuppaistudio.in>" });
+  if (resend?.ok) return { success: true, via: "Resend", errors };
+  if (resend) errors.push(resend.error);
   return { success: false, errors };
 }
