@@ -330,6 +330,31 @@ export async function deleteLead(id: string): Promise<boolean> {
   return false;
 }
 
+export async function clearAllLeads(): Promise<boolean> {
+  if (getSupabaseConfig()) {
+    try {
+      await supabaseRest("leads?id=neq.placeholder_none", {
+        method: "DELETE",
+      });
+      return true;
+    } catch (err) {
+      console.warn("Supabase REST clear leads fallback:", err);
+    }
+  }
+
+  await initDb();
+  try {
+    const pool = await getPool();
+    if (pool) {
+      await pool.query("DELETE FROM leads;");
+      return true;
+    }
+  } catch (error) {
+    console.error("PostgreSQL clearAllLeads error:", error);
+  }
+  return false;
+}
+
 // ==========================================
 // ORDERS & PAYPAL PAYMENTS PERSISTENCE
 // ==========================================

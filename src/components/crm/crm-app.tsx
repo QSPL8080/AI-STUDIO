@@ -47,6 +47,7 @@ import {
   updateLeadStatusServerFn,
   deleteLeadServerFn,
   createCrmLeadServerFn,
+  clearAllLeadsServerFn,
 } from "@/lib/lead-actions";
 import {
   INITIAL_LEADS,
@@ -133,8 +134,8 @@ export function CrmApp({ user }: { user: CrmUser }) {
 
   // State Management
   const [activeTab, setActiveTab] = useState<string>("dashboard");
-  const [websiteLeads, setWebsiteLeads] = useState<LeadItem[]>(INITIAL_LEADS);
-  const [metaLeads, setMetaLeads] = useState<LeadItem[]>(INITIAL_META_LEADS);
+  const [websiteLeads, setWebsiteLeads] = useState<LeadItem[]>([]);
+  const [metaLeads, setMetaLeads] = useState<LeadItem[]>([]);
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [meetings, setMeetings] = useState<CalendlyMeetingItem[]>(INITIAL_MEETINGS);
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>(INITIAL_ACTIVITY_LOGS);
@@ -155,25 +156,12 @@ export function CrmApp({ user }: { user: CrmUser }) {
   const fetchDbLeads = async () => {
     try {
       const res = await getLeadsServerFn();
-      if (res?.success && Array.isArray(res.leads) && res.leads.length > 0) {
+      if (res?.success && Array.isArray(res.leads)) {
         const formatted = res.leads.map(formatDbLead);
         const web = formatted.filter((f) => f.source === "Website" || f.source === "Manual Entry" || !f.source.includes("Meta"));
         const meta = formatted.filter((f) => f.source === "Meta Ads");
-
-        if (web.length > 0) {
-          setWebsiteLeads((prev) => {
-            const existingDbIds = new Set(web.map((w) => w.id));
-            const nonDb = prev.filter((p) => !existingDbIds.has(p.id) && !p.id.startsWith("lead_"));
-            return [...web, ...nonDb];
-          });
-        }
-        if (meta.length > 0) {
-          setMetaLeads((prev) => {
-            const existingDbIds = new Set(meta.map((m) => m.id));
-            const nonDb = prev.filter((p) => !existingDbIds.has(p.id) && !p.id.startsWith("meta_"));
-            return [...meta, ...nonDb];
-          });
-        }
+        setWebsiteLeads(web);
+        setMetaLeads(meta);
       }
     } catch (e) {
       console.warn("CRM Live DB Sync Note: Operating in cached/in-memory mode.", e);
@@ -1028,6 +1016,20 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   <Download className="w-3.5 h-3.5" />
                   Export CSV
                 </button>
+                {websiteLeads.length > 0 && (
+                  <button
+                    onClick={async () => {
+                      if (window.confirm("Are you sure you want to permanently clear all leads from the CRM and Database?")) {
+                        setWebsiteLeads([]);
+                        await clearAllLeadsServerFn();
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-medium flex items-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Clear All Leads
+                  </button>
+                )}
               </div>
             </div>
 

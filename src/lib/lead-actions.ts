@@ -4,6 +4,7 @@ import {
   getLeads as getLeadsFromDb,
   updateLeadStatus as updateLeadStatusInDb,
   deleteLead as deleteLeadFromDb,
+  clearAllLeads as clearAllLeadsInDb,
   type Lead,
 } from "./db";
 import { sendLeadNotificationEmail } from "./email";
@@ -75,6 +76,17 @@ export const deleteLeadServerFn = createServerFn({ method: "POST" })
       return { success: ok };
     } catch (err: any) {
       console.error("Error deleting lead from database:", err);
+      return { success: false, error: err.message };
+    }
+  });
+
+export const clearAllLeadsServerFn = createServerFn({ method: "POST" })
+  .handler(async () => {
+    try {
+      const ok = await clearAllLeadsInDb();
+      return { success: ok };
+    } catch (err: any) {
+      console.error("Error clearing all leads from database:", err);
       return { success: false, error: err.message };
     }
   });
