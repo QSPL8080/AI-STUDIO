@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { IndiaCheckoutModal } from "@/components/site/india-checkout";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Contact,
@@ -97,6 +98,7 @@ function Index() {
       <Footer />
       <FloatingWhatsAppButton />
       <QuotePopupModal />
+      <IndiaCheckoutModal />
     </div>
   );
 }

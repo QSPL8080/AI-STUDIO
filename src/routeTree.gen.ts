@@ -13,8 +13,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ApiReceiptRouteImport } from './routes/api.receipt'
 import { Route as CrmIndexRouteImport } from './routes/crm.index'
 import { Route as CrmLoginRouteImport } from './routes/crm.login'
+import { Route as PaymentConfirmationRouteImport } from './routes/payment.confirmation'
+import { Route as ApiPayuCallbackRouteImport } from './routes/api.payu.callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -36,6 +39,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReceiptRoute = ApiReceiptRouteImport.update({
+  id: '/api/receipt',
+  path: '/api/receipt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CrmIndexRoute = CrmIndexRouteImport.update({
   id: '/crm/',
   path: '/crm/',
@@ -46,46 +54,92 @@ const CrmLoginRoute = CrmLoginRouteImport.update({
   path: '/crm/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PaymentConfirmationRoute = PaymentConfirmationRouteImport.update({
+  id: '/payment/confirmation',
+  path: '/payment/confirmation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPayuCallbackRoute = ApiPayuCallbackRouteImport.update({
+  id: '/api/payu/callback',
+  path: '/api/payu/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/portfolio': typeof PortfolioRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
+  '/api/receipt': typeof ApiReceiptRoute
   '/crm/login': typeof CrmLoginRoute
+  '/payment/confirmation': typeof PaymentConfirmationRoute
   '/crm/': typeof CrmIndexRoute
+  '/api/payu/callback': typeof ApiPayuCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/portfolio': typeof PortfolioRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
+  '/api/receipt': typeof ApiReceiptRoute
   '/crm/login': typeof CrmLoginRoute
+  '/payment/confirmation': typeof PaymentConfirmationRoute
   '/crm': typeof CrmIndexRoute
+  '/api/payu/callback': typeof ApiPayuCallbackRoute
 }
+
+
+
+
+
+
+
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/portfolio': typeof PortfolioRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
+  '/api/receipt': typeof ApiReceiptRoute
   '/crm/login': typeof CrmLoginRoute
+  '/payment/confirmation': typeof PaymentConfirmationRoute
   '/crm/': typeof CrmIndexRoute
+  '/api/payu/callback': typeof ApiPayuCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/portfolio' | '/privacy-policy' | '/terms' | '/crm/login' | '/crm/'
+    | '/'
+    | '/portfolio'
+    | '/privacy-policy'
+    | '/terms'
+    | '/api/receipt'
+    | '/crm/login'
+    | '/payment/confirmation'
+    | '/crm/'
+    | '/api/payu/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/portfolio' | '/privacy-policy' | '/terms' | '/crm/login' | '/crm'
+  to:
+    | '/'
+    | '/portfolio'
+    | '/privacy-policy'
+    | '/terms'
+    | '/api/receipt'
+    | '/crm/login'
+    | '/payment/confirmation'
+    | '/crm'
+    | '/api/payu/callback'
   id:
     | '__root__'
     | '/'
     | '/portfolio'
     | '/privacy-policy'
     | '/terms'
+    | '/api/receipt'
     | '/crm/login'
+    | '/payment/confirmation'
     | '/crm/'
+    | '/api/payu/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -93,8 +147,11 @@ export interface RootRouteChildren {
   PortfolioRoute: typeof PortfolioRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   TermsRoute: typeof TermsRoute
+  ApiReceiptRoute: typeof ApiReceiptRoute
   CrmLoginRoute: typeof CrmLoginRoute
+  PaymentConfirmationRoute: typeof PaymentConfirmationRoute
   CrmIndexRoute: typeof CrmIndexRoute
+  ApiPayuCallbackRoute: typeof ApiPayuCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -127,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/receipt': {
+      id: '/api/receipt'
+      path: '/api/receipt'
+      fullPath: '/api/receipt'
+      preLoaderRoute: typeof ApiReceiptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/crm/': {
       id: '/crm/'
       path: '/crm'
@@ -141,6 +205,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CrmLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payment/confirmation': {
+      id: '/payment/confirmation'
+      path: '/payment/confirmation'
+      fullPath: '/payment/confirmation'
+      preLoaderRoute: typeof PaymentConfirmationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payu/callback': {
+      id: '/api/payu/callback'
+      path: '/api/payu/callback'
+      fullPath: '/api/payu/callback'
+      preLoaderRoute: typeof ApiPayuCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -149,8 +227,11 @@ const rootRouteChildren: RootRouteChildren = {
   PortfolioRoute: PortfolioRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   TermsRoute: TermsRoute,
+  ApiReceiptRoute: ApiReceiptRoute,
   CrmLoginRoute: CrmLoginRoute,
+  PaymentConfirmationRoute: PaymentConfirmationRoute,
   CrmIndexRoute: CrmIndexRoute,
+  ApiPayuCallbackRoute: ApiPayuCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

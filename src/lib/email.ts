@@ -108,7 +108,13 @@ function smtpAccounts(): { accounts: SmtpAccount[]; missing: string[] } {
 }
 
 /** Sends the branded HTML email over SMTP. Each account is tried on port 465 (SSL), then 587 (STARTTLS). */
-async function sendViaSmtp(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; fromName: string }) {
+export interface MailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+}
+
+async function sendViaSmtp(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; fromName: string; attachments?: MailAttachment[] | undefined }) {
   const { accounts, missing } = smtpAccounts();
   const errors: string[] = [...missing];
   for (const acc of accounts) {
@@ -131,6 +137,7 @@ async function sendViaSmtp(mail: { to: string; subject: string; html: string; te
           subject: mail.subject,
           text: mail.text,
           html: mail.html,
+          ...(mail.attachments?.length ? { attachments: mail.attachments } : {}),
         });
         return { success: true as const, via: `${acc.host}:${port} (${acc.user})`, errors };
       } catch (e: any) {
@@ -150,14 +157,22 @@ async function sendViaSmtp(mail: { to: string; subject: string; html: string; te
 }
 
 /** Optional HTTPS route (no SMTP ports needed): Resend, if RESEND_API_KEY is set. Sends the same branded HTML. */
-async function sendViaResend(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; from: string }) {
+async function sendViaResend(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; from: string; attachments?: MailAttachment[] | undefined }) {
   const key = process.env.RESEND_API_KEY;
   if (!key) return null;
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: process.env.RESEND_FROM || mail.from, to: [mail.to], reply_to: mail.replyTo, subject: mail.subject, html: mail.html, text: mail.text }),
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM || mail.from,
+        to: [mail.to],
+        reply_to: mail.replyTo,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        ...(mail.attachments?.length ? { attachments: mail.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) } : {}),
+      }),
     });
     if (res.ok) return { ok: true as const, error: "" };
     return { ok: false as const, error: `Resend: ${res.status} ${(await res.text()).slice(0, 200)}` };
@@ -262,6 +277,118 @@ export async function sendSecurityAlertEmail(opts: {
   const errors: string[] = [...smtp.errors];
 
   const resend = await sendViaResend({ ...opts, from: "Quickupp CRM <crm@quickuppaistudio.in>" });
+  if (resend?.ok) return { success: true, via: "Resend", errors };
+  if (resend) errors.push(resend.error);
+  return { success: false, errors };
+}
+
+/** New website order (checkout) → the lead notification address. */
+export async function sendOrderNotificationEmail(o: {
+  orderId: string;
+  txnid: string;
+  itemName: string;
+  amount: string;
+  name: string;
+  email: string;
+  phone: string;
+  company?: string | undefined;
+  notes?: string | undefined;
+  paymentMode: string;
+}): Promise<{ success: boolean; via?: string; errors: string[] }> {
+  const when = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST";
+  const cleanPhone = o.phone.replace(/[^0-9+]/g, "");
+  const waPhone = cleanPhone.startsWith("+") ? cleanPhone.slice(1) : cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+  const rows: [string, string][] = [
+    ["Package", o.itemName],
+    ["Amount", o.amount],
+    ["Payment", o.paymentMode],
+    ["Order ID", o.orderId],
+    ["Transaction ID", o.txnid],
+    ["Customer", o.name],
+    ["Phone", o.phone],
+    ["Email", o.email],
+  ];
+  if (o.company) rows.push(["Company / Brand", o.company]);
+  if (o.notes) rows.push(["Video brief", o.notes]);
+  rows.push(["Placed", when]);
+  const subject = `New Order: ${o.name} - ${o.itemName} (${o.amount})`;
+  const html = renderBrandedEmail({
+    eyebrow: "New Order",
+    title: `${o.name} ordered ${o.itemName}`,
+    intro: "A customer placed an order from the website checkout. It is saved in CRM > Orders & Payments.",
+    accent: "#7c3aed",
+    rows,
+    buttons: [
+      { label: "Reply on WhatsApp", href: `https://wa.me/${waPhone}`, color: "#16a34a" },
+      { label: "Call Customer", href: `tel:${cleanPhone}`, color: "#2563eb" },
+      { label: "Open CRM", href: `${SITE_URL}/crm`, color: "#7c3aed" },
+    ],
+  });
+  const text = ["Quickupp AI Studio - New Order", "", ...rows.map(([k, v]) => `${k}: ${v}`)].join("\n");
+  const smtp = await sendViaSmtp({ to: NOTIFICATION_EMAIL, subject, html, text, replyTo: o.email, fromName: "Quickupp AI Studio" });
+  if (smtp.success) return { success: true, via: smtp.via, errors: smtp.errors };
+  const errors = [...smtp.errors];
+  const resend = await sendViaResend({ to: NOTIFICATION_EMAIL, subject, html, text, replyTo: o.email, from: "Quickupp Orders <orders@quickuppaistudio.in>" });
+  if (resend?.ok) return { success: true, via: "Resend", errors };
+  if (resend) errors.push(resend.error);
+  return { success: false, errors };
+}
+
+
+/** Customer payment confirmation with the PDF receipt attached. */
+export async function sendPaymentReceiptEmail(o: {
+  to: string;
+  name: string;
+  orderNumber: string;
+  service: string;
+  pack: string;
+  amount: string;
+  method: string;
+  transactionId: string;
+  paidAt: string;
+  confirmationUrl: string;
+  receipt?: MailAttachment | undefined;
+}): Promise<{ success: boolean; via?: string; errors: string[] }> {
+  const rows: [string, string][] = [
+    ["Order Number", o.orderNumber],
+    ["Service", o.service],
+    ["Package", o.pack],
+    ["Amount Paid", o.amount],
+    ["Payment Method", o.method],
+    ["Transaction ID", o.transactionId],
+    ["Paid On", o.paidAt],
+    ["Status", "PAID"],
+  ];
+  const subject = `Payment Confirmed - Order ${o.orderNumber} | Quickupp AI Studio`;
+  const html = renderBrandedEmail({
+    eyebrow: "Payment Confirmed",
+    title: `Thank you for your order, ${o.name.split(" ")[0]}`,
+    intro: "Your payment has been received successfully and your order is now confirmed. Your PDF receipt is attached to this email.",
+    accent: "#16a34a",
+    rows,
+    buttons: [
+      { label: "View Order Confirmation", href: o.confirmationUrl, color: "#7c3aed" },
+      { label: "Chat on WhatsApp", href: "https://wa.me/918055679162", color: "#16a34a" },
+    ],
+    note: "What's next: our team will review your order and contact you with the next steps. Need help? Reply to this email or write to info@quickuppaistudio.in.",
+  });
+  const text = [
+    "Quickupp AI Studio - Payment Confirmed",
+    "",
+    `Hi ${o.name},`,
+    "Your payment has been received successfully and your order is now confirmed.",
+    "",
+    ...rows.map(([k, v]) => `${k}: ${v}`),
+    "",
+    "What's next: our team will review your order and contact you with the next steps.",
+    "Need help? info@quickuppaistudio.in",
+  ].join("\n");
+  const attachments = o.receipt ? [o.receipt] : undefined;
+  const replyTo = process.env.SUPPORT_EMAIL || "info@quickuppaistudio.in";
+  const smtp = await sendViaSmtp({ to: o.to, subject, html, text, replyTo, fromName: "Quickupp AI Studio", attachments });
+  if (smtp.success) return { success: true, via: smtp.via, errors: smtp.errors };
+  const errors = [...smtp.errors];
+  const resend = await sendViaResend({ to: o.to, subject, html, text, replyTo, from: "Quickupp AI Studio <orders@quickuppaistudio.in>", attachments });
   if (resend?.ok) return { success: true, via: "Resend", errors };
   if (resend) errors.push(resend.error);
   return { success: false, errors };

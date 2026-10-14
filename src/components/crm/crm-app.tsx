@@ -82,7 +82,7 @@ import {
 import { displayLeadSource } from "@/lib/lead-source";
 import type { ActivityItem, LeadItem, OrderItem, RecordCounts, UserItem } from "./crm-types";
 
-type NotifItem = { id: string; type: "lead" | "security" | "email"; createdAt: string; title: string; sub: string; lead?: LeadItem };
+type NotifItem = { id: string; type: "lead" | "order" | "security" | "email"; createdAt: string; title: string; sub: string; lead?: LeadItem };
 
 export const LOGOUT_REASON_KEY = "quickupp_crm_logout_reason";
 
@@ -142,7 +142,7 @@ function fmtIstTime(iso?: string | null) {
 
 function fmtMoney(amount: number, currency = "USD") {
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount || 0);
+    return new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", { style: "currency", currency, maximumFractionDigits: currency === "INR" ? 0 : 2 }).format(amount || 0);
   } catch {
     return `${currency} ${(amount || 0).toFixed(2)}`;
   }
@@ -444,6 +444,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     if (isSuperAdmin) {
       for (const a of activity.slice(0, 300)) {
         if (a.title === "Account locked") items.push({ id: a.id, type: "security", createdAt: a.createdAt, title: `Account locked: ${a.actorEmail}`, sub: a.description });
+        else if (a.title === "New website order" || a.title === "Payment received" || a.title === "Payment failed")
+          items.push({ id: a.id, type: "order", createdAt: a.createdAt, title: a.title, sub: a.description });
         else if (/email FAILED$/.test(a.title)) items.push({ id: a.id, type: "email", createdAt: a.createdAt, title: a.title, sub: a.description });
       }
     }
@@ -485,6 +487,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     setShowNotifications(false);
     if (n.lead) setSelectedLead(n.lead);
     else if (n.type === "security") setActiveTab("users");
+    else if (n.type === "order") setActiveTab("orders");
     else setActiveTab("activity");
   };
 
@@ -984,7 +987,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       ) : (
                         notifItems.map((n) => {
                           const unread = isUnread(n);
-                          const tone = n.type === "lead" ? "text-emerald-300 bg-emerald-500/10" : n.type === "security" ? "text-red-300 bg-red-500/10" : "text-amber-300 bg-amber-500/10";
+                          const tone = n.type === "lead" ? "text-emerald-300 bg-emerald-500/10" : n.type === "order" ? "text-purple-300 bg-purple-500/10" : n.type === "security" ? "text-red-300 bg-red-500/10" : "text-amber-300 bg-amber-500/10";
                           return (
                             <button
                               key={n.id}
@@ -992,7 +995,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               className={`w-full text-left p-2.5 rounded-md flex items-start gap-2.5 transition-colors ${unread ? "bg-cyan-500/[0.07] hover:bg-cyan-500/[0.12]" : "hover:bg-white/[0.04]"}`}
                             >
                               <span className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${tone}`}>
-                                {n.type === "lead" ? <Users className="w-4 h-4" /> : n.type === "security" ? <ShieldAlert className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
+                                {n.type === "lead" ? <Users className="w-4 h-4" /> : n.type === "order" ? <Package className="w-4 h-4" /> : n.type === "security" ? <ShieldAlert className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
                               </span>
                               <span className="flex-1 min-w-0">
                                 <span className={`block truncate ${unread ? "font-semibold text-white" : "text-slate-300"}`}>{n.title}</span>
@@ -1448,12 +1451,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {/* ---------------- ORDERS ---------------- */}
         {activeTab === "orders" && perms.orders && orders && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
-            <PageHeader icon={<Package className="w-5 h-5 text-purple-400" />} title="Orders & Payments" badge={`${orders.length} orders`} subtitle="PayPal checkout orders recorded in the database.">
+            <PageHeader icon={<Package className="w-5 h-5 text-purple-400" />} title="Orders & Payments" badge={`${orders.length} orders`} subtitle="Website checkout orders recorded in the database.">
               {canExport && (
                 <button
                   onClick={() =>
                     downloadCsv("quickupp_orders.csv", [
-                      ["Order ID", "PayPal Order ID", "Capture ID", "Customer", "Email", "Phone", "Company", "Item", "Amount", "Currency", "Status", "Created (IST)"],
+                      ["Order ID", "Transaction ID", "Payment ref", "Customer", "Email", "Phone", "Company", "Item", "Amount", "Currency", "Status", "Created (IST)"],
                       ...shownOrders.map((o) => [o.id, o.paypalOrderId, o.captureId, o.customerName, o.customerEmail, o.customerPhone, o.customerCompany, o.itemName, o.amount, o.currency, o.paymentStatus, fmtIst(o.createdAt)]),
                     ])
                   }
@@ -1547,7 +1550,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <th className="p-3.5">Package / Item</th>
                         <th className="p-3.5">Amount</th>
                         <th className="p-3.5">Status</th>
-                        <th className="p-3.5">PayPal Order ID</th>
+                        <th className="p-3.5">Transaction ID</th>
                         <th className="p-3.5">Date</th>
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
@@ -2516,8 +2519,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-md bg-white/[0.02] border border-white/[0.06]">
               <Info label="Amount" value={fmtMoney(selectedOrder.amount, selectedOrder.currency)} />
               <Info label="Status" value={selectedOrder.paymentStatus} />
-              <Info label="PayPal order ID" value={selectedOrder.paypalOrderId} />
-              <Info label="Capture ID" value={selectedOrder.captureId || "—"} />
+              <Info label="Transaction ID" value={selectedOrder.paypalOrderId} />
+              <Info label="Payment ref" value={selectedOrder.captureId || "—"} />
               <Info label="Phone" value={selectedOrder.customerPhone || "—"} />
               <Info label="Company" value={selectedOrder.customerCompany || "—"} />
               <Info label="Item type" value={selectedOrder.itemType} />
@@ -2540,7 +2543,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           const tone =
             item.type === "lead"
               ? { box: "border-emerald-500/40 bg-[#0b1a16]/95", icon: "bg-emerald-500/15 text-emerald-300", label: "text-emerald-300", text: "New lead received" }
-              : item.type === "security"
+              : item.type === "order"
+                ? { box: "border-purple-500/40 bg-[#140b1a]/95", icon: "bg-purple-500/15 text-purple-300", label: "text-purple-300", text: item.title }
+                : item.type === "security"
                 ? { box: "border-red-500/40 bg-[#1a0b0d]/95", icon: "bg-red-500/15 text-red-300", label: "text-red-300", text: "Security alert" }
                 : { box: "border-amber-500/40 bg-[#1a150b]/95", icon: "bg-amber-500/15 text-amber-300", label: "text-amber-300", text: "Email delivery problem" };
           return (

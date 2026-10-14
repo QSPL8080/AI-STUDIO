@@ -1,3 +1,7 @@
+import { INDIA_SERVICES, formatInr, type IndiaServiceId } from "@/lib/india-pricing";
+
+const priceOf = (id: IndiaServiceId) => `${formatInr(INDIA_SERVICES.find((x) => x.id === id)!.prices[1])} / Reel`;
+
 export const heroBadges = [
   "Script Included",
   "5+ AI Video Formats",
@@ -83,6 +87,7 @@ export const portfolioItems = [
 
 export const services = [
   {
+    serviceId: "ai-ugc" as IndiaServiceId,
     title: "AI UGC Video Production",
     description:
       "Create authentic creator-style videos for your products and services without arranging a traditional influencer shoot.",
@@ -96,10 +101,11 @@ export const services = [
       "Problem → Solution Videos",
       "Social Media Advertisements",
     ],
-    price: "₹1,999 / Reel",
+    price: priceOf("ai-ugc"),
     cta: "Create AI UGC Video",
   },
   {
+    serviceId: "ai-cartoon" as IndiaServiceId,
     title: "AI Cartoon Animation Services",
     description:
       "Turn your ideas into engaging animated videos using AI-generated characters, scenes and storytelling.",
@@ -112,10 +118,11 @@ export const services = [
       "Character-Based Videos",
       "Product Explainers",
     ],
-    price: "₹1,999 / Reel",
+    price: priceOf("ai-cartoon"),
     cta: "Create Cartoon Video",
   },
   {
+    serviceId: "ai-avatar" as IndiaServiceId,
     title: "AI Avatar Video Production",
     description:
       "Create professional presenter-style videos using realistic AI avatars without requiring a traditional camera shoot.",
@@ -129,10 +136,11 @@ export const services = [
       "Corporate Videos",
       "Social Media Reels",
     ],
-    price: "₹1,999 / Reel",
+    price: priceOf("ai-avatar"),
     cta: "Create AI Avatar Video",
   },
   {
+    serviceId: "hyper-realistic" as IndiaServiceId,
     title: "Hyper-Realistic AI Video Production",
     description:
       "Create cinematic AI-generated people, environments, products and scenes for premium visual storytelling.",
@@ -145,10 +153,11 @@ export const services = [
       "Premium Social Media Content",
       "Advertising Campaigns",
     ],
-    price: "₹2,999 / Reel",
+    price: priceOf("hyper-realistic"),
     cta: "Create Hyper-Realistic Video",
   },
   {
+    serviceId: "digital-twin" as IndiaServiceId,
     title: "AI Digital Twin & Clone Video Services",
     description:
       "Create recurring video content using an appropriately authorized digital twin and AI voice setup.",
@@ -162,7 +171,7 @@ export const services = [
       "Promotional Videos",
       "Social Media Content",
     ],
-    price: "₹4,999 / Reel",
+    price: priceOf("digital-twin"),
     cta: "Create My Digital Twin",
   },
 ];
@@ -205,57 +214,16 @@ export interface PricingItem {
 }
 
 export interface PricingRow {
+  serviceId: IndiaServiceId;
   service: string;
   prices: PricingItem[];
 }
 
-export const pricingRows: PricingRow[] = [
-  {
-    service: "AI UGC Video",
-    prices: [
-      { discounted: "₹1,999" },
-      { discounted: "₹8,999" },
-      { discounted: "₹16,999" },
-      { discounted: "₹23,999" },
-    ],
-  },
-  {
-    service: "AI Cartoon Animation",
-    prices: [
-      { discounted: "₹1,999" },
-      { discounted: "₹8,999" },
-      { discounted: "₹16,999" },
-      { discounted: "₹23,999" },
-    ],
-  },
-  {
-    service: "AI Avatar Video",
-    prices: [
-      { discounted: "₹1,999" },
-      { discounted: "₹8,999" },
-      { discounted: "₹16,999" },
-      { discounted: "₹23,999" },
-    ],
-  },
-  {
-    service: "Hyper-Realistic AI Video",
-    prices: [
-      { discounted: "₹2,999" },
-      { discounted: "₹13,999" },
-      { discounted: "₹25,499" },
-      { discounted: "₹35,999" },
-    ],
-  },
-  {
-    service: "AI Digital Twin / Clone",
-    prices: [
-      { discounted: "₹4,999" },
-      { discounted: "₹22,999" },
-      { discounted: "₹42,499" },
-      { discounted: "₹59,999" },
-    ],
-  },
-];
+export const pricingRows: PricingRow[] = INDIA_SERVICES.map((svc) => ({
+  serviceId: svc.id,
+  service: svc.name,
+  prices: ([1, 5, 10, 15] as const).map((q) => ({ discounted: formatInr(svc.prices[q]) })),
+}));
 
 export const twinFeatures = [
   "Digital Twin Creation & Setup",

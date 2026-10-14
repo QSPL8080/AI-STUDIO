@@ -58,10 +58,10 @@ import {
   whyUs,
   standardWhatsAppMessage,
 } from "./data";
+import { BuyNowButton, openBuyNow } from "./india-checkout";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showAnnouncement, setShowAnnouncement] = useState(true);
   const [isLogoDocked, setIsLogoDocked] = useState(false);
 
   useEffect(() => {
@@ -93,70 +93,6 @@ export function Header() {
 
   return (
     <header id="site-nav-container" className="fixed top-0 left-0 right-0 z-50 flex flex-col">
-      {/* Top Highlight Announcement Bar */}
-      {showAnnouncement && (
-        <div className="relative border-b border-white/15 bg-gradient-to-r from-[#7c22e8] via-[#a832e6] to-[#ec1e79] px-3 py-1.5 sm:py-2 text-white shadow-[0_2px_15px_rgba(168,50,230,0.4)] z-50">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 text-xs md:text-sm font-medium">
-            {/* Mobile Layout (Compact Single Row) */}
-            <div className="flex flex-1 items-center justify-center gap-2 sm:hidden text-center">
-              <span className="flex items-center gap-1 font-semibold text-[11.5px] leading-tight">
-                <Sparkles className="h-3 w-3 text-amber-300 shrink-0 fill-amber-300/40" />
-                <span>Save up to</span>
-                <span className="rounded bg-black/35 px-1 py-0.2 font-extrabold text-amber-300 border border-amber-300/40 text-[11px]">
-                  20% OFF
-                </span>
-                <span>on AI Packages!</span>
-              </span>
-              <a
-                href="#pricing"
-                className="inline-flex items-center gap-0.5 rounded-full bg-white px-2.5 py-0.5 text-[10.5px] font-bold text-[#6b1cb0] shadow-sm active:scale-95 whitespace-nowrap"
-              >
-                <span>Plans</span>
-                <span className="text-[10px]">→</span>
-              </a>
-            </div>
-
-            {/* Desktop / Tablet Layout (Full SEO Row) */}
-            <div className="hidden sm:flex flex-1 items-center justify-center gap-2.5 text-center flex-nowrap">
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-bold text-amber-300 border border-amber-400/40 shadow-sm whitespace-nowrap">
-                <Sparkles className="h-3.5 w-3.5 text-amber-300 shrink-0 fill-amber-300/30 animate-pulse" />
-                <span>Special Offer</span>
-              </span>
-
-              <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                Get up to{" "}
-                <strong className="font-extrabold text-amber-300 underline decoration-amber-400/60 decoration-2 underline-offset-2">
-                  20% OFF
-                </strong>{" "}
-                on Professional AI Video Production & Avatar Packages!
-              </span>
-
-              <a
-                href="#pricing"
-                className="group inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1 text-xs font-bold text-[#6b1cb0] shadow-md transition-all hover:bg-amber-300 hover:text-black hover:scale-105 active:scale-95 whitespace-nowrap"
-              >
-                <span>View Packages</span>
-                <span className="transition-transform duration-200 group-hover:translate-x-0.5 text-[12px]">
-                  →
-                </span>
-              </a>
-            </div>
-
-            {/* Dismiss Announcement Button */}
-            <button
-              type="button"
-              onClick={() => setShowAnnouncement(false)}
-              className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-2 text-white/90 transition-all hover:text-white cursor-pointer"
-              aria-label="Dismiss announcement"
-            >
-              <span className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-black/40 border border-white/20 transition-all hover:bg-white hover:text-black">
-                <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-              </span>
-            </button>
-          </div>
-        </div>
-      )}
-
       <div id="site-header-bar" className="relative border-b border-border/60 bg-background/85 backdrop-blur-xl z-50">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 py-2.5 sm:py-3 md:py-3.5">
           <a
@@ -192,14 +128,17 @@ export function Header() {
 
           {/* Right CTA */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <NeonButton
-              href="#contact"
-              variant="primary"
-              size="sm"
-              className="hidden sm:inline-flex whitespace-nowrap text-xs py-2 px-3.5"
-            >
-              Get AI Video Quote
-            </NeonButton>
+            <BuyNowButton size="sm" className="h-9 px-4 sm:h-[34px]" />
+            <span className="hidden sm:inline-flex">
+              <NeonButton
+                href="#contact"
+                variant="primary"
+                size="sm"
+                className="whitespace-nowrap text-xs py-2 px-3.5"
+              >
+                Get AI Video Quote
+              </NeonButton>
+            </span>
 
             {/* Mobile / Tablet Menu Button */}
             <button
@@ -1963,12 +1902,13 @@ export function Services() {
 
               {/* Clean Gradient Button with Only Pricing */}
               <div className="relative z-10 mt-6 border-t border-white/10 pt-4">
-                <a
-                  href="#contact"
-                  className="flex w-full items-center justify-center rounded-lg bg-gradient-brand py-2.5 text-sm font-bold tracking-wide text-neon-foreground shadow-md transition-all duration-200 hover:scale-[1.02] hover:brightness-110 active:scale-95 sm:text-base"
+                <button
+                  type="button"
+                  onClick={() => openBuyNow({ serviceId: service.serviceId })}
+                  className="flex w-full cursor-pointer items-center justify-center rounded-lg bg-gradient-brand py-2.5 text-sm font-bold tracking-wide text-neon-foreground shadow-md transition-all duration-200 hover:scale-[1.02] hover:brightness-110 active:scale-95 sm:text-base"
                 >
                   {service.price}
-                </a>
+                </button>
               </div>
             </article>
           );
@@ -2168,6 +2108,9 @@ export function Pricing() {
                 <th className="px-5 py-4 sm:px-6">5 Reels</th>
                 <th className="px-5 py-4 sm:px-6">10 Reels</th>
                 <th className="px-5 py-4 sm:px-6">15 Reels</th>
+                <th className="px-5 py-4 text-right sm:px-6">
+                  <span className="sr-only">Buy</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -2223,6 +2166,9 @@ export function Pricing() {
                         </div>
                       </td>
                     ))}
+                    <td className="px-5 py-3.5 text-right sm:px-6">
+                      <BuyNowButton serviceId={row.serviceId} size="xs" />
+                    </td>
                   </tr>
                 );
               })}
@@ -3153,16 +3099,17 @@ export function WhatsAppCtaSection() {
           Send us your product, service or video idea on WhatsApp and our team will recommend the
           right AI video format for your business.
         </p>
-        <div className="mt-6 flex justify-center">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a
             href={`https://wa.me/918055679162?text=${professionalMessage}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-6 py-2.5 text-sm font-semibold text-white shadow transition-transform hover:scale-105"
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-[#25D366] px-6 text-sm font-semibold text-white shadow transition-transform hover:scale-105"
           >
             <MessageCircle className="h-4 w-4" />
             Chat on WhatsApp
           </a>
+          <BuyNowButton />
         </div>
       </div>
     </section>
@@ -3370,6 +3317,7 @@ export function Contact() {
             <NeonButton href="#samples" variant="ghost">
               View Video Samples
             </NeonButton>
+            <BuyNowButton className="h-auto py-3" />
           </div>
         </div>
       </div>
@@ -3544,10 +3492,6 @@ export function Footer() {
             <a href="/terms" className="hover:text-neon transition-colors">
               Terms & Conditions
             </a>
-            <span>•</span>
-            <a href="/crm/login" className="hover:text-neon transition-colors">
-              CRM Portal
-            </a>
           </div>
         </div>
       </div>
@@ -3614,13 +3558,16 @@ export function QuotePopupModal() {
 
   useEffect(() => {
     // 1. Popup on every website refresh / load after 1.2s
+    // Never pop up over the checkout, or right after returning from payment.
+    const checkoutBusy = () =>
+      document.body.dataset.checkoutOpen === "1" || new URLSearchParams(window.location.search).has("payment");
     const initialTimer = setTimeout(() => {
-      setIsOpen(true);
+      if (!checkoutBusy()) setIsOpen(true);
     }, 1200);
 
     // 2. Repeat popup every 5 minutes (300,000 ms)
     const recurringTimer = setInterval(() => {
-      setIsOpen(true);
+      if (!checkoutBusy()) setIsOpen(true);
     }, 300000);
 
     // 3. Listen for manual trigger events across buttons

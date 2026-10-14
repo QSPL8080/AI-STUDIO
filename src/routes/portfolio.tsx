@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { IndiaCheckoutModal } from "@/components/site/india-checkout";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Header,
@@ -685,6 +686,7 @@ function PortfolioPage() {
       <Footer />
       <FloatingWhatsAppButton />
       <QuotePopupModal />
+      <IndiaCheckoutModal />
     </div>
   );
 }
