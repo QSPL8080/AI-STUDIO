@@ -224,7 +224,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncCountdown, setSyncCountdown] = useState(10);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notif, setNotif] = useState<{ seenAt: string; readIds: string[] } | null>(null);
+  const [notif, setNotif] = useState<{ seenAt: string; readIds: string[]; clearedAt: string | null } | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -294,11 +294,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   // In-CRM notification alert cards (bottom-right). No browser / desktop notifications.
   const [notifAlerts, setNotifAlerts] = useState<{ key: number; item: NotifItem }[]>([]);
   const dismissAlert = (key: number) => setNotifAlerts((a) => a.filter((x) => x.key !== key));
+  // Cards stay on screen until the user opens or closes them (newest on top, max 3);
+  // anything beyond that is counted on the "+N more" card, which opens the bell list.
   const announce = (fresh: NotifItem[]) => {
-    const shown = fresh.slice(0, 3).map((item, i) => ({ key: Date.now() + i + Math.random(), item }));
-    setNotifAlerts((a) => [...shown, ...a].slice(0, 4));
-    shown.forEach((al) => setTimeout(() => dismissAlert(al.key), 15000));
-    if (fresh.length > 3) toast(`+${fresh.length - 3} more new notifications`, "info");
+    setNotifAlerts((a) => {
+      const existing = new Set(a.map((x) => x.item.id));
+      const add = fresh.filter((n) => !existing.has(n.id)).map((item, i) => ({ key: Date.now() + i + Math.random(), item }));
+      return [...add, ...a];
+    });
   };
 
   const forceLogout = useCallback(
@@ -444,8 +447,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         else if (/email FAILED$/.test(a.title)) items.push({ id: a.id, type: "email", createdAt: a.createdAt, title: a.title, sub: a.description });
       }
     }
-    return items.sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt))).slice(0, 60);
-  }, [leads, activity, isSuperAdmin]);
+    const cleared = notif?.clearedAt || "";
+    return items
+      .filter((n) => String(n.createdAt) > cleared)
+      .sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt)))
+      .slice(0, 60);
+  }, [leads, activity, isSuperAdmin, notif?.clearedAt]);
 
   const isUnread = useCallback(
     (n: { id: string; createdAt: string }) => !!notif && String(n.createdAt) > notif.seenAt && !notif.readIds.includes(n.id),
@@ -458,12 +465,20 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     const todo = ids.filter((id) => notifItems.some((n) => n.id === id && isUnread(n)));
     if (!todo.length) return;
     setNotif((st) => (st ? { ...st, readIds: [...new Set([...todo, ...st.readIds])] } : st));
+    setNotifAlerts((a) => a.filter((x) => !todo.includes(x.item.id)));
     crmMarkNotificationsFn({ data: { token: tokenRef.current, ids: todo } }).catch(() => null);
   };
   const markSeen = (id: string) => markRead([id]);
   const markAllRead = () => {
-    setNotif({ seenAt: new Date().toISOString(), readIds: [] });
+    setNotif((st) => ({ seenAt: new Date().toISOString(), readIds: [], clearedAt: st?.clearedAt ?? null }));
+    setNotifAlerts([]);
     crmMarkNotificationsFn({ data: { token: tokenRef.current, all: true } }).catch(() => null);
+  };
+  const clearAllNotifs = () => {
+    const now = new Date().toISOString();
+    setNotif({ seenAt: now, readIds: [], clearedAt: now });
+    setNotifAlerts([]);
+    crmMarkNotificationsFn({ data: { token: tokenRef.current, clear: true } }).catch(() => null);
   };
   const openNotif = (n: NotifItem) => {
     markRead([n.id]);
@@ -480,14 +495,18 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     document.title = n ? `(${n}) ${base}` : base;
   }, [unreadItems.length]);
 
-  // On opening the CRM: show the notification panel when anything is unread.
+  // On opening the CRM: the same alert cards as live ones for everything still unread
+  // (the panel itself stays closed; unread items stay on the bell until opened).
   // While open: alert card (+ chime for leads) for every new item that arrives.
   useEffect(() => {
     if (!loaded || !notif) return;
     const ids = new Set(notifItems.map((n) => n.id));
     if (knownNotifIds.current === null) {
       knownNotifIds.current = ids;
-      if (unreadItems.length) setShowNotifications(true);
+      if (unreadItems.length) {
+        if (soundRef.current && unreadItems.some((n) => n.type === "lead")) playAudioChime();
+        announce(unreadItems);
+      }
       return;
     }
     const fresh = notifItems.filter((n) => !knownNotifIds.current!.has(n.id) && isUnread(n));
@@ -940,11 +959,20 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <div className="text-xs text-slate-400">{unreadItems.length ? `${unreadItems.length} unread` : "You're all caught up"}</div>
                       </div>
                       <div className="flex items-center gap-1">
-                        {unreadItems.length > 0 && (
-                          <button onClick={markAllRead} className="h-8 px-2.5 rounded-md text-xs font-medium text-cyan-300 hover:bg-white/5">
-                            Mark all as read
-                          </button>
-                        )}
+                        <button
+                          onClick={markAllRead}
+                          disabled={!unreadItems.length}
+                          className="h-8 px-2.5 rounded-md text-xs font-medium text-cyan-300 hover:bg-white/5 disabled:text-slate-600 disabled:hover:bg-transparent"
+                        >
+                          Mark all as read
+                        </button>
+                        <button
+                          onClick={clearAllNotifs}
+                          disabled={!notifItems.length}
+                          className="h-8 px-2.5 rounded-md text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:text-slate-600 disabled:hover:bg-transparent"
+                        >
+                          Clear all
+                        </button>
                         <button onClick={() => setShowNotifications(false)} className="w-8 h-8 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-white/5" title="Close">
                           <X className="w-4 h-4" />
                         </button>
@@ -952,7 +980,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </div>
                     <div className="overflow-y-auto p-2 space-y-1">
                       {notifItems.length === 0 ? (
-                        <div className="p-6 text-slate-500 text-center">No notifications yet. New leads appear here live.</div>
+                        <div className="p-6 text-slate-500 text-center">No notifications. New leads will appear here.</div>
                       ) : (
                         notifItems.map((n) => {
                           const unread = isUnread(n);
@@ -2508,7 +2536,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
       {/* Toasts + new-lead alerts */}
       <div className="fixed bottom-5 right-5 z-[60] space-y-2 w-[min(380px,calc(100vw-40px))]">
-        {notifAlerts.map(({ key, item }) => {
+        {notifAlerts.slice(0, 3).map(({ key, item }) => {
           const tone =
             item.type === "lead"
               ? { box: "border-emerald-500/40 bg-[#0b1a16]/95", icon: "bg-emerald-500/15 text-emerald-300", label: "text-emerald-300", text: "New lead received" }
@@ -2538,6 +2566,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             </div>
           );
         })}
+        {notifAlerts.length > 3 && (
+          <button
+            onClick={() => setShowNotifications(true)}
+            className="w-full rounded-md border border-white/10 bg-[#0e121d]/95 backdrop-blur shadow-2xl px-4 py-2.5 text-left text-[13px] text-slate-200 hover:bg-[#151a28]"
+          >
+            +{notifAlerts.length - 3} more notification{notifAlerts.length - 3 === 1 ? "" : "s"} · <span className="text-cyan-300">View all</span>
+          </button>
+        )}
         {toasts.map((t) => (
           <div
             key={t.id}

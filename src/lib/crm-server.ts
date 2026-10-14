@@ -363,25 +363,34 @@ export interface NotifState {
   seenAt: string;
   /** Items after seenAt that were opened individually. */
   readIds: string[];
+  /** "Clear all": items created at or before this time are no longer listed. */
+  clearedAt: string | null;
 }
 
 async function loadNotifState(userId: string): Promise<NotifState> {
   const raw = await getSetting<Partial<NotifState>>(`notif_seen:${userId}`);
-  if (raw && typeof raw.seenAt === "string") return { seenAt: raw.seenAt, readIds: Array.isArray(raw.readIds) ? raw.readIds.slice(0, 500) : [] };
+  if (raw && typeof raw.seenAt === "string")
+    return {
+      seenAt: raw.seenAt,
+      readIds: Array.isArray(raw.readIds) ? raw.readIds.slice(0, 500) : [],
+      clearedAt: typeof raw.clearedAt === "string" ? raw.clearedAt : null,
+    };
   // First time: anything from the last 24 hours shows as new.
-  const state = { seenAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), readIds: [] };
+  const state: NotifState = { seenAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), readIds: [], clearedAt: null };
   await setSetting(`notif_seen:${userId}`, state);
   return state;
 }
 
-export async function markNotifications(token: string, data: { all?: boolean; ids?: string[] }) {
+export async function markNotifications(token: string, data: { all?: boolean; clear?: boolean; ids?: string[] }) {
   const ctx = await requireSession(token);
   const key = `notif_seen:${ctx.user.id}`;
   let state = await loadNotifState(ctx.user.id);
-  if (data.all) state = { seenAt: new Date().toISOString(), readIds: [] };
+  const now = new Date().toISOString();
+  if (data.clear) state = { seenAt: now, readIds: [], clearedAt: now };
+  else if (data.all) state = { ...state, seenAt: now, readIds: [] };
   else if (Array.isArray(data.ids) && data.ids.length) {
     const ids = data.ids.filter((x) => typeof x === "string").slice(0, 200);
-    state = { seenAt: state.seenAt, readIds: [...new Set([...ids, ...state.readIds])].slice(0, 500) };
+    state = { ...state, readIds: [...new Set([...ids, ...state.readIds])].slice(0, 500) };
   }
   await setSetting(key, state);
   return { ok: true as const, notif: state };

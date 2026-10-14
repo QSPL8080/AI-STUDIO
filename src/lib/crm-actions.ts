@@ -216,8 +216,8 @@ export const crmTestAlertEmailFn = createServerFn({ method: "POST" })
   });
 
 export const crmMarkNotificationsFn = createServerFn({ method: "POST" })
-  .validator((d: Tok & { all?: boolean; ids?: string[] }) => d)
+  .validator((d: Tok & { all?: boolean; clear?: boolean; ids?: string[] }) => d)
   .handler(async ({ data }) => {
     const s = await srv();
-    return s.guard(() => s.markNotifications(data.token, { ...(data.all ? { all: true } : {}), ...(data.ids ? { ids: data.ids } : {}) }));
+    return s.guard(() => s.markNotifications(data.token, { ...(data.all ? { all: true } : {}), ...(data.clear ? { clear: true } : {}), ...(data.ids ? { ids: data.ids } : {}) }));
   });
