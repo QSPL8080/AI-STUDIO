@@ -576,7 +576,7 @@ function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
               <ArrowRight className="w-4 h-4" />
             </a>
             <a
-              href={`https://wa.me/918177828748?text=${encodeURIComponent(
+              href={`https://wa.me/918055679162?text=${encodeURIComponent(
                 `Hello Quickupp AI Studio Team,\n\nI was watching the "${reel.title}" (${reel.category}) reel in your portfolio and would like to order a similar video for my brand.\n\nWebsite: https://quickuppaistudio.in/\nEmail: info@quickuppaistudio.in`
               )}`}
               target="_blank"
@@ -663,7 +663,7 @@ function PortfolioPage() {
               Get Custom Video Quote
             </a>
             <a
-              href={`https://wa.me/918177828748?text=${encodeURIComponent(
+              href={`https://wa.me/918055679162?text=${encodeURIComponent(
                 "Hello Quickupp AI Studio Team,\n\nI visited your portfolio page and would like to explore custom AI video creation for my business.\n\nWebsite: https://quickuppaistudio.in/\nEmail: info@quickuppaistudio.in"
               )}`}
               target="_blank"

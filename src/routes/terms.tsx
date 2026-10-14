@@ -164,7 +164,7 @@ export function TermsPage() {
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-3">
               <a
-                href={`https://wa.me/918177828748?text=${encodeURIComponent(standardWhatsAppMessage)}`}
+                href={`https://wa.me/918055679162?text=${encodeURIComponent(standardWhatsAppMessage)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-brand px-5 py-2 text-xs font-bold text-neon-foreground shadow-md transition-all hover:brightness-110 sm:text-sm"

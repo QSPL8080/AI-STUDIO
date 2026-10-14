@@ -242,7 +242,7 @@ export function Header() {
                   Get AI Video Quote
                 </a>
                 <a
-                  href={`https://wa.me/918177828748?text=${encodeURIComponent(standardWhatsAppMessage)}`}
+                  href={`https://wa.me/918055679162?text=${encodeURIComponent(standardWhatsAppMessage)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMobileMenuOpen(false)}
@@ -3155,7 +3155,7 @@ export function WhatsAppCtaSection() {
         </p>
         <div className="mt-6 flex justify-center">
           <a
-            href={`https://wa.me/918177828748?text=${professionalMessage}`}
+            href={`https://wa.me/918055679162?text=${professionalMessage}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-6 py-2.5 text-sm font-semibold text-white shadow transition-transform hover:scale-105"
@@ -3592,7 +3592,7 @@ export function FloatingWhatsAppButton() {
 
       {/* Official WhatsApp Floating Button */}
       <a
-        href={`https://wa.me/918177828748?text=${encodeURIComponent(standardWhatsAppMessage)}`}
+        href={`https://wa.me/918055679162?text=${encodeURIComponent(standardWhatsAppMessage)}`}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with Quickupp AI Studio on WhatsApp"
