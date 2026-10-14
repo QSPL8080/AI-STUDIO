@@ -17,6 +17,7 @@ import {
 } from "./crm-db";
 import { LEADS_TABLE, ORDERS_TABLE } from "./db-tables";
 import { getSupabaseConfig } from "./db";
+import { renderBrandedEmail } from "./email";
 import {
   CrmAuthError,
   bumpLoginFailure,
@@ -140,10 +141,6 @@ function paymentsPin() {
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
-function escapeHtml(v: string) {
-  return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-}
-
 async function requestInfo() {
   try {
     const { getRequestIP, getRequestHeader } = await import("@tanstack/react-start/server");
@@ -157,33 +154,36 @@ async function requestInfo() {
 
 type FailureInfo = Awaited<ReturnType<typeof bumpLoginFailure>>;
 
-function buildFailedLoginEmail(user: CrmUserRow, f: FailureInfo, threshold: number, ip: string, ua: string) {
+export function buildFailedLoginEmail(user: CrmUserRow, f: FailureInfo, threshold: number, ip: string, ua: string) {
   const when = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" }) + " IST";
   const isSA = user.role === "SUPER_ADMIN";
   const status = isSA
-    ? `${threshold} wrong passwords in a row (${f.total} since last successful sign-in). Super Admin account — never locked.`
-    : f.locked
-      ? `Account LOCKED for ${lockoutLabel(f.lockMinutes)} (lock #${f.lockNumber}) until ${new Date(f.lockedUntil!).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST.`
-      : `Wrong password — attempt ${f.attemptInRound} of ${threshold}. ${f.remaining} attempt${f.remaining === 1 ? "" : "s"} left before the account is locked.`;
-  const subject = f.locked
-    ? `🔒 CRM account locked: ${user.email}`
-    : `⚠️ ${threshold} failed CRM sign-ins: ${user.email}${isSA ? " (Super Admin)" : ""}`;
+    ? `${threshold} wrong passwords in a row (${f.total} since the last successful sign-in). The Super Admin account is never locked.`
+    : `Locked for ${lockoutLabel(f.lockMinutes)} (lock ${f.lockNumber}) until ${new Date(f.lockedUntil!).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST.`;
+  const subject = isSA
+    ? `CRM Security Alert: ${threshold} failed sign-in attempts - ${user.email}`
+    : `CRM Security Alert: Account locked - ${user.email}`;
   const rows: [string, string][] = [
     ["Account", `${user.name} (${user.email})`],
     ["Role", ROLE_LABEL[user.role]],
+    ["Failed attempts", `${threshold} in a row`],
+    ["Status", status],
     ["Time", when],
     ["IP address", ip],
     ["Device / browser", ua],
-    ["Status", status],
   ];
-  const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
-  <div style="background:${f.locked ? "#b91c1c" : "#b45309"};color:#fff;padding:14px 18px;font-size:16px;font-weight:bold">${escapeHtml(f.locked ? "CRM account locked" : "Failed CRM sign-in attempt")}</div>
-  <table style="width:100%;border-collapse:collapse;font-size:14px">${rows
-    .map(([k, v]) => `<tr><td style="padding:10px 18px;color:#6b7280;width:150px;border-top:1px solid #f1f5f9">${escapeHtml(k)}</td><td style="padding:10px 18px;color:#111827;border-top:1px solid #f1f5f9">${escapeHtml(v)}</td></tr>`)
-    .join("")}</table>
-  <div style="padding:12px 18px;font-size:12px;color:#6b7280;background:#f9fafb">AI STUDIO INDIA – Enterprise CRM security alert. If this wasn't you or your team, deactivate the account in User Management.</div>
-</div>`;
-  const text = rows.map(([k, v]) => `${k}: ${v}`).join("\n");
+  const html = renderBrandedEmail({
+    eyebrow: "Security Alert",
+    title: isSA ? "Repeated failed sign-ins on the Super Admin account" : "A CRM account has been locked",
+    intro: isSA
+      ? `Someone entered the wrong password ${threshold} times in a row for the Super Admin account.`
+      : `${user.name} reached ${threshold} failed sign-in attempts and the account has been locked automatically.`,
+    accent: "#b91c1c",
+    rows,
+    buttons: [{ label: "Open User Management", href: `${(process.env.PUBLIC_SITE_URL || "https://quickuppaistudio.in").replace(/\/+$/, "")}/crm`, color: "#111827" }],
+    note: "If this was not you or your team, deactivate the account in User Management. The Super Admin can unlock a locked account at any time.",
+  });
+  const text = ["AI STUDIO INDIA CRM - Security Alert", "", ...rows.map(([k, v]) => `${k}: ${v}`)].join("\n");
   return { subject, html, text };
 }
 
@@ -740,9 +740,19 @@ export async function testAlertEmail(token: string) {
   const when = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" }) + " IST";
   const r = await sendSecurityAlertEmail({
     to: config.alertEmail,
-    subject: "✅ Test: AI STUDIO INDIA CRM login alerts",
-    text: `This is a test login-alert email sent by ${ctx.user.email} at ${when}. Failed sign-in alerts will arrive at this address.`,
-    html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111827"><p><b>Test email from AI STUDIO INDIA – Enterprise CRM.</b></p><p>Sent by ${escapeHtml(ctx.user.email)} at ${escapeHtml(when)}.</p><p>Failed sign-in and account-lock alerts will arrive at this address.</p></div>`,
+    subject: "CRM Security Alert: Test email",
+    text: `This is a test login-alert email sent by ${ctx.user.email} at ${when}. Security alerts will arrive at this address.`,
+    html: renderBrandedEmail({
+      eyebrow: "Security Alert - Test",
+      title: "Login alert emails are working",
+      intro: "This is a test message. Account-lock and repeated failed sign-in alerts from the CRM will arrive at this address.",
+      accent: "#b91c1c",
+      rows: [
+        ["Sent by", ctx.user.email],
+        ["Time", when],
+        ["Alert address", config.alertEmail],
+      ],
+    }),
   });
   await logActivity({
     title: r.success ? "Test alert email sent" : "Test alert email FAILED",

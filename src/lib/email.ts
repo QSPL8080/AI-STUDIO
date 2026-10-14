@@ -18,227 +18,110 @@ export interface LeadEmailPayload {
 // New-lead notification emails go here. (Failed sign-in alerts go to the CRM "Login alert email", info@quickuppaistudio.in by default.)
 const NOTIFICATION_EMAIL = process.env.LEAD_NOTIFICATION_EMAIL || "qsaistudio@gmail.com";
 
+// ---------------------------------------------------------------------------
+// Shared branded email layout (logo header, details table, buttons, footer).
+// Inline styles only, so it renders the same in Gmail, Outlook and mobile apps.
+// ---------------------------------------------------------------------------
+const SITE_URL = (process.env.PUBLIC_SITE_URL || "https://quickuppaistudio.in").replace(/\/+$/, "");
+const LOGO_URL = process.env.EMAIL_LOGO_URL || `${SITE_URL}/images/logo.png`;
+
+export function escapeHtml(v: unknown) {
+  return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+export function renderBrandedEmail(opts: {
+  eyebrow: string;
+  title: string;
+  intro?: string;
+  accent?: string;
+  rows: [string, string][];
+  /** Row labels whose values are already safe HTML (links). */
+  htmlRows?: string[];
+  buttons?: { label: string; href: string; color?: string }[];
+  note?: string;
+}) {
+  const accent = opts.accent || "#7c3aed";
+  const rowsHtml = opts.rows
+    .map(
+      ([k, v]) => `<tr>
+        <td style="padding:11px 0;border-top:1px solid #eef0f3;color:#6b7280;font-size:13px;width:170px;vertical-align:top">${escapeHtml(k)}</td>
+        <td style="padding:11px 0;border-top:1px solid #eef0f3;color:#111827;font-size:14px;font-weight:600;vertical-align:top;word-break:break-word">${
+          opts.htmlRows?.includes(k) ? v : escapeHtml(v)
+        }</td>
+      </tr>`,
+    )
+    .join("");
+  const buttonsHtml = (opts.buttons || [])
+    .map(
+      (b) =>
+        `<a href="${escapeHtml(b.href)}" target="_blank" style="display:inline-block;margin:0 8px 8px 0;padding:11px 20px;border-radius:6px;background:${b.color || accent};color:#ffffff;font-size:13px;font-weight:700;text-decoration:none">${escapeHtml(b.label)}</a>`,
+    )
+    .join("");
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapeHtml(opts.title)}</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6"><tr><td align="center" style="padding:28px 12px">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+    <tr><td style="background:#0b0f19;padding:20px 28px">
+      <img src="${escapeHtml(LOGO_URL)}" alt="Quickupp AI Studio" height="30" style="display:block;height:30px;width:auto;border:0;color:#ffffff;font-size:18px;font-weight:700">
+    </td></tr>
+    <tr><td style="height:3px;line-height:3px;font-size:0;background:${accent}">&nbsp;</td></tr>
+    <tr><td style="padding:26px 28px 6px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${accent}">${escapeHtml(opts.eyebrow)}</div>
+      <h1 style="margin:8px 0 0;font-size:21px;line-height:1.3;color:#111827">${escapeHtml(opts.title)}</h1>
+      ${opts.intro ? `<p style="margin:10px 0 0;font-size:14px;line-height:1.55;color:#4b5563">${escapeHtml(opts.intro)}</p>` : ""}
+    </td></tr>
+    <tr><td style="padding:14px 28px 6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rowsHtml}</table></td></tr>
+    ${buttonsHtml ? `<tr><td style="padding:16px 28px 8px">${buttonsHtml}</td></tr>` : ""}
+    ${opts.note ? `<tr><td style="padding:8px 28px 20px"><div style="padding:12px 14px;border-radius:6px;background:#f9fafb;border:1px solid #eef0f3;font-size:12px;line-height:1.5;color:#6b7280">${escapeHtml(opts.note)}</div></td></tr>` : `<tr><td style="padding:6px"></td></tr>`}
+    <tr><td style="padding:16px 28px;border-top:1px solid #eef0f3;background:#fafafa;font-size:12px;line-height:1.5;color:#9ca3af">
+      Quickupp AI Studio &middot; AI STUDIO INDIA Enterprise CRM &middot; <a href="${escapeHtml(SITE_URL)}" style="color:#6b7280;text-decoration:none">${escapeHtml(SITE_URL.replace(/^https?:\/\//, ""))}</a><br>
+      This is an automated message. &copy; ${new Date().getFullYear()} Quickupp AI Studio.
+    </td></tr>
+  </table>
+</td></tr></table>
+</body></html>`;
+}
+
 export async function sendLeadNotificationEmail(lead: LeadEmailPayload): Promise<{ success: boolean; error?: string }> {
   const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-  const subject = `🚀 New Lead: ${lead.name} (${lead.videoType}) - ${lead.source}`;
+  const subject = `New Lead: ${lead.name} - ${lead.videoType} (${lead.source})`;
 
   const cleanPhone = lead.phone.replace(/[^0-9+]/g, "");
   const waPhone = cleanPhone.startsWith("+") ? cleanPhone.replace("+", "") : cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
 
-  const htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Lead Notification</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: #f4f5f8;
-      color: #1e293b;
-      margin: 0;
-      padding: 24px 12px;
-      -webkit-font-smoothing: antialiased;
-    }
-    .wrapper {
-      max-width: 600px;
-      margin: 0 auto;
-      background: #ffffff;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      overflow: hidden;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-    .top-bar {
-      height: 4px;
-      background: linear-gradient(90deg, #7c3aed 0%, #ec4899 100%);
-    }
-    .header {
-      background-color: #ffffff;
-      padding: 28px 24px 20px 24px;
-      border-bottom: 1px solid #f1f5f9;
-      text-align: left;
-    }
-    .brand-pill {
-      display: inline-block;
-      background: #f5f3ff;
-      border: 1px solid #ddd6fe;
-      color: #6d28d9;
-      padding: 4px 12px;
-      border-radius: 9999px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      margin-bottom: 12px;
-    }
-    .title {
-      margin: 0 0 4px 0;
-      font-size: 22px;
-      font-weight: 800;
-      color: #0f172a;
-    }
-    .subtitle {
-      margin: 0;
-      font-size: 13px;
-      color: #64748b;
-    }
-    .content {
-      padding: 24px;
-      background-color: #ffffff;
-    }
-    .lead-table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: #ffffff;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid #e2e8f0;
-      margin-bottom: 24px;
-    }
-    .lead-table th {
-      width: 34%;
-      padding: 12px 16px;
-      background-color: #f8fafc;
-      color: #475569;
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      text-align: left;
-      vertical-align: top;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .lead-table td {
-      padding: 12px 16px;
-      background-color: #ffffff;
-      color: #0f172a;
-      font-size: 14px;
-      font-weight: 500;
-      text-align: left;
-      vertical-align: top;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .lead-table tr:last-child th,
-    .lead-table tr:last-child td {
-      border-bottom: none;
-    }
-    .lead-name {
-      font-weight: 700;
-      font-size: 15px;
-      color: #0f172a;
-    }
-    .video-service {
-      display: inline-block;
-      background: #eff6ff;
-      color: #1d4ed8;
-      border: 1px solid #bfdbfe;
-      padding: 2px 10px;
-      border-radius: 6px;
-      font-weight: 700;
-      font-size: 13px;
-    }
-    .actions-box {
-      background-color: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 18px;
-      text-align: center;
-      margin-top: 10px;
-    }
-    .actions-title {
-      font-size: 11px;
-      font-weight: 700;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 14px;
-    }
-    .btn {
-      display: inline-block;
-      padding: 10px 18px;
-      border-radius: 6px;
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 700;
-      margin: 4px;
-      color: #ffffff !important;
-    }
-    .btn-wa {
-      background-color: #16a34a;
-    }
-    .btn-call {
-      background-color: #2563eb;
-    }
-    .btn-mail {
-      background-color: #7c3aed;
-    }
-    .footer {
-      background-color: #ffffff;
-      padding: 18px 24px;
-      text-align: center;
-      font-size: 12px;
-      color: #94a3b8;
-      border-top: 1px solid #f1f5f9;
-    }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="top-bar"></div>
-    <div class="header">
-      <div class="brand-pill">Quickupp AI Studio</div>
-      <h1 class="title">🎯 New Lead Received</h1>
-      <p class="subtitle">Source: <strong>${lead.source}</strong> &bull; Received: ${timestamp}</p>
-    </div>
-    <div class="content">
-      <table class="lead-table">
-        <tr>
-          <th>Full Name</th>
-          <td class="lead-name">${lead.name}</td>
-        </tr>
-        <tr>
-          <th>Phone Number</th>
-          <td>
-            <a href="tel:${cleanPhone}" style="color: #15803d; text-decoration: none; font-weight: 700;">
-              ${lead.phone}
-            </a>
-          </td>
-        </tr>
-        <tr>
-          <th>Email Address</th>
-          <td>
-            ${lead.email ? `<a href="mailto:${lead.email}" style="color: #2563eb; text-decoration: none; font-weight: 600;">${lead.email}</a>` : '<span style="color: #94a3b8;">Not provided</span>'}
-          </td>
-        </tr>
-        <tr>
-          <th>Service / Type</th>
-          <td><span class="video-service">${lead.videoType}</span></td>
-        </tr>
-        <tr>
-          <th>Business / Brand</th>
-          <td style="font-weight: 600;">${lead.business}</td>
-        </tr>
-        ${lead.industry ? `<tr><th>Industry</th><td>${lead.industry}</td></tr>` : ''}
-        ${lead.location ? `<tr><th>City / Location</th><td>${lead.location}</td></tr>` : ''}
-        ${lead.requirement ? `<tr><th>Requirement</th><td>${lead.requirement}</td></tr>` : ''}
-        ${lead.additional ? `<tr><th>Additional Message</th><td>${lead.additional}</td></tr>` : ''}
-      </table>
+  const rows: [string, string][] = [
+    ["Name", lead.name],
+    ["Phone", `<a href="tel:${escapeHtml(cleanPhone)}" style="color:#111827;text-decoration:none">${escapeHtml(lead.phone)}</a>`],
+    [
+      "Email",
+      lead.email
+        ? `<a href="mailto:${escapeHtml(lead.email)}" style="color:#2563eb;text-decoration:none">${escapeHtml(lead.email)}</a>`
+        : `<span style="color:#9ca3af;font-weight:400">Not provided</span>`,
+    ],
+    ["Service", lead.videoType],
+    ["Business / Brand", lead.business],
+  ];
+  if (lead.industry) rows.push(["Industry", lead.industry]);
+  if (lead.location) rows.push(["City / Location", lead.location]);
+  if (lead.requirement) rows.push(["Requirement", lead.requirement]);
+  if (lead.additional) rows.push(["Additional details", lead.additional]);
+  rows.push(["Source", String(lead.source)], ["Received", `${timestamp} IST`]);
 
-      <div class="actions-box">
-        <div class="actions-title">Instant Response Actions</div>
-        <a href="https://wa.me/${waPhone}" class="btn btn-wa" target="_blank">&#128172; WhatsApp Chat</a>
-        <a href="tel:${cleanPhone}" class="btn btn-call">&#128222; Call Client</a>
-      </div>
-    </div>
-    <div class="footer">
-      &copy; ${new Date().getFullYear()} Quickupp AI Studio
-    </div>
-  </div>
-</body>
-</html>
-  `;
+  const htmlContent = renderBrandedEmail({
+    eyebrow: "New Lead",
+    title: `${lead.name} is interested in ${lead.videoType}`,
+    intro: "A new enquiry has been received and saved in the AI STUDIO INDIA CRM.",
+    accent: "#7c3aed",
+    rows,
+    htmlRows: ["Phone", "Email"],
+    buttons: [
+      { label: "Reply on WhatsApp", href: `https://wa.me/${waPhone}`, color: "#16a34a" },
+      { label: "Call Client", href: `tel:${cleanPhone}`, color: "#2563eb" },
+      ...(lead.email ? [{ label: "Send Email", href: `mailto:${lead.email}`, color: "#374151" }] : []),
+      { label: "Open CRM", href: `${SITE_URL}/crm`, color: "#7c3aed" },
+    ],
+  });
 
   const textContent = `
 Quickupp AI Studio - New Lead Notification
