@@ -23,8 +23,19 @@ export const submitLeadServerFn = createServerFn({ method: "POST" })
 
       // 2. Dispatch new-lead email notification (qsaistudio@gmail.com)
       try {
-        await sendLeadNotificationEmail({
+        const mail = await sendLeadNotificationEmail({
           ...data,
+          leadId: saved.id,
+        });
+        // Record how the email went out so it can be checked in CRM → Activity History.
+        const { logActivity } = await import("./crm-db");
+        await logActivity({
+          title: mail.success ? "New-lead email sent" : "New-lead email FAILED",
+          category: "LEADS",
+          actorEmail: "website",
+          description: mail.success
+            ? `Lead ${data.name}: emailed via ${mail.via}.`
+            : `Lead ${data.name}: ${mail.errors.join(" | ").slice(0, 900)}`,
           leadId: saved.id,
         });
       } catch (mailError) {

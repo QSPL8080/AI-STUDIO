@@ -83,7 +83,42 @@ export function renderBrandedEmail(opts: {
 </body></html>`;
 }
 
-export async function sendLeadNotificationEmail(lead: LeadEmailPayload): Promise<{ success: boolean; error?: string }> {
+/** Gmail SMTP with automatic port fallback (465 SSL, then 587 STARTTLS). */
+async function sendViaSmtp(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; fromName: string }) {
+  const errors: string[] = [];
+  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || "quickuppaistudio1@gmail.com";
+  const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || "ggtodbgiucfdypcj").replace(/\s+/g, "");
+  for (const port of [465, 587]) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port,
+        secure: port === 465,
+        requireTLS: port === 587,
+        auth: { user: smtpUser, pass: smtpPass },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+      });
+      await transporter.sendMail({
+        from: `"${mail.fromName}" <${smtpUser}>`,
+        to: mail.to,
+        replyTo: mail.replyTo,
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+      });
+      return { success: true as const, via: `Gmail SMTP ${port} (${smtpUser})`, errors };
+    } catch (e: any) {
+      errors.push(`SMTP ${port}: ${e?.code ? e.code + " " : ""}${e?.message || e}`);
+      if (e?.code === "EAUTH" || /Invalid login|Username and Password not accepted/i.test(String(e?.message))) break;
+    }
+  }
+  return { success: false as const, via: "", errors };
+}
+
+export async function sendLeadNotificationEmail(lead: LeadEmailPayload): Promise<{ success: boolean; via?: string; errors: string[]; error?: string }> {
   const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   const subject = `New Lead: ${lead.name} - ${lead.videoType} (${lead.source})`;
 
@@ -142,37 +177,18 @@ WhatsApp: https://wa.me/${waPhone}
 Call: tel:${cleanPhone}
   `;
 
-  // 1. Direct Gmail / SMTP Delivery (Primary Guaranteed Delivery)
-  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || "quickuppaistudio1@gmail.com";
-  const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || "ggtodbgiucfdypcj";
-
-  if (smtpUser && smtpPass) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: 465,
-        secure: true,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass.replace(/\s+/g, ""),
-        },
-      });
-
-      await transporter.sendMail({
-        from: `"Quickupp AI Studio" <${smtpUser}>`,
-        to: NOTIFICATION_EMAIL,
-        replyTo: lead.email || undefined,
-        subject,
-        text: textContent,
-        html: htmlContent,
-      });
-
-      return { success: true };
-    } catch (smtpErr: any) {
-      console.error("SMTP email dispatch failed:", smtpErr?.message);
-    }
-  }
+  // 1. Gmail SMTP (branded HTML email) — port 465, then 587
+  const smtp = await sendViaSmtp({
+    to: NOTIFICATION_EMAIL,
+    subject,
+    html: htmlContent,
+    text: textContent,
+    replyTo: lead.email || undefined,
+    fromName: "Quickupp AI Studio",
+  });
+  if (smtp.success) return { success: true, via: smtp.via, errors: [] };
+  const errors: string[] = [...smtp.errors];
+  console.error("Lead email SMTP failed:", errors.join(" | "));
 
   // 2. Check for Resend API Key
   const resendApiKey = process.env.RESEND_API_KEY;
@@ -195,12 +211,11 @@ Call: tel:${cleanPhone}
       });
 
       if (res.ok) {
-        return { success: true };
+        return { success: true, via: "Resend", errors };
       }
-      const errTxt = await res.text();
-      console.warn("Resend API failed:", errTxt);
+      errors.push(`Resend: ${res.status} ${await res.text()}`);
     } catch (resendErr: any) {
-      console.warn("Resend email dispatch error:", resendErr?.message);
+      errors.push(`Resend: ${resendErr?.message}`);
     }
   }
 
@@ -231,15 +246,15 @@ Call: tel:${cleanPhone}
       }),
     });
 
-    if (response.ok) {
-      return { success: true };
-    }
     const resData = await response.text();
-    console.warn("FormSubmit response:", resData);
-    return { success: true };
+    if (response.ok && !/"success":\s*"?false/i.test(resData)) {
+      return { success: true, via: "FormSubmit backup (plain layout — Gmail SMTP failed)", errors };
+    }
+    errors.push(`FormSubmit: ${response.status} ${resData.slice(0, 200)}`);
+    return { success: false, errors, error: errors.join(" | ") };
   } catch (httpErr: any) {
-    console.error("HTTP email notification fallback error:", httpErr?.message);
-    return { success: false, error: httpErr?.message };
+    errors.push(`FormSubmit: ${httpErr?.message}`);
+    return { success: false, errors, error: errors.join(" | ") };
   }
 }
 
@@ -253,40 +268,9 @@ export async function sendSecurityAlertEmail(opts: {
   html: string;
   text: string;
 }): Promise<{ success: boolean; via?: string; errors: string[] }> {
-  const errors: string[] = [];
-  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  // Same SMTP account as the lead notification emails.
-  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || "quickuppaistudio1@gmail.com";
-  const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || "ggtodbgiucfdypcj").replace(/\s+/g, "");
-
-  for (const port of [465, 587]) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port,
-        secure: port === 465,
-        requireTLS: port === 587,
-        auth: { user: smtpUser, pass: smtpPass },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-      });
-      await transporter.sendMail({
-        from: `"Quickupp AI Studio CRM" <${smtpUser}>`,
-        to: opts.to,
-        subject: opts.subject,
-        text: opts.text,
-        html: opts.html,
-      });
-      return { success: true, via: `Gmail SMTP ${port} (${smtpUser})`, errors };
-    } catch (e: any) {
-      const msg = `SMTP ${port}: ${e?.code ? e.code + " " : ""}${e?.message || e}`;
-      errors.push(msg);
-      console.error("Security alert", msg);
-      // Wrong username/password: trying the other port won't help.
-      if (e?.code === "EAUTH" || /Invalid login|Username and Password not accepted/i.test(String(e?.message))) break;
-    }
-  }
+  const smtp = await sendViaSmtp({ ...opts, fromName: "Quickupp AI Studio CRM" });
+  if (smtp.success) return { success: true, via: smtp.via, errors: [] };
+  const errors: string[] = [...smtp.errors];
 
   const resendApiKey = process.env.RESEND_API_KEY;
   if (resendApiKey) {

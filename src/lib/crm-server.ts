@@ -401,7 +401,7 @@ export async function createLead(
   // New-lead email (same as website form leads) → qsaistudio@gmail.com
   try {
     const { sendLeadNotificationEmail } = await import("./email");
-    await sendLeadNotificationEmail({
+    const mail = await sendLeadNotificationEmail({
       source: isMeta ? `Meta Ads (${data.channel || "Facebook"})` : "Manual Entry (CRM)",
       name: data.clientName.trim(),
       phone: (data.phone || "").trim() || "-",
@@ -414,6 +414,13 @@ export async function createLead(
         .join(" • "),
       leadId: (row as any).id,
     } as any);
+    await logActivity({
+      title: mail.success ? "New-lead email sent" : "New-lead email FAILED",
+      category: "LEADS",
+      actorEmail: ctx.user.email,
+      description: mail.success ? `Lead ${data.clientName.trim()}: emailed via ${mail.via}.` : `Lead ${data.clientName.trim()}: ${mail.errors.join(" | ").slice(0, 900)}`,
+      leadId: (row as any).id,
+    });
   } catch (e) {
     console.warn("New-lead email failed:", e);
   }
