@@ -161,11 +161,13 @@ function buildFailedLoginEmail(user: CrmUserRow, f: FailureInfo, threshold: numb
   const when = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" }) + " IST";
   const isSA = user.role === "SUPER_ADMIN";
   const status = isSA
-    ? `Wrong password (failed attempt ${f.total} since last sign-in). Super Admin account — never locked.`
+    ? `${threshold} wrong passwords in a row (${f.total} since last successful sign-in). Super Admin account — never locked.`
     : f.locked
       ? `Account LOCKED for ${lockoutLabel(f.lockMinutes)} (lock #${f.lockNumber}) until ${new Date(f.lockedUntil!).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST.`
       : `Wrong password — attempt ${f.attemptInRound} of ${threshold}. ${f.remaining} attempt${f.remaining === 1 ? "" : "s"} left before the account is locked.`;
-  const subject = f.locked ? `🔒 CRM account locked: ${user.email}` : `⚠️ Failed CRM sign-in: ${user.email}${isSA ? " (Super Admin)" : ""}`;
+  const subject = f.locked
+    ? `🔒 CRM account locked: ${user.email}`
+    : `⚠️ ${threshold} failed CRM sign-ins: ${user.email}${isSA ? " (Super Admin)" : ""}`;
   const rows: [string, string][] = [
     ["Account", `${user.name} (${user.email})`],
     ["Role", ROLE_LABEL[user.role]],
@@ -234,7 +236,9 @@ export async function login(email: string, password: string) {
           ? `Locked for ${lockoutLabel(f.lockMinutes)} (lock #${f.lockNumber}) after ${threshold} failed attempts (IP ${ip}).`
           : `Wrong password — attempt ${f.attemptInRound} of ${threshold}, ${f.remaining} left (IP ${ip}).`,
     });
-    dispatchFailedLoginAlert(user, f, threshold, config.alertEmail, ip, ua);
+    // Email only when the failed-attempt limit is reached (e.g. every 3rd / 5th wrong password),
+    // not on every single failure. For Admin / Leads Manager this is the moment the account locks.
+    if (f.remaining === 0) dispatchFailedLoginAlert(user, f, threshold, config.alertEmail, ip, ua);
     if (isSA) return { ok: false as const, error: generic };
     if (f.locked) {
       return {

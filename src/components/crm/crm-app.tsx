@@ -1954,10 +1954,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 </div>
                 <div className="p-4 rounded-md border border-white/[0.07] bg-white/[0.02] text-[13px] text-slate-400 space-y-1">
                   <div className="text-white font-semibold">How sessions are protected</div>
-                  <div>• Every failed sign-in (any account, including Super Admin) is emailed to {config.alertEmail}.</div>
+                  <div>• When any account (including Super Admin) reaches {config.failedLoginThreshold} wrong passwords in a row, an alert is emailed to {config.alertEmail} — not on every single failure.</div>
                   <div>• The sign-in page tells the user how many attempts are left (e.g. "2 attempts left", "1 attempt left").</div>
                   <div>• After {config.failedLoginThreshold} wrong passwords an Admin / Leads Manager is locked for {lockoutLabel(config.lockoutMinutes)}; every further lock is longer (up to 24 hours) until they sign in successfully. Unlock them early from User Management.</div>
-                  <div>• The Super Admin account is never locked — failed attempts only send the alert email.</div>
+                  <div>• The Super Admin account is never locked — reaching the limit only sends the alert email.</div>
                   <div>• Users are signed out automatically after {config.inactivityMinutes} minutes of inactivity.</div>
                   <div>• Deactivating or deleting a user signs them out on their next refresh (within {config.pollingSeconds}s).</div>
                   <div>• The Orders tab PIN is set with the ADMIN_PAYMENT_PIN server variable in Hostinger.</div>
