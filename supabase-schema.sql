@@ -1,15 +1,16 @@
-﻿-- ====================================================================
--- QUICKUPP AI STUDIO - SUPABASE & POSTGRESQL DATABASE SCHEMA
--- Compatible with both Local PostgreSQL (localhost:5432) and Cloud Supabase.
--- Safe to run more than once (every statement is idempotent).
+-- ====================================================================
+-- QUICKUPP AI STUDIO INDIA - SUPABASE SCHEMA
 --
--- HOW TO APPLY ON SUPABASE: Dashboard → SQL Editor → paste this file → Run.
--- The app talks to Supabase with SUPABASE_API_KEY, which must be the
--- SECRET / service_role key (it bypasses RLS). Never put it in frontend code.
+-- IMPORTANT: The US site (aistudio.us) uses the SAME Supabase project with
+-- its own `leads`, `orders` and `admin_users` tables. The India site and CRM
+-- use ONLY the tables below (ind_* and crm_*). Nothing here touches US data.
+--
+-- Safe to run more than once. Supabase -> SQL Editor -> paste -> Run.
+-- SUPABASE_API_KEY on the server must be the secret / service_role key.
 -- ====================================================================
 
--- 1. LEADS (website contact form, popup, manual entries and Meta Ads leads)
-CREATE TABLE IF NOT EXISTS public.leads (
+-- 1. INDIA LEADS (website contact form, popup, manual entries, Meta Ads)
+CREATE TABLE IF NOT EXISTS public.ind_leads (
     id VARCHAR(64) PRIMARY KEY,
     source VARCHAR(64) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -22,26 +23,24 @@ CREATE TABLE IF NOT EXISTS public.leads (
     requirement TEXT,
     additional TEXT,
     status VARCHAR(32) DEFAULT 'New',
+    project_status VARCHAR(32) DEFAULT 'New',
+    channel VARCHAR(32),
+    campaign VARCHAR(255),
+    ad_set VARCHAR(255),
+    form_name VARCHAR(255),
+    handled_by VARCHAR(255),
+    closed_by VARCHAR(255),
+    closed_at TIMESTAMP WITH TIME ZONE,
+    delivered_at TIMESTAMP WITH TIME ZONE,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    deleted_by VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_ind_leads_created_at ON public.ind_leads (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ind_leads_deleted_at ON public.ind_leads (deleted_at);
 
--- CRM columns: project status, Meta attribution and soft delete (Recycle Bin)
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS project_status VARCHAR(32) DEFAULT 'New';
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS channel VARCHAR(32);
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS campaign VARCHAR(255);
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS ad_set VARCHAR(255);
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS form_name VARCHAR(255);
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(255);
-ALTER TABLE public.leads ALTER COLUMN source TYPE VARCHAR(64);
-
-CREATE INDEX IF NOT EXISTS idx_leads_created_at ON public.leads (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_leads_status ON public.leads (status);
-CREATE INDEX IF NOT EXISTS idx_leads_phone ON public.leads (phone);
-CREATE INDEX IF NOT EXISTS idx_leads_deleted_at ON public.leads (deleted_at);
-
--- 2. ORDERS & PAYMENTS (PayPal checkout)
-CREATE TABLE IF NOT EXISTS public.orders (
+-- 2. INDIA ORDERS & PAYMENTS (PayPal checkout on the India site)
+CREATE TABLE IF NOT EXISTS public.ind_orders (
     id VARCHAR(64) PRIMARY KEY,
     paypal_order_id VARCHAR(128) NOT NULL UNIQUE,
     paypal_capture_id VARCHAR(128),
@@ -60,15 +59,9 @@ CREATE TABLE IF NOT EXISTS public.orders (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_ind_orders_created_at ON public.ind_orders (created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders (payment_status);
-
--- 3. CRM USERS (Super Admin, Admins, Leads Managers)
--- Passwords are stored as scrypt hashes. The app creates the first two
--- accounts automatically on first sign-in when this table is empty:
---   sa@aistudio.in   (Super Admin)
---   test@aistudio.in (Admin)
+-- 3. INDIA CRM USERS (Super Admin, Admins, Leads Managers - scrypt password hashes)
 CREATE TABLE IF NOT EXISTS public.crm_users (
     id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -85,65 +78,33 @@ CREATE TABLE IF NOT EXISTS public.crm_users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. CRM ACTIVITY HISTORY / AUDIT LOG
+-- 4. INDIA CRM ACTIVITY HISTORY
 CREATE TABLE IF NOT EXISTS public.crm_activity_logs (
     id VARCHAR(64) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     category VARCHAR(32) NOT NULL,
     actor_email VARCHAR(255),
     description TEXT,
+    lead_id VARCHAR(64),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE public.crm_activity_logs ADD COLUMN IF NOT EXISTS lead_id VARCHAR(64);
 CREATE INDEX IF NOT EXISTS idx_crm_activity_created_at ON public.crm_activity_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_crm_activity_lead_id ON public.crm_activity_logs (lead_id);
 
--- 5. CRM SETTINGS (permissions matrix + general/security settings as JSON)
+-- 5. INDIA CRM SETTINGS
 CREATE TABLE IF NOT EXISTS public.crm_settings (
     key VARCHAR(64) PRIMARY KEY,
     value TEXT NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. ROW LEVEL SECURITY
-ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
--- CRM tables: RLS on with NO public policies → only the server (secret /
--- service_role key) can read or write them. Password hashes are never public.
+-- 6. SECURITY: RLS on, no public policies -> only the India server (secret key) can access.
+ALTER TABLE public.ind_leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ind_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_activity_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_settings ENABLE ROW LEVEL SECURITY;
 
--- Allow website visitors to insert leads anonymously via Contact Form / Popup Modal
-DROP POLICY IF EXISTS "Public insert leads" ON public.leads;
-CREATE POLICY "Public insert leads" ON public.leads
-    FOR INSERT
-    TO public
-    WITH CHECK (true);
-
--- Allow authenticated / service / anon read & update for CRM Dashboard
-DROP POLICY IF EXISTS "Allow select leads" ON public.leads;
-CREATE POLICY "Allow select leads" ON public.leads
-    FOR SELECT
-    TO public
-    USING (true);
-
-DROP POLICY IF EXISTS "Allow update leads" ON public.leads;
-CREATE POLICY "Allow update leads" ON public.leads
-    FOR UPDATE
-    TO public
-    USING (true);
-
-DROP POLICY IF EXISTS "Allow delete leads" ON public.leads;
-CREATE POLICY "Allow delete leads" ON public.leads
-    FOR DELETE
-    TO public
-    USING (true);
-
--- Orders RLS policies
-DROP POLICY IF EXISTS "Allow all orders access" ON public.orders;
-CREATE POLICY "Allow all orders access" ON public.orders
-    FOR ALL
-    TO public
-    USING (true);
-
--- 7. Tell the Supabase REST API to pick up the new tables/columns immediately
+-- 7. Make the Supabase REST API see the new tables immediately
 NOTIFY pgrst, 'reload schema';

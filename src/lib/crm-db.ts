@@ -181,18 +181,57 @@ export async function logActivity(entry: {
   category: ActivityCategory;
   actorEmail: string;
   description: string;
+  leadId?: string;
 }) {
+  const row: Record<string, unknown> = {
+    id: newId("act"),
+    title: entry.title,
+    category: entry.category,
+    actor_email: entry.actorEmail,
+    description: entry.description,
+    created_at: new Date().toISOString(),
+  };
   try {
-    await dbInsert("crm_activity_logs", {
-      id: newId("act"),
-      title: entry.title,
-      category: entry.category,
-      actor_email: entry.actorEmail,
-      description: entry.description,
-      created_at: new Date().toISOString(),
-    });
+    await dbInsert("crm_activity_logs", entry.leadId ? { ...row, lead_id: entry.leadId } : row);
   } catch (e) {
+    // Older schema without lead_id: still record the entry.
+    if (entry.leadId) {
+      try {
+        await dbInsert("crm_activity_logs", row);
+        return;
+      } catch {
+        /* fall through */
+      }
+    }
     console.warn("Activity log write failed:", e);
+  }
+}
+
+/** Update that tolerates optional columns not yet added to the database:
+ *  retries with only the required fields if the first attempt fails. */
+export async function dbUpdateWithOptional(
+  table: string,
+  filters: Filter[],
+  required: Record<string, unknown>,
+  optional: Record<string, unknown>,
+) {
+  if (!Object.keys(optional).length) return dbUpdate(table, filters, required);
+  try {
+    return await dbUpdate(table, filters, { ...required, ...optional });
+  } catch (e) {
+    console.warn(`Optional columns not available on ${table}, retrying without them:`, (e as Error).message);
+    if (!Object.keys(required).length) return [];
+    return dbUpdate(table, filters, required);
+  }
+}
+
+/** Insert that tolerates optional columns not yet added to the database. */
+export async function dbInsertWithOptional<T = any>(table: string, required: Record<string, unknown>, optional: Record<string, unknown>): Promise<T> {
+  try {
+    return await dbInsert<T>(table, { ...required, ...optional });
+  } catch (e) {
+    console.warn(`Optional columns not available on ${table}, retrying without them:`, (e as Error).message);
+    return dbInsert<T>(table, required);
   }
 }
 

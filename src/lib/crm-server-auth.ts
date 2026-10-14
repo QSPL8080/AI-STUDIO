@@ -64,7 +64,7 @@ function sessionSecret() {
   const explicit = process.env.CRM_SESSION_SECRET;
   if (explicit && explicit.length >= 16) return explicit;
   // Derived from the database secret so tokens can't be forged without server access.
-  const base = process.env.SUPABASE_API_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DATABASE_URL || "quickupp-local-dev";
+  const base = process.env.IND_SUPABASE_SERVICE_KEY || process.env.SUPABASE_API_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DATABASE_URL || "quickupp-local-dev";
   return createHash("sha256").update(`quickupp-crm-session|${base}`).digest("hex");
 }
 

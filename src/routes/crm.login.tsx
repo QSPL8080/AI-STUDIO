@@ -106,8 +106,8 @@ function CrmLoginPage() {
       </div>
 
       {/* Main Luxury Auth Card */}
-      <div className="relative z-10 w-full max-w-[420px]">
-        <div className="relative rounded-[28px] border border-white/10 bg-[#0c0919]/90 backdrop-blur-2xl p-7 sm:p-9 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.9),0_0_50px_-10px_rgba(168,85,247,0.18)] overflow-hidden">
+      <div className="relative z-10 w-full max-w-[460px]">
+        <div className="relative rounded-xl border border-white/10 bg-[#0c0919]/90 backdrop-blur-2xl p-6 sm:p-10 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.9),0_0_50px_-10px_rgba(168,85,247,0.18)] overflow-hidden">
           {/* Subtle top accent gradient line */}
           <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-purple-500/80 to-transparent" />
 
@@ -117,39 +117,39 @@ function CrmLoginPage() {
               <img
                 src="/images/logo.png"
                 alt="Quickupp AI Studio"
-                className="h-9 w-auto mx-auto object-contain drop-shadow-[0_0_20px_rgba(200,80,255,0.35)]"
+                className="h-10 w-auto mx-auto object-contain drop-shadow-[0_0_20px_rgba(200,80,255,0.35)]"
               />
             </Link>
 
-            <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-300 text-[10px] font-semibold uppercase tracking-widest">
+            <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-purple-500/10 border border-purple-500/25 text-purple-300 text-[11px] font-semibold uppercase tracking-widest">
               <ShieldCheck className="w-3 h-3 text-purple-400" />
               <span>Enterprise Portal</span>
             </div>
 
-            <h1 className="mt-2.5 text-xl font-bold tracking-tight text-white font-heading">
+            <h1 className="mt-3 text-2xl sm:text-[26px] font-bold tracking-tight text-white font-heading">
               Admin Sign In
             </h1>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1.5 text-sm text-muted-foreground">
               Sign in with your authorized credentials
             </p>
           </div>
 
           {/* Error Message */}
           {errorMessage && (
-            <div className="mt-5 p-3 rounded-xl border border-red-500/30 bg-red-950/40 text-red-300 text-xs flex items-center gap-2.5 animate-in fade-in slide-in-from-top-1">
+            <div className="mt-5 p-3 rounded-md border border-red-500/30 bg-red-950/40 text-red-300 text-sm flex items-center gap-2.5 animate-in fade-in slide-in-from-top-1">
               <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
               <span className="leading-snug">{errorMessage}</span>
             </div>
           )}
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-7 space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-sm font-semibold text-slate-300 mb-2">
                 Admin Email
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <Mail className="w-[18px] h-[18px] absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="email"
                   required
@@ -157,17 +157,17 @@ function CrmLoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@aistudio.in"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-black/40 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon/30 transition-all"
+                  className="w-full pl-11 pr-4 h-12 rounded-md border border-white/10 bg-black/40 text-[15px] text-white placeholder-slate-500 focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon/30 transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-sm font-semibold text-slate-300 mb-2">
                 Password
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <Lock className="w-[18px] h-[18px] absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type={showPassword ? "text" : "password"}
                   required
@@ -175,7 +175,7 @@ function CrmLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-white/10 bg-black/40 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon/30 transition-all"
+                  className="w-full pl-11 pr-11 h-12 rounded-md border border-white/10 bg-black/40 text-[15px] text-white placeholder-slate-500 focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon/30 transition-all"
                 />
                 <button
                   type="button"
@@ -183,14 +183,14 @@ function CrmLoginPage() {
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
                 </button>
               </div>
             </div>
 
             {/* Remember Email Option */}
             <div className="pt-1 flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none group">
+              <label className="flex items-center gap-2.5 text-sm text-slate-300 cursor-pointer select-none group">
                 <input
                   type="checkbox"
                   checked={rememberEmail}
@@ -207,7 +207,7 @@ function CrmLoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="mt-2 w-full py-3 px-4 rounded-xl bg-gradient-brand text-neon-foreground text-xs font-bold tracking-wide shadow-[0_0_25px_rgba(200,80,255,0.35)] hover:shadow-[0_0_35px_rgba(200,80,255,0.55)] hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed font-heading"
+              className="mt-2 w-full h-12 px-4 rounded-md bg-gradient-brand text-neon-foreground text-[15px] font-bold tracking-wide shadow-[0_0_25px_rgba(200,80,255,0.35)] hover:shadow-[0_0_35px_rgba(200,80,255,0.55)] hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed font-heading"
             >
               {isLoading ? (
                 <>
@@ -224,9 +224,9 @@ function CrmLoginPage() {
           <div className="mt-6 text-center">
             <Link
               to="/"
-              className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors py-1"
+              className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors py-1"
             >
-              <ArrowLeft className="w-3 h-3" />
+              <ArrowLeft className="w-4 h-4" />
               <span>Back to Quickupp AI Studio</span>
             </Link>
           </div>

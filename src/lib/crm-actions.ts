@@ -75,6 +75,20 @@ export const crmDeleteLeadFn = createServerFn({ method: "POST" })
     return s.guard(() => s.deleteLead(data.token, data.id));
   });
 
+export const crmDeleteLeadsFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { ids: string[] }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.deleteLeads(data.token, data.ids));
+  });
+
+export const crmLeadHistoryFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { id: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.leadHistory(data.token, data.id));
+  });
+
 export const crmRestoreLeadFn = createServerFn({ method: "POST" })
   .validator((d: Tok & { id: string }) => d)
   .handler(async ({ data }) => {

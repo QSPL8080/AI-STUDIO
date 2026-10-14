@@ -1,4 +1,5 @@
 import { CRM_SCHEMA_SQL } from "./crm-schema";
+import { LEADS_TABLE, ORDERS_TABLE } from "./db-tables";
 
 export interface Lead {
   id: string;
@@ -40,15 +41,33 @@ export interface Order {
 
 let pgPool: any = null;
 
+// The US site (quickuppaistudio.us) keeps the ORIGINAL Supabase project. The India
+// site must use its own, separate project. These refs are blocked so India data can
+// never be written to (or read from) the US database, even by a copy-pasted env var.
+const BLOCKED_US_PROJECT_REFS = ["oxydwcusxvlsvjkwexsz", ...(process.env.US_SUPABASE_PROJECT_REF ? [process.env.US_SUPABASE_PROJECT_REF] : [])];
+
+export function assertNotUsDatabase(urlOrConn: string) {
+  const v = (urlOrConn || "").toLowerCase();
+  const hit = BLOCKED_US_PROJECT_REFS.find((ref) => ref && v.includes(ref.toLowerCase()));
+  if (hit) {
+    throw new Error(
+      `India site is configured with the US Supabase project (${hit}). Set IND_SUPABASE_URL / IND_SUPABASE_SERVICE_KEY (or SUPABASE_URL / SUPABASE_API_KEY) to the NEW India project.`,
+    );
+  }
+}
+
 export function getSupabaseConfig() {
-  const rawUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  // India-specific names take priority so the two sites can never share credentials by accident.
+  const rawUrl = process.env.IND_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const key =
+    process.env.IND_SUPABASE_SERVICE_KEY ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_API_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     process.env.VITE_SUPABASE_API_KEY;
   if (rawUrl && key) {
     const url = rawUrl.trim().replace(/\/+$/, "");
+    assertNotUsDatabase(url);
     return { url, key: key.trim() };
   }
   return null;
@@ -82,6 +101,7 @@ export async function getPool() {
     const Pool = pg.default?.Pool || pg.Pool;
     const connectionString = process.env.DATABASE_URL || process.env.VITE_DATABASE_URL;
     if (!connectionString) return null;
+    assertNotUsDatabase(connectionString);
 
     let cleanConnectionString = connectionString.trim();
     const isRemoteDb =
@@ -117,7 +137,7 @@ export async function initDb() {
       const client = await pool.connect();
       try {
         await client.query(`
-          CREATE TABLE IF NOT EXISTS leads (
+          CREATE TABLE IF NOT EXISTS ${LEADS_TABLE} (
             id VARCHAR(64) PRIMARY KEY,
             source VARCHAR(32) NOT NULL,
             name VARCHAR(255) NOT NULL,
@@ -133,7 +153,7 @@ export async function initDb() {
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
           );
 
-          CREATE TABLE IF NOT EXISTS orders (
+          CREATE TABLE IF NOT EXISTS ${ORDERS_TABLE} (
             id VARCHAR(64) PRIMARY KEY,
             paypal_order_id VARCHAR(128) NOT NULL UNIQUE,
             paypal_capture_id VARCHAR(128),
@@ -200,7 +220,7 @@ export async function saveLead(data: {
   // Strategy A: If Supabase REST keys are present in Hostinger environment variables (Guaranteed Delivery)
   if (getSupabaseConfig()) {
     try {
-      const result = await supabaseRest("leads", {
+      const result = await supabaseRest(LEADS_TABLE, {
         method: "POST",
         body: JSON.stringify({
           id: record.id,
@@ -232,7 +252,7 @@ export async function saveLead(data: {
   const pool = await getPool();
   if (pool) {
     const res = await pool.query(
-      `INSERT INTO leads (id, source, name, phone, email, video_type, business, location, industry, requirement, additional, status, created_at)
+      `INSERT INTO ${LEADS_TABLE} (id, source, name, phone, email, video_type, business, location, industry, requirement, additional, status, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
        RETURNING *`,
       [
@@ -260,7 +280,7 @@ export async function getLeads(): Promise<Lead[]> {
   // Strategy A: Supabase REST
   if (getSupabaseConfig()) {
     try {
-      const rows = await supabaseRest("leads?select=*&order=created_at.desc");
+      const rows = await supabaseRest(`${LEADS_TABLE}?select=*&order=created_at.desc`);
       if (Array.isArray(rows)) {
         return rows as Lead[];
       }
@@ -274,7 +294,7 @@ export async function getLeads(): Promise<Lead[]> {
   try {
     const pool = await getPool();
     if (pool) {
-      const res = await pool.query("SELECT * FROM leads ORDER BY created_at DESC");
+      const res = await pool.query(`SELECT * FROM ${LEADS_TABLE} ORDER BY created_at DESC`);
       return res.rows;
     }
   } catch (error) {
@@ -286,7 +306,7 @@ export async function getLeads(): Promise<Lead[]> {
 export async function updateLeadStatus(id: string, status: Lead["status"]): Promise<boolean> {
   if (getSupabaseConfig()) {
     try {
-      await supabaseRest(`leads?id=eq.${id}`, {
+      await supabaseRest(`${LEADS_TABLE}?id=eq.${id}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
@@ -300,7 +320,7 @@ export async function updateLeadStatus(id: string, status: Lead["status"]): Prom
   try {
     const pool = await getPool();
     if (pool) {
-      const res = await pool.query("UPDATE leads SET status = $1 WHERE id = $2", [status, id]);
+      const res = await pool.query(`UPDATE ${LEADS_TABLE} SET status = $1 WHERE id = $2`, [status, id]);
       return (res.rowCount ?? 0) > 0;
     }
   } catch (error) {
@@ -312,7 +332,7 @@ export async function updateLeadStatus(id: string, status: Lead["status"]): Prom
 export async function deleteLead(id: string): Promise<boolean> {
   if (getSupabaseConfig()) {
     try {
-      await supabaseRest(`leads?id=eq.${id}`, {
+      await supabaseRest(`${LEADS_TABLE}?id=eq.${id}`, {
         method: "DELETE",
       });
       return true;
@@ -325,7 +345,7 @@ export async function deleteLead(id: string): Promise<boolean> {
   try {
     const pool = await getPool();
     if (pool) {
-      const res = await pool.query("DELETE FROM leads WHERE id = $1", [id]);
+      const res = await pool.query(`DELETE FROM ${LEADS_TABLE} WHERE id = $1`, [id]);
       return (res.rowCount ?? 0) > 0;
     }
   } catch (error) {
@@ -337,7 +357,7 @@ export async function deleteLead(id: string): Promise<boolean> {
 export async function clearAllLeads(): Promise<boolean> {
   if (getSupabaseConfig()) {
     try {
-      await supabaseRest("leads?id=neq.placeholder_none", {
+      await supabaseRest(`${LEADS_TABLE}?id=neq.placeholder_none`, {
         method: "DELETE",
       });
       return true;
@@ -350,7 +370,7 @@ export async function clearAllLeads(): Promise<boolean> {
   try {
     const pool = await getPool();
     if (pool) {
-      await pool.query("DELETE FROM leads;");
+      await pool.query(`DELETE FROM ${LEADS_TABLE};`);
       return true;
     }
   } catch (error) {
@@ -405,7 +425,7 @@ export async function saveOrder(data: {
   // Strategy A: Supabase REST
   if (getSupabaseConfig()) {
     try {
-      const result = await supabaseRest("orders", {
+      const result = await supabaseRest(ORDERS_TABLE, {
         method: "POST",
         body: JSON.stringify({
           id: record.id,
@@ -440,7 +460,7 @@ export async function saveOrder(data: {
   const pool = await getPool();
   if (pool) {
     const res = await pool.query(
-      `INSERT INTO orders (id, paypal_order_id, customer_name, customer_email, customer_phone, customer_company, item_type, item_id, item_name, amount, currency, payment_status, paypal_status, raw_details, created_at, updated_at)
+      `INSERT INTO ${ORDERS_TABLE} (id, paypal_order_id, customer_name, customer_email, customer_phone, customer_company, item_type, item_id, item_name, amount, currency, payment_status, paypal_status, raw_details, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
        RETURNING *`,
       [
@@ -485,7 +505,7 @@ export async function updateOrderPayment(data: {
       if (data.paypalStatus) payload.paypal_status = data.paypalStatus;
       if (data.rawDetails) payload.raw_details = data.rawDetails;
 
-      const rows = await supabaseRest(`orders?paypal_order_id=eq.${data.paypalOrderId}`, {
+      const rows = await supabaseRest(`${ORDERS_TABLE}?paypal_order_id=eq.${data.paypalOrderId}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       });
@@ -502,7 +522,7 @@ export async function updateOrderPayment(data: {
     const pool = await getPool();
     if (pool) {
       const res = await pool.query(
-        `UPDATE orders
+        `UPDATE ${ORDERS_TABLE}
          SET payment_status = $1,
              paypal_capture_id = COALESCE($2, paypal_capture_id),
              paypal_status = COALESCE($3, paypal_status),
@@ -530,7 +550,7 @@ export async function getOrders(): Promise<Order[]> {
   // Strategy A: Supabase REST
   if (getSupabaseConfig()) {
     try {
-      const rows = await supabaseRest("orders?select=*&order=created_at.desc");
+      const rows = await supabaseRest(`${ORDERS_TABLE}?select=*&order=created_at.desc`);
       if (Array.isArray(rows)) {
         return rows as Order[];
       }
@@ -544,7 +564,7 @@ export async function getOrders(): Promise<Order[]> {
   try {
     const pool = await getPool();
     if (pool) {
-      const res = await pool.query("SELECT * FROM orders ORDER BY created_at DESC");
+      const res = await pool.query(`SELECT * FROM ${ORDERS_TABLE} ORDER BY created_at DESC`);
       return res.rows.map((r: any) => ({
         ...r,
         amount: typeof r.amount === "string" ? parseFloat(r.amount) : r.amount,
@@ -559,7 +579,7 @@ export async function getOrders(): Promise<Order[]> {
 export async function getOrderById(id: string): Promise<Order | null> {
   if (getSupabaseConfig()) {
     try {
-      const rows = await supabaseRest(`orders?id=eq.${id}&select=*`);
+      const rows = await supabaseRest(`${ORDERS_TABLE}?id=eq.${id}&select=*`);
       if (Array.isArray(rows) && rows.length > 0) {
         return rows[0];
       }
@@ -572,7 +592,7 @@ export async function getOrderById(id: string): Promise<Order | null> {
   try {
     const pool = await getPool();
     if (pool) {
-      const res = await pool.query("SELECT * FROM orders WHERE id = $1 LIMIT 1", [id]);
+      const res = await pool.query(`SELECT * FROM ${ORDERS_TABLE} WHERE id = $1 LIMIT 1`, [id]);
       if (res.rows[0]) {
         return {
           ...res.rows[0],
@@ -589,7 +609,7 @@ export async function getOrderById(id: string): Promise<Order | null> {
 export async function updateOrderStatus(id: string, status: PaymentStatus): Promise<boolean> {
   if (getSupabaseConfig()) {
     try {
-      await supabaseRest(`orders?id=eq.${id}`, {
+      await supabaseRest(`${ORDERS_TABLE}?id=eq.${id}`, {
         method: "PATCH",
         body: JSON.stringify({ payment_status: status, updated_at: new Date().toISOString() }),
       });
@@ -603,7 +623,7 @@ export async function updateOrderStatus(id: string, status: PaymentStatus): Prom
   try {
     const pool = await getPool();
     if (pool) {
-      const res = await pool.query("UPDATE orders SET payment_status = $1, updated_at = NOW() WHERE id = $2", [status, id]);
+      const res = await pool.query(`UPDATE ${ORDERS_TABLE} SET payment_status = $1, updated_at = NOW() WHERE id = $2`, [status, id]);
       return (res.rowCount ?? 0) > 0;
     }
   } catch (error) {
@@ -615,7 +635,7 @@ export async function updateOrderStatus(id: string, status: PaymentStatus): Prom
 export async function deleteOrder(id: string): Promise<boolean> {
   if (getSupabaseConfig()) {
     try {
-      await supabaseRest(`orders?id=eq.${id}`, {
+      await supabaseRest(`${ORDERS_TABLE}?id=eq.${id}`, {
         method: "DELETE",
       });
       return true;
@@ -628,7 +648,7 @@ export async function deleteOrder(id: string): Promise<boolean> {
   try {
     const pool = await getPool();
     if (pool) {
-      const res = await pool.query("DELETE FROM orders WHERE id = $1", [id]);
+      const res = await pool.query(`DELETE FROM ${ORDERS_TABLE} WHERE id = $1`, [id]);
       return (res.rowCount ?? 0) > 0;
     }
   } catch (error) {

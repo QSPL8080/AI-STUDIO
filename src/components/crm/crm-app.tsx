@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   AlertTriangle,
+  Calendar,
   ArrowLeft,
   Bell,
   CheckCircle2,
@@ -45,6 +46,8 @@ import {
   crmCreateUserFn,
   crmDeleteActivityFn,
   crmDeleteLeadFn,
+  crmDeleteLeadsFn,
+  crmLeadHistoryFn,
   crmDeleteOrderFn,
   crmDeleteUserFn,
   crmEmptyRecycleBinFn,
@@ -69,6 +72,7 @@ import {
   type PermSet,
   type PermissionMatrix,
 } from "@/lib/crm-permissions";
+import { displayLeadSource } from "@/lib/lead-source";
 import type { ActivityItem, LeadItem, OrderItem, RecordCounts, UserItem } from "./crm-types";
 
 export const LOGOUT_REASON_KEY = "quickupp_crm_logout_reason";
@@ -113,14 +117,18 @@ function fmtIst(iso?: string | null) {
   });
 }
 
-function fmtEdt(iso?: string | null) {
+function fmtIstDate(iso?: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" });
+}
+
+function fmtIstTime(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
-  return (
-    d.toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: true }) +
-    " EDT"
-  );
+  return d.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
 function fmtMoney(amount: number, currency = "USD") {
@@ -164,15 +172,15 @@ const ORDER_STATUS_STYLE: Record<string, string> = {
   REFUNDED: "bg-slate-800 text-slate-300 border-white/10",
 };
 
-const card = "rounded-2xl border border-white/[0.08] bg-[#0c101c]";
+const card = "rounded-lg border border-white/[0.08] bg-[#0c101c]";
 const btnGhost =
-  "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 text-xs font-medium transition-colors disabled:opacity-50";
+  "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 text-[13px] font-medium transition-colors disabled:opacity-50";
 const btnDanger =
-  "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-medium transition-colors disabled:opacity-50";
+  "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-red-500/30 text-red-400 hover:bg-red-500/10 text-[13px] font-medium transition-colors disabled:opacity-50";
 const iconBtn =
-  "inline-flex items-center justify-center w-9 h-9 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-colors";
+  "inline-flex items-center justify-center w-9 h-9 rounded-md border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-colors";
 const inputCls =
-  "w-full h-9 px-3 rounded-lg border border-white/10 bg-black/40 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500";
+  "w-full h-9 px-3 rounded-md border border-white/10 bg-black/40 text-[13px] text-white placeholder-slate-500 focus:outline-none focus:border-purple-500";
 
 type TabId = "dashboard" | "leads" | "meta" | "orders" | "activity" | "users" | "settings" | "recycle-bin";
 type Toast = { id: number; kind: "success" | "error" | "info"; text: string };
@@ -233,6 +241,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [passwordTarget, setPasswordTarget] = useState<UserItem | null>(null);
   const [selectedLead, setSelectedLead] = useState<LeadItem | null>(null);
+  const [leadHistory, setLeadHistory] = useState<ActivityItem[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
   const [showResetModal, setShowResetModal] = useState(false);
 
@@ -427,6 +437,23 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     return list;
   }, [perms, isSuperAdmin, websiteLeads.length, metaLeads.length, ordersCount, users.length, recycleBin.length]);
 
+  useEffect(() => setSelectedIds([]), [activeTab]);
+
+  // Per-lead audit trail for the details popup
+  useEffect(() => {
+    if (!selectedLead) return;
+    let cancelled = false;
+    setLeadHistory(null);
+    crmLeadHistoryFn({ data: { token: tokenRef.current, id: selectedLead.id } })
+      .then((r: any) => {
+        if (!cancelled) setLeadHistory(r?.ok ? r.history : []);
+      })
+      .catch(() => !cancelled && setLeadHistory([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedLead?.id]);
+
   // If a permission is revoked while the user is on that tab, move them to an allowed tab.
   useEffect(() => {
     if (!tabs.length) return;
@@ -503,6 +530,21 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     if (!r) return;
     setLeads((prev) => prev.filter((l) => l.id !== lead.id));
     toast(r.mode === "permanent" ? "Lead permanently deleted from the database." : "Lead moved to the Recycle Bin.");
+    doSync();
+  };
+
+  const handleBulkDelete = async (visible: LeadItem[]) => {
+    const ids = selectedIds.filter((id) => visible.some((l) => l.id === id));
+    if (!ids.length) return;
+    const msg = isSuperAdmin
+      ? `Permanently delete ${ids.length} lead(s)?\n\nThey are removed from the database and cannot be recovered.`
+      : `Move ${ids.length} lead(s) to the Recycle Bin?`;
+    if (!window.confirm(msg)) return;
+    const r = await call(crmDeleteLeadsFn({ data: { token: tok(), ids } }));
+    if (!r) return doSync();
+    setLeads((prev) => prev.filter((l) => !ids.includes(l.id)));
+    setSelectedIds([]);
+    toast(r.mode === "permanent" ? `${r.deleted} lead(s) permanently deleted.` : `${r.deleted} lead(s) moved to the Recycle Bin.`);
     doSync();
   };
 
@@ -705,21 +747,21 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   // -------------------------------------------------------------------------
   if (!loaded || !perms) {
     return (
-      <div className="min-h-screen bg-[#07090e] flex flex-col items-center justify-center p-4 text-slate-400 text-xs">
+      <div className="min-h-screen bg-[#07090e] flex flex-col items-center justify-center p-4 text-slate-400 text-[13px]">
         <div className="w-6 h-6 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-3" />
         <span>{online ? "Loading live CRM data..." : "Cannot reach the CRM database. Retrying..."}</span>
       </div>
     );
   }
 
-  const latestLeads = leads.slice(0, 5);
+  const latestLeads = leads.slice(0, 20);
 
   return (
-    <div className="min-h-screen bg-[#07090e] text-slate-100 font-sans antialiased">
+    <div className="min-h-screen lg:h-dvh lg:overflow-hidden flex flex-col bg-[#07090e] text-slate-100 font-sans antialiased">
       {/* ===================== STICKY HEADER + TAB BAR ===================== */}
-      <div className="sticky top-0 z-40 bg-[#090c14] border-b border-white/[0.08] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.8)]">
-        <header className="h-16 px-3 sm:px-6">
-          <div className="h-full max-w-[1600px] mx-auto flex items-center justify-between gap-4">
+      <div className="shrink-0 sticky top-0 z-40 bg-[#090c14] border-b border-white/[0.08] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.8)]">
+        <header className="h-16 px-3 sm:px-5 lg:px-6 2xl:px-10">
+          <div className="h-full w-full flex items-center justify-between gap-2 sm:gap-4">
             {/* Left */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <Link to="/" className={`${iconBtn} shrink-0`} title="Back to website">
@@ -728,16 +770,16 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               <img src="/images/logo.png" alt="Quickupp AI Studio" className="h-6 sm:h-8 w-auto object-contain shrink-0" />
               <div className="hidden md:block h-8 w-px bg-white/10" />
               <div className="hidden md:flex flex-col min-w-0">
-                <span className="text-sm font-semibold text-white truncate leading-tight">{config.crmTitle}</span>
-                <span className="text-[11px] text-slate-500 leading-tight mt-0.5">Signed in {me.loginTime}</span>
+                <span className="text-[15px] font-semibold text-white truncate leading-tight">{config.crmTitle}</span>
+                <span className="text-xs text-slate-500 leading-tight mt-0.5">Signed in {me.loginTime}</span>
               </div>
-              <span className={`hidden sm:inline-flex shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${roleBadge(me.role)}`}>{ROLE_LABEL[me.role]}</span>
+              <span className={`hidden sm:inline-flex shrink-0 text-xs font-semibold px-2.5 py-1 rounded-md border ${roleBadge(me.role)}`}>{ROLE_LABEL[me.role]}</span>
             </div>
 
             {/* Right */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <div
-                className={`hidden lg:flex items-center gap-2 h-9 px-3 rounded-full border text-[11px] ${
+                className={`hidden lg:flex items-center gap-2 h-9 px-3 rounded-md border text-xs ${
                   online ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-300" : "border-red-500/30 bg-red-500/10 text-red-300"
                 }`}
               >
@@ -752,7 +794,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   setSoundEnabled(!soundEnabled);
                   if (!soundEnabled) playAudioChime();
                 }}
-                className={`${iconBtn} hidden sm:inline-flex`}
+                className="hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-md border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
                 title={soundEnabled ? "Mute sound alerts" : "Enable sound alerts"}
               >
                 {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4" />}
@@ -769,13 +811,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 >
                   <Bell className="w-4 h-4" />
                   {unseenLeadIds.length > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-cyan-500 text-[10px] font-bold text-black flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-md bg-cyan-500 text-[11px] font-bold text-black flex items-center justify-center">
                       {unseenLeadIds.length}
                     </span>
                   )}
                 </button>
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 rounded-xl border border-white/10 bg-[#0e121d] p-3 shadow-2xl z-50 text-xs">
+                  <div className="absolute right-0 mt-2 w-80 rounded-md border border-white/10 bg-[#0e121d] p-3 shadow-2xl z-50 text-[13px]">
                     <div className="flex items-center justify-between pb-2 border-b border-white/10">
                       <span className="font-semibold text-white">Latest leads</span>
                       <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-white">
@@ -793,13 +835,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               setSelectedLead(l);
                               setShowNotifications(false);
                             }}
-                            className="w-full text-left p-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06]"
+                            className="w-full text-left p-2 rounded-md bg-white/[0.03] hover:bg-white/[0.06]"
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="font-medium text-white truncate">{l.clientName}</span>
-                              <span className="text-[10px] text-slate-500 shrink-0">{l.kind === "meta" ? "Meta" : "Website"}</span>
+                              <span className="text-[11px] text-slate-500 shrink-0">{l.kind === "meta" ? "Meta" : "Website"}</span>
                             </div>
-                            <div className="text-[11px] text-slate-400">{fmtIst(l.createdAt)}</div>
+                            <div className="text-xs text-slate-400">{fmtIst(l.createdAt)}</div>
                           </button>
                         ))
                       )}
@@ -813,12 +855,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   {(me.name || me.email).charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden xl:flex flex-col leading-tight">
-                  <span className="text-xs font-semibold text-white">{me.name}</span>
-                  <span className="text-[11px] text-slate-400">{me.email}</span>
+                  <span className="text-[13px] font-semibold text-white">{me.name}</span>
+                  <span className="text-xs text-slate-400">{me.email}</span>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-red-500/25 text-red-400 hover:bg-red-500/10 transition-colors"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-red-500/25 text-red-400 hover:bg-red-500/10 transition-colors"
                   title="Sign out"
                 >
                   <LogOut className="w-4 h-4" />
@@ -828,8 +870,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           </div>
         </header>
 
-        <nav className="h-12 px-4 sm:px-6 border-t border-white/[0.05] overflow-x-auto no-scrollbar">
-          <div className="h-full max-w-[1600px] mx-auto flex items-center gap-1 min-w-max">
+        <nav className="h-12 px-3 sm:px-5 lg:px-6 2xl:px-10 border-t border-white/[0.05] overflow-x-auto no-scrollbar">
+          <div className="h-full w-full flex items-center gap-1 min-w-max">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -837,7 +879,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <button
                   key={tab.id}
                   onClick={() => handleTabClick(tab.id)}
-                  className={`h-9 flex items-center gap-2 px-3 rounded-lg text-xs font-medium transition-all ${
+                  className={`h-9 flex items-center gap-2 px-3.5 rounded-md text-sm font-medium transition-all ${
                     isActive ? "bg-purple-600 text-white shadow-[0_0_18px_-4px_rgba(168,85,247,0.7)]" : "text-slate-400 hover:text-slate-100 hover:bg-white/[0.05]"
                   }`}
                 >
@@ -845,7 +887,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   <span>{tab.label}</span>
                   {tab.id === "orders" && !orders && <Lock className="w-3 h-3 opacity-70" />}
                   {tab.count !== null && (
-                    <span className={`text-[10px] min-w-[20px] px-1.5 py-0.5 rounded-full font-semibold ${isActive ? "bg-white/20 text-white" : "bg-white/[0.06] text-slate-400"}`}>
+                    <span className={`text-[11px] min-w-[20px] px-1.5 py-0.5 rounded-md font-semibold ${isActive ? "bg-white/20 text-white" : "bg-white/[0.06] text-slate-400"}`}>
                       {tab.count}
                     </span>
                   )}
@@ -857,28 +899,28 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       </div>
 
       {/* ===================== MAIN ===================== */}
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
+      <main className="flex-1 min-h-0 w-full px-3 sm:px-5 lg:px-6 2xl:px-10 py-4 sm:py-5 lg:overflow-y-auto">
         {/* ---------------- DASHBOARD ---------------- */}
         {activeTab === "dashboard" && perms.dashboard && (
-          <div className="space-y-6">
+          <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader
               icon={<LayoutGrid className="w-5 h-5 text-purple-400" />}
               title="Executive CRM Dashboard"
               subtitle="Real-time overview of inbound leads, production pipeline and revenue."
             >
               {perms.leads && (
-                <button onClick={() => setShowAddLeadModal(true)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold">
+                <button onClick={() => setShowAddLeadModal(true)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold">
                   <Plus className="w-4 h-4" /> Add Lead
                 </button>
               )}
               {perms.meta && (
-                <button onClick={() => setShowAddMetaModal(true)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold">
+                <button onClick={() => setShowAddMetaModal(true)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[13px] font-semibold">
                   <Plus className="w-4 h-4" /> Add Meta Lead
                 </button>
               )}
             </PageHeader>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
               <Kpi label="Total Leads" value={leads.length} sub="All sources" icon={<Users className="w-4 h-4 text-blue-400" />} />
               <Kpi
                 label="Revenue"
@@ -901,36 +943,36 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 icon={<CheckCircle2 className="w-4 h-4 text-purple-400" />}
                 valueClass="text-purple-400"
               />
-              <Kpi label="Closed Leads" value={closedCount} sub={`${conversion}% conversion`} icon={<CheckCircle2 className="w-4 h-4 text-teal-400" />} valueClass="text-teal-400" />
+              <Kpi className="col-span-2 lg:col-span-1" label="Closed Leads" value={closedCount} sub={`${conversion}% conversion`} icon={<CheckCircle2 className="w-4 h-4 text-teal-400" />} valueClass="text-teal-400" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <div className={`${card} p-5`}>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 lg:flex-1 lg:min-h-0">
+              <div className={`${card} p-5 flex flex-col lg:min-h-0 lg:col-span-5 xl:col-span-6`}>
                 <CardTitle icon={<Layers className="w-4 h-4 text-blue-400" />} title="Latest inbound leads" badge={leads.length} />
-                <div className="pt-4 space-y-2.5">
+                <div className="pt-4 space-y-2.5 overflow-y-auto max-h-[60vh] lg:max-h-none lg:flex-1 lg:min-h-0 pr-1">
                   {latestLeads.length ? (
                     latestLeads.map((l) => (
                       <button
                         key={l.id}
                         onClick={() => setSelectedLead(l)}
-                        className="w-full flex items-center justify-between p-3 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] text-left"
+                        className="w-full flex items-center justify-between p-3 rounded-md border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] text-left"
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-sm text-white truncate">{l.clientName}</span>
                             <span
-                              className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                              className={`text-[11px] px-2 py-0.5 rounded-md border ${
                                 l.kind === "meta" ? "bg-purple-900/50 text-purple-300 border-purple-500/30" : "bg-blue-900/50 text-blue-300 border-blue-500/30"
                               }`}
                             >
                               {l.kind === "meta" ? "Meta Ads" : l.source}
                             </span>
                           </div>
-                          <div className="text-xs text-slate-400 mt-1 truncate">
+                          <div className="text-[13px] text-slate-400 mt-1 truncate">
                             {l.companyName || "Direct inquiry"} • {l.videoScope} • {fmtIst(l.createdAt)}
                           </div>
                         </div>
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30 shrink-0">{l.leadStatus}</span>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30 shrink-0">{l.leadStatus}</span>
                       </button>
                     ))
                   ) : (
@@ -939,15 +981,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 </div>
               </div>
 
-              <div className={`${card} p-5`}>
+              <div className={`${card} p-5 flex flex-col lg:min-h-0 lg:col-span-3`}>
                 <CardTitle icon={<Clock className="w-4 h-4 text-purple-400" />} title="Lead pipeline by status" />
-                <div className="pt-4 space-y-3">
+                <div className="pt-4 space-y-3 overflow-y-auto lg:flex-1 lg:min-h-0">
                   {LEAD_STATUSES.map((s) => {
                     const n = countBy(leads, "leadStatus", s);
                     const pct = leads.length ? Math.round((n / leads.length) * 100) : 0;
                     return (
                       <div key={s}>
-                        <div className="flex items-center justify-between text-xs mb-1">
+                        <div className="flex items-center justify-between text-[13px] mb-1">
                           <span className="text-slate-300">{s}</span>
                           <span className="text-slate-400">
                             {n} <span className="text-slate-600">({pct}%)</span>
@@ -961,36 +1003,37 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   })}
                 </div>
               </div>
-            </div>
-
-            <div className={`${card} p-5`}>
-              <CardTitle icon={<Globe className="w-4 h-4 text-cyan-400" />} title="Source-wise lead reporting" right={<span className="text-xs text-slate-400">{leads.length} total</span>} />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-                {[
-                  { label: "Website Inbound", n: websiteInbound, icon: <Globe className="w-4 h-4" />, tint: "bg-blue-500/10 text-blue-400", tab: "leads" as TabId, show: perms.leads },
-                  { label: "Manual Entry", n: manualCount, icon: <Users className="w-4 h-4" />, tint: "bg-amber-500/10 text-amber-400", tab: "leads" as TabId, show: perms.leads },
-                  { label: "Meta Ads", n: metaLeads.length, icon: <Layers className="w-4 h-4" />, tint: "bg-purple-500/10 text-purple-400", tab: "meta" as TabId, show: perms.meta },
-                ].map((s) => (
-                  <div key={s.label} className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2.5 rounded-lg ${s.tint}`}>{s.icon}</div>
-                      <div>
-                        <div className="font-semibold text-sm text-white">{s.label}</div>
-                        <div className="text-[11px] text-slate-400">{leads.length ? Math.round((s.n / leads.length) * 100) : 0}% of total</div>
+              <div className={`${card} p-5 flex flex-col lg:min-h-0 lg:col-span-4 xl:col-span-3`}>
+                <CardTitle icon={<Globe className="w-4 h-4 text-cyan-400" />} title="Source-wise lead reporting" right={<span className="text-[13px] text-slate-400">{leads.length} total</span>} />
+                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3 pt-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto content-start">
+                  {[
+                    { label: "Website Inbound", n: websiteInbound, icon: <Globe className="w-4 h-4" />, tint: "bg-blue-500/10 text-blue-400", tab: "leads" as TabId, show: perms.leads },
+                    { label: "Manual Entry", n: manualCount, icon: <Users className="w-4 h-4" />, tint: "bg-amber-500/10 text-amber-400", tab: "leads" as TabId, show: perms.leads },
+                    { label: "Meta Ads", n: metaLeads.length, icon: <Layers className="w-4 h-4" />, tint: "bg-purple-500/10 text-purple-400", tab: "meta" as TabId, show: perms.meta },
+                  ].map((s) => (
+                    <div key={s.label} className="px-4 py-3 rounded-md border border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-md ${s.tint}`}>{s.icon}</div>
+                        <div>
+                          <div className="font-semibold text-sm text-white">{s.label}</div>
+                          <div className="text-xs text-slate-400">{leads.length ? Math.round((s.n / leads.length) * 100) : 0}% of total</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xl font-bold text-white">{s.n}</div>
+                        {s.show && (
+                          <button onClick={() => setActiveTab(s.tab)} className="text-xs text-blue-400 hover:text-blue-300">
+                            Manage →
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold text-white">{s.n}</div>
-                      {s.show && (
-                        <button onClick={() => setActiveTab(s.tab)} className="text-[11px] text-blue-400 hover:text-blue-300">
-                          Manage →
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
+
+
           </div>
         )}
 
@@ -1006,7 +1049,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           const status = isMeta ? metaStatus : leadsStatus;
           const setStatus = isMeta ? setMetaStatus : setLeadsStatus;
           return (
-            <div key={tabKey} className="space-y-6">
+            <div key={tabKey} className="flex flex-col gap-4 lg:h-full lg:min-h-0">
               <PageHeader
                 icon={isMeta ? <Layers className="w-5 h-5 text-purple-400" /> : <Globe className="w-5 h-5 text-blue-400" />}
                 title={isMeta ? "Meta Ads Leads" : "Website & Inbound Leads"}
@@ -1019,7 +1062,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               >
                 <button
                   onClick={() => (isMeta ? setShowAddMetaModal(true) : setShowAddLeadModal(true))}
-                  className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-white text-xs font-semibold ${isMeta ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
+                  className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-white text-[13px] font-semibold ${isMeta ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
                 >
                   <Plus className="w-4 h-4" /> {isMeta ? "Add Meta Lead" : "Add Lead"}
                 </button>
@@ -1035,7 +1078,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 )}
               </PageHeader>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5">
                 {[
                   { label: "Total", n: all.length, c: "text-blue-400" },
                   { label: "New", n: countBy(all, "leadStatus", "New"), c: "text-blue-400" },
@@ -1046,8 +1089,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   { label: "Proj Active", n: countBy(all, "projectStatus", "Proj Active"), c: "text-cyan-400" },
                   { label: "Delivered", n: countBy(all, "projectStatus", "Delivered"), c: "text-purple-400" },
                 ].map((k) => (
-                  <div key={k.label} className="rounded-xl border border-white/[0.07] bg-[#0c101c] p-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400">{k.label}</div>
+                  <div key={k.label} className="rounded-md border border-white/[0.07] bg-[#0c101c] p-3 text-center">
+                    <div className="text-[11px] uppercase tracking-wider text-slate-400">{k.label}</div>
                     <div className={`text-xl font-bold mt-1 ${k.c}`}>{k.n}</div>
                   </div>
                 ))}
@@ -1077,7 +1120,21 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 )}
               </div>
 
-              <div className={`${card} overflow-hidden`}>
+              {selectedIds.length > 0 && canDelete && (
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-md border border-purple-500/30 bg-purple-950/30">
+                  <span className="text-sm text-purple-200 font-medium">{selectedIds.length} selected</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setSelectedIds([])} className={btnGhost}>
+                      Clear selection
+                    </button>
+                    <button onClick={() => handleBulkDelete(shown)} className={btnDanger}>
+                      <Trash2 className="w-4 h-4" /> {isSuperAdmin ? "Delete permanently" : "Move to Recycle Bin"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className={`${card} overflow-hidden flex flex-col lg:flex-1 lg:min-h-0`}>
                 {shown.length === 0 ? (
                   <Empty
                     icon={<Layers className="w-8 h-8" />}
@@ -1085,102 +1142,135 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     text={isMeta ? "Meta leads you add or receive will appear here." : "New website submissions appear here automatically."}
                   />
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-white/[0.02] border-b border-white/[0.07] text-[11px] uppercase tracking-wider text-slate-400">
+                  <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:flex-1 lg:min-h-0">
+                    <table className="w-full min-w-[1180px] text-left text-[13px]">
+                      <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                         <tr>
-                          <th className="p-3.5">{isMeta ? "Channel" : "Source"}</th>
-                          <th className="p-3.5">Received</th>
+                          <th className="p-3.5 w-10">
+                            {canDelete && (
+                              <input
+                                type="checkbox"
+                                aria-label="Select all"
+                                checked={shown.length > 0 && shown.every((l) => selectedIds.includes(l.id))}
+                                onChange={(e) => setSelectedIds(e.target.checked ? shown.map((l) => l.id) : [])}
+                                className="w-4 h-4 accent-purple-600 cursor-pointer"
+                              />
+                            )}
+                          </th>
+                          <th className="p-3.5">Source</th>
+                          <th className="p-3.5">Timestamp</th>
                           <th className="p-3.5">Client & Business</th>
-                          <th className="p-3.5">Phone</th>
+                          <th className="p-3.5">WhatsApp / Phone</th>
                           <th className="p-3.5">Video Scope</th>
                           <th className="p-3.5">Lead Status</th>
                           <th className="p-3.5">Project Status</th>
+                          <th className="p-3.5">Notes</th>
                           <th className="p-3.5 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.05]">
-                        {shown.map((l) => (
-                          <tr key={l.id} className="hover:bg-white/[0.02] align-top">
-                            <td className="p-3.5">
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  isMeta ? "bg-blue-900/40 text-blue-300 border-blue-500/30" : "bg-white/[0.04] text-slate-300 border-white/10"
-                                }`}
-                              >
-                                {isMeta ? l.channel || "Facebook" : l.source}
-                              </span>
-                            </td>
-                            <td className="p-3.5 whitespace-nowrap">
-                              <div className="text-slate-300 font-mono text-[11px]">{fmtIst(l.createdAt)}</div>
-                              <div className="text-cyan-300/70 font-mono text-[10px] mt-0.5">{fmtEdt(l.createdAt)}</div>
-                            </td>
-                            <td className="p-3.5">
-                              <div className="font-semibold text-white">{l.clientName}</div>
-                              <div className="text-[11px] text-slate-400">{l.email || "No email"}</div>
-                              {l.companyName && <div className="text-[11px] text-slate-500">{l.companyName}</div>}
-                              {isMeta && (l.campaign || l.formName) && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {l.campaign && <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-300">Camp: {l.campaign}</span>}
-                                  {l.adSet && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300">Ad: {l.adSet}</span>}
-                                  {l.formName && <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">Form: {l.formName}</span>}
-                                </div>
-                              )}
-                            </td>
-                            <td className="p-3.5 text-slate-200 font-mono whitespace-nowrap">{l.phone}</td>
-                            <td className="p-3.5 text-slate-300">{l.videoScope}</td>
-                            <td className="p-3.5">
-                              <select
-                                value={l.leadStatus}
-                                onChange={(e) => handleLeadField(l, "leadStatus", e.target.value)}
-                                className="h-8 px-2 rounded-md bg-blue-950/60 border border-blue-500/40 text-blue-200 text-xs font-semibold focus:outline-none cursor-pointer"
-                              >
-                                {LEAD_STATUSES.map((s) => (
-                                  <option key={s}>{s}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="p-3.5">
-                              <select
-                                value={l.projectStatus}
-                                onChange={(e) => handleLeadField(l, "projectStatus", e.target.value)}
-                                className="h-8 px-2 rounded-md bg-amber-950/60 border border-amber-500/40 text-amber-200 text-xs font-semibold focus:outline-none cursor-pointer"
-                              >
-                                {PROJECT_STATUSES.map((s) => (
-                                  <option key={s}>{s}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="p-3.5">
-                              <div className="flex items-center justify-end gap-1">
-                                <a href={`tel:${l.phone}`} className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white" title="Call">
-                                  <Phone className="w-4 h-4" />
+                        {shown.map((l) => {
+                          const checked = selectedIds.includes(l.id);
+                          return (
+                            <tr key={l.id} className={`align-top transition-colors ${checked ? "bg-purple-500/[0.06]" : "hover:bg-white/[0.02]"}`}>
+                              <td className="p-3.5">
+                                {canDelete && (
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Select ${l.clientName}`}
+                                    checked={checked}
+                                    onChange={(e) =>
+                                      setSelectedIds((prev) => (e.target.checked ? [...prev, l.id] : prev.filter((x) => x !== l.id)))
+                                    }
+                                    className="w-4 h-4 accent-purple-600 cursor-pointer"
+                                  />
+                                )}
+                              </td>
+                              <td className="p-3.5">
+                                <SourceBadge lead={l} />
+                              </td>
+                              <td className="p-3.5 whitespace-nowrap">
+                                <div className="text-slate-200 font-medium">{fmtIstDate(l.createdAt)}</div>
+                                <div className="text-slate-400 font-mono text-xs mt-0.5">{fmtIstTime(l.createdAt)} IST</div>
+                              </td>
+                              <td className="p-3.5">
+                                <button onClick={() => setSelectedLead(l)} className="text-left group">
+                                  <div className="font-semibold text-white group-hover:text-purple-300">{l.clientName}</div>
+                                  <div className="text-xs text-slate-400">{l.companyName || "—"}</div>
+                                  <div className="text-xs text-slate-500">{l.email || "No email"}</div>
+                                </button>
+                                {isMeta && (l.campaign || l.formName) && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {l.campaign && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-300">Camp: {l.campaign}</span>}
+                                    {l.adSet && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300">Ad: {l.adSet}</span>}
+                                    {l.formName && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">Form: {l.formName}</span>}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-3.5 whitespace-nowrap">
+                                <a href={`tel:${l.phone}`} className="flex items-center gap-1.5 font-mono text-slate-200 hover:text-white">
+                                  <Phone className="w-3.5 h-3.5 text-slate-400" /> {l.phone}
                                 </a>
                                 <a
                                   href={`https://wa.me/${l.phone.replace(/[^0-9]/g, "")}`}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="p-1.5 rounded hover:bg-emerald-500/10 text-emerald-400"
-                                  title="WhatsApp"
+                                  className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300"
                                 >
-                                  <MessageSquare className="w-4 h-4" />
+                                  <MessageSquare className="w-3.5 h-3.5" /> Chat on WhatsApp
                                 </a>
-                                <button onClick={() => setSelectedLead(l)} className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white" title="View details">
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                {canDelete && (
-                                  <button
-                                    onClick={() => handleDeleteLead(l)}
-                                    className="p-1.5 rounded hover:bg-red-500/10 text-red-400"
-                                    title={isSuperAdmin ? "Delete permanently" : "Move to Recycle Bin"}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
+                              </td>
+                              <td className="p-3.5">
+                                <div className="text-slate-200 font-medium">{l.videoScope}</div>
+                                {l.businessType && <div className="text-xs text-slate-500 mt-0.5">{l.businessType}</div>}
+                              </td>
+                              <td className="p-3.5">
+                                <select
+                                  value={l.leadStatus}
+                                  onChange={(e) => handleLeadField(l, "leadStatus", e.target.value)}
+                                  className="h-8 px-2 rounded-md bg-blue-950/60 border border-blue-500/40 text-blue-200 text-[13px] font-semibold focus:outline-none cursor-pointer"
+                                >
+                                  {LEAD_STATUSES.map((st) => (
+                                    <option key={st}>{st}</option>
+                                  ))}
+                                </select>
+                                {l.leadStatus === "Closed" && l.closedBy && <div className="text-[11px] text-slate-500 mt-1">by {l.closedBy}</div>}
+                              </td>
+                              <td className="p-3.5">
+                                <select
+                                  value={l.projectStatus}
+                                  onChange={(e) => handleLeadField(l, "projectStatus", e.target.value)}
+                                  className="h-8 px-2 rounded-md bg-amber-950/60 border border-amber-500/40 text-amber-200 text-[13px] font-semibold focus:outline-none cursor-pointer"
+                                >
+                                  {PROJECT_STATUSES.map((st) => (
+                                    <option key={st}>{st}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="p-3.5 max-w-[240px]">
+                                <div className="text-slate-400 line-clamp-2 break-words" title={l.notes}>
+                                  {l.notes || "—"}
+                                </div>
+                              </td>
+                              <td className="p-3.5">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button onClick={() => setSelectedLead(l)} className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white" title="View details">
+                                    <Eye className="w-4 h-4" />
                                   </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                                  {canDelete && (
+                                    <button
+                                      onClick={() => handleDeleteLead(l)}
+                                      className="p-1.5 rounded hover:bg-red-500/10 text-red-400"
+                                      title={isSuperAdmin ? "Delete permanently" : "Move to Recycle Bin"}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1192,7 +1282,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
         {/* ---------------- ORDERS ---------------- */}
         {activeTab === "orders" && perms.orders && orders && (
-          <div className="space-y-6">
+          <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader icon={<Package className="w-5 h-5 text-purple-400" />} title="Orders & Payments" badge={`${orders.length} orders`} subtitle="PayPal checkout orders recorded in the database.">
               {canExport && (
                 <button
@@ -1209,7 +1299,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               )}
             </PageHeader>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Kpi label="Total Orders" value={orders.length} icon={<Package className="w-4 h-4 text-purple-400" />} />
               <Kpi label="Revenue (paid)" value={revenueText(revenueByCur)} icon={<TrendingUp className="w-4 h-4 text-emerald-400" />} valueClass="text-emerald-400" />
               <Kpi label="Completed" value={completedOrders.length} icon={<CheckCircle2 className="w-4 h-4 text-cyan-400" />} valueClass="text-cyan-400" />
@@ -1234,13 +1324,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </select>
             </div>
 
-            <div className={`${card} overflow-hidden`}>
+            <div className={`${card} overflow-hidden flex flex-col lg:flex-1 lg:min-h-0`}>
               {shownOrders.length === 0 ? (
                 <Empty icon={<Package className="w-8 h-8" />} title={orders.length ? "No orders match the current filter" : "No payment transactions yet"} text="Checkout orders appear here automatically." />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-white/[0.02] border-b border-white/[0.07] text-[11px] uppercase tracking-wider text-slate-400">
+                <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:flex-1 lg:min-h-0">
+                  <table className="w-full min-w-[960px] text-left text-[13px]">
+                    <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                       <tr>
                         <th className="p-3.5">Customer</th>
                         <th className="p-3.5">Package / Item</th>
@@ -1256,22 +1346,22 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <tr key={o.id} className="hover:bg-white/[0.02]">
                           <td className="p-3.5">
                             <div className="font-bold text-white">{o.customerName}</div>
-                            <div className="text-[11px] text-slate-400">{o.customerEmail}</div>
-                            {o.customerPhone && <div className="text-[10px] text-slate-500 font-mono">{o.customerPhone}</div>}
+                            <div className="text-xs text-slate-400">{o.customerEmail}</div>
+                            {o.customerPhone && <div className="text-[11px] text-slate-500 font-mono">{o.customerPhone}</div>}
                           </td>
                           <td className="p-3.5">
                             <div className="font-semibold text-white">{o.itemName}</div>
-                            <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-purple-900/50 text-purple-300 uppercase">{o.itemType}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-900/50 text-purple-300 uppercase">{o.itemType}</span>
                           </td>
                           <td className="p-3.5 font-bold text-emerald-400 font-mono">{fmtMoney(o.amount, o.currency)}</td>
                           <td className="p-3.5">
-                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${ORDER_STATUS_STYLE[o.paymentStatus] || ORDER_STATUS_STYLE["REFUNDED"]}`}>{o.paymentStatus}</span>
+                            <span className={`px-2 py-0.5 rounded-md border text-[11px] font-semibold ${ORDER_STATUS_STYLE[o.paymentStatus] || ORDER_STATUS_STYLE["REFUNDED"]}`}>{o.paymentStatus}</span>
                           </td>
-                          <td className="p-3.5 font-mono text-[11px] text-slate-300">{o.paypalOrderId}</td>
+                          <td className="p-3.5 font-mono text-xs text-slate-300">{o.paypalOrderId}</td>
                           <td className="p-3.5 text-slate-400 font-mono whitespace-nowrap">{fmtIst(o.createdAt)}</td>
                           <td className="p-3.5">
                             <div className="flex items-center justify-end gap-1.5">
-                              <button onClick={() => setSelectedOrder(o)} className="h-8 px-2.5 rounded-md border border-white/10 hover:bg-white/5 text-slate-300 text-xs">
+                              <button onClick={() => setSelectedOrder(o)} className="h-8 px-2.5 rounded-md border border-white/10 hover:bg-white/5 text-slate-300 text-[13px]">
                                 Details
                               </button>
                               {isSuperAdmin && (
@@ -1293,7 +1383,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
         {/* ---------------- ACTIVITY (SUPER ADMIN) ---------------- */}
         {activeTab === "activity" && isSuperAdmin && (
-          <div className="space-y-6">
+          <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader icon={<Clock className="w-5 h-5 text-purple-400" />} title="Activity History & Audit Log" badge="Super Admin only" subtitle="Every sign-in, lead, order, user and settings action — stored in the database.">
               <button
                 onClick={() =>
@@ -1327,7 +1417,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <button
                   key={cat}
                   onClick={() => setActivityFilter(cat)}
-                  className={`h-9 px-3 rounded-lg text-xs font-medium transition-colors ${
+                  className={`h-9 px-3 rounded-md text-[13px] font-medium transition-colors ${
                     activityFilter === cat ? "bg-purple-600 text-white" : "border border-white/10 text-slate-400 hover:text-white"
                   }`}
                 >
@@ -1337,7 +1427,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               ))}
             </div>
 
-            <div className={`${card} divide-y divide-white/[0.06]`}>
+            <div className={`${card} divide-y divide-white/[0.06] overflow-y-auto max-h-[70vh] lg:max-h-none lg:flex-1 lg:min-h-0`}>
               {shownActivity.length === 0 ? (
                 <Empty icon={<Clock className="w-8 h-8" />} title="No activity recorded" text="Actions in the CRM are logged here." />
               ) : (
@@ -1347,15 +1437,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       <Shield className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-white text-xs">{a.title}</span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300">{a.category}</span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">{a.actorEmail}</span>
+                          <span className="font-semibold text-white text-[13px]">{a.title}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300">{a.category}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">{a.actorEmail}</span>
                         </div>
-                        <div className="text-xs text-slate-400 mt-1">{a.description}</div>
+                        <div className="text-[13px] text-slate-400 mt-1">{a.description}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[11px] text-slate-400 font-mono">{fmtIst(a.createdAt)}</span>
+                      <span className="text-xs text-slate-400 font-mono">{fmtIst(a.createdAt)}</span>
                       <button
                         onClick={async () => {
                           if (await call(crmDeleteActivityFn({ data: { token: tok(), id: a.id } }))) setActivity((x) => x.filter((y) => y.id !== a.id));
@@ -1375,7 +1465,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
         {/* ---------------- USERS (SUPER ADMIN) ---------------- */}
         {activeTab === "users" && isSuperAdmin && (
-          <div className="space-y-6">
+          <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader
               icon={<UserCheck className="w-5 h-5 text-purple-400" />}
               title="User Management"
@@ -1384,16 +1474,16 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             >
               <button
                 onClick={() => setShowCreateUserModal(true)}
-                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[13px] font-semibold"
               >
                 <UserPlus className="w-4 h-4" /> Create User
               </button>
             </PageHeader>
 
-            <div className={`${card} overflow-hidden`}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white/[0.02] border-b border-white/[0.07] text-[11px] uppercase tracking-wider text-slate-400">
+            <div className={`${card} overflow-hidden flex flex-col lg:flex-1 lg:min-h-0`}>
+              <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:flex-1 lg:min-h-0">
+                <table className="w-full min-w-[900px] text-left text-[13px]">
+                  <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                     <tr>
                       <th className="p-3.5">Name</th>
                       <th className="p-3.5">Email</th>
@@ -1409,15 +1499,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       <tr key={u.id} className="hover:bg-white/[0.02]">
                         <td className="p-3.5 font-bold text-white">
                           {u.name}
-                          {u.id === me.id && <span className="ml-2 text-[10px] text-slate-500 font-normal">(you)</span>}
+                          {u.id === me.id && <span className="ml-2 text-[11px] text-slate-500 font-normal">(you)</span>}
                         </td>
                         <td className="p-3.5 text-slate-300 font-mono">{u.email}</td>
                         <td className="p-3.5">
-                          <span className={`px-2 py-0.5 rounded border text-[10px] font-semibold ${roleBadge(u.role)}`}>{ROLE_LABEL[u.role]}</span>
+                          <span className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${roleBadge(u.role)}`}>{ROLE_LABEL[u.role]}</span>
                         </td>
                         <td className="p-3.5">
                           <span
-                            className={`px-2 py-0.5 rounded border text-[10px] font-semibold ${
+                            className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${
                               u.status === "ACTIVE" ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/30" : "bg-red-950/70 text-red-300 border-red-500/30"
                             }`}
                           >
@@ -1438,7 +1528,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               <KeyRound className="w-3.5 h-3.5" /> Password
                             </button>
                             {u.isProtected || u.role === "SUPER_ADMIN" ? (
-                              <span className="inline-flex items-center gap-1 text-slate-500 text-[11px] px-2">
+                              <span className="inline-flex items-center gap-1 text-slate-500 text-xs px-2">
                                 <Lock className="w-3 h-3" /> Protected
                               </span>
                             ) : (
@@ -1469,7 +1559,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
         {/* ---------------- SETTINGS (SUPER ADMIN) ---------------- */}
         {activeTab === "settings" && isSuperAdmin && (
-          <div className="space-y-6">
+          <div className="flex flex-col gap-4">
             <PageHeader
               icon={<Settings className="w-5 h-5 text-purple-400" />}
               title="CRM Settings & Control Center"
@@ -1480,7 +1570,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <button
                   onClick={handleSaveConfig}
                   disabled={!configDirty || busy === "config"}
-                  className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[13px] font-semibold"
                 >
                   <CheckCircle2 className="w-4 h-4" /> {busy === "config" ? "Saving..." : configDirty ? "Save Settings" : "Saved"}
                 </button>
@@ -1497,7 +1587,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <button
                   key={st.id}
                   onClick={() => setSettingsSubTab(st.id as typeof settingsSubTab)}
-                  className={`h-9 px-3.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`h-9 px-3.5 rounded-md text-[13px] font-medium transition-colors ${
                     settingsSubTab === st.id ? "bg-purple-600 text-white" : "border border-white/10 text-slate-400 hover:text-white"
                   }`}
                 >
@@ -1507,10 +1597,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             </div>
 
             {settingsSubTab === "general" && (
-              <div className={`${card} p-6 space-y-6`}>
+              <div className={`${card} p-4 sm:p-6 space-y-6`}>
                 <div>
                   <h2 className="font-semibold text-white text-sm">General platform settings</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">Saved to the database and applied to every signed-in user.</p>
+                  <p className="text-[13px] text-slate-400 mt-0.5">Saved to the database and applied to every signed-in user.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Field label="CRM title" hint="Shown in the CRM header.">
@@ -1527,7 +1617,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </select>
                   </Field>
                 </div>
-                <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/[0.07] bg-white/[0.02]">
+                <div className="flex items-center justify-between gap-4 p-4 rounded-md border border-white/[0.07] bg-white/[0.02]">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1536,8 +1626,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       className="w-4 h-4 accent-purple-600"
                     />
                     <div>
-                      <div className="text-xs font-semibold text-white">Sound alert for new leads</div>
-                      <div className="text-[11px] text-slate-400">Plays a chime when a new lead arrives.</div>
+                      <div className="text-[13px] font-semibold text-white">Sound alert for new leads</div>
+                      <div className="text-xs text-slate-400">Plays a chime when a new lead arrives.</div>
                     </div>
                   </label>
                   <button onClick={playAudioChime} className={btnGhost}>
@@ -1548,16 +1638,16 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             )}
 
             {settingsSubTab === "rbac" && (
-              <div className={`${card} p-6 space-y-4`}>
+              <div className={`${card} p-4 sm:p-6 space-y-4`}>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div>
                     <h2 className="font-semibold text-white text-sm">Role-Based Access Control (RBAC)</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-[13px] text-slate-400 mt-0.5">
                       Click an Admin / Leads Manager cell to allow or block it, then save. Changes apply live to signed-in users within one refresh and are enforced by the server.
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {matrixDirty && <span className="text-[11px] text-amber-300">Unsaved changes</span>}
+                    {matrixDirty && <span className="text-xs text-amber-300">Unsaved changes</span>}
                     <button
                       onClick={() => {
                         setMatrixDraft(DEFAULT_MATRIX);
@@ -1570,15 +1660,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     <button
                       onClick={handleSaveMatrix}
                       disabled={!matrixDirty || busy === "matrix"}
-                      className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold"
+                      className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[13px] font-semibold"
                     >
                       <CheckCircle2 className="w-4 h-4" /> {busy === "matrix" ? "Saving..." : "Save Permissions"}
                     </button>
                   </div>
                 </div>
-                <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-white/[0.02] border-b border-white/[0.07] text-[11px] uppercase tracking-wider text-slate-400">
+                <div className="overflow-x-auto rounded-md border border-white/[0.06]">
+                  <table className="w-full min-w-[720px] text-left text-[13px]">
+                    <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                       <tr>
                         <th className="p-3">Module / capability</th>
                         <th className="p-3">Super Admin</th>
@@ -1591,7 +1681,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <tr key={row.key} className="hover:bg-white/[0.02]">
                           <td className="p-3">
                             <div className="font-medium text-white">{row.module}</div>
-                            <div className="text-[10px] text-slate-500">{row.location}</div>
+                            <div className="text-[11px] text-slate-500">{row.location}</div>
                           </td>
                           <td className="p-3 text-emerald-400 font-semibold">
                             {row.key === "delete_leads" ? "Permanent delete" : row.locked === "always" ? "Always allowed" : "Allowed"}
@@ -1602,7 +1692,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               return (
                                 <td key={role} className="p-3">
                                   <span
-                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold border ${
+                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold border ${
                                       row.locked === "always" ? "bg-emerald-950 text-emerald-300 border-emerald-500/30" : "bg-red-950 text-red-300 border-red-500/30"
                                     }`}
                                   >
@@ -1620,7 +1710,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                     setMatrixDraft(next);
                                     setMatrixDirty(JSON.stringify(next) !== JSON.stringify(serverMatrix));
                                   }}
-                                  className={`px-2.5 py-1 rounded text-[10px] font-semibold border transition-colors ${
+                                  className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-colors ${
                                     allowed
                                       ? row.key === "delete_leads"
                                         ? "bg-amber-950 text-amber-300 border-amber-500/40 hover:bg-amber-900"
@@ -1642,18 +1732,18 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             )}
 
             {settingsSubTab === "records" && (
-              <div className={`${card} p-6 space-y-5`}>
+              <div className={`${card} p-4 sm:p-6 space-y-5`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="font-semibold text-white text-sm">Live database record counters</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">Counted directly from the database every {config.pollingSeconds} seconds.</p>
+                    <p className="text-[13px] text-slate-400 mt-0.5">Counted directly from the database every {config.pollingSeconds} seconds.</p>
                   </div>
                   <button onClick={() => doSync()} className={btnGhost}>
                     <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} /> Refresh now
                   </button>
                 </div>
                 {counts && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4">
                     <RecordCard label="Active leads" value={counts.activeLeads} sub={`${counts.websiteLeads} website • ${counts.metaLeads} Meta`} />
                     <RecordCard label="Recycle Bin" value={counts.recycleBin} sub="Soft-deleted leads" />
                     <RecordCard label="Total orders" value={counts.totalOrders} sub={`${counts.completedOrders} completed • ${counts.pendingOrders} pending • ${counts.failedOrders} failed`} />
@@ -1662,7 +1752,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     <RecordCard label="Activity logs" value={counts.activityLogs} sub="Audit history entries" />
                   </div>
                 )}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400 pt-3 border-t border-white/[0.07]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[13px] text-slate-400 pt-3 border-t border-white/[0.07]">
                   <span className="flex items-center gap-1.5">
                     <Database className="w-3.5 h-3.5" /> {counts?.database || "Database"} • Last counted{" "}
                     {counts ? new Date(counts.countedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "—"}
@@ -1673,12 +1763,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   </span>
                 </div>
 
-                <div className="mt-2 p-4 rounded-xl border border-red-500/25 bg-red-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="mt-2 p-4 rounded-md border border-red-500/25 bg-red-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <div className="text-xs font-semibold text-red-300 flex items-center gap-1.5">
+                    <div className="text-[13px] font-semibold text-red-300 flex items-center gap-1.5">
                       <AlertTriangle className="w-4 h-4" /> Fresh start — delete all CRM data
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">Permanently deletes every lead (website + Meta + Recycle Bin), every order and the activity history. User accounts and settings are kept.</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Permanently deletes every lead (website + Meta + Recycle Bin), every order and the activity history. User accounts and settings are kept.</div>
                   </div>
                   <button onClick={() => setShowResetModal(true)} className={btnDanger}>
                     <Trash2 className="w-4 h-4" /> Delete all data
@@ -1688,10 +1778,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             )}
 
             {settingsSubTab === "security" && (
-              <div className={`${card} p-6 space-y-6`}>
+              <div className={`${card} p-4 sm:p-6 space-y-6`}>
                 <div>
                   <h2 className="font-semibold text-white text-sm">Security policies</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">Applied to every account. Save with the button above.</p>
+                  <p className="text-[13px] text-slate-400 mt-0.5">Applied to every account. Save with the button above.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Field label="Inactivity auto sign-out" hint={`In effect: ${config.inactivityMinutes} minutes`}>
@@ -1708,11 +1798,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </select>
                   </Field>
                 </div>
-                <div className="p-4 rounded-xl border border-white/[0.07] bg-white/[0.02] text-xs text-slate-400 space-y-1">
+                <div className="p-4 rounded-md border border-white/[0.07] bg-white/[0.02] text-[13px] text-slate-400 space-y-1">
                   <div className="text-white font-semibold">How sessions are protected</div>
                   <div>• Deactivating or deleting a user signs them out on their next refresh (within {config.pollingSeconds}s).</div>
                   <div>• Changing a user's password signs out all of their active sessions.</div>
-                  <div>• The Orders tab PIN is set with the CRM_PAYMENTS_PIN server variable.</div>
+                  <div>• The Orders tab PIN is set with the ADMIN_PAYMENT_PIN server variable in Hostinger.</div>
                 </div>
               </div>
             )}
@@ -1721,7 +1811,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
         {/* ---------------- RECYCLE BIN ---------------- */}
         {activeTab === "recycle-bin" && perms.recycle_bin && (
-          <div className="space-y-6">
+          <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader
               icon={<Trash2 className="w-5 h-5 text-red-400" />}
               title="Recycle Bin"
@@ -1739,13 +1829,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               )}
             </PageHeader>
 
-            <div className={`${card} overflow-hidden`}>
+            <div className={`${card} overflow-hidden flex flex-col lg:flex-1 lg:min-h-0`}>
               {recycleBin.length === 0 ? (
                 <Empty icon={<Trash2 className="w-8 h-8" />} title="Recycle Bin is empty" text="Soft-deleted leads appear here." />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-white/[0.02] border-b border-white/[0.07] text-[11px] uppercase tracking-wider text-slate-400">
+                <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:flex-1 lg:min-h-0">
+                  <table className="w-full min-w-[860px] text-left text-[13px]">
+                    <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                       <tr>
                         <th className="p-3.5">Type</th>
                         <th className="p-3.5">Name</th>
@@ -1763,7 +1853,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                           <td className="p-3.5 font-bold text-white">{l.clientName}</td>
                           <td className="p-3.5 text-slate-300">
                             <div className="font-mono">{l.phone}</div>
-                            <div className="text-[11px] text-slate-500">{l.email}</div>
+                            <div className="text-xs text-slate-500">{l.email}</div>
                           </td>
                           <td className="p-3.5 text-slate-400">{l.videoScope}</td>
                           <td className="p-3.5 text-slate-400 font-mono">{l.deletedBy || "—"}</td>
@@ -1809,7 +1899,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   {showPinText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {pinError && <p className="text-[11px] text-red-400 mt-1">{pinError}</p>}
+              {pinError && <p className="text-xs text-red-400 mt-1">{pinError}</p>}
             </Field>
             <ModalActions onCancel={() => setShowPinModal(false)} submitLabel="Unlock" />
           </form>
@@ -1822,7 +1912,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             <Field label="Client name *">
               <input required value={newLeadForm.clientName} onChange={(e) => setNewLeadForm({ ...newLeadForm, clientName: e.target.value })} placeholder="e.g. Rahul Sharma" className={inputCls} />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Email">
                 <input type="email" value={newLeadForm.email} onChange={(e) => setNewLeadForm({ ...newLeadForm, email: e.target.value })} placeholder="rahul@company.in" className={inputCls} />
               </Field>
@@ -1830,7 +1920,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <input value={newLeadForm.phone} onChange={(e) => setNewLeadForm({ ...newLeadForm, phone: e.target.value })} placeholder="+91 98765 43210" className={inputCls} />
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Business">
                 <input value={newLeadForm.business} onChange={(e) => setNewLeadForm({ ...newLeadForm, business: e.target.value })} placeholder="Company name" className={inputCls} />
               </Field>
@@ -1848,7 +1938,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 value={newLeadForm.notes}
                 onChange={(e) => setNewLeadForm({ ...newLeadForm, notes: e.target.value })}
                 placeholder="Inquiry requirements..."
-                className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/40 text-xs text-white resize-none focus:outline-none focus:border-purple-500"
+                className="w-full px-3 py-2 rounded-md border border-white/10 bg-black/40 text-[13px] text-white resize-none focus:outline-none focus:border-purple-500"
               />
             </Field>
             <ModalActions onCancel={() => setShowAddLeadModal(false)} submitLabel={busy === "add-lead" ? "Saving..." : "Save Lead"} disabled={busy === "add-lead"} />
@@ -1859,7 +1949,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       {showAddMetaModal && (
         <Modal onClose={() => setShowAddMetaModal(false)} title="Add Meta Ads Lead" subtitle="Lead from a Facebook or Instagram lead form." icon={<Layers className="w-5 h-5" />}>
           <form onSubmit={(e) => handleAddLead(e, "meta")} className="space-y-3.5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Channel">
                 <select value={newMetaForm.channel} onChange={(e) => setNewMetaForm({ ...newMetaForm, channel: e.target.value })} className={inputCls}>
                   <option>Facebook</option>
@@ -1873,7 +1963,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             <Field label="Client name *">
               <input required value={newMetaForm.clientName} onChange={(e) => setNewMetaForm({ ...newMetaForm, clientName: e.target.value })} placeholder="e.g. Priya Patel" className={inputCls} />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Email">
                 <input type="email" value={newMetaForm.email} onChange={(e) => setNewMetaForm({ ...newMetaForm, email: e.target.value })} className={inputCls} />
               </Field>
@@ -1881,7 +1971,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <input value={newMetaForm.phone} onChange={(e) => setNewMetaForm({ ...newMetaForm, phone: e.target.value })} className={inputCls} />
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Campaign">
                 <input value={newMetaForm.campaign} onChange={(e) => setNewMetaForm({ ...newMetaForm, campaign: e.target.value })} className={inputCls} />
               </Field>
@@ -1894,7 +1984,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 rows={2}
                 value={newMetaForm.notes}
                 onChange={(e) => setNewMetaForm({ ...newMetaForm, notes: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/40 text-xs text-white resize-none focus:outline-none focus:border-purple-500"
+                className="w-full px-3 py-2 rounded-md border border-white/10 bg-black/40 text-[13px] text-white resize-none focus:outline-none focus:border-purple-500"
               />
             </Field>
             <ModalActions onCancel={() => setShowAddMetaModal(false)} submitLabel={busy === "add-lead" ? "Saving..." : "Save Meta Lead"} disabled={busy === "add-lead"} />
@@ -1979,7 +2069,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               <button
                 type="submit"
                 disabled={resetConfirm !== "DELETE" || busy === "reset"}
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white text-xs font-semibold"
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white text-[13px] font-semibold"
               >
                 <Trash2 className="w-4 h-4" /> {busy === "reset" ? "Deleting..." : "Delete everything"}
               </button>
@@ -1988,51 +2078,166 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         </Modal>
       )}
 
-      {selectedLead && (
-        <Modal onClose={() => setSelectedLead(null)} title={selectedLead.clientName} subtitle={`${selectedLead.email || "No email"} • ${selectedLead.phone}`} icon={<User className="w-5 h-5" />} wide>
-          <div className="space-y-3 text-xs">
-            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <Info label="Source" value={`${selectedLead.source}${selectedLead.channel ? ` (${selectedLead.channel})` : ""}`} />
-              <Info label="Received" value={fmtIst(selectedLead.createdAt)} />
-              <Info label="Lead status" value={selectedLead.leadStatus} />
-              <Info label="Project status" value={selectedLead.projectStatus} />
-              <Info label="Business" value={selectedLead.companyName || "—"} />
-              <Info label="Location" value={selectedLead.location || "—"} />
-              <Info label="Video scope" value={selectedLead.videoScope} />
-              <Info label="Industry" value={selectedLead.businessType || "—"} />
-            </div>
-            {selectedLead.kind === "meta" && (
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] grid grid-cols-3 gap-3">
-                <Info label="Campaign" value={selectedLead.campaign || "—"} />
-                <Info label="Ad set" value={selectedLead.adSet || "—"} />
-                <Info label="Form" value={selectedLead.formName || "—"} />
+      {selectedLead && (() => {
+        const l = leads.find((x) => x.id === selectedLead.id) || recycleBin.find((x) => x.id === selectedLead.id) || selectedLead;
+        const initials = l.clientName
+          .split(/\s+/)
+          .map((w) => w.charAt(0))
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
+        const waLink = `https://wa.me/${l.phone.replace(/[^0-9]/g, "")}`;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto"
+            onMouseDown={(e) => e.target === e.currentTarget && setSelectedLead(null)}
+          >
+            <div className="w-full max-w-4xl my-auto rounded-lg border border-white/10 bg-[#0e121e] shadow-2xl">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 p-5 sm:p-6 border-b border-white/[0.07]">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-base font-bold text-white">
+                    {initials || "?"}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-bold text-white truncate">{l.clientName}</h3>
+                      <SourceBadge lead={l} />
+                      {l.deletedAt && <span className="text-xs px-2 py-0.5 rounded-md bg-red-950 text-red-300 border border-red-500/30">In Recycle Bin</span>}
+                    </div>
+                    <p className="text-sm text-slate-400 truncate">{l.companyName || "—"}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedLead(null)} className={iconBtn} title="Close">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            )}
-            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <span className="text-slate-500 block text-[10px] uppercase mb-1">Inquiry notes</span>
-              <div className="text-slate-300 whitespace-pre-wrap">{selectedLead.notes || "—"}</div>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <a href={`tel:${selectedLead.phone}`} className={btnGhost}>
-                <Phone className="w-4 h-4" /> Call
-              </a>
-              <a
-                href={`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, "")}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
-              >
-                <MessageSquare className="w-4 h-4" /> WhatsApp
-              </a>
+
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+                {/* Client + Lead information */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+                  <DetailCard icon={<User className="w-4 h-4" />} title="Client Information">
+                    <DetailRow label="Client Name" value={l.clientName} />
+                    <DetailRow label="Company / Brand" value={l.companyName || "—"} />
+                    <DetailRow
+                      label="Phone"
+                      value={
+                        <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1.5 text-white hover:text-purple-300">
+                          <Phone className="w-3.5 h-3.5" /> {l.phone}
+                        </a>
+                      }
+                    />
+                    <DetailRow
+                      label="WhatsApp"
+                      value={
+                        <a
+                          href={waLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 text-[13px] font-medium"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" /> Chat on WhatsApp
+                        </a>
+                      }
+                    />
+                    <DetailRow
+                      label="Work Email"
+                      value={
+                        l.email ? (
+                          <a href={`mailto:${l.email}`} className="font-mono text-[13px] text-white hover:text-purple-300 break-all">
+                            {l.email}
+                          </a>
+                        ) : (
+                          "—"
+                        )
+                      }
+                    />
+                    <DetailRow label="Business Location" value={l.location || "India"} />
+                    {l.businessType && <DetailRow label="Industry" value={l.businessType} />}
+                  </DetailCard>
+
+                  <DetailCard icon={<Shield className="w-4 h-4" />} title="Lead Information">
+                    <DetailRow label="Lead Source" value={<SourceBadge lead={l} />} />
+                    <DetailRow
+                      label="Lead Created Date/Time"
+                      value={
+                        <span>
+                          {fmtIstDate(l.createdAt)}, {fmtIstTime(l.createdAt)} IST
+                        </span>
+                      }
+                    />
+                    <DetailRow label="Lead Status" value={<StatusPill text={l.leadStatus} />} />
+                    <DetailRow label="Lead Closed By" value={l.leadStatus === "Closed" && l.closedBy ? l.closedBy : "Not closed"} />
+                    <DetailRow label="Closed Date" value={l.leadStatus === "Closed" && l.closedAt ? fmtIst(l.closedAt) : "Not closed"} />
+                    <DetailRow label="Admin / User Handled" value={l.handledBy || "Not assigned yet"} />
+                    {l.kind === "meta" && (
+                      <>
+                        <DetailRow label="Campaign" value={l.campaign || "—"} />
+                        <DetailRow label="Ad Set / Form" value={[l.adSet, l.formName].filter(Boolean).join(" • ") || "—"} />
+                      </>
+                    )}
+                  </DetailCard>
+                </div>
+
+                {/* Project */}
+                <DetailCard icon={<Video className="w-4 h-4" />} title="Project & Creative Requirement" right={<StatusPill text={l.projectStatus} tone="amber" />}>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-white/[0.03] border border-white/[0.05]">
+                    <MiniStat label="Requirement / Format" value={l.videoScope} />
+                    <MiniStat label="Industry" value={l.businessType || "—"} />
+                    <MiniStat label="Project Status" value={l.projectStatus} />
+                    <MiniStat label="Delivery Date" value={l.deliveredAt ? fmtIst(l.deliveredAt) : "Pending schedule"} />
+                  </div>
+                  <div className="pt-1">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Project Details / Campaign Goals</div>
+                    <div className="px-4 py-3 rounded-md bg-white/[0.03] border border-white/[0.06] text-sm text-slate-200 whitespace-pre-wrap break-words">
+                      {l.notes || "No details provided."}
+                    </div>
+                  </div>
+                </DetailCard>
+
+                {/* Meeting */}
+                <DetailCard icon={<Calendar className="w-4 h-4" />} title="Meeting Information" right={<StatusPill text="Not Scheduled" tone="slate" />}>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-white/[0.03] border border-white/[0.05]">
+                    <MiniStat label="Meeting Date & Time" value="Not scheduled" />
+                    <MiniStat label="Meeting Status" value="Pending" />
+                    <MiniStat label="Meeting Type" value="Strategy Call" />
+                    <MiniStat label="Assigned / Handling Admin" value={l.handledBy || "Not assigned yet"} />
+                  </div>
+                </DetailCard>
+
+                {/* History */}
+                <DetailCard icon={<Clock className="w-4 h-4" />} title="Lead Activity History & Audit Trail">
+                  <div className="space-y-2.5">
+                    {leadHistory === null ? (
+                      <div className="text-sm text-slate-500">Loading history…</div>
+                    ) : (
+                      <>
+                        {leadHistory.map((h) => (
+                          <div key={h.id} className="flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-4 px-3.5 py-2.5 rounded-md bg-white/[0.03] border border-white/[0.05]">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-white">{h.title}</div>
+                              <div className="text-[13px] text-slate-400 mt-0.5 break-words">{h.description}</div>
+                            </div>
+                            <div className="text-xs font-mono text-slate-500 shrink-0">{fmtIst(h.createdAt)}</div>
+                          </div>
+                        ))}
+                        <div className="px-3.5 py-2.5 text-sm italic text-slate-500">
+                          Initial lead submission recorded on {fmtIst(l.createdAt)} via {displayLeadSource(l.source)}.
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </DetailCard>
+              </div>
             </div>
           </div>
-        </Modal>
-      )}
+        );
+      })()}
 
       {selectedOrder && (
         <Modal onClose={() => setSelectedOrder(null)} title={selectedOrder.itemName} subtitle={`${selectedOrder.customerName} • ${selectedOrder.customerEmail}`} icon={<Package className="w-5 h-5" />} wide>
-          <div className="space-y-3 text-xs">
-            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+          <div className="space-y-3 text-[13px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-md bg-white/[0.02] border border-white/[0.06]">
               <Info label="Amount" value={fmtMoney(selectedOrder.amount, selectedOrder.currency)} />
               <Info label="Status" value={selectedOrder.paymentStatus} />
               <Info label="PayPal order ID" value={selectedOrder.paypalOrderId} />
@@ -2058,7 +2263,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`px-4 py-3 rounded-xl border text-xs shadow-2xl backdrop-blur ${
+            className={`px-4 py-3 rounded-md border text-[13px] shadow-2xl backdrop-blur ${
               t.kind === "error"
                 ? "bg-red-950/90 border-red-500/40 text-red-200"
                 : t.kind === "info"
@@ -2091,14 +2296,14 @@ function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className={`${card} p-5 flex flex-col md:flex-row md:items-center justify-between gap-4`}>
+    <div className={`${card} p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4`}>
       <div className="min-w-0">
-        <h1 className="text-lg font-bold text-white flex flex-wrap items-center gap-2.5">
+        <h1 className="text-xl font-bold text-white flex flex-wrap items-center gap-2.5">
           {icon}
           {title}
-          {badge && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30">{badge}</span>}
+          {badge && <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/30">{badge}</span>}
         </h1>
-        <p className="text-xs text-slate-400 mt-1">{subtitle}</p>
+        <p className="text-sm text-slate-400 mt-1">{subtitle}</p>
       </div>
       {children && <div className="flex flex-wrap items-center gap-2 shrink-0">{children}</div>}
     </div>
@@ -2108,35 +2313,49 @@ function PageHeader({
 function CardTitle({ icon, title, badge, right }: { icon: React.ReactNode; title: string; badge?: number; right?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between pb-3 border-b border-white/[0.07]">
-      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+      <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wider text-slate-300">
         {icon}
         {title}
-        {badge !== undefined && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300">{badge}</span>}
+        {badge !== undefined && <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300">{badge}</span>}
       </div>
       {right}
     </div>
   );
 }
 
-function Kpi({ label, value, sub, icon, valueClass = "text-white" }: { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; valueClass?: string }) {
+function Kpi({
+  label,
+  value,
+  sub,
+  icon,
+  valueClass = "text-white",
+  className = "",
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: string;
+  icon: React.ReactNode;
+  valueClass?: string;
+  className?: string;
+}) {
   return (
-    <div className={`${card} p-4`}>
-      <div className="flex items-center justify-between text-slate-400 text-[11px] uppercase tracking-wider">
+    <div className={`${card} p-4 ${className}`}>
+      <div className="flex items-center justify-between text-slate-400 text-xs uppercase tracking-wider">
         <span>{label}</span>
         {icon}
       </div>
-      <div className={`text-2xl font-bold mt-2 truncate ${valueClass}`}>{value}</div>
-      {sub && <div className="text-[11px] text-slate-400 mt-0.5">{sub}</div>}
+      <div className={`text-xl sm:text-2xl font-bold mt-2 truncate ${valueClass}`}>{value}</div>
+      {sub && <div className="text-xs text-slate-400 mt-0.5">{sub}</div>}
     </div>
   );
 }
 
 function RecordCard({ label, value, sub, valueClass = "text-white" }: { label: string; value: React.ReactNode; sub: string; valueClass?: string }) {
   return (
-    <div className="p-4 rounded-xl border border-white/[0.07] bg-white/[0.02]">
-      <div className="text-[11px] text-slate-400 uppercase tracking-wider">{label}</div>
+    <div className="p-4 rounded-md border border-white/[0.07] bg-white/[0.02]">
+      <div className="text-xs text-slate-400 uppercase tracking-wider">{label}</div>
       <div className={`text-2xl font-bold mt-1 ${valueClass}`}>{value}</div>
-      <div className="text-[11px] text-slate-500 mt-1">{sub}</div>
+      <div className="text-xs text-slate-500 mt-1">{sub}</div>
     </div>
   );
 }
@@ -2146,7 +2365,61 @@ function Empty({ icon, title, text }: { icon: React.ReactNode; title: string; te
     <div className="p-14 text-center">
       <div className="mx-auto mb-3 text-slate-600 flex justify-center">{icon}</div>
       <div className="font-semibold text-sm text-slate-300">{title}</div>
-      <div className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">{text}</div>
+      <div className="text-[13px] text-slate-500 mt-1 max-w-sm mx-auto">{text}</div>
+    </div>
+  );
+}
+
+function SourceBadge({ lead }: { lead: LeadItem }) {
+  const label = lead.kind === "meta" ? `Meta • ${lead.channel || "Facebook"}` : lead.source === "Manual Entry" ? "Manual" : displayLeadSource(lead.source);
+  const tone =
+    lead.kind === "meta"
+      ? "bg-blue-900/40 text-blue-300 border-blue-500/30"
+      : lead.source === "Manual Entry"
+        ? "bg-purple-900/40 text-purple-300 border-purple-500/30"
+        : "bg-emerald-900/30 text-emerald-300 border-emerald-500/30";
+  return <span className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-md text-xs font-semibold border ${tone}`}>{label}</span>;
+}
+
+function StatusPill({ text, tone = "blue" }: { text: string; tone?: "blue" | "amber" | "slate" }) {
+  const c =
+    tone === "amber"
+      ? "bg-amber-950/60 text-amber-300 border-amber-500/30"
+      : tone === "slate"
+        ? "bg-slate-800 text-slate-300 border-white/10"
+        : "bg-blue-950/60 text-blue-300 border-blue-500/30";
+  return <span className={`inline-block px-2.5 py-0.5 rounded-md text-[13px] font-semibold border ${c}`}>{text}</span>;
+}
+
+function DetailCard({ icon, title, right, children }: { icon: React.ReactNode; title: string; right?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-white/[0.08] bg-white/[0.015] p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-white/[0.07]">
+        <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-slate-200">
+          <span className="text-purple-400">{icon}</span>
+          {title}
+        </div>
+        {right}
+      </div>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 text-sm">
+      <span className="text-slate-400 shrink-0">{label}:</span>
+      <span className="text-white font-medium text-right min-w-0 break-words">{value}</span>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="text-sm font-semibold text-white mt-1 break-words">{value}</div>
     </div>
   );
 }
@@ -2154,9 +2427,9 @@ function Empty({ icon, title, text }: { icon: React.ReactNode; title: string; te
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-300 mb-1.5">{label}</label>
+      <label className="block text-[13px] font-medium text-slate-300 mb-1.5">{label}</label>
       {children}
-      {hint && <p className="text-[10px] text-slate-500 mt-1">{hint}</p>}
+      {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -2164,7 +2437,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <span className="text-slate-500 block text-[10px] uppercase">{label}</span>
+      <span className="text-slate-500 block text-[11px] uppercase">{label}</span>
       <span className="text-white font-medium break-words">{value}</span>
     </div>
   );
@@ -2187,15 +2460,15 @@ function Modal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`w-full ${wide ? "max-w-lg" : "max-w-md"} max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0e121e] p-6 shadow-2xl relative`}>
+      <div className={`w-full ${wide ? "max-w-lg" : "max-w-md"} max-h-[90vh] overflow-y-auto rounded-lg border border-white/10 bg-[#0e121e] p-5 sm:p-6 shadow-2xl relative`}>
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white">
           <X className="w-4 h-4" />
         </button>
         <div className="flex items-center gap-3 mb-5 pr-6">
-          <div className="p-2.5 rounded-xl bg-purple-600/20 text-purple-400 border border-purple-500/30 shrink-0">{icon}</div>
+          <div className="p-2.5 rounded-md bg-purple-600/20 text-purple-400 border border-purple-500/30 shrink-0">{icon}</div>
           <div className="min-w-0">
             <h3 className="text-base font-bold text-white truncate">{title}</h3>
-            {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
+            {subtitle && <p className="text-[13px] text-slate-400">{subtitle}</p>}
           </div>
         </div>
         {children}
@@ -2210,7 +2483,7 @@ function ModalActions({ onCancel, submitLabel, disabled }: { onCancel: () => voi
       <button type="button" onClick={onCancel} className={btnGhost}>
         Cancel
       </button>
-      <button type="submit" disabled={disabled} className="h-9 px-5 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-semibold">
+      <button type="submit" disabled={disabled} className="h-9 px-5 rounded-md bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-[13px] font-semibold">
         {submitLabel}
       </button>
     </div>

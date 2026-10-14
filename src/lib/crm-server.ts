@@ -3,7 +3,20 @@
 //   • Super Admin deletes are PERMANENT (row removed from the database).
 //   • Admin / Leads Manager can only SOFT delete leads (moved to Recycle Bin).
 //   • Activity History, User Management and CRM Settings are Super Admin only.
-import { dbDelete, dbInsert, dbSelect, dbUpdate, logActivity, newId, setSetting, type Filter } from "./crm-db";
+import {
+  dbDelete,
+  dbInsert,
+  dbInsertWithOptional,
+  dbSelect,
+  dbUpdate,
+  dbUpdateWithOptional,
+  logActivity,
+  newId,
+  setSetting,
+  type Filter,
+} from "./crm-db";
+import { LEADS_TABLE, ORDERS_TABLE } from "./db-tables";
+import { getSupabaseConfig } from "./db";
 import {
   CrmAuthError,
   bumpLoginFailure,
@@ -65,6 +78,12 @@ function mapLead(r: any) {
     campaign: (r.campaign || "") as string,
     adSet: (r.ad_set || "") as string,
     formName: (r.form_name || "") as string,
+    requirement: (r.requirement || "") as string,
+    additional: (r.additional || "") as string,
+    handledBy: (r.handled_by || "") as string,
+    closedBy: (r.closed_by || "") as string,
+    closedAt: r.closed_at ? new Date(r.closed_at).toISOString() : null,
+    deliveredAt: r.delivered_at ? new Date(r.delivered_at).toISOString() : null,
     deletedAt: r.deleted_at ? new Date(r.deleted_at).toISOString() : null,
     deletedBy: (r.deleted_by || null) as string | null,
   };
@@ -104,7 +123,7 @@ function mapActivity(r: any) {
 const byId = (id: string): Filter[] => [{ col: "id", op: "eq", value: String(id) }];
 
 async function getLeadRow(id: string) {
-  const rows = await dbSelect("leads", { filters: byId(id) });
+  const rows = await dbSelect(LEADS_TABLE, { filters: byId(id) });
   if (!rows[0]) throw new Error("Lead not found — it may already have been deleted.");
   return rows[0];
 }
@@ -115,7 +134,7 @@ function assertLeadAccess(ctx: SessionContext, row: any) {
 }
 
 function paymentsPin() {
-  return process.env.CRM_PAYMENTS_PIN || "Admin@8080";
+  return process.env.ADMIN_PAYMENT_PIN || process.env.CRM_PAYMENTS_PIN || "Admin@8080";
 }
 
 // ---------------------------------------------------------------------------
@@ -171,7 +190,7 @@ export async function sync(token: string, ordersPin?: string) {
   const ctx = await requireSession(token);
   const config = await loadConfig();
 
-  const allLeadRows = await dbSelect("leads", { order: { col: "created_at", desc: true } });
+  const allLeadRows = await dbSelect(LEADS_TABLE, { order: { col: "created_at", desc: true } });
   const visible = allLeadRows.filter((r) => (isMetaRow(r) ? ctx.perms.meta : ctx.perms.leads));
   const leads = visible.filter((r) => !r.deleted_at).map(mapLead);
   const recycleBin = ctx.perms.recycle_bin
@@ -185,7 +204,7 @@ export async function sync(token: string, ordersPin?: string) {
   let ordersCount = 0;
   let orderRows: any[] = [];
   if (ctx.perms.orders) {
-    orderRows = await dbSelect("orders", { order: { col: "created_at", desc: true } });
+    orderRows = await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } });
     ordersCount = orderRows.length;
     if (ordersPin && ordersPin === paymentsPin()) orders = orderRows.map(mapOrder);
   }
@@ -220,7 +239,7 @@ export async function sync(token: string, ordersPin?: string) {
       activeUsers: userRows.filter((u) => u.status === "ACTIVE").length,
       inactiveUsers: userRows.filter((u) => u.status !== "ACTIVE").length,
       activityLogs: actRows.length,
-      database: process.env.SUPABASE_URL ? "Supabase (PostgreSQL)" : "PostgreSQL",
+      database: getSupabaseConfig() ? "India Supabase (PostgreSQL)" : "PostgreSQL",
       countedAt: new Date().toISOString(),
     };
   }
@@ -244,7 +263,7 @@ export async function sync(token: string, ordersPin?: string) {
 export async function unlockOrders(token: string, pin: string) {
   const ctx = await requireSession(token, "orders");
   if ((pin || "").trim() !== paymentsPin()) return { ok: false as const, code: "ERROR" as const, error: "Invalid security PIN." };
-  const rows = await dbSelect("orders", { order: { col: "created_at", desc: true } });
+  const rows = await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } });
   await logActivity({ title: "Opened Orders & Payments", category: "ORDERS", actorEmail: ctx.user.email, description: "Unlocked the payments tab with the security PIN." });
   return { ok: true as const, orders: rows.map(mapOrder) };
 }
@@ -271,7 +290,7 @@ export async function createLead(
   const ctx = await requireSession(token, data.kind === "meta" ? "meta" : "leads");
   if (!data.clientName?.trim()) throw new Error("Client name is required.");
   const isMeta = data.kind === "meta";
-  const row = await dbInsert("leads", {
+  const row = await dbInsertWithOptional(LEADS_TABLE, {
     id: newId("lead"),
     source: isMeta ? "Meta Ads" : "Manual Entry",
     name: data.clientName.trim(),
@@ -287,12 +306,13 @@ export async function createLead(
     ad_set: isMeta ? data.adSet || null : null,
     form_name: isMeta ? data.formName || null : null,
     created_at: new Date().toISOString(),
-  });
+  }, { handled_by: ctx.user.name });
   await logActivity({
     title: isMeta ? "Meta lead added" : "Lead added",
     category: "LEADS",
     actorEmail: ctx.user.email,
-    description: `${data.clientName.trim()} added manually.`,
+    description: `${data.clientName.trim()} added manually by ${ctx.user.name}.`,
+    leadId: (row as any).id,
   });
   return { ok: true as const, lead: mapLead(row) };
 }
@@ -306,19 +326,53 @@ export async function updateLead(token: string, id: string, patch: { leadStatus?
   assertLeadAccess(ctx, row);
   if (row.deleted_at) throw new Error("Restore this lead from the Recycle Bin before editing it.");
   const update: Record<string, unknown> = {};
-  if (patch.leadStatus && LEAD_STATUSES.includes(patch.leadStatus)) update.status = patch.leadStatus;
-  if (patch.projectStatus && PROJECT_STATUSES.includes(patch.projectStatus)) update.project_status = patch.projectStatus;
+  const extra: Record<string, unknown> = { handled_by: ctx.user.name };
+  const now = new Date().toISOString();
+  if (patch.leadStatus && LEAD_STATUSES.includes(patch.leadStatus)) {
+    update.status = patch.leadStatus;
+    if (patch.leadStatus === "Closed" && row.status !== "Closed") {
+      extra.closed_by = ctx.user.name;
+      extra.closed_at = now;
+    } else if (patch.leadStatus !== "Closed") {
+      extra.closed_by = null;
+      extra.closed_at = null;
+    }
+  }
+  if (patch.projectStatus && PROJECT_STATUSES.includes(patch.projectStatus)) {
+    update.project_status = patch.projectStatus;
+    if (patch.projectStatus === "Delivered" && row.project_status !== "Delivered") extra.delivered_at = now;
+    else if (patch.projectStatus !== "Delivered") extra.delivered_at = null;
+  }
   if (!Object.keys(update).length) throw new Error("Nothing to update.");
-  await dbUpdate("leads", byId(id), update);
-  await logActivity({
-    title: "Lead updated",
-    category: "LEADS",
-    actorEmail: ctx.user.email,
-    description: `${row.name}: ${Object.entries(update)
-      .map(([k, v]) => `${k === "status" ? "lead status" : "project status"} → ${v}`)
-      .join(", ")}`,
-  });
+  await dbUpdateWithOptional(LEADS_TABLE, byId(id), update, extra);
+  const changes: string[] = [];
+  if (update.status && update.status !== row.status) changes.push(`Lead status ${row.status || "New"} → ${update.status}`);
+  if (update.project_status && update.project_status !== (row.project_status || "New"))
+    changes.push(`Project status ${row.project_status || "New"} → ${update.project_status}`);
+  if (changes.length) {
+    await logActivity({
+      title: "Lead updated",
+      category: "LEADS",
+      actorEmail: ctx.user.email,
+      description: `${row.name}: ${changes.join(", ")} (by ${ctx.user.name})`,
+      leadId: id,
+    });
+  }
   return { ok: true as const };
+}
+
+/** Per-lead audit trail — visible to anyone who can see the lead. */
+export async function leadHistory(token: string, id: string) {
+  const ctx = await requireSession(token);
+  const row = await getLeadRow(id);
+  assertLeadAccess(ctx, row);
+  let rows: any[] = [];
+  try {
+    rows = await dbSelect("crm_activity_logs", { filters: [{ col: "lead_id", op: "eq", value: id }], order: { col: "created_at", desc: true } });
+  } catch {
+    rows = []; // lead_id column not added yet
+  }
+  return { ok: true as const, history: rows.map(mapActivity) };
 }
 
 /** Super Admin → permanent delete. Admin / Leads Manager → soft delete to Recycle Bin. */
@@ -327,31 +381,44 @@ export async function deleteLead(token: string, id: string) {
   const row = await getLeadRow(id);
   assertLeadAccess(ctx, row);
   if (ctx.isSuperAdmin) {
-    const n = await dbDelete("leads", byId(id));
+    const n = await dbDelete(LEADS_TABLE, byId(id));
     if (!n) throw new Error("Lead could not be deleted from the database.");
     await logActivity({ title: "Lead permanently deleted", category: "LEADS", actorEmail: ctx.user.email, description: `${row.name} (${row.phone}) removed from the database.` });
     return { ok: true as const, mode: "permanent" as const };
   }
   if (!ctx.perms.delete_leads) throw new CrmAuthError("FORBIDDEN", "You don't have permission to delete leads.");
   if (row.deleted_at) return { ok: true as const, mode: "soft" as const };
-  await dbUpdate("leads", byId(id), { deleted_at: new Date().toISOString(), deleted_by: ctx.user.email });
-  await logActivity({ title: "Lead moved to Recycle Bin", category: "LEADS", actorEmail: ctx.user.email, description: `${row.name} (${row.phone}) soft-deleted.` });
+  await dbUpdate(LEADS_TABLE, byId(id), { deleted_at: new Date().toISOString(), deleted_by: ctx.user.email });
+  await logActivity({ title: "Lead moved to Recycle Bin", category: "LEADS", actorEmail: ctx.user.email, description: `${row.name} (${row.phone}) soft-deleted by ${ctx.user.name}.`, leadId: id });
   return { ok: true as const, mode: "soft" as const };
+}
+
+/** Bulk delete with the same rules as deleteLead (permanent for Super Admin, soft for others). */
+export async function deleteLeads(token: string, ids: string[]) {
+  if (!Array.isArray(ids) || !ids.length) throw new Error("No leads selected.");
+  let done = 0;
+  let mode: "permanent" | "soft" = "soft";
+  for (const id of ids.slice(0, 500)) {
+    const r = await deleteLead(token, String(id));
+    mode = r.mode;
+    done++;
+  }
+  return { ok: true as const, deleted: done, mode };
 }
 
 export async function restoreLead(token: string, id: string) {
   const ctx = await requireSession(token, "recycle_bin");
   const row = await getLeadRow(id);
   assertLeadAccess(ctx, row);
-  await dbUpdate("leads", byId(id), { deleted_at: null, deleted_by: null });
-  await logActivity({ title: "Lead restored", category: "LEADS", actorEmail: ctx.user.email, description: `${row.name} restored from the Recycle Bin.` });
+  await dbUpdate(LEADS_TABLE, byId(id), { deleted_at: null, deleted_by: null });
+  await logActivity({ title: "Lead restored", category: "LEADS", actorEmail: ctx.user.email, description: `${row.name} restored from the Recycle Bin by ${ctx.user.name}.`, leadId: id });
   return { ok: true as const };
 }
 
 export async function purgeLead(token: string, id: string) {
   const ctx = await requireSuperAdmin(token);
   const row = await getLeadRow(id);
-  const n = await dbDelete("leads", byId(id));
+  const n = await dbDelete(LEADS_TABLE, byId(id));
   if (!n) throw new Error("Lead could not be deleted from the database.");
   await logActivity({ title: "Lead permanently deleted", category: "LEADS", actorEmail: ctx.user.email, description: `${row.name} purged from the Recycle Bin.` });
   return { ok: true as const };
@@ -359,18 +426,18 @@ export async function purgeLead(token: string, id: string) {
 
 export async function emptyRecycleBin(token: string) {
   const ctx = await requireSuperAdmin(token);
-  const n = await dbDelete("leads", [{ col: "deleted_at", op: "not_null" }]);
+  const n = await dbDelete(LEADS_TABLE, [{ col: "deleted_at", op: "not_null" }]);
   await logActivity({ title: "Recycle Bin emptied", category: "LEADS", actorEmail: ctx.user.email, description: `${n} lead(s) permanently deleted.` });
   return { ok: true as const, deleted: n };
 }
 
 export async function clearLeads(token: string, kind: "website" | "meta") {
   const ctx = await requireSuperAdmin(token);
-  const rows = await dbSelect("leads", { columns: ["id", "source", "channel"] });
+  const rows = await dbSelect(LEADS_TABLE, { columns: ["id", "source", "channel"] });
   const ids = rows.filter((r) => (kind === "meta" ? isMetaRow(r) : !isMetaRow(r))).map((r) => r.id as string);
   let n = 0;
   for (let i = 0; i < ids.length; i += 100) {
-    n += await dbDelete("leads", [{ col: "id", op: "in", value: ids.slice(i, i + 100) }]);
+    n += await dbDelete(LEADS_TABLE, [{ col: "id", op: "in", value: ids.slice(i, i + 100) }]);
   }
   await logActivity({
     title: kind === "meta" ? "All Meta leads deleted" : "All website leads deleted",
@@ -386,9 +453,9 @@ export async function clearLeads(token: string, kind: "website" | "meta") {
 // ---------------------------------------------------------------------------
 export async function deleteOrder(token: string, id: string) {
   const ctx = await requireSuperAdmin(token);
-  const rows = await dbSelect("orders", { filters: byId(id) });
+  const rows = await dbSelect(ORDERS_TABLE, { filters: byId(id) });
   if (!rows[0]) throw new Error("Order not found — it may already have been deleted.");
-  const n = await dbDelete("orders", byId(id));
+  const n = await dbDelete(ORDERS_TABLE, byId(id));
   if (!n) throw new Error("Order could not be deleted from the database.");
   const o = rows[0];
   await logActivity({
@@ -514,8 +581,8 @@ export async function clearActivity(token: string) {
 export async function resetAllData(token: string, confirm: string) {
   const ctx = await requireSuperAdmin(token);
   if (confirm !== "DELETE") throw new Error('Type DELETE to confirm.');
-  const leads = await dbDelete("leads", [{ col: "id", op: "not_null" }]);
-  const orders = await dbDelete("orders", [{ col: "id", op: "not_null" }]);
+  const leads = await dbDelete(LEADS_TABLE, [{ col: "id", op: "not_null" }]);
+  const orders = await dbDelete(ORDERS_TABLE, [{ col: "id", op: "not_null" }]);
   await dbDelete("crm_activity_logs", [{ col: "id", op: "not_null" }]);
   await logActivity({
     title: "All CRM data reset",
