@@ -1046,9 +1046,12 @@ export function TrustStrip() {
 export function Samples() {
   const [activeTab, setActiveTab] = useState("All");
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isInView, setIsInView] = useState(true);
+  const [isNearView, setIsNearView] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const [hasEnteredView, setHasEnteredView] = useState(false);
   const [mutedMap, setMutedMap] = useState<Record<number, boolean>>({});
   const [playingMap, setPlayingMap] = useState<Record<number, boolean>>({});
+  const [bufferingMap, setBufferingMap] = useState<Record<number, boolean>>({});
 
   const cardsContainerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -1077,46 +1080,90 @@ export function Samples() {
     return list;
   }, [allFiltered]);
 
-  // Observe cards container for smooth entrance transitions
+  // Dual-tier viewport detection:
+  // 1. isNearView (350px margin) enables lightweight metadata preloading so first frames appear instantly
+  // 2. isInView (in viewport) controls autoplay and pauses videos when offscreen to save bandwidth/GPU
   useEffect(() => {
     const el = cardsContainerRef.current;
     if (!el) return;
 
-    const observer = new IntersectionObserver(
+    const nearObserver = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) {
-          setIsInView(true);
-        }
+        setIsNearView(entry?.isIntersecting ?? false);
       },
-      { threshold: 0.05, rootMargin: "60px 0px 60px 0px" },
+      { threshold: 0.01, rootMargin: "350px 0px 350px 0px" },
     );
 
-    observer.observe(el);
-    return () => observer.disconnect();
+    const viewObserver = new IntersectionObserver(
+      ([entry]) => {
+        const intersecting = entry?.isIntersecting ?? false;
+        setIsInView(intersecting);
+        if (intersecting) {
+          setHasEnteredView(true);
+        } else {
+          // Immediately pause offscreen videos to save memory, decoders, and battery
+          videoRefs.current.forEach((v) => {
+            if (v && !v.paused) {
+              v.pause();
+            }
+          });
+          setPlayingMap({});
+        }
+      },
+      { threshold: 0.12, rootMargin: "0px" },
+    );
+
+    nearObserver.observe(el);
+    viewObserver.observe(el);
+
+    return () => {
+      nearObserver.disconnect();
+      viewObserver.disconnect();
+    };
   }, []);
 
   // Advance to next video pair
   const handleAdvance = () => {
     if (pairs.length > 1) {
+      videoRefs.current.forEach((v) => v && !v.paused && v.pause());
+      setPlayingMap({});
+      setBufferingMap({});
       setCurrentIndex((prev) => (prev + 1) % pairs.length);
     }
   };
 
   const handlePrev = () => {
     if (pairs.length > 1) {
+      videoRefs.current.forEach((v) => v && !v.paused && v.pause());
+      setPlayingMap({});
+      setBufferingMap({});
       setCurrentIndex((prev) => (prev - 1 + pairs.length) % pairs.length);
     }
   };
 
   // Reset index whenever tab changes so it always starts from first video(s)
   useEffect(() => {
+    videoRefs.current.forEach((v) => v && !v.paused && v.pause());
+    setPlayingMap({});
+    setBufferingMap({});
     setCurrentIndex(0);
   }, [activeTab]);
 
   const currentPair = useMemo(() => pairs[currentIndex] || pairs[0] || [], [pairs, currentIndex]);
 
-  // Autoplay active video pair smoothly across mobile and desktop
+  // Autoplay active video pair smoothly when the section is in view
   useEffect(() => {
+    if (!isInView) {
+      videoRefs.current.forEach((v) => {
+        if (v && !v.paused) {
+          v.pause();
+        }
+      });
+      return;
+    }
+
+    const timers: NodeJS.Timeout[] = [];
+
     currentPair.forEach((_, idx) => {
       const video = videoRefs.current[idx];
       if (video) {
@@ -1124,35 +1171,49 @@ export function Samples() {
         video.defaultMuted = isMuted;
         video.muted = isMuted;
         video.playsInline = true;
-        const playPromise = video.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              setPlayingMap((prev) => ({ ...prev, [idx]: true }));
-            })
-            .catch(() => {
-              setPlayingMap((prev) => ({ ...prev, [idx]: false }));
-              const onGesture = () => {
-                const v = videoRefs.current[idx];
-                if (v) {
-                  v.defaultMuted = true;
-                  v.muted = true;
-                  v.play()
-                    .then(() => setPlayingMap((prev) => ({ ...prev, [idx]: true })))
-                    .catch(() => {});
-                }
-                window.removeEventListener("touchstart", onGesture);
-                window.removeEventListener("scroll", onGesture);
-                window.removeEventListener("click", onGesture);
-              };
-              window.addEventListener("touchstart", onGesture, { once: true, passive: true });
-              window.addEventListener("scroll", onGesture, { once: true, passive: true });
-              window.addEventListener("click", onGesture, { once: true, passive: true });
-            });
-        }
+
+        // Slight 200ms stagger for 2nd video to eliminate network contention on mobile/slower Wi-Fi
+        const delay = idx === 0 ? 0 : 200;
+        const timer = setTimeout(() => {
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                setPlayingMap((prev) => ({ ...prev, [idx]: true }));
+                setBufferingMap((prev) => ({ ...prev, [idx]: false }));
+              })
+              .catch(() => {
+                setPlayingMap((prev) => ({ ...prev, [idx]: false }));
+                const onGesture = () => {
+                  const v = videoRefs.current[idx];
+                  if (v) {
+                    v.defaultMuted = true;
+                    v.muted = true;
+                    v.play()
+                      .then(() => {
+                        setPlayingMap((prev) => ({ ...prev, [idx]: true }));
+                        setBufferingMap((prev) => ({ ...prev, [idx]: false }));
+                      })
+                      .catch(() => {});
+                  }
+                  window.removeEventListener("touchstart", onGesture);
+                  window.removeEventListener("scroll", onGesture);
+                  window.removeEventListener("click", onGesture);
+                };
+                window.addEventListener("touchstart", onGesture, { once: true, passive: true });
+                window.addEventListener("scroll", onGesture, { once: true, passive: true });
+                window.addEventListener("click", onGesture, { once: true, passive: true });
+              });
+          }
+        }, delay);
+        timers.push(timer);
       }
     });
-  }, [currentIndex, activeTab, currentPair]);
+
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, [isInView, currentIndex, activeTab, currentPair]);
 
   return (
     <Section id="samples" className="relative overflow-hidden">
@@ -1214,7 +1275,7 @@ export function Samples() {
           const isSecond = idx === 1; // Card 1 is top (left entry), Card 2 is bottom (right entry)
           const isReversed = idx % 2 === 1; // Diagonal layout: top card left-video/right-text, bottom card right-video/left-text
 
-          const slideAnimationClass = isInView
+          const slideAnimationClass = hasEnteredView
             ? isSecond
               ? "animate-slide-in-right"
               : "animate-slide-in-left"
@@ -1257,20 +1318,33 @@ export function Samples() {
                         el.playsInline = true;
                       }
                     }}
-                    key={item.videoUrl}
+                    key={`sample-video-${item.videoUrl}-${activeTab}-${currentIndex}-${idx}`}
                     src={item.videoUrl}
-                    autoPlay
                     loop
                     muted={mutedMap[idx] ?? true}
                     playsInline
-                    preload="auto"
-                    onPlay={() => setPlayingMap((prev) => ({ ...prev, [idx]: true }))}
+                    preload={isNearView ? "metadata" : "none"}
+                    onWaiting={() => setBufferingMap((prev) => ({ ...prev, [idx]: true }))}
+                    onPlaying={() => {
+                      setBufferingMap((prev) => ({ ...prev, [idx]: false }));
+                      setPlayingMap((prev) => ({ ...prev, [idx]: true }));
+                    }}
+                    onCanPlay={() => setBufferingMap((prev) => ({ ...prev, [idx]: false }))}
                     onPause={() => setPlayingMap((prev) => ({ ...prev, [idx]: false }))}
                     className="h-full w-full object-cover"
                   >
                     <source src={item.videoUrl} type="video/mp4" />
                     <track kind="captions" src="" label="English" default />
                   </video>
+
+                  {/* Loading / Buffering Spinner */}
+                  {bufferingMap[idx] && (
+                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px] pointer-events-none transition-opacity">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/70 border border-neon/40 shadow-lg">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-neon border-t-transparent" />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Sound Toggle Button (Top Right) */}
                   <button
@@ -1456,7 +1530,7 @@ export function Samples() {
 
 function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
 
   useEffect(() => {
@@ -1470,6 +1544,7 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
+          video.preload = "metadata";
           const playPromise = video.play();
           if (playPromise !== undefined) {
             playPromise
@@ -1548,11 +1623,10 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
             }
           }}
           src={sample.videoUrl}
-          autoPlay
           muted={isMuted}
           loop
           playsInline
-          preload="auto"
+          preload="none"
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
         >
           <source src={sample.videoUrl} type="video/mp4" />
