@@ -621,9 +621,12 @@ function PortfolioPage() {
             </span>
           </div>
 
-          {/* Headline: Clean, unified font-heading font-bold text-white in exact same font and optical size */}
-          <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-bold tracking-tight text-white leading-tight">
-            See What AI Creative <span className="text-neon">Can Look Like</span>
+          {/* Headline matching exact site hero typography from Image 2 */}
+          <h1 className="font-[var(--font-google-sans)] text-3xl sm:text-4xl md:text-5xl font-bold leading-tight tracking-tight text-white">
+            See What AI Creative{" "}
+            <span className="font-serif italic font-bold text-gradient-brand whitespace-nowrap inline-block pr-1.5">
+              Can Look Like
+            </span>
           </h1>
 
           <p className="mt-4 text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto font-sans">
