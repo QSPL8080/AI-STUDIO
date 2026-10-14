@@ -385,7 +385,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       setLeads([...r.leads].sort((a: LeadItem, b: LeadItem) => String(b.createdAt).localeCompare(String(a.createdAt))));
       setRecycleBin(r.recycleBin);
       setOrdersCount(r.ordersCount);
-      if (r.orders) setOrders(r.orders);
+      if (r.orders && ordersPinRef.current) setOrders(r.orders); // ignore late results after the tab re-locked
       else if (!r.perms.orders) {
         setOrders(null);
         ordersPinRef.current = "";
@@ -487,6 +487,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   }, [perms, isSuperAdmin, websiteLeads.length, metaLeads.length, ordersCount, users.length, recycleBin.length]);
 
   useEffect(() => setSelectedIds([]), [activeTab]);
+
+  // Orders & Payments re-locks as soon as the user leaves the tab: the PIN is needed every time.
+  useEffect(() => {
+    if (activeTab !== "orders" && ordersPinRef.current) {
+      ordersPinRef.current = "";
+      setOrders(null);
+      setSelectedOrder(null);
+      setOrdersStatus("COMPLETED");
+      setOrdersSearch("");
+    }
+  }, [activeTab]);
 
   // Per-lead audit trail for the details popup
   useEffect(() => {
