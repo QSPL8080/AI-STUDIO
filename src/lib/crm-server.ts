@@ -155,28 +155,17 @@ async function requestInfo() {
   }
 }
 
-/** Emails the CRM alert address about a failed sign-in (every attempt, every account). */
-async function sendFailedLoginAlert(opts: {
-  user: CrmUserRow;
-  attempts: number;
-  threshold: number;
-  locked: boolean;
-  lockedUntil: string | null;
-  lockMinutes: number;
-  alertEmail: string;
-}) {
-  const { user, attempts, threshold, locked, lockedUntil, lockMinutes, alertEmail } = opts;
-  const { ip, ua } = await requestInfo();
+type FailureInfo = Awaited<ReturnType<typeof bumpLoginFailure>>;
+
+function buildFailedLoginEmail(user: CrmUserRow, f: FailureInfo, threshold: number, ip: string, ua: string) {
   const when = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" }) + " IST";
   const isSA = user.role === "SUPER_ADMIN";
   const status = isSA
-    ? "Super Admin account — never locked."
-    : locked
-      ? `Account LOCKED for ${lockoutLabel(lockMinutes)} (until ${new Date(lockedUntil!).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", timeStyle: "short", dateStyle: "medium" })} IST).`
-      : `Attempt ${attempts} of ${threshold} — the account locks for ${lockoutLabel(lockMinutes)} after ${threshold} failed attempts.`;
-  const subject = locked
-    ? `🔒 CRM account locked: ${user.email}`
-    : `⚠️ Failed CRM sign-in: ${user.email}${isSA ? " (Super Admin)" : ""}`;
+    ? `Wrong password (failed attempt ${f.total} since last sign-in). Super Admin account — never locked.`
+    : f.locked
+      ? `Account LOCKED for ${lockoutLabel(f.lockMinutes)} (lock #${f.lockNumber}) until ${new Date(f.lockedUntil!).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST.`
+      : `Wrong password — attempt ${f.attemptInRound} of ${threshold}. ${f.remaining} attempt${f.remaining === 1 ? "" : "s"} left before the account is locked.`;
+  const subject = f.locked ? `🔒 CRM account locked: ${user.email}` : `⚠️ Failed CRM sign-in: ${user.email}${isSA ? " (Super Admin)" : ""}`;
   const rows: [string, string][] = [
     ["Account", `${user.name} (${user.email})`],
     ["Role", ROLE_LABEL[user.role]],
@@ -186,19 +175,34 @@ async function sendFailedLoginAlert(opts: {
     ["Status", status],
   ];
   const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
-  <div style="background:${locked ? "#b91c1c" : "#b45309"};color:#fff;padding:14px 18px;font-size:16px;font-weight:bold">${escapeHtml(locked ? "CRM account locked" : "Failed CRM sign-in attempt")}</div>
+  <div style="background:${f.locked ? "#b91c1c" : "#b45309"};color:#fff;padding:14px 18px;font-size:16px;font-weight:bold">${escapeHtml(f.locked ? "CRM account locked" : "Failed CRM sign-in attempt")}</div>
   <table style="width:100%;border-collapse:collapse;font-size:14px">${rows
     .map(([k, v]) => `<tr><td style="padding:10px 18px;color:#6b7280;width:150px;border-top:1px solid #f1f5f9">${escapeHtml(k)}</td><td style="padding:10px 18px;color:#111827;border-top:1px solid #f1f5f9">${escapeHtml(v)}</td></tr>`)
     .join("")}</table>
   <div style="padding:12px 18px;font-size:12px;color:#6b7280;background:#f9fafb">AI STUDIO INDIA – Enterprise CRM security alert. If this wasn't you or your team, deactivate the account in User Management.</div>
 </div>`;
   const text = rows.map(([k, v]) => `${k}: ${v}`).join("\n");
-  try {
-    const { sendSecurityAlertEmail } = await import("./email");
-    await sendSecurityAlertEmail({ to: alertEmail, subject, html, text });
-  } catch (e) {
-    console.warn("Failed-login alert email error:", e);
-  }
+  return { subject, html, text };
+}
+
+/** Sends the alert in the background (sign-in isn't slowed down) and records the outcome
+ *  — delivered, or the exact error — in Activity History. */
+function dispatchFailedLoginAlert(user: CrmUserRow, f: FailureInfo, threshold: number, alertEmail: string, ip: string, ua: string) {
+  const mail = buildFailedLoginEmail(user, f, threshold, ip, ua);
+  void (async () => {
+    try {
+      const { sendSecurityAlertEmail } = await import("./email");
+      const r = await sendSecurityAlertEmail({ to: alertEmail, ...mail });
+      await logActivity({
+        title: r.success ? "Login alert email sent" : "Login alert email FAILED",
+        category: "SETTINGS",
+        actorEmail: user.email,
+        description: r.success ? `Alert for ${user.email} delivered to ${alertEmail} via ${r.via}.` : `Could not email ${alertEmail}: ${r.errors.join(" | ").slice(0, 900)}`,
+      });
+    } catch (e: any) {
+      await logActivity({ title: "Login alert email FAILED", category: "SETTINGS", actorEmail: user.email, description: String(e?.message || e) });
+    }
+  })();
 }
 
 export async function login(email: string, password: string) {
@@ -217,30 +221,31 @@ export async function login(email: string, password: string) {
   }
 
   if (!verifyPassword(password, user.password_hash)) {
-    const r = await bumpLoginFailure(user, config.failedLoginThreshold, config.lockoutMinutes);
+    const { ip, ua } = await requestInfo();
+    const threshold = config.failedLoginThreshold;
+    const f = await bumpLoginFailure(user, threshold, config.lockoutMinutes);
     await logActivity({
-      title: r.locked ? "Account locked" : "Failed sign-in attempt",
+      title: f.locked ? "Account locked" : "Failed sign-in attempt",
       category: "USER_ACTIVITY",
       actorEmail: user.email,
       description: isSA
-        ? `Wrong password for the Super Admin account (attempt ${r.attempts}). Super Admin is never locked.`
-        : r.locked
-          ? `Locked for ${lockoutLabel(config.lockoutMinutes)} after ${config.failedLoginThreshold} failed attempts.`
-          : `Wrong password (attempt ${r.attempts} of ${config.failedLoginThreshold}).`,
+        ? `Wrong password for the Super Admin account (IP ${ip}). Super Admin is never locked.`
+        : f.locked
+          ? `Locked for ${lockoutLabel(f.lockMinutes)} (lock #${f.lockNumber}) after ${threshold} failed attempts (IP ${ip}).`
+          : `Wrong password — attempt ${f.attemptInRound} of ${threshold}, ${f.remaining} left (IP ${ip}).`,
     });
-    await sendFailedLoginAlert({
-      user,
-      attempts: r.attempts,
-      threshold: config.failedLoginThreshold,
-      locked: r.locked,
-      lockedUntil: r.lockedUntil,
-      lockMinutes: config.lockoutMinutes,
-      alertEmail: config.alertEmail,
-    });
-    if (r.locked) {
-      return { ok: false as const, error: `Too many failed attempts. This account is locked for ${lockoutLabel(config.lockoutMinutes)}.` };
+    dispatchFailedLoginAlert(user, f, threshold, config.alertEmail, ip, ua);
+    if (isSA) return { ok: false as const, error: generic };
+    if (f.locked) {
+      return {
+        ok: false as const,
+        error: `Too many failed attempts. This account is locked for ${lockoutLabel(f.lockMinutes)}. Try again later or ask the Super Admin to unlock it.`,
+      };
     }
-    return { ok: false as const, error: generic };
+    return {
+      ok: false as const,
+      error: `Invalid email or password. ${f.remaining} attempt${f.remaining === 1 ? "" : "s"} left before this account is locked.`,
+    };
   }
   if (user.status !== "ACTIVE") {
     return { ok: false as const, error: "This account has been deactivated. Contact the Super Admin." };
@@ -721,4 +726,25 @@ export async function unlockUser(token: string, userId: string) {
   await dbUpdate("crm_users", byId(userId), { locked_until: null, failed_attempts: 0, updated_at: new Date().toISOString() });
   await logActivity({ title: "User unlocked", category: "USER_ACTIVITY", actorEmail: ctx.user.email, description: `Sign-in lock removed for ${target.email}.` });
   return { ok: true as const };
+}
+
+/** Super Admin only — sends a test login-alert email and reports exactly what happened. */
+export async function testAlertEmail(token: string) {
+  const ctx = await requireSuperAdmin(token);
+  const config = await loadConfig();
+  const { sendSecurityAlertEmail } = await import("./email");
+  const when = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" }) + " IST";
+  const r = await sendSecurityAlertEmail({
+    to: config.alertEmail,
+    subject: "✅ Test: AI STUDIO INDIA CRM login alerts",
+    text: `This is a test login-alert email sent by ${ctx.user.email} at ${when}. Failed sign-in alerts will arrive at this address.`,
+    html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111827"><p><b>Test email from AI STUDIO INDIA – Enterprise CRM.</b></p><p>Sent by ${escapeHtml(ctx.user.email)} at ${escapeHtml(when)}.</p><p>Failed sign-in and account-lock alerts will arrive at this address.</p></div>`,
+  });
+  await logActivity({
+    title: r.success ? "Test alert email sent" : "Test alert email FAILED",
+    category: "SETTINGS",
+    actorEmail: ctx.user.email,
+    description: r.success ? `Delivered to ${config.alertEmail} via ${r.via}.` : r.errors.join(" | ").slice(0, 900),
+  });
+  return { ok: true as const, success: r.success, via: r.via || "", errors: r.errors, to: config.alertEmail };
 }

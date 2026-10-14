@@ -361,19 +361,32 @@ Call: tel:${cleanPhone}
 }
 
 
-/** Security alert (failed CRM sign-ins, lockouts). Sent to the CRM alert address. */
-export async function sendSecurityAlertEmail(opts: { to: string; subject: string; html: string; text: string }) {
+/** Security alert (failed CRM sign-ins, lockouts). Sent to the CRM alert address.
+ *  Tries Gmail SMTP on port 465, then 587 (some hosts block one of them), then Resend,
+ *  then FormSubmit. Returns which route worked, or every error so it can be shown in the CRM. */
+export async function sendSecurityAlertEmail(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}): Promise<{ success: boolean; via?: string; errors: string[] }> {
+  const errors: string[] = [];
   const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  // Same SMTP account as the lead notification emails above.
+  // Same SMTP account as the lead notification emails.
   const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || "quickuppaistudio1@gmail.com";
-  const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || "ggtodbgiucfdypcj";
-  if (smtpUser && smtpPass) {
+  const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || "ggtodbgiucfdypcj").replace(/\s+/g, "");
+
+  for (const port of [465, 587]) {
     try {
       const transporter = nodemailer.createTransport({
         host: smtpHost,
-        port: 465,
-        secure: true,
-        auth: { user: smtpUser, pass: smtpPass.replace(/\s+/g, "") },
+        port,
+        secure: port === 465,
+        requireTLS: port === 587,
+        auth: { user: smtpUser, pass: smtpPass },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
       });
       await transporter.sendMail({
         from: `"Quickupp AI Studio CRM" <${smtpUser}>`,
@@ -382,11 +395,16 @@ export async function sendSecurityAlertEmail(opts: { to: string; subject: string
         text: opts.text,
         html: opts.html,
       });
-      return { success: true };
+      return { success: true, via: `Gmail SMTP ${port} (${smtpUser})`, errors };
     } catch (e: any) {
-      console.error("Security alert SMTP failed:", e?.message);
+      const msg = `SMTP ${port}: ${e?.code ? e.code + " " : ""}${e?.message || e}`;
+      errors.push(msg);
+      console.error("Security alert", msg);
+      // Wrong username/password: trying the other port won't help.
+      if (e?.code === "EAUTH" || /Invalid login|Username and Password not accepted/i.test(String(e?.message))) break;
     }
   }
+
   const resendApiKey = process.env.RESEND_API_KEY;
   if (resendApiKey) {
     try {
@@ -401,12 +419,25 @@ export async function sendSecurityAlertEmail(opts: { to: string; subject: string
           text: opts.text,
         }),
       });
-      if (res.ok) return { success: true };
-      console.warn("Security alert Resend failed:", await res.text());
+      if (res.ok) return { success: true, via: "Resend", errors };
+      errors.push(`Resend: ${res.status} ${await res.text()}`);
     } catch (e: any) {
-      console.warn("Security alert Resend error:", e?.message);
+      errors.push(`Resend: ${e?.message || e}`);
     }
   }
-  console.warn("Security alert email could not be delivered (SMTP failed and no RESEND_API_KEY fallback).");
-  return { success: false };
+
+  // Last resort: FormSubmit (the first message to a new address asks that inbox to confirm once).
+  try {
+    const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(opts.to)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", Origin: "https://quickuppaistudio.in", Referer: "https://quickuppaistudio.in" },
+      body: JSON.stringify({ _subject: opts.subject, _template: "box", message: opts.text }),
+    });
+    const body = await res.text();
+    if (res.ok && !/"success":\s*"?false/i.test(body)) return { success: true, via: "FormSubmit", errors };
+    errors.push(`FormSubmit: ${res.status} ${body.slice(0, 200)}`);
+  } catch (e: any) {
+    errors.push(`FormSubmit: ${e?.message || e}`);
+  }
+  return { success: false, errors };
 }

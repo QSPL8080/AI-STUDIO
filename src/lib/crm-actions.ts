@@ -207,3 +207,10 @@ export const crmUnlockUserFn = createServerFn({ method: "POST" })
     const s = await srv();
     return s.guard(() => s.unlockUser(data.token, data.userId));
   });
+
+export const crmTestAlertEmailFn = createServerFn({ method: "POST" })
+  .validator((d: Tok) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.testAlertEmail(data.token));
+  });

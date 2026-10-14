@@ -2,6 +2,7 @@
 import { createHmac, createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { dbInsert, dbSelect, dbUpdate, getSetting, newId } from "./crm-db";
 import {
+  LOCKOUT_OPTIONS,
   normalizeConfig,
   normalizeMatrix,
   permSetFor,
@@ -201,15 +202,28 @@ export function publicUser(u: CrmUserRow) {
   };
 }
 
-/** Records a failed sign-in. Admin / Leads Manager are locked for `lockMinutes` once they
- *  reach `threshold` failures in a row. The Super Admin is never locked. */
-export async function bumpLoginFailure(user: CrmUserRow, threshold: number, lockMinutes: number) {
-  const attempts = Number(user.failed_attempts || 0) + 1;
+/** Records a failed sign-in.
+ *  `failed_attempts` counts every wrong password since the last successful sign-in (or unlock).
+ *  Every `threshold` failures the account is locked; each new lock lasts longer than the last:
+ *  it starts at `firstLockMinutes` and steps up through LOCKOUT_OPTIONS (e.g. 2 → 5 → 10 → 20 min …),
+ *  capped at the longest option. The Super Admin is never locked. */
+export async function bumpLoginFailure(user: CrmUserRow, threshold: number, firstLockMinutes: number) {
+  const total = Number(user.failed_attempts || 0) + 1;
   const isSuperAdmin = user.role === "SUPER_ADMIN";
-  const locked = !isSuperAdmin && attempts >= threshold;
-  const lockedUntil = locked ? new Date(Date.now() + lockMinutes * 60 * 1000).toISOString() : null;
-  const patch: Record<string, unknown> = { failed_attempts: locked ? 0 : attempts };
+  const attemptInRound = ((total - 1) % threshold) + 1; // 1..threshold
+  const remaining = threshold - attemptInRound; // attempts left before lock
+  const locked = !isSuperAdmin && remaining === 0;
+  const lockNumber = Math.floor(total / threshold); // 1st, 2nd, 3rd lock …
+  let lockMinutes = 0;
+  let lockedUntil: string | null = null;
+  if (locked) {
+    const minutesList = LOCKOUT_OPTIONS.map((o) => o.minutes);
+    const startIdx = Math.max(0, minutesList.indexOf(firstLockMinutes));
+    lockMinutes = minutesList[Math.min(startIdx + lockNumber - 1, minutesList.length - 1)]!;
+    lockedUntil = new Date(Date.now() + lockMinutes * 60 * 1000).toISOString();
+  }
+  const patch: Record<string, unknown> = { failed_attempts: total };
   if (locked) patch.locked_until = lockedUntil;
   await dbUpdate("crm_users", [{ col: "id", op: "eq", value: user.id }], patch);
-  return { attempts, locked, lockedUntil };
+  return { total, attemptInRound, remaining, locked, lockNumber, lockMinutes, lockedUntil };
 }

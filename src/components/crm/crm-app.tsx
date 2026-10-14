@@ -51,6 +51,7 @@ import {
   crmRestoreLeadsFn,
   crmPurgeLeadsFn,
   crmUnlockUserFn,
+  crmTestAlertEmailFn,
   crmDeleteUserFn,
   crmEmptyRecycleBinFn,
   crmLogoutFn,
@@ -655,6 +656,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     setShowCreateUserModal(false);
     setNewUserForm({ name: "", email: "", password: "", role: "ADMIN" });
     doSync();
+  };
+
+  const [emailTest, setEmailTest] = useState<{ success: boolean; via: string; errors: string[]; to: string } | null>(null);
+  const handleTestAlertEmail = async () => {
+    setBusy("test-email");
+    setEmailTest(null);
+    const r = await call(crmTestAlertEmailFn({ data: { token: tok() } }));
+    setBusy(null);
+    if (r) setEmailTest({ success: r.success, via: r.via, errors: r.errors, to: r.to });
   };
 
   const handleUnlockUser = async (u: UserItem) => {
@@ -1926,7 +1936,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       <option value={5}>5 failed attempts</option>
                     </select>
                   </Field>
-                  <Field label="Lockout duration (Admin & Leads Manager)" hint={`In effect: locked for ${lockoutLabel(config.lockoutMinutes)}. Super Admin is never locked.`}>
+                  <Field
+                    label="First lockout duration (Admin & Leads Manager)"
+                    hint={`Each further lock gets longer: ${LOCKOUT_OPTIONS.filter((o) => o.minutes >= config.lockoutMinutes)
+                      .slice(0, 4)
+                      .map((o) => o.label)
+                      .join(" → ")} → … → 24 hours. Super Admin is never locked.`}
+                  >
                     <select value={configDraft.lockoutMinutes} onChange={(e) => updateConfigDraft({ lockoutMinutes: Number(e.target.value) })} className={inputCls}>
                       {LOCKOUT_OPTIONS.map((o) => (
                         <option key={o.minutes} value={o.minutes}>
@@ -1939,11 +1955,43 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <div className="p-4 rounded-md border border-white/[0.07] bg-white/[0.02] text-[13px] text-slate-400 space-y-1">
                   <div className="text-white font-semibold">How sessions are protected</div>
                   <div>• Every failed sign-in (any account, including Super Admin) is emailed to {config.alertEmail}.</div>
-                  <div>• Admins and Leads Managers are locked for {lockoutLabel(config.lockoutMinutes)} after {config.failedLoginThreshold} failed attempts. Unlock them early from User Management.</div>
+                  <div>• The sign-in page tells the user how many attempts are left (e.g. "2 attempts left", "1 attempt left").</div>
+                  <div>• After {config.failedLoginThreshold} wrong passwords an Admin / Leads Manager is locked for {lockoutLabel(config.lockoutMinutes)}; every further lock is longer (up to 24 hours) until they sign in successfully. Unlock them early from User Management.</div>
                   <div>• The Super Admin account is never locked — failed attempts only send the alert email.</div>
                   <div>• Users are signed out automatically after {config.inactivityMinutes} minutes of inactivity.</div>
                   <div>• Deactivating or deleting a user signs them out on their next refresh (within {config.pollingSeconds}s).</div>
                   <div>• The Orders tab PIN is set with the ADMIN_PAYMENT_PIN server variable in Hostinger.</div>
+                </div>
+                <div className="p-4 rounded-md border border-white/[0.07] bg-white/[0.02] space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[13px] font-semibold text-white">Check login alert emails</div>
+                      <div className="text-xs text-slate-400 mt-0.5">Sends a test email to {config.alertEmail} and shows whether it was delivered.</div>
+                    </div>
+                    <button onClick={handleTestAlertEmail} disabled={busy === "test-email"} className={btnGhost}>
+                      <Bell className="w-4 h-4" /> {busy === "test-email" ? "Sending..." : "Send test alert email"}
+                    </button>
+                  </div>
+                  {emailTest && (
+                    <div
+                      className={`p-3 rounded-md text-xs border ${
+                        emailTest.success ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-200" : "bg-red-950/40 border-red-500/30 text-red-200"
+                      }`}
+                    >
+                      {emailTest.success ? (
+                        <>✓ Sent to {emailTest.to} via {emailTest.via}. Check that inbox (and spam).</>
+                      ) : (
+                        <>
+                          <div className="font-semibold mb-1">✗ Could not send to {emailTest.to}:</div>
+                          {emailTest.errors.map((er, i) => (
+                            <div key={i} className="font-mono break-all">
+                              {er}
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

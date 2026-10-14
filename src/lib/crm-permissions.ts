@@ -136,7 +136,7 @@ export const DEFAULT_CONFIG: CrmConfig = {
   audioChimeEnabled: true,
   inactivityMinutes: 10,
   failedLoginThreshold: 3,
-  lockoutMinutes: 10,
+  lockoutMinutes: 2,
 };
 
 export function normalizeConfig(input: unknown): CrmConfig {
