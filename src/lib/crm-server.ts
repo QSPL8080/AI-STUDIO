@@ -389,6 +389,25 @@ export async function createLead(
     form_name: isMeta ? data.formName || null : null,
     created_at: new Date().toISOString(),
   }, { handled_by: ctx.user.name });
+  // New-lead email (same as website form leads) → qsaistudio@gmail.com
+  try {
+    const { sendLeadNotificationEmail } = await import("./email");
+    await sendLeadNotificationEmail({
+      source: isMeta ? `Meta Ads (${data.channel || "Facebook"})` : "Manual Entry (CRM)",
+      name: data.clientName.trim(),
+      phone: (data.phone || "").trim() || "-",
+      email: data.email?.trim() || undefined,
+      videoType: data.videoScope || "AI Video",
+      business: data.business?.trim() || (isMeta ? "Meta Lead" : "General Inquiry"),
+      requirement: data.notes?.trim() || undefined,
+      additional: [isMeta && data.campaign ? `Campaign: ${data.campaign}` : "", isMeta && data.formName ? `Form: ${data.formName}` : "", `Added by ${ctx.user.name}`]
+        .filter(Boolean)
+        .join(" • "),
+      leadId: (row as any).id,
+    } as any);
+  } catch (e) {
+    console.warn("New-lead email failed:", e);
+  }
   await logActivity({
     title: isMeta ? "Meta lead added" : "Lead added",
     category: "LEADS",

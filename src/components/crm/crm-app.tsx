@@ -235,7 +235,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [metaSearch, setMetaSearch] = useState("");
   const [metaStatus, setMetaStatus] = useState("All");
   const [ordersSearch, setOrdersSearch] = useState("");
-  const [ordersStatus, setOrdersStatus] = useState("All");
+  const [ordersStatus, setOrdersStatus] = useState("COMPLETED");
   const [activityFilter, setActivityFilter] = useState("All");
 
   // Modals
@@ -825,7 +825,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const latestLeads = leads.slice(0, 20);
 
   return (
-    <div className="min-h-screen lg:h-dvh lg:overflow-hidden flex flex-col bg-[#07090e] text-slate-100 font-sans antialiased">
+    <div className="min-h-screen lg:h-dvh lg:overflow-hidden flex flex-col bg-[#07090e] text-slate-100 font-sans antialiased [color-scheme:dark]">
       {/* ===================== STICKY HEADER + TAB BAR ===================== */}
       <div className="shrink-0 sticky top-0 z-40 bg-[#090c14] border-b border-white/[0.08] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.8)]">
         <header className="h-16 px-3 sm:px-5 lg:px-6 2xl:px-10">
@@ -1389,12 +1389,35 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input value={ordersSearch} onChange={(e) => setOrdersSearch(e.target.value)} placeholder="Search customer, email, order ID, item..." className={`${inputCls} pl-9`} />
               </div>
-              <select value={ordersStatus} onChange={(e) => setOrdersStatus(e.target.value)} className={`${inputCls} sm:w-48`}>
-                <option value="All">All orders</option>
-                <option value="COMPLETED">Completed (paid)</option>
-                <option value="PENDING">Pending</option>
-                <option value="FAILED">Failed / Cancelled</option>
-              </select>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { id: "All", label: "All" },
+                { id: "COMPLETED", label: "Completed" },
+                { id: "PENDING", label: "Pending" },
+                { id: "FAILED", label: "Failed" },
+                { id: "REFUNDED", label: "Refunded" },
+              ].map((f) => {
+                const n =
+                  f.id === "All"
+                    ? orders.length
+                    : orders.filter((o) => (f.id === "FAILED" ? o.paymentStatus === "FAILED" || o.paymentStatus === "CANCELLED" : o.paymentStatus === f.id)).length;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => {
+                      setOrdersStatus(f.id);
+                      setSelectedIds([]);
+                    }}
+                    className={`h-9 px-3.5 rounded-md text-[13px] font-medium transition-colors ${
+                      ordersStatus === f.id ? "bg-purple-600 text-white" : "border border-white/10 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {f.label} ({n})
+                  </button>
+                );
+              })}
             </div>
 
             {isSuperAdmin && (
@@ -1407,7 +1430,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
             <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
               {shownOrders.length === 0 ? (
-                <Empty icon={<Package className="w-8 h-8" />} title={orders.length ? "No orders match the current filter" : "No payment transactions yet"} text="Checkout orders appear here automatically." />
+                <Empty
+                  icon={<Package className="w-8 h-8" />}
+                  title={
+                    !orders.length
+                      ? "No payment transactions yet"
+                      : ordersStatus === "All"
+                        ? "No orders match your search"
+                        : `No ${ordersStatus === "FAILED" ? "failed" : ordersStatus.toLowerCase()} orders`
+                  }
+                  text={ordersStatus === "COMPLETED" && orders.length ? "Completed payments appear here. Use the filters above to see other orders." : "Checkout orders appear here automatically."}
+                />
               ) : (
                 <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
                   <table className="w-full min-w-[960px] text-left text-[13px]">
@@ -1714,7 +1747,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   <Field label="CRM title" hint="Shown in the CRM header.">
                     <input value={configDraft.crmTitle} onChange={(e) => updateConfigDraft({ crmTitle: e.target.value })} className={inputCls} />
                   </Field>
-                  <Field label="Alert notification email" hint="Reference address for lead & payment alerts.">
+                  <Field label="Login alert email" hint="Failed sign-in and account-lock alerts are sent here. New-lead emails go to qsaistudio@gmail.com.">
                     <input type="email" value={configDraft.alertEmail} onChange={(e) => updateConfigDraft({ alertEmail: e.target.value })} className={inputCls} />
                   </Field>
                   <Field label="Live data refresh interval">
@@ -1882,9 +1915,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Field label="Inactivity auto sign-out" hint={`In effect: ${config.inactivityMinutes} minutes`}>
                     <select value={configDraft.inactivityMinutes} onChange={(e) => updateConfigDraft({ inactivityMinutes: Number(e.target.value) })} className={inputCls}>
-                      <option value={10}>10 minutes (recommended)</option>
+                      <option value={10}>10 minutes</option>
+                      <option value={20}>20 minutes</option>
                       <option value={30}>30 minutes</option>
-                      <option value={60}>60 minutes</option>
                     </select>
                   </Field>
                   <Field label="Lock account after" hint={`In effect: ${config.failedLoginThreshold} failed attempts in a row`}>

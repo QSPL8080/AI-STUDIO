@@ -147,7 +147,7 @@ export function normalizeConfig(input: unknown): CrmConfig {
     alertEmail: typeof src.alertEmail === "string" && src.alertEmail.includes("@") ? src.alertEmail.trim() : DEFAULT_CONFIG.alertEmail,
     pollingSeconds: pick(Number(src.pollingSeconds), [10, 30, 60], DEFAULT_CONFIG.pollingSeconds),
     audioChimeEnabled: typeof src.audioChimeEnabled === "boolean" ? src.audioChimeEnabled : DEFAULT_CONFIG.audioChimeEnabled,
-    inactivityMinutes: pick(Number(src.inactivityMinutes), [10, 30, 60], DEFAULT_CONFIG.inactivityMinutes),
+    inactivityMinutes: pick(Number(src.inactivityMinutes), [10, 20, 30], DEFAULT_CONFIG.inactivityMinutes),
     failedLoginThreshold: pick(Number(src.failedLoginThreshold), [3, 5], DEFAULT_CONFIG.failedLoginThreshold),
     lockoutMinutes: pick(Number(src.lockoutMinutes), LOCKOUT_OPTIONS.map((o) => o.minutes), DEFAULT_CONFIG.lockoutMinutes),
   };

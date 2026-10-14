@@ -21,7 +21,7 @@ export const submitLeadServerFn = createServerFn({ method: "POST" })
       // 1. Save lead to PostgreSQL / Supabase Database for Admin Panel
       const saved = await saveLeadToDb(data);
 
-      // 2. Dispatch Email Notification directly to quickuppaistudio1@gmail.com
+      // 2. Dispatch new-lead email notification (qsaistudio@gmail.com)
       try {
         await sendLeadNotificationEmail({
           ...data,

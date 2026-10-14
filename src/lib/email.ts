@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import type { IndiaLeadSource } from "./lead-source";
 
 export interface LeadEmailPayload {
-  source: IndiaLeadSource;
+  source: IndiaLeadSource | string;
   name: string;
   phone: string;
   email?: string;
@@ -15,7 +15,8 @@ export interface LeadEmailPayload {
   leadId?: string;
 }
 
-const NOTIFICATION_EMAIL = process.env.LEAD_NOTIFICATION_EMAIL || "quickuppaistudio1@gmail.com";
+// New-lead notification emails go here. (Failed sign-in alerts go to the CRM "Login alert email", info@quickuppaistudio.in by default.)
+const NOTIFICATION_EMAIL = process.env.LEAD_NOTIFICATION_EMAIL || "qsaistudio@gmail.com";
 
 export async function sendLeadNotificationEmail(lead: LeadEmailPayload): Promise<{ success: boolean; error?: string }> {
   const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
@@ -320,7 +321,7 @@ Call: tel:${cleanPhone}
     }
   }
 
-  // 3. Guaranteed Direct HTTP Delivery via FormSubmit AJAX to quickuppaistudio1@gmail.com
+  // 3. Fallback HTTP delivery via FormSubmit AJAX to the lead notification address
   try {
     const response = await fetch(`https://formsubmit.co/ajax/${NOTIFICATION_EMAIL}`, {
       method: "POST",
