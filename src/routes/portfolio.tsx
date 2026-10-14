@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Film,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/portfolio")({
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/portfolio")({
       {
         name: "description",
         content:
-          "Explore AI-powered video concepts created across e-commerce, beauty, fashion, fitness, technology, food, lifestyle, and other high-growth categories.",
+          "Explore AI-powered video concepts created across interior architecture, luxury real estate, heritage commercial, animated storytelling, and lifestyle fitness categories.",
       },
     ],
   }),
@@ -49,7 +50,7 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   {
     id: "reel-1",
     category: "AI UGC",
-    title: "Bharat Stone Showcase",
+    title: "Bharat Stone Lifestyle",
     subtitle: "High-impact creator-led demonstration reel highlighting luxury architectural stone surfaces",
     industry: "Interior Architecture & Luxury",
     videoUrl: "/videos/page-1.mp4",
@@ -114,75 +115,89 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   },
 ];
 
-const CATEGORIES = [
-  "All",
-  "AI UGC",
-  "AI Avatar",
-  "Hyper-Realistic",
-  "AI Cartoon",
-  "Digital Twin",
-] as const;
-
 interface PortfolioReelCardProps {
   reel: PortfolioReelItem;
+  isActive: boolean;
+  onActivate: (id: string) => void;
   onExpand: (reel: PortfolioReelItem) => void;
 }
 
-function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
+function PortfolioReelCard({ reel, isActive, onActivate, onExpand }: PortfolioReelCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(true);
+  const [isBuffering, setIsBuffering] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
   const [hasError, setHasError] = useState<boolean>(false);
 
-  // IntersectionObserver to play when visible, pause when off-screen
+  // Synchronize playback with active card state (ensures only 1 heavy video streams at a time)
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    video.defaultMuted = true;
-    video.muted = isMuted;
-    video.playsInline = true;
+    if (isActive) {
+      video.defaultMuted = true;
+      video.muted = isMuted;
+      video.playsInline = true;
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+            setIsBuffering(false);
+          })
+          .catch(() => {
+            video.muted = true;
+            setIsMuted(true);
+            video
+              .play()
+              .then(() => setIsPlaying(true))
+              .catch(() => setIsPlaying(false));
+          });
+      }
+    } else {
+      video.pause();
+      setIsPlaying(false);
+      setIsBuffering(false);
+    }
+  }, [isActive, isMuted]);
+
+  // Keep in view observer with relaxed margin so minor scrolls don't pause playback
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          const playPromise = video.play();
-          if (playPromise !== undefined) {
-            playPromise
-              .then(() => setIsPlaying(true))
-              .catch(() => {
-                video.defaultMuted = true;
-                video.muted = true;
-                setIsMuted(true);
-                video
-                  .play()
-                  .then(() => setIsPlaying(true))
-                  .catch(() => setIsPlaying(false));
-              });
-          }
-        } else {
+        if (!entry.isIntersecting && isActive) {
           video.pause();
           setIsPlaying(false);
         }
       },
-      { threshold: 0.15, rootMargin: "60px 0px 60px 0px" }
+      { threshold: 0.05, rootMargin: "150px 0px 150px 0px" }
     );
 
     observer.observe(video);
     return () => observer.disconnect();
-  }, [reel.videoUrl]);
+  }, [isActive]);
 
   const onTimeUpdate = () => {
     const video = videoRef.current;
     if (video && video.duration) {
       setProgress((video.currentTime / video.duration) * 100);
+      if (isBuffering) setIsBuffering(false);
     }
   };
 
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
+
+    if (!isActive) {
+      onActivate(reel.id);
+      return;
+    }
+
     if (video.paused) {
       video
         .play()
@@ -201,6 +216,7 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
     const nextMuted = !video.muted;
     video.muted = nextMuted;
     setIsMuted(nextMuted);
+    if (!isActive) onActivate(reel.id);
     if (!nextMuted && video.paused) {
       video
         .play()
@@ -217,6 +233,7 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
     const clickX = e.clientX - rect.left;
     const newTime = (clickX / rect.width) * video.duration;
     video.currentTime = Math.max(0, Math.min(newTime, video.duration));
+    if (!isActive) onActivate(reel.id);
   };
 
   const handleRetry = (e: React.MouseEvent) => {
@@ -230,17 +247,31 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
   };
 
   return (
-    <article className="group relative flex aspect-[9/16] w-full flex-col justify-between overflow-hidden rounded-[26px] border border-border/70 bg-[#0c0919] shadow-2xl transition-all duration-300 hover:border-neon hover:shadow-[0_0_40px_rgba(200,80,255,0.3)]">
-      {/* Background HTML5 Video element */}
+    <article
+      onClick={togglePlay}
+      className={`group relative flex aspect-[9/16] w-full max-w-[360px] flex-col justify-between overflow-hidden rounded-[26px] border bg-[#0c0919] shadow-2xl transition-all duration-300 cursor-pointer ${
+        isActive
+          ? "border-neon shadow-[0_0_40px_rgba(200,80,255,0.35)] scale-[1.01]"
+          : "border-border/70 hover:border-neon/60 hover:shadow-[0_0_25px_rgba(200,80,255,0.2)]"
+      }`}
+    >
+      {/* Background HTML5 Video element with direct src to avoid black frames */}
       {!hasError ? (
         <video
           ref={videoRef}
-          autoPlay
+          key={reel.id}
+          src={reel.videoUrl}
           muted={isMuted}
           loop
           playsInline
-          preload="metadata"
+          preload={isActive ? "auto" : "metadata"}
           onTimeUpdate={onTimeUpdate}
+          onWaiting={() => setIsBuffering(true)}
+          onPlaying={() => {
+            setIsBuffering(false);
+            setIsPlaying(true);
+          }}
+          onCanPlay={() => setIsBuffering(false)}
           onError={() => setHasError(true)}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
@@ -263,20 +294,12 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
         </div>
       )}
 
-      {/* Interactive Tap Area to Play/Pause */}
-      <button
-        type="button"
-        onClick={togglePlay}
-        className="absolute inset-0 h-full w-full cursor-pointer z-10 border-none bg-transparent p-0 text-left focus:outline-none"
-        aria-label={isPlaying ? "Pause video" : "Play video"}
-      />
-
       {/* Cinematic Soft Gradient Overlays for contrast */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-transparent to-black/60 pointer-events-none z-10" />
 
       {/* Top Header Bar: Category Tag & Controls */}
       <div className="relative z-20 flex items-center justify-between p-4 sm:p-5 pointer-events-none">
-        <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-neon/40 text-neon shadow-md font-heading">
+        <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-black/75 backdrop-blur-md border border-neon/40 text-neon shadow-md font-heading">
           <span className="w-1.5 h-1.5 rounded-full bg-neon animate-pulse" />
           {reel.category}
         </span>
@@ -286,7 +309,7 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
           <button
             type="button"
             onClick={toggleMute}
-            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:border-neon hover:text-neon cursor-pointer"
+            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:border-neon hover:text-neon cursor-pointer"
             title={isMuted ? "Unmute audio" : "Mute audio"}
             aria-label={isMuted ? "Unmute audio" : "Mute audio"}
           >
@@ -304,7 +327,7 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
               e.stopPropagation();
               onExpand(reel);
             }}
-            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:border-neon hover:text-neon cursor-pointer"
+            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:border-neon hover:text-neon cursor-pointer"
             title="Expand reel preview"
             aria-label="Expand reel preview"
           >
@@ -313,26 +336,32 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
         </div>
       </div>
 
-      {/* Center Play/Pause Indicator (Shown when paused or on hover) */}
+      {/* Center Buffering Spinner or Play/Pause Indicator */}
       <div
         className={`absolute inset-0 z-20 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${
-          !isPlaying ? "opacity-100 scale-100" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100"
+          isBuffering || !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         }`}
       >
-        <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-gradient-brand text-neon-foreground shadow-[0_0_30px_rgba(217,70,239,0.7)] backdrop-blur-md border border-white/20 transition-transform duration-200">
-          {isPlaying ? (
-            <Pause className="h-6 w-6 text-white" />
-          ) : (
-            <Play className="ml-0.5 h-6 w-6 text-white fill-white" />
-          )}
-        </div>
+        {isBuffering ? (
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/70 backdrop-blur-md border border-neon/50 text-neon shadow-[0_0_20px_rgba(200,80,255,0.5)]">
+            <Loader2 className="w-7 h-7 animate-spin" />
+          </div>
+        ) : (
+          <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-gradient-brand text-neon-foreground shadow-[0_0_30px_rgba(217,70,239,0.7)] backdrop-blur-md border border-white/20 transition-transform duration-200">
+            {isPlaying ? (
+              <Pause className="h-6 w-6 text-white" />
+            ) : (
+              <Play className="ml-0.5 h-6 w-6 text-white fill-white" />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Bottom Container: Info Card & Scrubbable Progress Line */}
       <div className="relative z-20 flex flex-col pointer-events-none">
         {/* Info Card with frosted backing */}
         <div className="p-4 sm:p-5">
-          <div className="space-y-1 rounded-2xl bg-black/75 p-3 sm:p-3.5 backdrop-blur-md border border-white/10 shadow-xl">
+          <div className="space-y-1 rounded-2xl bg-black/80 p-3 sm:p-3.5 backdrop-blur-md border border-white/10 shadow-xl">
             <div className="flex items-center justify-between text-[10px] font-bold tracking-wide">
               <span className="text-neon uppercase font-heading">{reel.industry}</span>
               <span className="text-muted-foreground flex items-center gap-1 font-mono">
@@ -445,6 +474,7 @@ function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
         <div className="relative aspect-[9/16] w-full max-w-[340px] sm:max-w-[380px] bg-black flex-shrink-0 overflow-hidden">
           <video
             ref={modalVideoRef}
+            src={reel.videoUrl}
             autoPlay
             loop
             playsInline
@@ -563,7 +593,7 @@ function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
 }
 
 function PortfolioPage() {
-  const [selectedFilter, setSelectedFilter] = useState<string>("All");
+  const [activePlayingId, setActivePlayingId] = useState<string>("reel-1");
   const [expandedReel, setExpandedReel] = useState<PortfolioReelItem | null>(null);
 
   useEffect(() => {
@@ -572,16 +602,11 @@ function PortfolioPage() {
     }
   }, []);
 
-  const filteredReels =
-    selectedFilter === "All"
-      ? PORTFOLIO_REELS
-      : PORTFOLIO_REELS.filter((r) => r.category === selectedFilter);
-
   return (
     <div className="min-h-screen w-full overflow-x-clip bg-background text-foreground antialiased selection:bg-neon selection:text-black">
       <Header />
 
-      {/* Main Content: generous pt-36 sm:pt-40 md:pt-44 padding so the fixed navbar with announcement bar never covers content */}
+      {/* Main Content: generous padding so the fixed navbar with announcement bar never covers content */}
       <main className="pt-36 sm:pt-40 md:pt-44 pb-20 px-4 sm:px-6 max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
@@ -596,52 +621,24 @@ function PortfolioPage() {
             </span>
           </div>
 
-          {/* Heading using the exact site font (font-heading font-extrabold) without broken serif wraps */}
-          <h1 className="font-heading text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            See What AI Creative{" "}
-            <span
-              className="inline-block bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-pink-500 bg-clip-text text-transparent font-heading font-extrabold"
-              style={{
-                backgroundImage:
-                  "linear-gradient(120deg, var(--neon-blue), var(--neon), var(--neon-magenta))",
-              }}
-            >
-              Can Look Like
-            </span>
+          {/* Headline: Clean, unified font-heading font-bold text-white in exact same font and optical size */}
+          <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-bold tracking-tight text-white leading-tight">
+            See What AI Creative <span className="text-neon">Can Look Like</span>
           </h1>
 
           <p className="mt-4 text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto font-sans">
             Explore 6 high-converting AI-powered video concepts created across interior architecture, luxury real estate, heritage commercial, animated storytelling, and lifestyle fitness categories.
           </p>
-
-          {/* Filter Pills matching website design tokens */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80 mr-1 hidden sm:inline font-heading">
-              PORTFOLIO FILTERS:
-            </span>
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedFilter(cat)}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer font-heading ${
-                  selectedFilter === cat
-                    ? "bg-gradient-brand text-neon-foreground glow-neon shadow-[0_0_20px_rgba(200,80,255,0.4)] scale-105"
-                    : "border border-border/80 bg-secondary/50 text-muted-foreground hover:text-white hover:border-neon hover:bg-secondary/80"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* 6 Reels Grid in True 9:16 Vertical Reel Format */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
-          {filteredReels.map((reel) => (
+        {/* 6 Reels Grid in True 9:16 Vertical Reel Format (No filter bar, all 6 reels immediately accessible) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto justify-items-center">
+          {PORTFOLIO_REELS.map((reel) => (
             <PortfolioReelCard
               key={reel.id}
               reel={reel}
+              isActive={activePlayingId === reel.id}
+              onActivate={(id) => setActivePlayingId(id)}
               onExpand={(item) => setExpandedReel(item)}
             />
           ))}
