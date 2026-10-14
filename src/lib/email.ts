@@ -358,3 +358,54 @@ Call: tel:${cleanPhone}
     return { success: false, error: httpErr?.message };
   }
 }
+
+
+/** Security alert (failed CRM sign-ins, lockouts). Sent to the CRM alert address. */
+export async function sendSecurityAlertEmail(opts: { to: string; subject: string; html: string; text: string }) {
+  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+  // Same SMTP account as the lead notification emails above.
+  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || "quickuppaistudio1@gmail.com";
+  const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || "ggtodbgiucfdypcj";
+  if (smtpUser && smtpPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: 465,
+        secure: true,
+        auth: { user: smtpUser, pass: smtpPass.replace(/\s+/g, "") },
+      });
+      await transporter.sendMail({
+        from: `"Quickupp AI Studio CRM" <${smtpUser}>`,
+        to: opts.to,
+        subject: opts.subject,
+        text: opts.text,
+        html: opts.html,
+      });
+      return { success: true };
+    } catch (e: any) {
+      console.error("Security alert SMTP failed:", e?.message);
+    }
+  }
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: process.env.RESEND_FROM || "Quickupp CRM <crm@quickuppaistudio.in>",
+          to: [opts.to],
+          subject: opts.subject,
+          html: opts.html,
+          text: opts.text,
+        }),
+      });
+      if (res.ok) return { success: true };
+      console.warn("Security alert Resend failed:", await res.text());
+    } catch (e: any) {
+      console.warn("Security alert Resend error:", e?.message);
+    }
+  }
+  console.warn("Security alert email could not be delivered (SMTP failed and no RESEND_API_KEY fallback).");
+  return { success: false };
+}

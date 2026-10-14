@@ -67,7 +67,6 @@ function CrmLoginPage() {
             email: res.user.email,
             role: res.user.role,
             token: res.token,
-            loginTime: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
           },
           false,
         );

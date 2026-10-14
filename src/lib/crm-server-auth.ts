@@ -197,16 +197,19 @@ export function publicUser(u: CrmUserRow) {
     isProtected: !!u.is_protected,
     createdAt: u.created_at,
     lastLoginAt: u.last_login_at,
+    lockedUntil: u.locked_until && new Date(u.locked_until).getTime() > Date.now() ? new Date(u.locked_until).toISOString() : null,
   };
 }
 
-export async function bumpLoginFailure(user: CrmUserRow, threshold: number) {
+/** Records a failed sign-in. Admin / Leads Manager are locked for `lockMinutes` once they
+ *  reach `threshold` failures in a row. The Super Admin is never locked. */
+export async function bumpLoginFailure(user: CrmUserRow, threshold: number, lockMinutes: number) {
   const attempts = Number(user.failed_attempts || 0) + 1;
-  const patch: Record<string, unknown> = { failed_attempts: attempts };
-  if (attempts >= threshold) {
-    patch.locked_until = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    patch.failed_attempts = 0;
-  }
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const locked = !isSuperAdmin && attempts >= threshold;
+  const lockedUntil = locked ? new Date(Date.now() + lockMinutes * 60 * 1000).toISOString() : null;
+  const patch: Record<string, unknown> = { failed_attempts: locked ? 0 : attempts };
+  if (locked) patch.locked_until = lockedUntil;
   await dbUpdate("crm_users", [{ col: "id", op: "eq", value: user.id }], patch);
-  return attempts >= threshold;
+  return { attempts, locked, lockedUntil };
 }

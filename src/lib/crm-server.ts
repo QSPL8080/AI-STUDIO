@@ -35,7 +35,7 @@ import {
   type CrmUserRow,
   type SessionContext,
 } from "./crm-server-auth";
-import { ROLE_LABEL, normalizeConfig, normalizeMatrix, type CrmRole } from "./crm-permissions";
+import { ROLE_LABEL, lockoutLabel, normalizeConfig, normalizeMatrix, type CrmRole } from "./crm-permissions";
 
 type Fail = { ok: false; code: "UNAUTHENTICATED" | "FORBIDDEN" | "ERROR"; error: string };
 
@@ -140,25 +140,107 @@ function paymentsPin() {
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
+function escapeHtml(v: string) {
+  return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+async function requestInfo() {
+  try {
+    const { getRequestIP, getRequestHeader } = await import("@tanstack/react-start/server");
+    const ip = getRequestIP({ xForwardedFor: true }) || getRequestHeader("x-real-ip") || "Unknown";
+    const ua = getRequestHeader("user-agent") || "Unknown";
+    return { ip: String(ip), ua: String(ua) };
+  } catch {
+    return { ip: "Unknown", ua: "Unknown" };
+  }
+}
+
+/** Emails the CRM alert address about a failed sign-in (every attempt, every account). */
+async function sendFailedLoginAlert(opts: {
+  user: CrmUserRow;
+  attempts: number;
+  threshold: number;
+  locked: boolean;
+  lockedUntil: string | null;
+  lockMinutes: number;
+  alertEmail: string;
+}) {
+  const { user, attempts, threshold, locked, lockedUntil, lockMinutes, alertEmail } = opts;
+  const { ip, ua } = await requestInfo();
+  const when = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" }) + " IST";
+  const isSA = user.role === "SUPER_ADMIN";
+  const status = isSA
+    ? "Super Admin account — never locked."
+    : locked
+      ? `Account LOCKED for ${lockoutLabel(lockMinutes)} (until ${new Date(lockedUntil!).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", timeStyle: "short", dateStyle: "medium" })} IST).`
+      : `Attempt ${attempts} of ${threshold} — the account locks for ${lockoutLabel(lockMinutes)} after ${threshold} failed attempts.`;
+  const subject = locked
+    ? `🔒 CRM account locked: ${user.email}`
+    : `⚠️ Failed CRM sign-in: ${user.email}${isSA ? " (Super Admin)" : ""}`;
+  const rows: [string, string][] = [
+    ["Account", `${user.name} (${user.email})`],
+    ["Role", ROLE_LABEL[user.role]],
+    ["Time", when],
+    ["IP address", ip],
+    ["Device / browser", ua],
+    ["Status", status],
+  ];
+  const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+  <div style="background:${locked ? "#b91c1c" : "#b45309"};color:#fff;padding:14px 18px;font-size:16px;font-weight:bold">${escapeHtml(locked ? "CRM account locked" : "Failed CRM sign-in attempt")}</div>
+  <table style="width:100%;border-collapse:collapse;font-size:14px">${rows
+    .map(([k, v]) => `<tr><td style="padding:10px 18px;color:#6b7280;width:150px;border-top:1px solid #f1f5f9">${escapeHtml(k)}</td><td style="padding:10px 18px;color:#111827;border-top:1px solid #f1f5f9">${escapeHtml(v)}</td></tr>`)
+    .join("")}</table>
+  <div style="padding:12px 18px;font-size:12px;color:#6b7280;background:#f9fafb">AI STUDIO INDIA – Enterprise CRM security alert. If this wasn't you or your team, deactivate the account in User Management.</div>
+</div>`;
+  const text = rows.map(([k, v]) => `${k}: ${v}`).join("\n");
+  try {
+    const { sendSecurityAlertEmail } = await import("./email");
+    await sendSecurityAlertEmail({ to: alertEmail, subject, html, text });
+  } catch (e) {
+    console.warn("Failed-login alert email error:", e);
+  }
+}
+
 export async function login(email: string, password: string) {
   await ensureSeedUsers();
   const config = await loadConfig();
   const user = await findUserByEmail(email);
   const generic = "Invalid email or password.";
   if (!user) return { ok: false as const, error: generic };
-  if (user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
+  const isSA = user.role === "SUPER_ADMIN";
+
+  // Locked accounts (never the Super Admin) are refused until the lock expires.
+  if (!isSA && user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
     const mins = Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60000);
-    return { ok: false as const, error: `Too many failed attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` };
+    const left = mins >= 120 ? `${Math.ceil(mins / 60)} hours` : `${mins} minute${mins === 1 ? "" : "s"}`;
+    return { ok: false as const, error: `This account is locked after too many failed attempts. Try again in ${left}, or ask the Super Admin to unlock it.` };
   }
+
   if (!verifyPassword(password, user.password_hash)) {
-    const locked = await bumpLoginFailure(user, config.failedLoginThreshold);
+    const r = await bumpLoginFailure(user, config.failedLoginThreshold, config.lockoutMinutes);
     await logActivity({
-      title: "Failed sign-in attempt",
+      title: r.locked ? "Account locked" : "Failed sign-in attempt",
       category: "USER_ACTIVITY",
       actorEmail: user.email,
-      description: locked ? "Account locked for 15 minutes after repeated failures." : "Incorrect password entered.",
+      description: isSA
+        ? `Wrong password for the Super Admin account (attempt ${r.attempts}). Super Admin is never locked.`
+        : r.locked
+          ? `Locked for ${lockoutLabel(config.lockoutMinutes)} after ${config.failedLoginThreshold} failed attempts.`
+          : `Wrong password (attempt ${r.attempts} of ${config.failedLoginThreshold}).`,
     });
-    return { ok: false as const, error: locked ? "Too many failed attempts. Account locked for 15 minutes." : generic };
+    await sendFailedLoginAlert({
+      user,
+      attempts: r.attempts,
+      threshold: config.failedLoginThreshold,
+      locked: r.locked,
+      lockedUntil: r.lockedUntil,
+      lockMinutes: config.lockoutMinutes,
+      alertEmail: config.alertEmail,
+    });
+    if (r.locked) {
+      return { ok: false as const, error: `Too many failed attempts. This account is locked for ${lockoutLabel(config.lockoutMinutes)}.` };
+    }
+    return { ok: false as const, error: generic };
   }
   if (user.status !== "ACTIVE") {
     return { ok: false as const, error: "This account has been deactivated. Contact the Super Admin." };
@@ -498,26 +580,6 @@ export async function createUser(token: string, data: { name: string; email: str
   return { ok: true as const, user: publicUser(row) };
 }
 
-export async function changePassword(token: string, userId: string, password: string) {
-  const ctx = await requireSuperAdmin(token);
-  const target = await findUserById(userId);
-  if (!target) throw new Error("User not found.");
-  const pwErr = validatePasswordStrength(password);
-  if (pwErr) throw new Error(pwErr);
-  const nextVersion = Number(target.token_version || 1) + 1;
-  await dbUpdate("crm_users", byId(userId), {
-    password_hash: hashPassword(password),
-    token_version: nextVersion,
-    failed_attempts: 0,
-    locked_until: null,
-    updated_at: new Date().toISOString(),
-  });
-  await logActivity({ title: "Password changed", category: "USER_ACTIVITY", actorEmail: ctx.user.email, description: `Password reset for ${target.email}. Their active sessions were signed out.` });
-  // If the Super Admin changed their own password, hand back a fresh token so they stay signed in.
-  const newToken = target.id === ctx.user.id ? signToken({ id: target.id, token_version: nextVersion }) : undefined;
-  return { ok: true as const, token: newToken };
-}
-
 export async function setUserStatus(token: string, userId: string, status: "ACTIVE" | "INACTIVE") {
   const ctx = await requireSuperAdmin(token);
   const target = await findUserById(userId);
@@ -577,18 +639,67 @@ export async function clearActivity(token: string) {
   return { ok: true as const };
 }
 
-/** Fresh start: permanently deletes ALL leads, orders and activity logs. Users & settings are kept. */
-export async function resetAllData(token: string, confirm: string) {
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+function cleanIds(ids: unknown): string[] {
+  if (!Array.isArray(ids) || !ids.length) throw new Error("Nothing selected.");
+  return ids.slice(0, 500).map(String);
+}
+
+async function deleteByIds(table: string, ids: string[]) {
+  let n = 0;
+  for (let i = 0; i < ids.length; i += 100) n += await dbDelete(table, [{ col: "id", op: "in", value: ids.slice(i, i + 100) }]);
+  return n;
+}
+
+/** Super Admin only — permanently deletes the selected orders (any status). */
+export async function deleteOrders(token: string, ids: string[]) {
   const ctx = await requireSuperAdmin(token);
-  if (confirm !== "DELETE") throw new Error('Type DELETE to confirm.');
-  const leads = await dbDelete(LEADS_TABLE, [{ col: "id", op: "not_null" }]);
-  const orders = await dbDelete(ORDERS_TABLE, [{ col: "id", op: "not_null" }]);
-  await dbDelete("crm_activity_logs", [{ col: "id", op: "not_null" }]);
-  await logActivity({
-    title: "All CRM data reset",
-    category: "SETTINGS",
-    actorEmail: ctx.user.email,
-    description: `${leads} lead(s) and ${orders} order(s) permanently deleted. Activity history cleared.`,
-  });
-  return { ok: true as const, leads, orders };
+  const list = cleanIds(ids);
+  const n = await deleteByIds(ORDERS_TABLE, list);
+  await logActivity({ title: "Orders permanently deleted", category: "ORDERS", actorEmail: ctx.user.email, description: `${n} order(s) removed from the database.` });
+  return { ok: true as const, deleted: n };
+}
+
+/** Super Admin only — deletes the selected activity-history entries. */
+export async function deleteActivities(token: string, ids: string[]) {
+  await requireSuperAdmin(token);
+  const n = await deleteByIds("crm_activity_logs", cleanIds(ids));
+  return { ok: true as const, deleted: n };
+}
+
+/** Restore selected leads from the Recycle Bin (anyone with Recycle Bin access). */
+export async function restoreLeads(token: string, ids: string[]) {
+  let n = 0;
+  for (const id of cleanIds(ids)) {
+    await restoreLead(token, id);
+    n++;
+  }
+  return { ok: true as const, restored: n };
+}
+
+/** Super Admin only — permanently deletes the selected Recycle Bin leads. */
+export async function purgeLeads(token: string, ids: string[]) {
+  const ctx = await requireSuperAdmin(token);
+  const list = cleanIds(ids);
+  // Only leads that are actually in the Recycle Bin
+  const binIds: string[] = [];
+  for (let i = 0; i < list.length; i += 100) {
+    const rows = await dbSelect(LEADS_TABLE, { columns: ["id"], filters: [{ col: "id", op: "in", value: list.slice(i, i + 100) }, { col: "deleted_at", op: "not_null" }] });
+    binIds.push(...rows.map((r: any) => r.id as string));
+  }
+  const n = binIds.length ? await deleteByIds(LEADS_TABLE, binIds) : 0;
+  await logActivity({ title: "Leads permanently deleted", category: "LEADS", actorEmail: ctx.user.email, description: `${n} lead(s) purged from the Recycle Bin.` });
+  return { ok: true as const, deleted: n };
+}
+
+/** Super Admin only — clears a sign-in lockout. */
+export async function unlockUser(token: string, userId: string) {
+  const ctx = await requireSuperAdmin(token);
+  const target = await findUserById(userId);
+  if (!target) throw new Error("User not found.");
+  await dbUpdate("crm_users", byId(userId), { locked_until: null, failed_attempts: 0, updated_at: new Date().toISOString() });
+  await logActivity({ title: "User unlocked", category: "USER_ACTIVITY", actorEmail: ctx.user.email, description: `Sign-in lock removed for ${target.email}.` });
+  return { ok: true as const };
 }

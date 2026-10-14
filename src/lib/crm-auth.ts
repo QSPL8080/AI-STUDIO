@@ -9,7 +9,6 @@ export interface CrmUser {
   email: string;
   role: CrmRole;
   token: string;
-  loginTime: string;
 }
 
 const STORAGE_KEY = "quickupp_crm_auth_session_v2";

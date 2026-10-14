@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
-  AlertTriangle,
   Calendar,
   ArrowLeft,
   Bell,
@@ -12,7 +11,6 @@ import {
   Eye,
   EyeOff,
   Globe,
-  KeyRound,
   Layers,
   LayoutGrid,
   Lock,
@@ -39,7 +37,6 @@ import {
 } from "lucide-react";
 import { CrmUser, clearStoredCrmUser, setStoredCrmUser } from "@/lib/crm-auth";
 import {
-  crmChangePasswordFn,
   crmClearActivityFn,
   crmClearLeadsFn,
   crmCreateLeadFn,
@@ -49,11 +46,15 @@ import {
   crmDeleteLeadsFn,
   crmLeadHistoryFn,
   crmDeleteOrderFn,
+  crmDeleteOrdersFn,
+  crmDeleteActivitiesFn,
+  crmRestoreLeadsFn,
+  crmPurgeLeadsFn,
+  crmUnlockUserFn,
   crmDeleteUserFn,
   crmEmptyRecycleBinFn,
   crmLogoutFn,
   crmPurgeLeadFn,
-  crmResetAllDataFn,
   crmRestoreLeadFn,
   crmSaveConfigFn,
   crmSaveMatrixFn,
@@ -65,6 +66,8 @@ import {
 import {
   DEFAULT_CONFIG,
   DEFAULT_MATRIX,
+  LOCKOUT_OPTIONS,
+  lockoutLabel,
   PERMISSION_ROWS,
   ROLE_LABEL,
   type CrmConfig,
@@ -239,12 +242,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [showAddMetaModal, setShowAddMetaModal] = useState(false);
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
-  const [passwordTarget, setPasswordTarget] = useState<UserItem | null>(null);
   const [selectedLead, setSelectedLead] = useState<LeadItem | null>(null);
   const [leadHistory, setLeadHistory] = useState<ActivityItem[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
-  const [showResetModal, setShowResetModal] = useState(false);
 
   const [newLeadForm, setNewLeadForm] = useState({ clientName: "", email: "", phone: "", business: "", videoScope: "AI UGC Video Ads", notes: "" });
   const [newMetaForm, setNewMetaForm] = useState({
@@ -260,9 +261,6 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   });
   const [newUserForm, setNewUserForm] = useState({ name: "", email: "", password: "", role: "ADMIN" as ManagedRole });
   const [showNewUserPw, setShowNewUserPw] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [resetConfirm, setResetConfirm] = useState("");
 
   // Settings drafts
   const [configDraft, setConfigDraft] = useState<CrmConfig>(DEFAULT_CONFIG);
@@ -659,22 +657,55 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     doSync();
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!passwordTarget) return;
-    setBusy("password");
-    const r = await call(crmChangePasswordFn({ data: { token: tok(), userId: passwordTarget.id, password: newPassword } }));
-    setBusy(null);
+  const handleUnlockUser = async (u: UserItem) => {
+    const r = await call(crmUnlockUserFn({ data: { token: tok(), userId: u.id } }));
     if (!r) return;
-    if (r.token) {
-      tokenRef.current = r.token;
-      const updated = { ...me, token: r.token };
-      setMe(updated);
-      setStoredCrmUser(updated, false);
-    }
-    toast(`Password updated for ${passwordTarget.email}.${r.token ? "" : " Their active sessions were signed out."}`);
-    setPasswordTarget(null);
-    setNewPassword("");
+    toast(`${u.email} unlocked — they can sign in again.`);
+    doSync();
+  };
+
+  const confirmBulk = (msg: string) => window.confirm(msg);
+
+  const handleBulkOrders = async () => {
+    const ids = selectedIds.filter((id) => (orders || []).some((o) => o.id === id));
+    if (!ids.length || !confirmBulk(`Permanently delete ${ids.length} order(s)?\n\nThey are removed from the database and cannot be recovered.`)) return;
+    const r = await call(crmDeleteOrdersFn({ data: { token: tok(), ids } }));
+    if (!r) return doSync();
+    setOrders((prev) => (prev ? prev.filter((o) => !ids.includes(o.id)) : prev));
+    setSelectedIds([]);
+    toast(`${r.deleted} order(s) permanently deleted.`);
+    doSync();
+  };
+
+  const handleBulkActivity = async () => {
+    const ids = selectedIds.filter((id) => activity.some((a) => a.id === id));
+    if (!ids.length || !confirmBulk(`Delete ${ids.length} activity entr${ids.length === 1 ? "y" : "ies"}?`)) return;
+    const r = await call(crmDeleteActivitiesFn({ data: { token: tok(), ids } }));
+    if (!r) return doSync();
+    setActivity((prev) => prev.filter((a) => !ids.includes(a.id)));
+    setSelectedIds([]);
+    toast(`${r.deleted} entr${r.deleted === 1 ? "y" : "ies"} deleted.`);
+  };
+
+  const handleBulkRestore = async () => {
+    const ids = selectedIds.filter((id) => recycleBin.some((l) => l.id === id));
+    if (!ids.length) return;
+    const r = await call(crmRestoreLeadsFn({ data: { token: tok(), ids } }));
+    if (!r) return doSync();
+    setRecycleBin((prev) => prev.filter((l) => !ids.includes(l.id)));
+    setSelectedIds([]);
+    toast(`${r.restored} lead(s) restored.`);
+    doSync();
+  };
+
+  const handleBulkPurge = async () => {
+    const ids = selectedIds.filter((id) => recycleBin.some((l) => l.id === id));
+    if (!ids.length || !confirmBulk(`Permanently delete ${ids.length} lead(s) from the database?\n\nThis cannot be undone.`)) return;
+    const r = await call(crmPurgeLeadsFn({ data: { token: tok(), ids } }));
+    if (!r) return doSync();
+    setRecycleBin((prev) => prev.filter((l) => !ids.includes(l.id)));
+    setSelectedIds([]);
+    toast(`${r.deleted} lead(s) permanently deleted.`);
     doSync();
   };
 
@@ -716,19 +747,6 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     setMatrixDraft(r.matrix);
     setMatrixDirty(false);
     toast("Permissions saved — applied to all signed-in users.");
-    doSync();
-  };
-
-  const handleResetAll = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy("reset");
-    const r = await call(crmResetAllDataFn({ data: { token: tok(), confirm: resetConfirm } }));
-    setBusy(null);
-    if (!r) return;
-    setShowResetModal(false);
-    setResetConfirm("");
-    setOrders((o) => (o ? [] : o));
-    toast(`Fresh start: ${r.leads} lead(s) and ${r.orders} order(s) deleted.`);
     doSync();
   };
 
@@ -821,7 +839,6 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               <div className="hidden md:block h-8 w-px bg-white/10" />
               <div className="hidden md:flex flex-col min-w-0">
                 <span className="text-[15px] font-semibold text-white truncate leading-tight">{config.crmTitle}</span>
-                <span className="text-xs text-slate-500 leading-tight mt-0.5">Signed in {me.loginTime}</span>
               </div>
               <span className={`hidden sm:inline-flex shrink-0 text-xs font-semibold px-2.5 py-1 rounded-md border ${roleBadge(me.role)}`}>{ROLE_LABEL[me.role]}</span>
             </div>
@@ -1170,18 +1187,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 )}
               </div>
 
-              {selectedIds.length > 0 && canDelete && (
-                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-md border border-purple-500/30 bg-purple-950/30">
-                  <span className="text-sm text-purple-200 font-medium">{selectedIds.length} selected</span>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setSelectedIds([])} className={btnGhost}>
-                      Clear selection
-                    </button>
-                    <button onClick={() => handleBulkDelete(shown)} className={btnDanger}>
-                      <Trash2 className="w-4 h-4" /> {isSuperAdmin ? "Delete permanently" : "Move to Recycle Bin"}
-                    </button>
-                  </div>
-                </div>
+              {canDelete && (
+                <BulkBar count={selectedIds.filter((id) => shown.some((l) => l.id === id)).length} onClear={() => setSelectedIds([])}>
+                  <button onClick={() => handleBulkDelete(shown)} className={btnDanger}>
+                    <Trash2 className="w-4 h-4" /> {isSuperAdmin ? "Delete permanently" : "Move to Recycle Bin"}
+                  </button>
+                </BulkBar>
               )}
 
               <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
@@ -1386,6 +1397,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </select>
             </div>
 
+            {isSuperAdmin && (
+              <BulkBar count={selectedIds.filter((id) => shownOrders.some((o) => o.id === id)).length} onClear={() => setSelectedIds([])}>
+                <button onClick={handleBulkOrders} className={btnDanger}>
+                  <Trash2 className="w-4 h-4" /> Delete permanently
+                </button>
+              </BulkBar>
+            )}
+
             <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
               {shownOrders.length === 0 ? (
                 <Empty icon={<Package className="w-8 h-8" />} title={orders.length ? "No orders match the current filter" : "No payment transactions yet"} text="Checkout orders appear here automatically." />
@@ -1394,6 +1413,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   <table className="w-full min-w-[960px] text-left text-[13px]">
                     <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                       <tr>
+                        {isSuperAdmin && (
+                          <th className="p-3.5 w-10">
+                            <SelectAll ids={shownOrders.map((o) => o.id)} selected={selectedIds} setSelected={setSelectedIds} />
+                          </th>
+                        )}
                         <th className="p-3.5">Customer</th>
                         <th className="p-3.5">Package / Item</th>
                         <th className="p-3.5">Amount</th>
@@ -1405,7 +1429,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </thead>
                     <tbody className="divide-y divide-white/[0.05]">
                       {shownOrders.map((o) => (
-                        <tr key={o.id} className="hover:bg-white/[0.02]">
+                        <tr key={o.id} className={selectedIds.includes(o.id) ? "bg-purple-500/[0.06]" : "hover:bg-white/[0.02]"}>
+                          {isSuperAdmin && (
+                            <td className="p-3.5">
+                              <SelectOne id={o.id} selected={selectedIds} setSelected={setSelectedIds} />
+                            </td>
+                          )}
                           <td className="p-3.5">
                             <div className="font-bold text-white">{o.customerName}</div>
                             <div className="text-xs text-slate-400">{o.customerEmail}</div>
@@ -1489,13 +1518,28 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               ))}
             </div>
 
+            <BulkBar count={selectedIds.filter((id) => shownActivity.some((a) => a.id === id)).length} onClear={() => setSelectedIds([])}>
+              <button onClick={handleBulkActivity} className={btnDanger}>
+                <Trash2 className="w-4 h-4" /> Delete selected
+              </button>
+            </BulkBar>
+
             <div className={`${card} divide-y divide-white/[0.06] overflow-y-auto max-h-[70vh] lg:max-h-none lg:min-h-0 lg:shrink`}>
+              {shownActivity.length > 0 && (
+                <label className="sticky top-0 z-10 bg-[#101522] px-5 py-2.5 flex items-center gap-3 text-xs uppercase tracking-wider text-slate-400 cursor-pointer">
+                  <SelectAll ids={shownActivity.map((a) => a.id)} selected={selectedIds} setSelected={setSelectedIds} />
+                  Select all ({shownActivity.length})
+                </label>
+              )}
               {shownActivity.length === 0 ? (
                 <Empty icon={<Clock className="w-8 h-8" />} title="No activity recorded" text="Actions in the CRM are logged here." />
               ) : (
                 shownActivity.map((a) => (
-                  <div key={a.id} className="px-5 py-3.5 flex items-start justify-between gap-4">
+                  <div key={a.id} className={`px-5 py-3.5 flex items-start justify-between gap-4 ${selectedIds.includes(a.id) ? "bg-purple-500/[0.06]" : ""}`}>
                     <div className="flex items-start gap-3 min-w-0">
+                      <span className="mt-0.5">
+                        <SelectOne id={a.id} selected={selectedIds} setSelected={setSelectedIds} />
+                      </span>
                       <Shield className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -1532,7 +1576,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               icon={<UserCheck className="w-5 h-5 text-purple-400" />}
               title="User Management"
               badge="Super Admin only"
-              subtitle="Create Admins and Leads Managers, change passwords, deactivate or permanently delete accounts."
+              subtitle="Create Admins and Leads Managers, unlock, deactivate or permanently delete accounts."
             >
               <button
                 onClick={() => setShowCreateUserModal(true)}
@@ -1575,20 +1619,22 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                           >
                             {u.status === "ACTIVE" ? "Active" : "Deactivated"}
                           </span>
+                          {u.lockedUntil && (
+                            <div className="mt-1 text-[11px] text-red-300">Locked until {fmtIst(u.lockedUntil)}</div>
+                          )}
                         </td>
                         <td className="p-3.5 text-slate-400 font-mono whitespace-nowrap">{fmtIst(u.lastLoginAt)}</td>
                         <td className="p-3.5 text-slate-400 font-mono whitespace-nowrap">{fmtIst(u.createdAt)}</td>
                         <td className="p-3.5">
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => {
-                                setPasswordTarget(u);
-                                setNewPassword("");
-                              }}
-                              className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-blue-500/30 text-blue-300 hover:bg-blue-500/10"
-                            >
-                              <KeyRound className="w-3.5 h-3.5" /> Password
-                            </button>
+                            {u.lockedUntil && (
+                              <button
+                                onClick={() => handleUnlockUser(u)}
+                                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-blue-500/30 text-blue-300 hover:bg-blue-500/10"
+                              >
+                                <Lock className="w-3.5 h-3.5" /> Unlock
+                              </button>
+                            )}
                             {u.isProtected || u.role === "SUPER_ADMIN" ? (
                               <span className="inline-flex items-center gap-1 text-slate-500 text-xs px-2">
                                 <Lock className="w-3 h-3" /> Protected
@@ -1824,18 +1870,6 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     {online ? "Online & healthy" : "Database unreachable"}
                   </span>
                 </div>
-
-                <div className="mt-2 p-4 rounded-md border border-red-500/25 bg-red-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[13px] font-semibold text-red-300 flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4" /> Fresh start — delete all CRM data
-                    </div>
-                    <div className="text-xs text-slate-400 mt-0.5">Permanently deletes every lead (website + Meta + Recycle Bin), every order and the activity history. User accounts and settings are kept.</div>
-                  </div>
-                  <button onClick={() => setShowResetModal(true)} className={btnDanger}>
-                    <Trash2 className="w-4 h-4" /> Delete all data
-                  </button>
-                </div>
               </div>
             )}
 
@@ -1845,7 +1879,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   <h2 className="font-semibold text-white text-sm">Security policies</h2>
                   <p className="text-[13px] text-slate-400 mt-0.5">Applied to every account. Save with the button above.</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Field label="Inactivity auto sign-out" hint={`In effect: ${config.inactivityMinutes} minutes`}>
                     <select value={configDraft.inactivityMinutes} onChange={(e) => updateConfigDraft({ inactivityMinutes: Number(e.target.value) })} className={inputCls}>
                       <option value={10}>10 minutes (recommended)</option>
@@ -1853,17 +1887,29 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       <option value={60}>60 minutes</option>
                     </select>
                   </Field>
-                  <Field label="Failed sign-in lockout" hint={`In effect: lock for 15 minutes after ${config.failedLoginThreshold} failed attempts`}>
+                  <Field label="Lock account after" hint={`In effect: ${config.failedLoginThreshold} failed attempts in a row`}>
                     <select value={configDraft.failedLoginThreshold} onChange={(e) => updateConfigDraft({ failedLoginThreshold: Number(e.target.value) })} className={inputCls}>
                       <option value={3}>3 failed attempts (strict)</option>
                       <option value={5}>5 failed attempts</option>
                     </select>
                   </Field>
+                  <Field label="Lockout duration (Admin & Leads Manager)" hint={`In effect: locked for ${lockoutLabel(config.lockoutMinutes)}. Super Admin is never locked.`}>
+                    <select value={configDraft.lockoutMinutes} onChange={(e) => updateConfigDraft({ lockoutMinutes: Number(e.target.value) })} className={inputCls}>
+                      {LOCKOUT_OPTIONS.map((o) => (
+                        <option key={o.minutes} value={o.minutes}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
                 </div>
                 <div className="p-4 rounded-md border border-white/[0.07] bg-white/[0.02] text-[13px] text-slate-400 space-y-1">
                   <div className="text-white font-semibold">How sessions are protected</div>
+                  <div>• Every failed sign-in (any account, including Super Admin) is emailed to {config.alertEmail}.</div>
+                  <div>• Admins and Leads Managers are locked for {lockoutLabel(config.lockoutMinutes)} after {config.failedLoginThreshold} failed attempts. Unlock them early from User Management.</div>
+                  <div>• The Super Admin account is never locked — failed attempts only send the alert email.</div>
+                  <div>• Users are signed out automatically after {config.inactivityMinutes} minutes of inactivity.</div>
                   <div>• Deactivating or deleting a user signs them out on their next refresh (within {config.pollingSeconds}s).</div>
-                  <div>• Changing a user's password signs out all of their active sessions.</div>
                   <div>• The Orders tab PIN is set with the ADMIN_PAYMENT_PIN server variable in Hostinger.</div>
                 </div>
               </div>
@@ -1891,6 +1937,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               )}
             </PageHeader>
 
+            <BulkBar count={selectedIds.filter((id) => recycleBin.some((l) => l.id === id)).length} onClear={() => setSelectedIds([])}>
+              <button onClick={handleBulkRestore} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold">
+                <RotateCcw className="w-4 h-4" /> Restore selected
+              </button>
+              {isSuperAdmin && (
+                <button onClick={handleBulkPurge} className={btnDanger}>
+                  <Trash2 className="w-4 h-4" /> Delete permanently
+                </button>
+              )}
+            </BulkBar>
+
             <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
               {recycleBin.length === 0 ? (
                 <Empty icon={<Trash2 className="w-8 h-8" />} title="Recycle Bin is empty" text="Soft-deleted leads appear here." />
@@ -1899,6 +1956,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   <table className="w-full min-w-[860px] text-left text-[13px]">
                     <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                       <tr>
+                        <th className="p-3.5 w-10">
+                          <SelectAll ids={recycleBin.map((l) => l.id)} selected={selectedIds} setSelected={setSelectedIds} />
+                        </th>
                         <th className="p-3.5">Type</th>
                         <th className="p-3.5">Name</th>
                         <th className="p-3.5">Phone / Email</th>
@@ -1910,7 +1970,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </thead>
                     <tbody className="divide-y divide-white/[0.05]">
                       {recycleBin.map((l) => (
-                        <tr key={l.id} className="hover:bg-white/[0.02]">
+                        <tr key={l.id} className={selectedIds.includes(l.id) ? "bg-purple-500/[0.06]" : "hover:bg-white/[0.02]"}>
+                          <td className="p-3.5">
+                            <SelectOne id={l.id} selected={selectedIds} setSelected={setSelectedIds} />
+                          </td>
                           <td className="p-3.5 text-slate-400">{l.kind === "meta" ? "Meta lead" : "Website lead"}</td>
                           <td className="p-3.5 font-bold text-white">{l.clientName}</td>
                           <td className="p-3.5 text-slate-300">
@@ -2085,57 +2148,6 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </select>
             </Field>
             <ModalActions onCancel={() => setShowCreateUserModal(false)} submitLabel={busy === "create-user" ? "Creating..." : "Create User"} disabled={busy === "create-user"} />
-          </form>
-        </Modal>
-      )}
-
-      {passwordTarget && (
-        <Modal
-          onClose={() => setPasswordTarget(null)}
-          title="Change Password"
-          subtitle={`${passwordTarget.name} • ${passwordTarget.email}${passwordTarget.id === me.id ? "" : " — they will be signed out of active sessions."}`}
-          icon={<KeyRound className="w-5 h-5" />}
-        >
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <Field label="New password" hint="At least 6 characters.">
-              <div className="relative">
-                <input
-                  type={showNewPassword ? "text" : "password"}
-                  required
-                  minLength={6}
-                  autoFocus
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className={`${inputCls} pr-10`}
-                />
-                <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
-                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </Field>
-            <ModalActions onCancel={() => setPasswordTarget(null)} submitLabel={busy === "password" ? "Saving..." : "Update Password"} disabled={busy === "password"} />
-          </form>
-        </Modal>
-      )}
-
-      {showResetModal && (
-        <Modal onClose={() => setShowResetModal(false)} title="Delete all CRM data?" subtitle="Leads, orders and activity history are permanently deleted from the database." icon={<AlertTriangle className="w-5 h-5" />}>
-          <form onSubmit={handleResetAll} className="space-y-4">
-            <Field label='Type "DELETE" to confirm'>
-              <input value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} autoFocus className={inputCls} />
-            </Field>
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button type="button" onClick={() => setShowResetModal(false)} className={btnGhost}>
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={resetConfirm !== "DELETE" || busy === "reset"}
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white text-[13px] font-semibold"
-              >
-                <Trash2 className="w-4 h-4" /> {busy === "reset" ? "Deleting..." : "Delete everything"}
-              </button>
-            </div>
           </form>
         </Modal>
       )}
@@ -2453,6 +2465,46 @@ function Empty({ icon, title, text }: { icon: React.ReactNode; title: string; te
       <div className="font-semibold text-sm text-slate-300">{title}</div>
       <div className="text-[13px] text-slate-500 mt-1 max-w-sm mx-auto">{text}</div>
     </div>
+  );
+}
+
+function BulkBar({ count, onClear, children }: { count: number; onClear: () => void; children: React.ReactNode }) {
+  if (!count) return null;
+  return (
+    <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-md border border-purple-500/30 bg-purple-950/30">
+      <span className="text-sm text-purple-200 font-medium">{count} selected</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={onClear} className={btnGhost}>
+          Clear selection
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SelectAll({ ids, selected, setSelected }: { ids: string[]; selected: string[]; setSelected: React.Dispatch<React.SetStateAction<string[]>> }) {
+  const all = ids.length > 0 && ids.every((id) => selected.includes(id));
+  return (
+    <input
+      type="checkbox"
+      aria-label="Select all"
+      checked={all}
+      onChange={(e) => setSelected(e.target.checked ? Array.from(new Set([...selected, ...ids])) : selected.filter((id) => !ids.includes(id)))}
+      className="w-4 h-4 accent-purple-600 cursor-pointer"
+    />
+  );
+}
+
+function SelectOne({ id, selected, setSelected }: { id: string; selected: string[]; setSelected: React.Dispatch<React.SetStateAction<string[]>> }) {
+  return (
+    <input
+      type="checkbox"
+      aria-label="Select row"
+      checked={selected.includes(id)}
+      onChange={(e) => setSelected((prev) => (e.target.checked ? [...prev, id] : prev.filter((x) => x !== id)))}
+      className="w-4 h-4 accent-purple-600 cursor-pointer"
+    />
   );
 }
 

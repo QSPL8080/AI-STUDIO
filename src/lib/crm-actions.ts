@@ -131,13 +131,6 @@ export const crmCreateUserFn = createServerFn({ method: "POST" })
     return s.guard(() => s.createUser(data.token, data));
   });
 
-export const crmChangePasswordFn = createServerFn({ method: "POST" })
-  .validator((d: Tok & { userId: string; password: string }) => d)
-  .handler(async ({ data }) => {
-    const s = await srv();
-    return s.guard(() => s.changePassword(data.token, data.userId, data.password));
-  });
-
 export const crmSetUserStatusFn = createServerFn({ method: "POST" })
   .validator((d: Tok & { userId: string; status: "ACTIVE" | "INACTIVE" }) => d)
   .handler(async ({ data }) => {
@@ -180,9 +173,37 @@ export const crmClearActivityFn = createServerFn({ method: "POST" })
     return s.guard(() => s.clearActivity(data.token));
   });
 
-export const crmResetAllDataFn = createServerFn({ method: "POST" })
-  .validator((d: Tok & { confirm: string }) => d)
+export const crmDeleteOrdersFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { ids: string[] }) => d)
   .handler(async ({ data }) => {
     const s = await srv();
-    return s.guard(() => s.resetAllData(data.token, data.confirm));
+    return s.guard(() => s.deleteOrders(data.token, data.ids));
+  });
+
+export const crmDeleteActivitiesFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { ids: string[] }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.deleteActivities(data.token, data.ids));
+  });
+
+export const crmRestoreLeadsFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { ids: string[] }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.restoreLeads(data.token, data.ids));
+  });
+
+export const crmPurgeLeadsFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { ids: string[] }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.purgeLeads(data.token, data.ids));
+  });
+
+export const crmUnlockUserFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { userId: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.unlockUser(data.token, data.userId));
   });

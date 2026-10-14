@@ -37,7 +37,7 @@ export const PERMISSION_ROWS: PermRowDef[] = [
   { key: "export", module: "Export Leads & Campaign Data (CSV)", location: "Export CSV buttons", locked: false },
   { key: "purge", module: "Permanent Delete (leads, orders, users) & Empty Recycle Bin", location: "Irreversible database delete", locked: "super_admin_only" },
   { key: "activity", module: "Activity History / Audit Log", location: "Activity History tab", locked: "super_admin_only" },
-  { key: "users", module: "Create, Deactivate, Delete Users & Change Passwords", location: "User Management tab", locked: "super_admin_only" },
+  { key: "users", module: "Create, Unlock, Deactivate & Delete Users", location: "User Management tab", locked: "super_admin_only" },
   { key: "settings", module: "CRM Settings, Permissions & Access All Records", location: "CRM Settings tab", locked: "super_admin_only" },
 ];
 
@@ -96,6 +96,28 @@ export const ROLE_LABEL: Record<CrmRole, string> = {
   LEADS_MANAGER: "Leads Manager",
 };
 
+export const LOCKOUT_OPTIONS: { minutes: number; label: string }[] = [
+  { minutes: 1, label: "1 minute" },
+  { minutes: 2, label: "2 minutes" },
+  { minutes: 5, label: "5 minutes" },
+  { minutes: 10, label: "10 minutes" },
+  { minutes: 20, label: "20 minutes" },
+  { minutes: 30, label: "30 minutes" },
+  { minutes: 45, label: "45 minutes" },
+  { minutes: 60, label: "60 minutes" },
+  { minutes: 120, label: "2 hours" },
+  { minutes: 300, label: "5 hours" },
+  { minutes: 480, label: "8 hours" },
+  { minutes: 720, label: "12 hours" },
+  { minutes: 960, label: "16 hours" },
+  { minutes: 1080, label: "18 hours" },
+  { minutes: 1440, label: "24 hours" },
+];
+
+export function lockoutLabel(minutes: number) {
+  return LOCKOUT_OPTIONS.find((o) => o.minutes === minutes)?.label || `${minutes} minutes`;
+}
+
 export interface CrmConfig {
   crmTitle: string;
   alertEmail: string;
@@ -103,6 +125,8 @@ export interface CrmConfig {
   audioChimeEnabled: boolean;
   inactivityMinutes: number;
   failedLoginThreshold: number;
+  /** How long an Admin / Leads Manager is locked after too many failed sign-ins. Super Admin is never locked. */
+  lockoutMinutes: number;
 }
 
 export const DEFAULT_CONFIG: CrmConfig = {
@@ -112,6 +136,7 @@ export const DEFAULT_CONFIG: CrmConfig = {
   audioChimeEnabled: true,
   inactivityMinutes: 10,
   failedLoginThreshold: 3,
+  lockoutMinutes: 10,
 };
 
 export function normalizeConfig(input: unknown): CrmConfig {
@@ -124,5 +149,6 @@ export function normalizeConfig(input: unknown): CrmConfig {
     audioChimeEnabled: typeof src.audioChimeEnabled === "boolean" ? src.audioChimeEnabled : DEFAULT_CONFIG.audioChimeEnabled,
     inactivityMinutes: pick(Number(src.inactivityMinutes), [10, 30, 60], DEFAULT_CONFIG.inactivityMinutes),
     failedLoginThreshold: pick(Number(src.failedLoginThreshold), [3, 5], DEFAULT_CONFIG.failedLoginThreshold),
+    lockoutMinutes: pick(Number(src.lockoutMinutes), LOCKOUT_OPTIONS.map((o) => o.minutes), DEFAULT_CONFIG.lockoutMinutes),
   };
 }
