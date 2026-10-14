@@ -14,32 +14,32 @@ export const samples = [
     format: "AI UGC",
     industry: "Dental & Healthcare",
     description: "Creator-style AI UGC video showcasing dental services and solutions to common teeth problems.",
-    videoUrl: "/videos/UGC%20Sample%20new.mp4?v=1",
+    videoUrl: "/videos/ugc-sample.mp4",
   },
   {
     format: "AI Avatar",
     industry: "Hospitality & Food",
     description: "AI avatar presenter reel highlighting a hotel's diverse food menu and dining varieties.",
-    videoUrl: "/videos/Avtar%20Sample%20new.mp4?v=1",
+    videoUrl: "/videos/avatar-sample.mp4",
   },
   {
     format: "Hyper-Realistic",
     industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
-    videoUrl: "/videos/Hyper%20Realistic%20Sample.mp4?v=2",
+    videoUrl: "/videos/hyper-realistic-sample.mp4",
   },
   {
     format: "AI Cartoon",
     industry: "Food & Confectionery",
     description:
       "Engaging animated brand storytelling reel with custom characters for Chitale Kesar Modak.",
-    videoUrl: "/videos/Cartoon%20Sample.mp4?v=2",
+    videoUrl: "/videos/cartoon-sample.mp4",
   },
   {
     format: "Digital Twin",
     industry: "Founder Branding",
     description: "Founder-led update reel created from an approved digital twin.",
-    videoUrl: "/videos/Digital%20Twin%20Sample.mp4?v=2",
+    videoUrl: "/videos/digital-twin-sample.mp4",
   },
 ];
 
@@ -48,36 +48,36 @@ export const portfolioItems = [
     industry: "3D Character Animation",
     description:
       "Expressive 3D character animation and storytelling reel for creative brands and entertainment.",
-    videoUrl: "/videos/Cartoon%20Portfolio.mp4?v=3",
+    videoUrl: "/videos/cartoon-portfolio.mp4",
   },
   {
     industry: "D2C & Consumer Brands",
     description:
       "Authentic creator-led AI UGC product review and demonstration reel designed for high conversions.",
-    videoUrl: "/videos/UGC%20Porfolio.mp4?v=3",
+    videoUrl: "/videos/ugc-portfolio.mp4",
   },
   {
     industry: "Interior Design & Architecture",
     description:
       "High-impact AI avatar presenter reel showcasing 360° growth solutions and premium client acquisition for interior designers.",
-    videoUrl: "/videos/Avtar%20Portfolio.mp4?v=3",
+    videoUrl: "/videos/avatar-portfolio.mp4",
   },
   {
     industry: "Jewellery & Luxury",
     description: "Cinematic product advertisement for a luxury jewellery collection.",
-    videoUrl: "/videos/Jwellery%20Portfolio.mp4?v=1",
+    videoUrl: "/videos/jewellery-portfolio.mp4",
   },
   {
     industry: "Digital Twin",
     description:
       "Founder-led brand update reel powered by a hyper-realistic digital twin — no camera, no studio needed.",
-    videoUrl: "/videos/Digital%20Twin%20Sample.mp4?v=3",
+    videoUrl: "/videos/digital-twin-sample.mp4",
   },
   {
     industry: "AI Video Production",
     description:
       "Professional AI-powered video production reel showcasing cinematic quality and brand storytelling.",
-    videoUrl: "/videos/Portflio%206.mp4?v=3",
+    videoUrl: "/videos/portfolio-6.mp4",
   },
 ];
 
@@ -575,13 +575,13 @@ export const faqs = [
 ];
 
 export const nav = [
-  { label: "Samples", href: "#samples" },
-  { label: "Services", href: "#services" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Portfolio", href: "#portfolio" },
-  { label: "How It Works", href: "#process" },
-  { label: "FAQ", href: "#faq" },
-  { label: "Contact", href: "#contact" },
+  { label: "Samples", href: "/#samples" },
+  { label: "Services", href: "/#services" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "Portfolio", href: "/portfolio" },
+  { label: "How It Works", href: "/#process" },
+  { label: "FAQ", href: "/#faq" },
+  { label: "Contact", href: "/#contact" },
 ];
 
 export const footerTagline = "AI-Powered Videos. Built for Your Business.";
@@ -594,5 +594,16 @@ export const footerIndiaAddress =
 export const footerIndiaMapUrl = "https://maps.app.goo.gl/geUWrpRet8nY8qbW6";
 export const footerCopyright = `© ${new Date().getFullYear()} Quickupp AI Studio. All rights reserved.`;
 
-export const standardWhatsAppMessage =
-  "Hello Quickupp AI Studio Team,\n\nI would like to explore AI Video Production services for my business. Please share details regarding available video formats, packages, pricing, and turnaround time.\n\nLooking forward to your response.\n\nThank you!";
+export const standardWhatsAppMessage = `Hello Quickupp AI Studio Team,
+
+I'm interested in exploring professional AI Video Production services for my business.
+
+🌐 *Website:* https://quickuppaistudio.in/
+✉️ *Email:* info@quickuppaistudio.in
+
+📋 *Inquiry Details:*
+• Service: AI Video Production (UGC / Avatar / Cartoon / Digital Twin)
+• Business / Brand: 
+• Content Goal: High-converting Reels & Ads
+
+Please share available packages, pricing, and next steps. Looking forward to connecting!`;

@@ -458,18 +458,12 @@ export function CrmApp({ user }: { user: CrmUser }) {
             </div>
           </div>
 
-          {/* Center: Live Dual Clocks (IST and EDT) */}
+          {/* Center: Live Real-Time India Clock */}
           <div className="hidden lg:flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 border border-white/10 text-[11px] font-mono text-slate-300">
-              <Clock className="w-3 h-3 text-amber-400" />
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/80 border border-white/10 text-xs font-mono text-slate-300">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
               <span className="text-amber-300 font-semibold">IN (IST)</span>
               <span>{istTime || "06:08:45 pm"}</span>
-            </div>
-
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 border border-white/10 text-[11px] font-mono text-slate-300">
-              <Clock className="w-3 h-3 text-cyan-400" />
-              <span className="text-cyan-300 font-semibold">US (EDT)</span>
-              <span>{edtTime || "08:38:45 AM"}</span>
             </div>
           </div>
 
@@ -526,12 +520,8 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   </div>
                   <div className="py-2 space-y-2">
                     <div className="p-2 rounded bg-white/5 text-slate-300">
-                      <div className="font-medium text-white">Meta Lead Synced</div>
-                      <div className="text-[11px] text-slate-400">Chinwe Ekwedike submitted a lead form.</div>
-                    </div>
-                    <div className="p-2 rounded bg-white/5 text-slate-300">
-                      <div className="font-medium text-white">Strategy Call Scheduled</div>
-                      <div className="text-[11px] text-slate-400">Chinwe booked 30 Min Strategy Call.</div>
+                      <div className="font-medium text-white">India CRM Active</div>
+                      <div className="text-[11px] text-slate-400">System listening for website submissions & bookings.</div>
                     </div>
                   </div>
                 </div>
@@ -654,27 +644,34 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   </div>
 
                   <div className="py-4 space-y-3">
-                    {metaLeads.slice(0, 3).map((lead) => (
-                      <div
-                        key={lead.id}
-                        className="flex items-center justify-between p-3 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm text-white">{lead.clientName}</span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-900/60 text-purple-300 border border-purple-500/30">
-                              Meta (Facebook Lead Ads)
-                            </span>
+                    {metaLeads.length > 0 ? (
+                      metaLeads.slice(0, 3).map((lead) => (
+                        <div
+                          key={lead.id}
+                          className="flex items-center justify-between p-3 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm text-white">{lead.clientName}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-900/60 text-purple-300 border border-purple-500/30">
+                                Meta Ads
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-400 mt-1">
+                              {lead.companyName || "Direct Inquiry"} • {lead.videoScope}
+                            </div>
                           </div>
-                          <div className="text-xs text-slate-400 mt-1">
-                            {lead.companyName} • {lead.videoScope}
-                          </div>
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                            {lead.leadStatus}
+                          </span>
                         </div>
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/40">
-                          {lead.leadStatus}
-                        </span>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-slate-500 text-xs">
+                        <Layers className="w-6 h-6 mx-auto mb-2 opacity-40 text-blue-400" />
+                        No inbound leads received yet.
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
@@ -705,7 +702,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   </div>
 
                   <div className="py-4 space-y-3">
-                    {isSuperAdmin ? (
+                    {activityLogs.length > 0 ? (
                       activityLogs.slice(0, 2).map((log) => (
                         <div
                           key={log.id}
@@ -716,7 +713,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
                             <div className="text-[11px] text-slate-400 mt-0.5">{log.description}</div>
                           </div>
                           <span className="text-[11px] text-slate-400 font-mono whitespace-nowrap">
-                            {log.timestamp.split(", ")[2] || "06:05 PM"}
+                            {log.timestamp}
                           </span>
                         </div>
                       ))
@@ -756,8 +753,10 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   <span>REVENUE</span>
                   <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
                 </div>
-                <div className="text-2xl font-bold text-emerald-400 mt-2">$82</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">4 Paid Orders</div>
+                <div className="text-2xl font-bold text-emerald-400 mt-2">
+                  {orders.length > 0 ? "₹" + orders.reduce((acc, o) => acc + o.amountNumeric, 0).toLocaleString() : "₹0"}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">{orders.length} Paid Orders</div>
               </div>
 
               <div className="rounded-2xl border border-white/[0.08] bg-[#0c101c] p-4">
@@ -765,7 +764,9 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   <span>IN PRODUCTION</span>
                   <Video className="w-3.5 h-3.5 text-amber-400" />
                 </div>
-                <div className="text-2xl font-bold text-amber-400 mt-2">1</div>
+                <div className="text-2xl font-bold text-amber-400 mt-2">
+                  {websiteLeads.length + metaLeads.length}
+                </div>
                 <div className="text-[11px] text-slate-400 mt-0.5">Active Videos</div>
               </div>
 
@@ -793,9 +794,11 @@ export function CrmApp({ user }: { user: CrmUser }) {
               <div className="flex items-center justify-between pb-3 border-b border-white/[0.07]">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
                   <Globe className="w-4 h-4 text-cyan-400" />
-                  SOURCE-WISE LEAD REPORTING ($18)
+                  SOURCE-WISE LEAD REPORTING
                 </div>
-                <span className="text-xs text-slate-400">1 Total Leads Attribution</span>
+                <span className="text-xs text-slate-400">
+                  {websiteLeads.length + metaLeads.length} Total Leads Attribution
+                </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">

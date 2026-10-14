@@ -5,6 +5,8 @@ import {
   Bot,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   ExternalLink,
   FileText,
@@ -643,7 +645,7 @@ export function Hero() {
                   el.playsInline = true;
                 }
               }}
-              src="/videos/Hero-Showcase.mp4?v=1"
+              src="/videos/Hero-Showcase.mp4"
               autoPlay
               loop
               muted={isMuted}
@@ -789,7 +791,7 @@ export function Hero() {
                     el.playsInline = true;
                   }
                 }}
-                src="/videos/Hero-Showcase.mp4?v=1"
+                src="/videos/Hero-Showcase.mp4"
                 autoPlay
                 loop
                 muted={isMuted}
@@ -1044,9 +1046,9 @@ export function TrustStrip() {
 export function Samples() {
   const [activeTab, setActiveTab] = useState("All");
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isInView, setIsInView] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [completedMap, setCompletedMap] = useState<Record<number, boolean>>({});
+  const [isInView, setIsInView] = useState(true);
+  const [mutedMap, setMutedMap] = useState<Record<number, boolean>>({});
+  const [playingMap, setPlayingMap] = useState<Record<number, boolean>>({});
 
   const cardsContainerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -1075,7 +1077,7 @@ export function Samples() {
     return list;
   }, [allFiltered]);
 
-  // Observe cards container directly so animation plays right when cards enter the viewport
+  // Observe cards container for smooth entrance transitions
   useEffect(() => {
     const el = cardsContainerRef.current;
     if (!el) return;
@@ -1096,83 +1098,61 @@ export function Samples() {
   // Advance to next video pair
   const handleAdvance = () => {
     if (pairs.length > 1) {
-      setCompletedMap({});
       setCurrentIndex((prev) => (prev + 1) % pairs.length);
     }
   };
 
   const handlePrev = () => {
     if (pairs.length > 1) {
-      setCompletedMap({});
       setCurrentIndex((prev) => (prev - 1 + pairs.length) % pairs.length);
     }
   };
 
-  // Reset index and completion state whenever tab changes so it always starts from first video(s)
+  // Reset index whenever tab changes so it always starts from first video(s)
   useEffect(() => {
     setCurrentIndex(0);
-    setCompletedMap({});
   }, [activeTab]);
 
   const currentPair = useMemo(() => pairs[currentIndex] || pairs[0] || [], [pairs, currentIndex]);
 
   // Autoplay active video pair smoothly across mobile and desktop
   useEffect(() => {
-    if (!isInView) return;
-
     currentPair.forEach((_, idx) => {
       const video = videoRefs.current[idx];
       if (video) {
-        video.defaultMuted = true;
-        video.muted = true;
+        const isMuted = mutedMap[idx] ?? true;
+        video.defaultMuted = isMuted;
+        video.muted = isMuted;
         video.playsInline = true;
         const playPromise = video.play();
         if (playPromise !== undefined) {
-          playPromise.catch(() => {
-            const onGesture = () => {
-              const v = videoRefs.current[idx];
-              if (v) {
-                v.defaultMuted = true;
-                v.muted = true;
-                v.play().catch(() => {});
-              }
-              window.removeEventListener("touchstart", onGesture);
-              window.removeEventListener("scroll", onGesture);
-            };
-            window.addEventListener("touchstart", onGesture, { once: true, passive: true });
-            window.addEventListener("scroll", onGesture, { once: true, passive: true });
-          });
+          playPromise
+            .then(() => {
+              setPlayingMap((prev) => ({ ...prev, [idx]: true }));
+            })
+            .catch(() => {
+              setPlayingMap((prev) => ({ ...prev, [idx]: false }));
+              const onGesture = () => {
+                const v = videoRefs.current[idx];
+                if (v) {
+                  v.defaultMuted = true;
+                  v.muted = true;
+                  v.play()
+                    .then(() => setPlayingMap((prev) => ({ ...prev, [idx]: true })))
+                    .catch(() => {});
+                }
+                window.removeEventListener("touchstart", onGesture);
+                window.removeEventListener("scroll", onGesture);
+                window.removeEventListener("click", onGesture);
+              };
+              window.addEventListener("touchstart", onGesture, { once: true, passive: true });
+              window.addEventListener("scroll", onGesture, { once: true, passive: true });
+              window.addEventListener("click", onGesture, { once: true, passive: true });
+            });
         }
       }
     });
-  }, [isInView, currentIndex, activeTab, currentPair]);
-
-  const handleVideoEnded = (idx: number) => {
-    setCompletedMap((prev) => {
-      const updated = { ...prev, [idx]: true };
-      const totalInPair = currentPair.length;
-      const allDone = totalInPair > 0 && currentPair.every((_, i) => updated[i] === true);
-
-      if (allDone && pairs.length > 1) {
-        setTimeout(() => {
-          handleAdvance();
-        }, 700);
-      }
-      return updated;
-    });
-  };
-
-  const handleReplay = (idx: number) => {
-    setCompletedMap((prev) => ({ ...prev, [idx]: false }));
-    const video = videoRefs.current[idx];
-    if (video) {
-      video.currentTime = 0;
-      video.play().catch(() => {});
-    }
-  };
-
-  const allPairCompleted =
-    currentPair.length > 0 && currentPair.every((_, i) => completedMap[i] === true);
+  }, [currentIndex, activeTab, currentPair]);
 
   return (
     <Section id="samples" className="relative overflow-hidden">
@@ -1214,7 +1194,7 @@ export function Samples() {
           <button
             key={filter}
             onClick={() => setActiveTab(filter)}
-            className={`rounded-full px-5 py-2 text-xs font-semibold tracking-wide transition-all duration-300 sm:text-sm ${
+            className={`rounded-full px-5 py-2 text-xs font-semibold tracking-wide transition-all duration-300 sm:text-sm cursor-pointer ${
               activeTab === filter
                 ? "bg-gradient-brand text-neon-foreground shadow-md glow-neon scale-105"
                 : "border border-border/80 bg-secondary/40 text-muted-foreground hover:border-neon hover:text-foreground"
@@ -1228,8 +1208,6 @@ export function Samples() {
       {/* 2 at a time Diagonal Showcase Container */}
       <div
         ref={cardsContainerRef}
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
         className="mx-auto max-w-5xl space-y-6 overflow-hidden py-2 min-h-[300px]"
       >
         {currentPair.map((item, idx) => {
@@ -1240,10 +1218,7 @@ export function Samples() {
             ? isSecond
               ? "animate-slide-in-right"
               : "animate-slide-in-left"
-            : `opacity-0 ${isSecond ? "translate-x-10" : "-translate-x-10"}`;
-
-          const isEnded = Boolean(completedMap[idx]);
-          const showWatchAgain = (isEnded && !allPairCompleted) || (isEnded && pairs.length <= 1);
+            : "opacity-100";
 
           return (
             <div
@@ -1260,53 +1235,86 @@ export function Samples() {
                   onClick={() => {
                     const v = videoRefs.current[idx];
                     if (v) {
-                      if (v.paused) v.play().catch(() => {});
-                      else v.pause();
+                      if (v.paused) {
+                        v.play()
+                          .then(() => setPlayingMap((prev) => ({ ...prev, [idx]: true })))
+                          .catch(() => {});
+                      } else {
+                        v.pause();
+                        setPlayingMap((prev) => ({ ...prev, [idx]: false }));
+                      }
                     }
                   }}
-                  className="relative aspect-[9/16] w-full max-w-[260px] sm:max-w-[280px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60 cursor-pointer"
+                  className="group/reel relative aspect-[9/16] w-full max-w-[260px] sm:max-w-[280px] shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black shadow-[0_0_25px_-5px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-neon/60 cursor-pointer"
                 >
                   <video
                     ref={(el) => {
                       videoRefs.current[idx] = el;
                       if (el) {
-                        el.defaultMuted = true;
-                        el.muted = true;
-                        el.volume = 0;
+                        const isMuted = mutedMap[idx] ?? true;
+                        el.defaultMuted = isMuted;
+                        el.muted = isMuted;
                         el.playsInline = true;
                       }
                     }}
                     key={item.videoUrl}
                     src={item.videoUrl}
                     autoPlay
-                    muted
+                    loop
+                    muted={mutedMap[idx] ?? true}
                     playsInline
-                    preload="metadata"
-                    onEnded={() => handleVideoEnded(idx)}
+                    preload="auto"
+                    onPlay={() => setPlayingMap((prev) => ({ ...prev, [idx]: true }))}
+                    onPause={() => setPlayingMap((prev) => ({ ...prev, [idx]: false }))}
                     className="h-full w-full object-cover"
                   >
+                    <source src={item.videoUrl} type="video/mp4" />
                     <track kind="captions" src="" label="English" default />
                   </video>
 
-                  {/* "Watch Again" Overlay if this video finished before other video in the pair */}
-                  {showWatchAgain && (
-                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/65 p-3 text-center backdrop-blur-[2px] animate-in fade-in duration-300">
-                      <button
-                        type="button"
-                        onClick={() => handleReplay(idx)}
-                        className="group/btn inline-flex items-center gap-1.5 rounded-full bg-gradient-brand px-4 py-2 text-xs font-bold text-neon-foreground shadow-lg transition-all hover:scale-105 active:scale-95 glow-neon cursor-pointer"
-                        aria-label={`Watch ${item.format} video again`}
-                      >
-                        <RotateCcw className="h-3.5 w-3.5 transition-transform duration-300 group-hover/btn:-rotate-45" />
-                        <span>Watch Again</span>
-                      </button>
-                      {pairs.length > 1 && !allPairCompleted && (
-                        <span className="mt-2 text-[10px] text-white/70 font-medium tracking-wide">
-                          Waiting for next video to finish...
-                        </span>
+                  {/* Sound Toggle Button (Top Right) */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const v = videoRefs.current[idx];
+                      if (v) {
+                        const next = !(mutedMap[idx] ?? true);
+                        v.muted = next;
+                        v.volume = next ? 0 : 1;
+                        setMutedMap((prev) => ({ ...prev, [idx]: next }));
+                        if (!next && v.paused) {
+                          v.play()
+                            .then(() => setPlayingMap((prev) => ({ ...prev, [idx]: true })))
+                            .catch(() => {});
+                        }
+                      }
+                    }}
+                    className="absolute top-3 right-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white border border-white/20 backdrop-blur-md transition-all hover:scale-110 hover:bg-neon hover:text-black cursor-pointer shadow-lg"
+                    title={mutedMap[idx] ?? true ? "Unmute Sound" : "Mute Sound"}
+                    aria-label={mutedMap[idx] ?? true ? "Unmute Sound" : "Mute Sound"}
+                  >
+                    {mutedMap[idx] ?? true ? (
+                      <VolumeX className="h-4 w-4" />
+                    ) : (
+                      <Volume2 className="h-4 w-4 text-neon" />
+                    )}
+                  </button>
+
+                  {/* Center Play/Pause Indicator on hover or when paused */}
+                  <div
+                    className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200 z-20 ${
+                      playingMap[idx] === false ? "opacity-100" : "opacity-0 group-hover/reel:opacity-60"
+                    }`}
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 backdrop-blur-md shadow-lg">
+                      {playingMap[idx] === false ? (
+                        <Play className="ml-0.5 h-6 w-6 fill-white text-white" />
+                      ) : (
+                        <Pause className="h-6 w-6 text-white" />
                       )}
                     </div>
-                  )}
+                  </div>
 
                   <span className="absolute bottom-3 left-3 rounded-lg bg-black/80 border border-white/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-md z-10">
                     {item.format}
@@ -1544,9 +1552,10 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
           muted={isMuted}
           loop
           playsInline
-          preload="metadata"
+          preload="auto"
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
         >
+          <source src={sample.videoUrl} type="video/mp4" />
           <track kind="captions" src="" label="English" default />
         </video>
       )}

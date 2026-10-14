@@ -1,0 +1,677 @@
+import React, { useState, useEffect, useRef } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  Header,
+  Footer,
+  FloatingWhatsAppButton,
+  QuotePopupModal,
+} from "@/components/site/sections";
+import {
+  Sparkles,
+  Clock,
+  Volume2,
+  VolumeX,
+  Play,
+  Pause,
+  Maximize2,
+  X,
+  RotateCcw,
+  Film,
+  ArrowRight,
+} from "lucide-react";
+
+export const Route = createFileRoute("/portfolio")({
+  head: () => ({
+    meta: [
+      { title: "Portfolio | Quickupp AI Studio" },
+      {
+        name: "description",
+        content:
+          "Explore AI-powered video concepts created across e-commerce, beauty, fashion, fitness, technology, food, lifestyle, and other high-growth categories.",
+      },
+    ],
+  }),
+  component: PortfolioPage,
+});
+
+export interface PortfolioReelItem {
+  id: string;
+  category: "AI UGC" | "AI Avatar" | "Hyper-Realistic" | "AI Cartoon" | "Digital Twin";
+  title: string;
+  subtitle: string;
+  industry: string;
+  videoUrl: string;
+  fallbackUrl: string;
+  duration: string;
+  gradient: string;
+}
+
+const PORTFOLIO_REELS: PortfolioReelItem[] = [
+  {
+    id: "reel-1",
+    category: "AI UGC",
+    title: "Skincare Glow Routine",
+    subtitle: "Organic creator-style unboxing, demonstration & review",
+    industry: "Beauty & Wellness",
+    videoUrl: "/videos/page-1.mp4",
+    fallbackUrl: "/videos/page%201.mp4",
+    duration: "42s",
+    gradient: "from-purple-900/40 via-violet-950/30 to-black/80",
+  },
+  {
+    id: "reel-2",
+    category: "AI Avatar",
+    title: "Executive Spokesperson",
+    subtitle: "Multilingual presenter explaining fintech app & features",
+    industry: "SaaS & Finance",
+    videoUrl: "/videos/page-2.mp4",
+    fallbackUrl: "/videos/Page%202.mp4",
+    duration: "45s",
+    gradient: "from-blue-900/40 via-indigo-950/30 to-black/80",
+  },
+  {
+    id: "reel-3",
+    category: "Hyper-Realistic",
+    title: "Cinematic Luxury Commercial",
+    subtitle: "Studio-grade macro product commercial with fluid lighting",
+    industry: "Jewellery & Luxury",
+    videoUrl: "/videos/page-3.mp4",
+    fallbackUrl: "/videos/Page%203.mp4",
+    duration: "45s",
+    gradient: "from-rose-900/40 via-purple-950/30 to-black/80",
+  },
+  {
+    id: "reel-4",
+    category: "AI Cartoon",
+    title: "3D Mascot Explainer",
+    subtitle: "Engaging animated character storytelling for brands",
+    industry: "EdTech & Kids Brands",
+    videoUrl: "/videos/page-4.mp4",
+    fallbackUrl: "/videos/Page%204.mp4",
+    duration: "40s",
+    gradient: "from-amber-900/40 via-orange-950/30 to-black/80",
+  },
+  {
+    id: "reel-5",
+    category: "Digital Twin",
+    title: "Founder Keynote Clone",
+    subtitle: "Hyper-realistic voice clone & lip-sync model for executive content",
+    industry: "Personal Brand & Coaching",
+    videoUrl: "/videos/page-5.mp4",
+    fallbackUrl: "/videos/Page%205.mp4",
+    duration: "37s",
+    gradient: "from-emerald-900/40 via-teal-950/30 to-black/80",
+  },
+  {
+    id: "reel-6",
+    category: "AI UGC",
+    title: "Activewear Performance Demo",
+    subtitle: "High-energy lifestyle reels engineered for social conversions",
+    industry: "Fitness & Apparel",
+    videoUrl: "/videos/page-6.mp4",
+    fallbackUrl: "/videos/Page%206.mp4",
+    duration: "39s",
+    gradient: "from-cyan-900/40 via-blue-950/30 to-black/80",
+  },
+];
+
+const CATEGORIES = [
+  "All",
+  "AI UGC",
+  "AI Avatar",
+  "Hyper-Realistic",
+  "AI Cartoon",
+  "Digital Twin",
+] as const;
+
+interface PortfolioReelCardProps {
+  reel: PortfolioReelItem;
+  onExpand: (reel: PortfolioReelItem) => void;
+}
+
+function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isMuted, setIsMuted] = useState<boolean>(true);
+  const [progress, setProgress] = useState<number>(0);
+  const [hasError, setHasError] = useState<boolean>(false);
+
+  // IntersectionObserver to play when visible, pause when off-screen
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.defaultMuted = true;
+    video.muted = isMuted;
+    video.playsInline = true;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => setIsPlaying(true))
+              .catch(() => {
+                video.defaultMuted = true;
+                video.muted = true;
+                setIsMuted(true);
+                video
+                  .play()
+                  .then(() => setIsPlaying(true))
+                  .catch(() => setIsPlaying(false));
+              });
+          }
+        } else {
+          video.pause();
+          setIsPlaying(false);
+        }
+      },
+      { threshold: 0.15, rootMargin: "60px 0px 60px 0px" }
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [reel.videoUrl]);
+
+  const onTimeUpdate = () => {
+    const video = videoRef.current;
+    if (video && video.duration) {
+      setProgress((video.currentTime / video.duration) * 100);
+    }
+  };
+
+  const togglePlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {});
+    } else {
+      video.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    const nextMuted = !video.muted;
+    video.muted = nextMuted;
+    setIsMuted(nextMuted);
+    if (!nextMuted && video.paused) {
+      video
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {});
+    }
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video || !video.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const newTime = (clickX / rect.width) * video.duration;
+    video.currentTime = Math.max(0, Math.min(newTime, video.duration));
+  };
+
+  const handleRetry = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHasError(false);
+    const video = videoRef.current;
+    if (video) {
+      video.load();
+      video.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  };
+
+  return (
+    <article className="group relative flex aspect-[9/16] w-full flex-col justify-between overflow-hidden rounded-[26px] border border-white/10 bg-[#0c0919] shadow-2xl transition-all duration-300 hover:border-purple-500/50 hover:shadow-[0_0_40px_rgba(168,85,247,0.28)]">
+      {/* Background HTML5 Video element */}
+      {!hasError ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          muted={isMuted}
+          loop
+          playsInline
+          preload="metadata"
+          onTimeUpdate={onTimeUpdate}
+          onError={() => setHasError(true)}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+        >
+          <source src={reel.videoUrl} type="video/mp4" />
+          <source src={reel.fallbackUrl} type="video/mp4" />
+        </video>
+      ) : (
+        <div className={`absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b ${reel.gradient} p-6 text-center`}>
+          <Film className="w-10 h-10 text-purple-400/60" />
+          <p className="text-xs font-semibold text-white/80">Reel preview offline</p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[11px] text-white transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3 h-3" /> Retry
+          </button>
+        </div>
+      )}
+
+      {/* Interactive Tap Area to Play/Pause */}
+      <button
+        type="button"
+        onClick={togglePlay}
+        className="absolute inset-0 h-full w-full cursor-pointer z-10 border-none bg-transparent p-0 text-left focus:outline-none"
+        aria-label={isPlaying ? "Pause video" : "Play video"}
+      />
+
+      {/* Cinematic Soft Gradient Overlays for contrast */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/50 pointer-events-none z-10" />
+
+      {/* Top Header Bar: Category Tag & Controls */}
+      <div className="relative z-20 flex items-center justify-between p-4 sm:p-5 pointer-events-none">
+        <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-purple-500/30 text-purple-300 shadow-md">
+          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+          {reel.category}
+        </span>
+
+        <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Sound Toggle */}
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:bg-purple-600 hover:text-white cursor-pointer"
+            title={isMuted ? "Unmute audio" : "Mute audio"}
+            aria-label={isMuted ? "Unmute audio" : "Mute audio"}
+          >
+            {isMuted ? (
+              <VolumeX className="w-4 h-4 text-white/80" />
+            ) : (
+              <Volume2 className="w-4 h-4 text-purple-300" />
+            )}
+          </button>
+
+          {/* Expand Lightbox Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onExpand(reel);
+            }}
+            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:bg-purple-600 hover:text-white cursor-pointer"
+            title="Expand reel preview"
+            aria-label="Expand reel preview"
+          >
+            <Maximize2 className="w-3.5 h-3.5 text-white/80" />
+          </button>
+        </div>
+      </div>
+
+      {/* Center Play/Pause Indicator (Shown when paused or on hover) */}
+      <div
+        className={`absolute inset-0 z-20 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${
+          !isPlaying ? "opacity-100 scale-100" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100"
+        }`}
+      >
+        <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-[0_0_30px_rgba(217,70,239,0.7)] backdrop-blur-md border border-white/20 transition-transform duration-200">
+          {isPlaying ? (
+            <Pause className="h-6 w-6 text-white" />
+          ) : (
+            <Play className="ml-0.5 h-6 w-6 text-white fill-white" />
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Container: Info Card & Scrubbable Progress Line */}
+      <div className="relative z-20 flex flex-col pointer-events-none">
+        {/* Info Card with frosted backing */}
+        <div className="p-4 sm:p-5">
+          <div className="space-y-1 rounded-2xl bg-black/60 p-3 sm:p-3.5 backdrop-blur-md border border-white/10 shadow-lg">
+            <div className="flex items-center justify-between text-[10px] font-semibold tracking-wide">
+              <span className="text-purple-300 uppercase">{reel.industry}</span>
+              <span className="text-muted-foreground flex items-center gap-1 font-mono">
+                <Clock className="w-3 h-3 text-purple-400" /> {reel.duration} Reel
+              </span>
+            </div>
+            <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+              {reel.title}
+            </h3>
+            <p className="text-[11px] sm:text-xs text-white/80 line-clamp-2 leading-relaxed">
+              {reel.subtitle}
+            </p>
+          </div>
+        </div>
+
+        {/* Live Scrubbable Progress Bar */}
+        <div
+          onClick={handleSeek}
+          className="relative w-full h-1.5 bg-white/15 cursor-pointer pointer-events-auto group/progress transition-all hover:h-2.5"
+          title="Click to seek"
+        >
+          <div
+            className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-400 shadow-[0_0_12px_rgba(217,70,239,0.9)] transition-[width] duration-75"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+interface ReelLightboxProps {
+  reel: PortfolioReelItem | null;
+  onClose: () => void;
+}
+
+function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
+  const modalVideoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [progress, setProgress] = useState<number>(0);
+
+  useEffect(() => {
+    if (!reel) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [reel, onClose]);
+
+  if (!reel) return null;
+
+  const toggleModalPlay = () => {
+    const video = modalVideoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play().then(() => setIsPlaying(true)).catch(() => {});
+    } else {
+      video.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  const toggleModalMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const video = modalVideoRef.current;
+    if (!video) return;
+    const nextMuted = !video.muted;
+    video.muted = nextMuted;
+    setIsMuted(nextMuted);
+  };
+
+  const handleModalSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const video = modalVideoRef.current;
+    if (!video || !video.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const newTime = (clickX / rect.width) * video.duration;
+    video.currentTime = Math.max(0, Math.min(newTime, video.duration));
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xl p-4 sm:p-6 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex flex-col lg:flex-row items-center max-w-4xl w-full bg-[#0c0919] border border-white/15 rounded-3xl overflow-hidden shadow-2xl max-h-[92vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 border border-white/20 text-white/90 hover:bg-white/20 transition-all cursor-pointer"
+          aria-label="Close modal"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* 9:16 Vertical Reel Player Container */}
+        <div className="relative aspect-[9/16] w-full max-w-[340px] sm:max-w-[380px] bg-black flex-shrink-0 overflow-hidden">
+          <video
+            ref={modalVideoRef}
+            autoPlay
+            loop
+            playsInline
+            muted={isMuted}
+            preload="auto"
+            onTimeUpdate={() => {
+              if (modalVideoRef.current?.duration) {
+                setProgress((modalVideoRef.current.currentTime / modalVideoRef.current.duration) * 100);
+              }
+            }}
+            className="w-full h-full object-cover"
+          >
+            <source src={reel.videoUrl} type="video/mp4" />
+            <source src={reel.fallbackUrl} type="video/mp4" />
+          </video>
+
+          {/* Tap overlay to play/pause */}
+          <button
+            type="button"
+            onClick={toggleModalPlay}
+            className="absolute inset-0 w-full h-full cursor-pointer z-10 bg-transparent border-none"
+            aria-label={isPlaying ? "Pause" : "Play"}
+          />
+
+          {/* Sound Toggle (Top Left) */}
+          <div className="absolute top-4 left-4 z-20">
+            <button
+              type="button"
+              onClick={toggleModalMute}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/70 border border-white/20 text-white shadow hover:scale-110 transition-transform cursor-pointer"
+            >
+              {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5 text-emerald-400" />}
+            </button>
+          </div>
+
+          {/* Center Play indicator */}
+          {!isPlaying && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+              <div className="w-16 h-16 rounded-full bg-purple-600/90 text-white flex items-center justify-center shadow-xl">
+                <Play className="w-7 h-7 fill-white translate-x-0.5" />
+              </div>
+            </div>
+          )}
+
+          {/* Bottom Progress Bar */}
+          <div
+            onClick={handleModalSeek}
+            className="absolute bottom-0 left-0 right-0 h-2 bg-white/20 cursor-pointer z-20"
+          >
+            <div
+              className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-400"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Modal Side Information & Direct CTA */}
+        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto max-h-[85vh]">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-purple-300 text-xs font-bold uppercase tracking-wider mb-4">
+              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              {reel.category}
+            </div>
+
+            <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+              {reel.title}
+            </h2>
+            <p className="text-xs text-purple-400 font-semibold uppercase tracking-wider mt-1">
+              Industry: {reel.industry} • Duration: {reel.duration}
+            </p>
+
+            <p className="text-sm text-muted-foreground mt-4 leading-relaxed">
+              {reel.subtitle}
+            </p>
+
+            <div className="mt-6 space-y-2.5 text-xs text-muted-foreground/90 border-t border-white/10 pt-4">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span>True 9:16 Vertical Reel format optimized for Instagram, TikTok & Shorts</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span>Ultra HD 1080x1920 crisp export with professional audio mixing</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span>Custom brand assets, product placements, and conversion-focused scripting</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-3">
+            <a
+              href="/#contact"
+              onClick={onClose}
+              className="flex-1 py-3 px-5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-xs text-center shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Get Reel Quote</span>
+              <ArrowRight className="w-4 h-4" />
+            </a>
+            <a
+              href={`https://wa.me/918177828748?text=${encodeURIComponent(
+                `Hello Quickupp AI Studio Team,\n\nI was watching the "${reel.title}" (${reel.category}) reel in your portfolio and would like to order a similar video for my brand.\n\nWebsite: https://quickuppaistudio.in/\nEmail: info@quickuppaistudio.in`
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+              className="py-3 px-5 rounded-full border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 font-semibold text-xs text-center flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              Chat on WhatsApp
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PortfolioPage() {
+  const [selectedFilter, setSelectedFilter] = useState<string>("All");
+  const [expandedReel, setExpandedReel] = useState<PortfolioReelItem | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo(0, 0);
+    }
+  }, []);
+
+  const filteredReels =
+    selectedFilter === "All"
+      ? PORTFOLIO_REELS
+      : PORTFOLIO_REELS.filter((r) => r.category === selectedFilter);
+
+  return (
+    <div className="min-h-screen w-full overflow-x-clip bg-background text-foreground antialiased selection:bg-purple-500/30">
+      <Header />
+
+      <main className="pt-28 pb-20 px-4 sm:px-6 max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-purple-500/30 bg-purple-950/40 text-purple-300 text-xs font-semibold uppercase tracking-wider mb-5 shadow-[0_0_20px_rgba(168,85,247,0.2)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+            PORTFOLIO SHOWCASE
+          </div>
+
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
+            See What AI Creative{" "}
+            <span className="italic font-serif bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
+              Can Look Like
+            </span>
+          </h1>
+
+          <p className="mt-4 text-sm sm:text-base text-muted-foreground leading-relaxed">
+            Explore 6 high-converting AI-powered video concepts created across e-commerce, beauty, corporate SaaS, jewellery, storytelling, and fitness categories.
+          </p>
+
+          {/* Filter Pills */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 mr-1 hidden sm:inline">
+              PORTFOLIO FILTERS:
+            </span>
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedFilter(cat)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                  selectedFilter === cat
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-[0_0_15px_rgba(217,70,239,0.4)] scale-105"
+                    : "border border-white/10 bg-white/[0.03] text-muted-foreground hover:text-white hover:bg-white/[0.08]"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 6 Reels Grid in True 9:16 Vertical Reel Format */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
+          {filteredReels.map((reel) => (
+            <PortfolioReelCard
+              key={reel.id}
+              reel={reel}
+              onExpand={(item) => setExpandedReel(item)}
+            />
+          ))}
+        </div>
+
+        {/* Bottom CTA Box */}
+        <div className="mt-16 text-center max-w-2xl mx-auto p-8 rounded-3xl border border-white/10 bg-secondary/30 backdrop-blur-xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-white">
+            Need Custom AI Videos for Your Brand?
+          </h2>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+            We produce custom AI UGC, Avatar, Cartoon, and Hyper-Realistic video ads tailored specifically for your target audience.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="/#contact"
+              className="px-6 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold shadow-lg hover:brightness-110 transition-all cursor-pointer"
+            >
+              Get Custom Video Quote
+            </a>
+            <a
+              href={`https://wa.me/918177828748?text=${encodeURIComponent(
+                "Hello Quickupp AI Studio Team,\n\nI visited your portfolio page and would like to explore custom AI video creation for my business.\n\nWebsite: https://quickuppaistudio.in/\nEmail: info@quickuppaistudio.in"
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+              className="px-6 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              Chat on WhatsApp
+            </a>
+          </div>
+        </div>
+      </main>
+
+      {/* Expanded Reel Lightbox Modal */}
+      <ReelLightbox
+        reel={expandedReel}
+        onClose={() => setExpandedReel(null)}
+      />
+
+      <Footer />
+      <FloatingWhatsAppButton />
+      <QuotePopupModal />
+    </div>
+  );
+}
