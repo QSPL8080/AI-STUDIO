@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { Eye, EyeOff, Lock, Mail, ArrowLeft, ShieldCheck } from "lucide-react";
+import { crmLoginFn } from "@/lib/crm-actions";
 import {
-  validateCrmLogin,
   setStoredCrmUser,
   getStoredCrmUser,
   getRememberedEmail,
@@ -36,6 +36,15 @@ function CrmLoginPage() {
       navigate({ to: "/crm" });
       return;
     }
+    try {
+      const reason = sessionStorage.getItem("quickupp_crm_logout_reason");
+      if (reason) {
+        setErrorMessage(reason);
+        sessionStorage.removeItem("quickupp_crm_logout_reason");
+      }
+    } catch {
+      /* ignore */
+    }
     const rem = getRememberedEmail();
     if (rem) {
       setEmail(rem);
@@ -43,28 +52,34 @@ function CrmLoginPage() {
     }
   }, [navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
     setIsLoading(true);
-
-    setTimeout(() => {
-      const res = validateCrmLogin(email, password);
-      if (res.success && res.user) {
-        // Remember email only
-        if (rememberEmail) {
-          setRememberedEmail(email.trim());
-        } else {
-          setRememberedEmail("");
-        }
-        // User session is stored in sessionStorage only (never persistent credentials)
-        setStoredCrmUser(res.user, false);
+    try {
+      const res: any = await crmLoginFn({ data: { email: email.trim(), password } });
+      if (res?.ok && res.token && res.user) {
+        setRememberedEmail(rememberEmail ? email.trim() : "");
+        setStoredCrmUser(
+          {
+            id: res.user.id,
+            name: res.user.name,
+            email: res.user.email,
+            role: res.user.role,
+            token: res.token,
+            loginTime: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
+          },
+          false,
+        );
         navigate({ to: "/crm" });
-      } else {
-        setIsLoading(false);
-        setErrorMessage(res.error || "Authentication failed. Please verify your credentials.");
+        return;
       }
-    }, 600);
+      setErrorMessage(res?.error || "Authentication failed. Please verify your credentials.");
+    } catch (err: any) {
+      setErrorMessage("Could not reach the CRM server. Please try again.");
+      console.error(err);
+    }
+    setIsLoading(false);
   };
 
   return (

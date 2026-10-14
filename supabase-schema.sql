@@ -1,9 +1,14 @@
 ﻿-- ====================================================================
 -- QUICKUPP AI STUDIO - SUPABASE & POSTGRESQL DATABASE SCHEMA
--- Compatible with both Local PostgreSQL (localhost:5432) and Cloud Supabase
+-- Compatible with both Local PostgreSQL (localhost:5432) and Cloud Supabase.
+-- Safe to run more than once (every statement is idempotent).
+--
+-- HOW TO APPLY ON SUPABASE: Dashboard → SQL Editor → paste this file → Run.
+-- The app talks to Supabase with SUPABASE_API_KEY, which must be the
+-- SECRET / service_role key (it bypasses RLS). Never put it in frontend code.
 -- ====================================================================
 
--- 1. LEADS TABLE (Stores all Inbound Inquiries, Contact Forms & Quotes)
+-- 1. LEADS (website contact form, popup, manual entries and Meta Ads leads)
 CREATE TABLE IF NOT EXISTS public.leads (
     id VARCHAR(64) PRIMARY KEY,
     source VARCHAR(64) NOT NULL,
@@ -20,12 +25,22 @@ CREATE TABLE IF NOT EXISTS public.leads (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for lightning-fast CRM queries
+-- CRM columns: project status, Meta attribution and soft delete (Recycle Bin)
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS project_status VARCHAR(32) DEFAULT 'New';
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS channel VARCHAR(32);
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS campaign VARCHAR(255);
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS ad_set VARCHAR(255);
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS form_name VARCHAR(255);
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(255);
+ALTER TABLE public.leads ALTER COLUMN source TYPE VARCHAR(64);
+
 CREATE INDEX IF NOT EXISTS idx_leads_created_at ON public.leads (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON public.leads (status);
 CREATE INDEX IF NOT EXISTS idx_leads_phone ON public.leads (phone);
+CREATE INDEX IF NOT EXISTS idx_leads_deleted_at ON public.leads (deleted_at);
 
--- 2. ORDERS & PAYMENTS TABLE
+-- 2. ORDERS & PAYMENTS (PayPal checkout)
 CREATE TABLE IF NOT EXISTS public.orders (
     id VARCHAR(64) PRIMARY KEY,
     paypal_order_id VARCHAR(128) NOT NULL UNIQUE,
@@ -49,10 +64,53 @@ CREATE TABLE IF NOT EXISTS public.orders (
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders (payment_status);
 
--- 3. ROW LEVEL SECURITY (RLS) FOR SUPABASE CLOUD
--- Enable RLS
+-- 3. CRM USERS (Super Admin, Admins, Leads Managers)
+-- Passwords are stored as scrypt hashes. The app creates the first two
+-- accounts automatically on first sign-in when this table is empty:
+--   sa@aistudio.in   (Super Admin)
+--   test@aistudio.in (Admin)
+CREATE TABLE IF NOT EXISTS public.crm_users (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role VARCHAR(32) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
+    is_protected BOOLEAN NOT NULL DEFAULT FALSE,
+    token_version INTEGER NOT NULL DEFAULT 1,
+    failed_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TIMESTAMP WITH TIME ZONE,
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. CRM ACTIVITY HISTORY / AUDIT LOG
+CREATE TABLE IF NOT EXISTS public.crm_activity_logs (
+    id VARCHAR(64) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(32) NOT NULL,
+    actor_email VARCHAR(255),
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_crm_activity_created_at ON public.crm_activity_logs (created_at DESC);
+
+-- 5. CRM SETTINGS (permissions matrix + general/security settings as JSON)
+CREATE TABLE IF NOT EXISTS public.crm_settings (
+    key VARCHAR(64) PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. ROW LEVEL SECURITY
 ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+-- CRM tables: RLS on with NO public policies → only the server (secret /
+-- service_role key) can read or write them. Password hashes are never public.
+ALTER TABLE public.crm_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crm_activity_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crm_settings ENABLE ROW LEVEL SECURITY;
 
 -- Allow website visitors to insert leads anonymously via Contact Form / Popup Modal
 DROP POLICY IF EXISTS "Public insert leads" ON public.leads;

@@ -1,3 +1,5 @@
+import { CRM_SCHEMA_SQL } from "./crm-schema";
+
 export interface Lead {
   id: string;
   source: "Contact Form" | "Popup Modal" | "USA - Contact Form" | "USA - Popup Modal" | string;
@@ -38,7 +40,7 @@ export interface Order {
 
 let pgPool: any = null;
 
-function getSupabaseConfig() {
+export function getSupabaseConfig() {
   const rawUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -53,7 +55,7 @@ function getSupabaseConfig() {
 }
 
 // 1. HTTP REST Adapter for Supabase (Guaranteed 100% cloud delivery without TCP/SSL port blocks)
-async function supabaseRest(endpoint: string, options: RequestInit = {}) {
+export async function supabaseRest(endpoint: string, options: RequestInit = {}) {
   const config = getSupabaseConfig();
   if (!config) return null;
   const res = await fetch(`${config.url}/rest/v1/${endpoint}`, {
@@ -74,7 +76,7 @@ async function supabaseRest(endpoint: string, options: RequestInit = {}) {
 }
 
 // 2. Direct PostgreSQL Pool (For localhost development or direct pg connection)
-async function getPool() {
+export async function getPool() {
   if (!pgPool) {
     const pg = await import("pg");
     const Pool = pg.default?.Pool || pg.Pool;
@@ -151,6 +153,8 @@ export async function initDb() {
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
           );
         `);
+        // CRM extensions (soft delete, meta attribution, users, audit log, settings)
+        await client.query(CRM_SCHEMA_SQL);
         isInitialized = true;
       } finally {
         client.release();
