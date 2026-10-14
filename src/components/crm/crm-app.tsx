@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   Lock,
   LogOut,
+  Mail,
   MessageSquare,
   Package,
   Phone,
@@ -2242,16 +2243,18 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           .slice(0, 2)
           .toUpperCase();
         const waLink = `https://wa.me/${l.phone.replace(/[^0-9]/g, "")}`;
+        const editable = !l.deletedAt;
+        const sourceLabel = l.kind === "meta" ? `Meta Ads (${l.channel || "Facebook"})` : l.source === "Manual Entry" ? "Manual Entry" : displayLeadSource(l.source);
         return (
           <div
-            className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-6"
             onMouseDown={(e) => e.target === e.currentTarget && setSelectedLead(null)}
           >
-            <div className="w-full max-w-4xl my-auto rounded-lg border border-white/10 bg-[#0e121e] shadow-2xl">
-              {/* Header */}
-              <div className="flex items-start justify-between gap-4 p-5 sm:p-6 border-b border-white/[0.07]">
+            <div className="w-full max-w-5xl max-h-[94vh] sm:max-h-[90vh] flex flex-col rounded-lg border border-white/10 bg-[#0e121e] shadow-2xl overflow-hidden">
+              {/* Header — always visible */}
+              <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-white/[0.07] flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-base font-bold text-white">
+                  <div className="w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-sm font-bold text-white">
                     {initials || "?"}
                   </div>
                   <div className="min-w-0">
@@ -2260,46 +2263,93 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       <SourceBadge lead={l} />
                       {l.deletedAt && <span className="text-xs px-2 py-0.5 rounded-md bg-red-950 text-red-300 border border-red-500/30">In Recycle Bin</span>}
                     </div>
-                    <p className="text-sm text-slate-400 truncate">{l.companyName || "—"}</p>
+                    <p className="text-[13px] text-slate-400 truncate mt-0.5">
+                      {l.companyName || "No company"} · Received {fmtIst(l.createdAt)} IST
+                    </p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedLead(null)} className={iconBtn} title="Close">
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a href={`tel:${l.phone}`} className={btnGhost} title="Call">
+                    <Phone className="w-4 h-4" /> <span className="hidden sm:inline">Call</span>
+                  </a>
+                  <a
+                    href={waLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[13px] font-semibold"
+                  >
+                    <MessageSquare className="w-4 h-4" /> <span className="hidden sm:inline">WhatsApp</span>
+                  </a>
+                  {l.email && (
+                    <a href={`mailto:${l.email}`} className={btnGhost} title="Email">
+                      <Mail className="w-4 h-4" /> <span className="hidden sm:inline">Email</span>
+                    </a>
+                  )}
+                  <button onClick={() => setSelectedLead(null)} className={iconBtn} title="Close">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
-              <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
-                {/* Client + Lead information */}
+              {/* Status strip — change status right here */}
+              <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-white/[0.07] bg-white/[0.015] grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Lead status</div>
+                  <select
+                    value={l.leadStatus}
+                    disabled={!editable}
+                    onChange={(e) => handleLeadField(l, "leadStatus", e.target.value)}
+                    className="w-full h-9 px-2.5 rounded-md bg-blue-950/60 border border-blue-500/40 text-blue-100 text-[13px] font-semibold focus:outline-none disabled:opacity-60"
+                  >
+                    {LEAD_STATUSES.map((st) => (
+                      <option key={st}>{st}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Project status</div>
+                  <select
+                    value={l.projectStatus}
+                    disabled={!editable}
+                    onChange={(e) => handleLeadField(l, "projectStatus", e.target.value)}
+                    className="w-full h-9 px-2.5 rounded-md bg-amber-950/60 border border-amber-500/40 text-amber-100 text-[13px] font-semibold focus:outline-none disabled:opacity-60"
+                  >
+                    {PROJECT_STATUSES.map((st) => (
+                      <option key={st}>{st}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Handled by</div>
+                  <div className="h-9 flex items-center text-sm font-medium text-white truncate">{l.handledBy || "Not assigned yet"}</div>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Closed</div>
+                  <div className="h-9 flex items-center text-sm font-medium text-white truncate">
+                    {l.leadStatus === "Closed" && l.closedAt ? `${fmtIst(l.closedAt)}${l.closedBy ? ` · ${l.closedBy}` : ""}` : "Not closed"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollable body */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
                   <DetailCard icon={<User className="w-4 h-4" />} title="Client Information">
-                    <DetailRow label="Client Name" value={l.clientName} />
-                    <DetailRow label="Company / Brand" value={l.companyName || "—"} />
+                    <DetailRow label="Client name" value={l.clientName} />
+                    <DetailRow label="Company / brand" value={l.companyName || "—"} />
                     <DetailRow
-                      label="Phone"
+                      label="Phone / WhatsApp"
                       value={
-                        <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1.5 text-white hover:text-purple-300">
-                          <Phone className="w-3.5 h-3.5" /> {l.phone}
+                        <a href={`tel:${l.phone}`} className="text-white hover:text-purple-300">
+                          {l.phone}
                         </a>
                       }
                     />
                     <DetailRow
-                      label="WhatsApp"
-                      value={
-                        <a
-                          href={waLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 text-[13px] font-medium"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" /> Chat on WhatsApp
-                        </a>
-                      }
-                    />
-                    <DetailRow
-                      label="Work Email"
+                      label="Email"
                       value={
                         l.email ? (
-                          <a href={`mailto:${l.email}`} className="font-mono text-[13px] text-white hover:text-purple-300 break-all">
+                          <a href={`mailto:${l.email}`} className="text-white hover:text-purple-300 break-all">
                             {l.email}
                           </a>
                         ) : (
@@ -2307,81 +2357,71 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         )
                       }
                     />
-                    <DetailRow label="Business Location" value={l.location || "India"} />
-                    {l.businessType && <DetailRow label="Industry" value={l.businessType} />}
+                    <DetailRow label="Location" value={l.location || "—"} />
+                    <DetailRow label="Industry" value={l.businessType || "—"} />
                   </DetailCard>
 
                   <DetailCard icon={<Shield className="w-4 h-4" />} title="Lead Information">
-                    <DetailRow label="Lead Source" value={<SourceBadge lead={l} />} />
-                    <DetailRow
-                      label="Lead Created Date/Time"
-                      value={
-                        <span>
-                          {fmtIstDate(l.createdAt)}, {fmtIstTime(l.createdAt)} IST
-                        </span>
-                      }
-                    />
-                    <DetailRow label="Lead Status" value={<StatusPill text={l.leadStatus} />} />
-                    <DetailRow label="Lead Closed By" value={l.leadStatus === "Closed" && l.closedBy ? l.closedBy : "Not closed"} />
-                    <DetailRow label="Closed Date" value={l.leadStatus === "Closed" && l.closedAt ? fmtIst(l.closedAt) : "Not closed"} />
-                    <DetailRow label="Admin / User Handled" value={l.handledBy || "Not assigned yet"} />
-                    {l.kind === "meta" && (
+                    <DetailRow label="Source" value={sourceLabel} />
+                    <DetailRow label="Received" value={`${fmtIst(l.createdAt)} IST`} />
+                    <DetailRow label="Lead status" value={<StatusPill text={l.leadStatus} />} />
+                    <DetailRow label="Closed by" value={l.leadStatus === "Closed" && l.closedBy ? l.closedBy : "Not closed"} />
+                    <DetailRow label="Handled by" value={l.handledBy || "Not assigned yet"} />
+                    {l.kind === "meta" ? (
                       <>
                         <DetailRow label="Campaign" value={l.campaign || "—"} />
-                        <DetailRow label="Ad Set / Form" value={[l.adSet, l.formName].filter(Boolean).join(" • ") || "—"} />
+                        <DetailRow label="Ad set / form" value={[l.adSet, l.formName].filter(Boolean).join(" · ") || "—"} />
                       </>
+                    ) : (
+                      <DetailRow label="Lead ID" value={<span className="font-mono text-xs text-slate-400">{l.id}</span>} />
                     )}
                   </DetailCard>
                 </div>
 
-                {/* Project */}
                 <DetailCard icon={<Video className="w-4 h-4" />} title="Project & Creative Requirement" right={<StatusPill text={l.projectStatus} tone="amber" />}>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-white/[0.03] border border-white/[0.05]">
-                    <MiniStat label="Requirement / Format" value={l.videoScope} />
+                    <MiniStat label="Requirement / format" value={l.videoScope} />
                     <MiniStat label="Industry" value={l.businessType || "—"} />
-                    <MiniStat label="Project Status" value={l.projectStatus} />
-                    <MiniStat label="Delivery Date" value={l.deliveredAt ? fmtIst(l.deliveredAt) : "Pending schedule"} />
+                    <MiniStat label="Project status" value={l.projectStatus} />
+                    <MiniStat label="Delivered on" value={l.deliveredAt ? fmtIst(l.deliveredAt) : "Not delivered yet"} />
                   </div>
-                  <div className="pt-1">
-                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Project Details / Campaign Goals</div>
-                    <div className="px-4 py-3 rounded-md bg-white/[0.03] border border-white/[0.06] text-sm text-slate-200 whitespace-pre-wrap break-words">
-                      {l.notes || "No details provided."}
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Project details / campaign goals</div>
+                    <div className="px-4 py-3 rounded-md bg-white/[0.03] border border-white/[0.06] text-sm leading-relaxed text-slate-200 whitespace-pre-wrap break-words">
+                      {l.notes || <span className="text-slate-500">No details were provided with this enquiry.</span>}
                     </div>
                   </div>
                 </DetailCard>
 
-                {/* Meeting */}
-                <DetailCard icon={<Calendar className="w-4 h-4" />} title="Meeting Information" right={<StatusPill text="Not Scheduled" tone="slate" />}>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-white/[0.03] border border-white/[0.05]">
-                    <MiniStat label="Meeting Date & Time" value="Not scheduled" />
-                    <MiniStat label="Meeting Status" value="Pending" />
-                    <MiniStat label="Meeting Type" value="Strategy Call" />
-                    <MiniStat label="Assigned / Handling Admin" value={l.handledBy || "Not assigned yet"} />
-                  </div>
+                <DetailCard icon={<Calendar className="w-4 h-4" />} title="Meeting Information" right={<StatusPill text="Not scheduled" tone="slate" />}>
+                  <p className="text-sm text-slate-400">No meeting has been scheduled for this lead yet. Call or WhatsApp the client using the buttons at the top to set one up.</p>
                 </DetailCard>
 
-                {/* History */}
-                <DetailCard icon={<Clock className="w-4 h-4" />} title="Lead Activity History & Audit Trail">
-                  <div className="space-y-2.5">
-                    {leadHistory === null ? (
-                      <div className="text-sm text-slate-500">Loading history…</div>
-                    ) : (
-                      <>
-                        {leadHistory.map((h) => (
-                          <div key={h.id} className="flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-4 px-3.5 py-2.5 rounded-md bg-white/[0.03] border border-white/[0.05]">
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium text-white">{h.title}</div>
-                              <div className="text-[13px] text-slate-400 mt-0.5 break-words">{h.description}</div>
-                            </div>
-                            <div className="text-xs font-mono text-slate-500 shrink-0">{fmtIst(h.createdAt)}</div>
+                <DetailCard icon={<Clock className="w-4 h-4" />} title="Activity History & Audit Trail">
+                  {leadHistory === null ? (
+                    <div className="text-sm text-slate-500">Loading history…</div>
+                  ) : (
+                    <ol className="relative border-l border-white/10 ml-1.5 space-y-4">
+                      {leadHistory.map((h) => (
+                        <li key={h.id} className="pl-5 relative">
+                          <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-purple-500" />
+                          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5 sm:gap-4">
+                            <div className="text-sm font-semibold text-white">{h.title}</div>
+                            <div className="text-xs text-slate-500 shrink-0">{fmtIst(h.createdAt)}</div>
                           </div>
-                        ))}
-                        <div className="px-3.5 py-2.5 text-sm italic text-slate-500">
-                          Initial lead submission recorded on {fmtIst(l.createdAt)} via {displayLeadSource(l.source)}.
+                          <div className="text-[13px] text-slate-400 mt-0.5 break-words">{h.description}</div>
+                        </li>
+                      ))}
+                      <li className="pl-5 relative">
+                        <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-500" />
+                        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5 sm:gap-4">
+                          <div className="text-sm font-semibold text-white">Lead received</div>
+                          <div className="text-xs text-slate-500 shrink-0">{fmtIst(l.createdAt)}</div>
                         </div>
-                      </>
-                    )}
-                  </div>
+                        <div className="text-[13px] text-slate-400 mt-0.5">Submitted via {sourceLabel}.</div>
+                      </li>
+                    </ol>
+                  )}
                 </DetailCard>
               </div>
             </div>
@@ -2627,8 +2667,8 @@ function DetailCard({ icon, title, right, children }: { icon: React.ReactNode; t
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 text-sm">
-      <span className="text-slate-400 shrink-0">{label}:</span>
+    <div className="grid grid-cols-[110px_1fr] sm:grid-cols-[160px_1fr] items-start gap-3 text-sm py-0.5">
+      <span className="text-slate-400">{label}</span>
       <span className="text-white font-medium text-right min-w-0 break-words">{value}</span>
     </div>
   );
