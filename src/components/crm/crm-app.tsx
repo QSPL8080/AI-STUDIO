@@ -287,6 +287,53 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
   }, []);
 
+  // New-lead alert cards (bottom-right), desktop notifications and tab-title badge
+  const [leadAlerts, setLeadAlerts] = useState<{ key: number; lead: LeadItem }[]>([]);
+  const dismissAlert = (key: number) => setLeadAlerts((a) => a.filter((x) => x.key !== key));
+  const announceNewLeads = (fresh: LeadItem[]) => {
+    const shown = fresh.slice(0, 3).map((lead, i) => ({ key: Date.now() + i + Math.random(), lead }));
+    setLeadAlerts((a) => [...shown, ...a].slice(0, 4));
+    shown.forEach((al) => setTimeout(() => dismissAlert(al.key), 12000));
+    if (fresh.length > 3) toast(`+${fresh.length - 3} more new leads`, "info");
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.visibilityState !== "visible") {
+        fresh.slice(0, 3).forEach((l) => {
+          const n = new Notification(`New lead: ${l.clientName}`, {
+            body: `${l.kind === "meta" ? "Meta Ads" : displayLeadSource(l.source)} • ${l.videoScope}${l.phone ? ` • ${l.phone}` : ""}`,
+            icon: "/favicon.png",
+            tag: l.id,
+          });
+          n.onclick = () => {
+            window.focus();
+            setSelectedLead(l);
+            n.close();
+          };
+        });
+      }
+    } catch {
+      /* notifications unsupported */
+    }
+  };
+
+  // Ask once for desktop-notification permission on the first click in the CRM.
+  useEffect(() => {
+    if (typeof Notification === "undefined" || Notification.permission !== "default") return;
+    const ask = () => {
+      Notification.requestPermission().catch(() => null);
+      window.removeEventListener("click", ask);
+    };
+    window.addEventListener("click", ask);
+    return () => window.removeEventListener("click", ask);
+  }, []);
+
+  // Unread count in the browser tab title
+  useEffect(() => {
+    const base = "AI STUDIO INDIA – Enterprise CRM";
+    document.title = unseenLeadIds.length ? `(${unseenLeadIds.length}) New lead${unseenLeadIds.length > 1 ? "s" : ""} – ${base}` : base;
+  }, [unseenLeadIds.length]);
+
+  const markSeen = (id: string) => setUnseenLeadIds((u) => (u.includes(id) ? u.filter((x) => x !== id) : u));
+
   const forceLogout = useCallback(
     (reason?: string) => {
       clearStoredCrmUser();
@@ -335,7 +382,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       setPerms(r.perms);
       setConfig(r.config);
       if (!configDirtyRef.current) setConfigDraft(r.config);
-      setLeads(r.leads);
+      setLeads([...r.leads].sort((a: LeadItem, b: LeadItem) => String(b.createdAt).localeCompare(String(a.createdAt))));
       setRecycleBin(r.recycleBin);
       setOrdersCount(r.ordersCount);
       if (r.orders) setOrders(r.orders);
@@ -360,8 +407,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       if (knownLeadIds.current) {
         const fresh = r.leads.filter((l: LeadItem) => !knownLeadIds.current!.has(l.id)).map((l: LeadItem) => l.id);
         if (fresh.length) {
-          setUnseenLeadIds((u) => [...fresh, ...u].slice(0, 20));
+          setUnseenLeadIds((u) => [...fresh, ...u].slice(0, 50));
           if (soundRef.current) playAudioChime();
+          const freshLeads: LeadItem[] = r.leads.filter((l: LeadItem) => fresh.includes(l.id));
+          announceNewLeads(freshLeads);
         }
       }
       knownLeadIds.current = ids;
@@ -442,6 +491,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   // Per-lead audit trail for the details popup
   useEffect(() => {
     if (!selectedLead) return;
+    markSeen(selectedLead.id);
     let cancelled = false;
     setLeadHistory(null);
     crmLeadHistoryFn({ data: { token: tokenRef.current, id: selectedLead.id } })
@@ -1134,7 +1184,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 </div>
               )}
 
-              <div className={`${card} overflow-hidden flex flex-col lg:flex-1 lg:min-h-0`}>
+              <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
                 {shown.length === 0 ? (
                   <Empty
                     icon={<Layers className="w-8 h-8" />}
@@ -1142,7 +1192,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     text={isMeta ? "Meta leads you add or receive will appear here." : "New website submissions appear here automatically."}
                   />
                 ) : (
-                  <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:flex-1 lg:min-h-0">
+                  <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
                     <table className="w-full min-w-[1180px] text-left text-[13px]">
                       <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                         <tr>
@@ -1172,7 +1222,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         {shown.map((l) => {
                           const checked = selectedIds.includes(l.id);
                           return (
-                            <tr key={l.id} className={`align-top transition-colors ${checked ? "bg-purple-500/[0.06]" : "hover:bg-white/[0.02]"}`}>
+                            <tr
+                              key={l.id}
+                              className={`align-top transition-colors ${
+                                checked ? "bg-purple-500/[0.06]" : unseenLeadIds.includes(l.id) ? "bg-emerald-500/[0.07] shadow-[inset_3px_0_0_0_rgb(52,211,153)]" : "hover:bg-white/[0.02]"
+                              }`}
+                            >
                               <td className="p-3.5">
                                 {canDelete && (
                                   <input
@@ -1188,6 +1243,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               </td>
                               <td className="p-3.5">
                                 <SourceBadge lead={l} />
+                                {unseenLeadIds.includes(l.id) && (
+                                  <div className="mt-1.5">
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500 text-[10px] font-bold text-black uppercase tracking-wide">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-black/60 animate-pulse" /> New
+                                    </span>
+                                  </div>
+                                )}
                               </td>
                               <td className="p-3.5 whitespace-nowrap">
                                 <div className="text-slate-200 font-medium">{fmtIstDate(l.createdAt)}</div>
@@ -1324,11 +1386,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </select>
             </div>
 
-            <div className={`${card} overflow-hidden flex flex-col lg:flex-1 lg:min-h-0`}>
+            <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
               {shownOrders.length === 0 ? (
                 <Empty icon={<Package className="w-8 h-8" />} title={orders.length ? "No orders match the current filter" : "No payment transactions yet"} text="Checkout orders appear here automatically." />
               ) : (
-                <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:flex-1 lg:min-h-0">
+                <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
                   <table className="w-full min-w-[960px] text-left text-[13px]">
                     <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                       <tr>
@@ -1427,7 +1489,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               ))}
             </div>
 
-            <div className={`${card} divide-y divide-white/[0.06] overflow-y-auto max-h-[70vh] lg:max-h-none lg:flex-1 lg:min-h-0`}>
+            <div className={`${card} divide-y divide-white/[0.06] overflow-y-auto max-h-[70vh] lg:max-h-none lg:min-h-0 lg:shrink`}>
               {shownActivity.length === 0 ? (
                 <Empty icon={<Clock className="w-8 h-8" />} title="No activity recorded" text="Actions in the CRM are logged here." />
               ) : (
@@ -1480,8 +1542,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </button>
             </PageHeader>
 
-            <div className={`${card} overflow-hidden flex flex-col lg:flex-1 lg:min-h-0`}>
-              <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:flex-1 lg:min-h-0">
+            <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
+              <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
                 <table className="w-full min-w-[900px] text-left text-[13px]">
                   <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                     <tr>
@@ -1829,11 +1891,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               )}
             </PageHeader>
 
-            <div className={`${card} overflow-hidden flex flex-col lg:flex-1 lg:min-h-0`}>
+            <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
               {recycleBin.length === 0 ? (
                 <Empty icon={<Trash2 className="w-8 h-8" />} title="Recycle Bin is empty" text="Soft-deleted leads appear here." />
               ) : (
-                <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:flex-1 lg:min-h-0">
+                <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
                   <table className="w-full min-w-[860px] text-left text-[13px]">
                     <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
                       <tr>
@@ -2258,8 +2320,32 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         </Modal>
       )}
 
-      {/* Toasts */}
-      <div className="fixed bottom-5 right-5 z-[60] space-y-2 w-[min(360px,calc(100vw-40px))]">
+      {/* Toasts + new-lead alerts */}
+      <div className="fixed bottom-5 right-5 z-[60] space-y-2 w-[min(380px,calc(100vw-40px))]">
+        {leadAlerts.map(({ key, lead }) => (
+          <div key={key} className="rounded-md border border-emerald-500/40 bg-[#0b1a16]/95 backdrop-blur shadow-2xl p-3.5 flex items-start gap-3 animate-in slide-in-from-right-4 fade-in">
+            <div className="w-9 h-9 rounded-full bg-emerald-500/15 text-emerald-300 flex items-center justify-center shrink-0">
+              <Bell className="w-4 h-4" />
+            </div>
+            <button
+              className="flex-1 min-w-0 text-left"
+              onClick={() => {
+                setSelectedLead(lead);
+                dismissAlert(key);
+              }}
+            >
+              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">New lead received</div>
+              <div className="text-sm font-semibold text-white truncate mt-0.5">{lead.clientName}</div>
+              <div className="text-xs text-slate-400 truncate">
+                {lead.kind === "meta" ? "Meta Ads" : displayLeadSource(lead.source)} • {lead.videoScope}
+              </div>
+              <div className="text-xs text-emerald-300/80 mt-1">View details →</div>
+            </button>
+            <button onClick={() => dismissAlert(key)} className="text-slate-500 hover:text-white p-0.5" title="Dismiss">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
         {toasts.map((t) => (
           <div
             key={t.id}
