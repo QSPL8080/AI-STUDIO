@@ -7,7 +7,6 @@ import {
   QuotePopupModal,
 } from "@/components/site/sections";
 import {
-  Sparkles,
   Clock,
   Volume2,
   VolumeX,
@@ -50,9 +49,9 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   {
     id: "reel-1",
     category: "AI UGC",
-    title: "Skincare Glow Routine",
-    subtitle: "Organic creator-style unboxing, demonstration & review",
-    industry: "Beauty & Wellness",
+    title: "Bharat Stone Showcase",
+    subtitle: "High-impact creator-led demonstration reel highlighting luxury architectural stone surfaces",
+    industry: "Interior Architecture & Luxury",
     videoUrl: "/videos/page-1.mp4",
     fallbackUrl: "/videos/page%201.mp4",
     duration: "42s",
@@ -61,9 +60,9 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   {
     id: "reel-2",
     category: "AI Avatar",
-    title: "Executive Spokesperson",
-    subtitle: "Multilingual presenter explaining fintech app & features",
-    industry: "SaaS & Finance",
+    title: "Architectural Stone Presenter",
+    subtitle: "Studio-grade AI avatar presenter demonstrating modern residential & commercial stone finishes",
+    industry: "Real Estate & Home Decor",
     videoUrl: "/videos/page-2.mp4",
     fallbackUrl: "/videos/Page%202.mp4",
     duration: "45s",
@@ -72,9 +71,9 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   {
     id: "reel-3",
     category: "Hyper-Realistic",
-    title: "Cinematic Luxury Commercial",
-    subtitle: "Studio-grade macro product commercial with fluid lighting",
-    industry: "Jewellery & Luxury",
+    title: "Royal Heritage & Saree",
+    subtitle: "Cinematic commercial reel with grand heritage palace architecture and traditional elegance",
+    industry: "Luxury Fashion & Heritage",
     videoUrl: "/videos/page-3.mp4",
     fallbackUrl: "/videos/Page%203.mp4",
     duration: "45s",
@@ -83,9 +82,9 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   {
     id: "reel-4",
     category: "AI Cartoon",
-    title: "3D Mascot Explainer",
-    subtitle: "Engaging animated character storytelling for brands",
-    industry: "EdTech & Kids Brands",
+    title: "3D Character Explainer",
+    subtitle: "Engaging animated mascot storytelling engineered for viral social engagement & brand recall",
+    industry: "Animated Brands & EdTech",
     videoUrl: "/videos/page-4.mp4",
     fallbackUrl: "/videos/Page%204.mp4",
     duration: "40s",
@@ -95,8 +94,8 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
     id: "reel-5",
     category: "Digital Twin",
     title: "Founder Keynote Clone",
-    subtitle: "Hyper-realistic voice clone & lip-sync model for executive content",
-    industry: "Personal Brand & Coaching",
+    subtitle: "Ultra-realistic voice clone & lip-sync model for scalable executive branding & content",
+    industry: "Personal Brand & Leadership",
     videoUrl: "/videos/page-5.mp4",
     fallbackUrl: "/videos/Page%205.mp4",
     duration: "37s",
@@ -106,8 +105,8 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
     id: "reel-6",
     category: "AI UGC",
     title: "Activewear Performance Demo",
-    subtitle: "High-energy lifestyle reels engineered for social conversions",
-    industry: "Fitness & Apparel",
+    subtitle: "Dynamic vertical reel demonstration engineered for high conversions across Meta & TikTok ads",
+    industry: "Fitness, Health & Apparel",
     videoUrl: "/videos/page-6.mp4",
     fallbackUrl: "/videos/Page%206.mp4",
     duration: "39s",
@@ -231,7 +230,7 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
   };
 
   return (
-    <article className="group relative flex aspect-[9/16] w-full flex-col justify-between overflow-hidden rounded-[26px] border border-white/10 bg-[#0c0919] shadow-2xl transition-all duration-300 hover:border-purple-500/50 hover:shadow-[0_0_40px_rgba(168,85,247,0.28)]">
+    <article className="group relative flex aspect-[9/16] w-full flex-col justify-between overflow-hidden rounded-[26px] border border-border/70 bg-[#0c0919] shadow-2xl transition-all duration-300 hover:border-neon hover:shadow-[0_0_40px_rgba(200,80,255,0.3)]">
       {/* Background HTML5 Video element */}
       {!hasError ? (
         <video
@@ -252,8 +251,8 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
         </video>
       ) : (
         <div className={`absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b ${reel.gradient} p-6 text-center`}>
-          <Film className="w-10 h-10 text-purple-400/60" />
-          <p className="text-xs font-semibold text-white/80">Reel preview offline</p>
+          <Film className="w-10 h-10 text-neon/60" />
+          <p className="text-xs font-semibold text-white/80 font-heading">Reel preview offline</p>
           <button
             type="button"
             onClick={handleRetry}
@@ -273,12 +272,12 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
       />
 
       {/* Cinematic Soft Gradient Overlays for contrast */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/50 pointer-events-none z-10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-transparent to-black/60 pointer-events-none z-10" />
 
       {/* Top Header Bar: Category Tag & Controls */}
       <div className="relative z-20 flex items-center justify-between p-4 sm:p-5 pointer-events-none">
-        <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-purple-500/30 text-purple-300 shadow-md">
-          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+        <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-neon/40 text-neon shadow-md font-heading">
+          <span className="w-1.5 h-1.5 rounded-full bg-neon animate-pulse" />
           {reel.category}
         </span>
 
@@ -287,14 +286,14 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
           <button
             type="button"
             onClick={toggleMute}
-            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:bg-purple-600 hover:text-white cursor-pointer"
+            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:border-neon hover:text-neon cursor-pointer"
             title={isMuted ? "Unmute audio" : "Mute audio"}
             aria-label={isMuted ? "Unmute audio" : "Mute audio"}
           >
             {isMuted ? (
               <VolumeX className="w-4 h-4 text-white/80" />
             ) : (
-              <Volume2 className="w-4 h-4 text-purple-300" />
+              <Volume2 className="w-4 h-4 text-neon" />
             )}
           </button>
 
@@ -305,7 +304,7 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
               e.stopPropagation();
               onExpand(reel);
             }}
-            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:bg-purple-600 hover:text-white cursor-pointer"
+            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:border-neon hover:text-neon cursor-pointer"
             title="Expand reel preview"
             aria-label="Expand reel preview"
           >
@@ -320,7 +319,7 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
           !isPlaying ? "opacity-100 scale-100" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100"
         }`}
       >
-        <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-[0_0_30px_rgba(217,70,239,0.7)] backdrop-blur-md border border-white/20 transition-transform duration-200">
+        <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-gradient-brand text-neon-foreground shadow-[0_0_30px_rgba(217,70,239,0.7)] backdrop-blur-md border border-white/20 transition-transform duration-200">
           {isPlaying ? (
             <Pause className="h-6 w-6 text-white" />
           ) : (
@@ -333,17 +332,17 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
       <div className="relative z-20 flex flex-col pointer-events-none">
         {/* Info Card with frosted backing */}
         <div className="p-4 sm:p-5">
-          <div className="space-y-1 rounded-2xl bg-black/60 p-3 sm:p-3.5 backdrop-blur-md border border-white/10 shadow-lg">
-            <div className="flex items-center justify-between text-[10px] font-semibold tracking-wide">
-              <span className="text-purple-300 uppercase">{reel.industry}</span>
+          <div className="space-y-1 rounded-2xl bg-black/75 p-3 sm:p-3.5 backdrop-blur-md border border-white/10 shadow-xl">
+            <div className="flex items-center justify-between text-[10px] font-bold tracking-wide">
+              <span className="text-neon uppercase font-heading">{reel.industry}</span>
               <span className="text-muted-foreground flex items-center gap-1 font-mono">
-                <Clock className="w-3 h-3 text-purple-400" /> {reel.duration} Reel
+                <Clock className="w-3 h-3 text-neon" /> {reel.duration} Reel
               </span>
             </div>
-            <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+            <h3 className="text-sm sm:text-base font-bold text-white leading-tight font-heading">
               {reel.title}
             </h3>
-            <p className="text-[11px] sm:text-xs text-white/80 line-clamp-2 leading-relaxed">
+            <p className="text-[11px] sm:text-xs text-white/80 line-clamp-2 leading-relaxed font-sans">
               {reel.subtitle}
             </p>
           </div>
@@ -356,7 +355,7 @@ function PortfolioReelCard({ reel, onExpand }: PortfolioReelCardProps) {
           title="Click to seek"
         >
           <div
-            className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-400 shadow-[0_0_12px_rgba(217,70,239,0.9)] transition-[width] duration-75"
+            className="h-full bg-gradient-brand shadow-[0_0_12px_rgba(217,70,239,0.9)] transition-[width] duration-75"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -425,7 +424,7 @@ function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xl p-4 sm:p-6 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 sm:p-6 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -484,8 +483,8 @@ function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
           {/* Center Play indicator */}
           {!isPlaying && (
             <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-              <div className="w-16 h-16 rounded-full bg-purple-600/90 text-white flex items-center justify-center shadow-xl">
-                <Play className="w-7 h-7 fill-white translate-x-0.5" />
+              <div className="w-16 h-16 rounded-full bg-gradient-brand text-neon-foreground flex items-center justify-center shadow-xl">
+                <Play className="w-7 h-7 fill-white translate-x-0.5 text-white" />
               </div>
             </div>
           )}
@@ -496,7 +495,7 @@ function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
             className="absolute bottom-0 left-0 right-0 h-2 bg-white/20 cursor-pointer z-20"
           >
             <div
-              className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-400"
+              className="h-full bg-gradient-brand"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -505,33 +504,33 @@ function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
         {/* Modal Side Information & Direct CTA */}
         <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto max-h-[85vh]">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-purple-300 text-xs font-bold uppercase tracking-wider mb-4">
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/60 border border-neon/30 text-neon text-xs font-bold uppercase tracking-wider mb-4 font-heading">
+              <span className="w-2 h-2 rounded-full bg-neon animate-pulse" />
               {reel.category}
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight font-heading">
               {reel.title}
             </h2>
-            <p className="text-xs text-purple-400 font-semibold uppercase tracking-wider mt-1">
+            <p className="text-xs text-neon font-semibold uppercase tracking-wider mt-1 font-heading">
               Industry: {reel.industry} • Duration: {reel.duration}
             </p>
 
-            <p className="text-sm text-muted-foreground mt-4 leading-relaxed">
+            <p className="text-sm text-muted-foreground mt-4 leading-relaxed font-sans">
               {reel.subtitle}
             </p>
 
-            <div className="mt-6 space-y-2.5 text-xs text-muted-foreground/90 border-t border-white/10 pt-4">
+            <div className="mt-6 space-y-2.5 text-xs text-muted-foreground/90 border-t border-white/10 pt-4 font-sans">
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="w-1.5 h-1.5 rounded-full bg-neon shrink-0" />
                 <span>True 9:16 Vertical Reel format optimized for Instagram, TikTok & Shorts</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="w-1.5 h-1.5 rounded-full bg-neon shrink-0" />
                 <span>Ultra HD 1080x1920 crisp export with professional audio mixing</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="w-1.5 h-1.5 rounded-full bg-neon shrink-0" />
                 <span>Custom brand assets, product placements, and conversion-focused scripting</span>
               </div>
             </div>
@@ -541,7 +540,7 @@ function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
             <a
               href="/#contact"
               onClick={onClose}
-              className="flex-1 py-3 px-5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-xs text-center shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-1 py-3 px-5 rounded-full bg-gradient-brand text-neon-foreground font-bold text-xs text-center shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer font-heading"
             >
               <span>Get Reel Quote</span>
               <ArrowRight className="w-4 h-4" />
@@ -552,7 +551,7 @@ function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
               )}`}
               target="_blank"
               rel="noreferrer"
-              className="py-3 px-5 rounded-full border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 font-semibold text-xs text-center flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="py-3 px-5 rounded-full border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 font-semibold text-xs text-center flex items-center justify-center gap-2 transition-colors cursor-pointer font-heading"
             >
               Chat on WhatsApp
             </a>
@@ -579,31 +578,45 @@ function PortfolioPage() {
       : PORTFOLIO_REELS.filter((r) => r.category === selectedFilter);
 
   return (
-    <div className="min-h-screen w-full overflow-x-clip bg-background text-foreground antialiased selection:bg-purple-500/30">
+    <div className="min-h-screen w-full overflow-x-clip bg-background text-foreground antialiased selection:bg-neon selection:text-black">
       <Header />
 
-      <main className="pt-28 pb-20 px-4 sm:px-6 max-w-7xl mx-auto">
+      {/* Main Content: generous pt-36 sm:pt-40 md:pt-44 padding so the fixed navbar with announcement bar never covers content */}
+      <main className="pt-36 sm:pt-40 md:pt-44 pb-20 px-4 sm:px-6 max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-purple-500/30 bg-purple-950/40 text-purple-300 text-xs font-semibold uppercase tracking-wider mb-5 shadow-[0_0_20px_rgba(168,85,247,0.2)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-            PORTFOLIO SHOWCASE
+          {/* Eyebrow badge matching website brand style */}
+          <div className="mb-4 sm:mb-5">
+            <span className="eyebrow">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-neon shadow-[0_0_8px_#c850ff]" />
+              </span>
+              Portfolio Showcase
+            </span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
+          {/* Heading using the exact site font (font-heading font-extrabold) without broken serif wraps */}
+          <h1 className="font-heading text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
             See What AI Creative{" "}
-            <span className="italic font-serif bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
+            <span
+              className="inline-block bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-pink-500 bg-clip-text text-transparent font-heading font-extrabold"
+              style={{
+                backgroundImage:
+                  "linear-gradient(120deg, var(--neon-blue), var(--neon), var(--neon-magenta))",
+              }}
+            >
               Can Look Like
             </span>
           </h1>
 
-          <p className="mt-4 text-sm sm:text-base text-muted-foreground leading-relaxed">
-            Explore 6 high-converting AI-powered video concepts created across e-commerce, beauty, corporate SaaS, jewellery, storytelling, and fitness categories.
+          <p className="mt-4 text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto font-sans">
+            Explore 6 high-converting AI-powered video concepts created across interior architecture, luxury real estate, heritage commercial, animated storytelling, and lifestyle fitness categories.
           </p>
 
-          {/* Filter Pills */}
+          {/* Filter Pills matching website design tokens */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 mr-1 hidden sm:inline">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80 mr-1 hidden sm:inline font-heading">
               PORTFOLIO FILTERS:
             </span>
             {CATEGORIES.map((cat) => (
@@ -611,10 +624,10 @@ function PortfolioPage() {
                 key={cat}
                 type="button"
                 onClick={() => setSelectedFilter(cat)}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer font-heading ${
                   selectedFilter === cat
-                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-[0_0_15px_rgba(217,70,239,0.4)] scale-105"
-                    : "border border-white/10 bg-white/[0.03] text-muted-foreground hover:text-white hover:bg-white/[0.08]"
+                    ? "bg-gradient-brand text-neon-foreground glow-neon shadow-[0_0_20px_rgba(200,80,255,0.4)] scale-105"
+                    : "border border-border/80 bg-secondary/50 text-muted-foreground hover:text-white hover:border-neon hover:bg-secondary/80"
                 }`}
               >
                 {cat}
@@ -635,17 +648,17 @@ function PortfolioPage() {
         </div>
 
         {/* Bottom CTA Box */}
-        <div className="mt-16 text-center max-w-2xl mx-auto p-8 rounded-3xl border border-white/10 bg-secondary/30 backdrop-blur-xl">
-          <h2 className="text-xl sm:text-2xl font-bold text-white">
+        <div className="mt-16 text-center max-w-2xl mx-auto p-8 rounded-3xl border border-border/80 bg-secondary/30 backdrop-blur-xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-white font-heading">
             Need Custom AI Videos for Your Brand?
           </h2>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-2 font-sans">
             We produce custom AI UGC, Avatar, Cartoon, and Hyper-Realistic video ads tailored specifically for your target audience.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <a
               href="/#contact"
-              className="px-6 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold shadow-lg hover:brightness-110 transition-all cursor-pointer"
+              className="px-6 py-2.5 rounded-full bg-gradient-brand text-neon-foreground text-xs font-bold shadow-lg hover:brightness-110 transition-all cursor-pointer font-heading"
             >
               Get Custom Video Quote
             </a>
@@ -655,7 +668,7 @@ function PortfolioPage() {
               )}`}
               target="_blank"
               rel="noreferrer"
-              className="px-6 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+              className="px-6 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer font-heading"
             >
               Chat on WhatsApp
             </a>
