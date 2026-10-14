@@ -57,7 +57,14 @@ async function rest(endpoint: string, init: RequestInit = {}) {
     },
   });
   const text = await res.text();
-  if (!res.ok) throw new Error(`Database error (${res.status}): ${text}`);
+  if (!res.ok) {
+    if (text.includes("PGRST205") || text.includes("PGRST204") || text.includes("42703")) {
+      throw new Error(
+        "CRM database is not set up yet: run supabase-schema.sql in Supabase → SQL Editor (same project as SUPABASE_URL), then try again.",
+      );
+    }
+    throw new Error(`Database error (${res.status}): ${text}`);
+  }
   return text ? JSON.parse(text) : [];
 }
 

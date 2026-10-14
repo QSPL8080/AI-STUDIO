@@ -144,3 +144,6 @@ CREATE POLICY "Allow all orders access" ON public.orders
     FOR ALL
     TO public
     USING (true);
+
+-- 7. Tell the Supabase REST API to pick up the new tables/columns immediately
+NOTIFY pgrst, 'reload schema';
