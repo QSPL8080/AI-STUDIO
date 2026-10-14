@@ -39,10 +39,15 @@ export interface Order {
 let pgPool: any = null;
 
 function getSupabaseConfig() {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_API_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_API_KEY;
-  if (url && key) {
-    return { url, key };
+  const rawUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_API_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_API_KEY;
+  if (rawUrl && key) {
+    const url = rawUrl.trim().replace(/\/+$/, "");
+    return { url, key: key.trim() };
   }
   return null;
 }

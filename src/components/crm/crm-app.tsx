@@ -43,6 +43,12 @@ import {
 } from "lucide-react";
 import { CrmUser, clearStoredCrmUser } from "@/lib/crm-auth";
 import {
+  getLeadsServerFn,
+  updateLeadStatusServerFn,
+  deleteLeadServerFn,
+  createCrmLeadServerFn,
+} from "@/lib/lead-actions";
+import {
   INITIAL_LEADS,
   INITIAL_META_LEADS,
   INITIAL_ORDERS,
@@ -92,6 +98,35 @@ function playAudioChime() {
   }
 }
 
+// Convert database Lead to CRM LeadItem
+function formatDbLead(l: any): LeadItem {
+  const d = new Date(l.created_at || Date.now());
+  const istStr = !isNaN(d.getTime())
+    ? d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "short", timeStyle: "short" })
+    : "Recently";
+  const edtStr = !isNaN(d.getTime())
+    ? d.toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "short", timeStyle: "short" })
+    : "Recently";
+
+  return {
+    id: l.id,
+    source: (l.source?.includes("Meta") ? "Meta Ads" : "Website") as any,
+    timestampIst: istStr,
+    timestampEdt: edtStr,
+    clientName: l.name,
+    email: l.email || "No email",
+    phone: l.phone,
+    whatsapp: l.phone,
+    companyName: l.business || "Business",
+    videoScope: l.video_type || "AI Video",
+    businessType: l.industry || undefined,
+    leadStatus: (l.status as any) || "New",
+    projectStatus: "New",
+    notes: [l.requirement, l.additional].filter(Boolean).join(" | ") || "Inbound website lead",
+    location: l.location || undefined,
+  };
+}
+
 export function CrmApp({ user }: { user: CrmUser }) {
   const navigate = useNavigate();
   const isSuperAdmin = user.role === "SUPER_ADMIN";
@@ -100,7 +135,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [websiteLeads, setWebsiteLeads] = useState<LeadItem[]>(INITIAL_LEADS);
   const [metaLeads, setMetaLeads] = useState<LeadItem[]>(INITIAL_META_LEADS);
-  const [orders, setOrders] = useState<OrderItem[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<OrderItem[]>([]);
   const [meetings, setMeetings] = useState<CalendlyMeetingItem[]>(INITIAL_MEETINGS);
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>(INITIAL_ACTIVITY_LOGS);
   const [admins, setAdmins] = useState<AdminAccountItem[]>(INITIAL_ADMINS);
@@ -115,6 +150,39 @@ export function CrmApp({ user }: { user: CrmUser }) {
   const [syncCountdown, setSyncCountdown] = useState<number>(10);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
+
+  // Fetch real leads from PostgreSQL / Supabase Database
+  const fetchDbLeads = async () => {
+    try {
+      const res = await getLeadsServerFn();
+      if (res?.success && Array.isArray(res.leads) && res.leads.length > 0) {
+        const formatted = res.leads.map(formatDbLead);
+        const web = formatted.filter((f) => f.source === "Website" || f.source === "Manual Entry" || !f.source.includes("Meta"));
+        const meta = formatted.filter((f) => f.source === "Meta Ads");
+
+        if (web.length > 0) {
+          setWebsiteLeads((prev) => {
+            const existingDbIds = new Set(web.map((w) => w.id));
+            const nonDb = prev.filter((p) => !existingDbIds.has(p.id) && !p.id.startsWith("lead_"));
+            return [...web, ...nonDb];
+          });
+        }
+        if (meta.length > 0) {
+          setMetaLeads((prev) => {
+            const existingDbIds = new Set(meta.map((m) => m.id));
+            const nonDb = prev.filter((p) => !existingDbIds.has(p.id) && !p.id.startsWith("meta_"));
+            return [...meta, ...nonDb];
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("CRM Live DB Sync Note: Operating in cached/in-memory mode.", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchDbLeads();
+  }, []);
 
   // Payments Security PIN
   const [paymentsUnlocked, setPaymentsUnlocked] = useState<boolean>(false);
@@ -216,15 +284,14 @@ export function CrmApp({ user }: { user: CrmUser }) {
     return () => clearInterval(timer);
   }, []);
 
-  const triggerSync = () => {
+  const triggerSync = async () => {
     setIsSyncing(true);
-    setTimeout(() => {
-      setIsSyncing(false);
-      setCounters((c) => ({
-        ...c,
-        lastCheckedTime: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
-      }));
-    }, 800);
+    await fetchDbLeads();
+    setIsSyncing(false);
+    setCounters((c) => ({
+      ...c,
+      lastCheckedTime: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
+    }));
   };
 
   // Logout handler
@@ -244,7 +311,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
 
   const handleUnlockPin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput === "8080" || pinInput === "Anay@8080" || pinInput === "1234" || pinInput.length >= 4) {
+    if (pinInput.trim() === "Admin@8080") {
       setPaymentsUnlocked(true);
       setShowPinModal(false);
       setPinInput("");
@@ -252,17 +319,18 @@ export function CrmApp({ user }: { user: CrmUser }) {
       setActiveTab("orders");
       if (soundEnabled) playAudioChime();
     } else {
-      setPinError("Invalid security PIN. (Hint: Use default 8080)");
+      setPinError("Invalid security PIN. Please enter Admin@8080.");
     }
   };
 
   // Add Lead
-  const handleAddLeadSubmit = (e: React.FormEvent) => {
+  const handleAddLeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLeadForm.clientName || !newLeadForm.email) return;
 
+    const tempId = `lead-${Date.now()}`;
     const item: LeadItem = {
-      id: `lead-${Date.now()}`,
+      id: tempId,
       source: newLeadForm.source,
       timestampIst: `Today, ${istTime} IST`,
       timestampEdt: `Today, ${edtTime} EDT`,
@@ -278,17 +346,39 @@ export function CrmApp({ user }: { user: CrmUser }) {
     setWebsiteLeads([item, ...websiteLeads]);
     setCounters((c) => ({ ...c, activeLeads: c.activeLeads + 1 }));
     setShowAddLeadModal(false);
-    setNewLeadForm({ clientName: "", email: "", phone: "", videoScope: "AI UGC Video Ads", notes: "", source: "Website" });
     if (soundEnabled) playAudioChime();
+
+    try {
+      const res = await createCrmLeadServerFn({
+        data: {
+          clientName: item.clientName,
+          email: item.email,
+          phone: item.phone,
+          videoScope: item.videoScope,
+          notes: item.notes,
+          source: item.source,
+        },
+      });
+      if (res?.success && res.lead?.id) {
+        setWebsiteLeads((prev) =>
+          prev.map((l) => (l.id === tempId ? { ...l, id: res.lead.id } : l))
+        );
+      }
+    } catch (err) {
+      console.warn("Note: Saved to local CRM cache; database sync fallback active.", err);
+    }
+
+    setNewLeadForm({ clientName: "", email: "", phone: "", videoScope: "AI UGC Video Ads", notes: "", source: "Website" });
   };
 
   // Add Meta Lead
-  const handleAddMetaSubmit = (e: React.FormEvent) => {
+  const handleAddMetaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMetaForm.clientName || !newMetaForm.email) return;
 
+    const tempId = `meta-${Date.now()}`;
     const item: LeadItem = {
-      id: `meta-${Date.now()}`,
+      id: tempId,
       source: "Meta Ads",
       channel: newMetaForm.channel,
       timestampIst: `Today, ${istTime} IST`,
@@ -309,6 +399,28 @@ export function CrmApp({ user }: { user: CrmUser }) {
     setMetaLeads([item, ...metaLeads]);
     setCounters((c) => ({ ...c, activeLeads: c.activeLeads + 1 }));
     setShowAddMetaModal(false);
+    if (soundEnabled) playAudioChime();
+
+    try {
+      const res = await createCrmLeadServerFn({
+        data: {
+          clientName: item.clientName,
+          email: item.email,
+          phone: item.phone,
+          videoScope: item.videoScope,
+          notes: item.notes,
+          source: "Meta Ads",
+        },
+      });
+      if (res?.success && res.lead?.id) {
+        setMetaLeads((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...m, id: res.lead.id } : m))
+        );
+      }
+    } catch (err) {
+      console.warn("Note: Saved to local CRM cache; database sync fallback active.", err);
+    }
+
     setNewMetaForm({
       clientName: "",
       email: "",
@@ -320,7 +432,25 @@ export function CrmApp({ user }: { user: CrmUser }) {
       formName: "India AI 1",
       notes: "",
     });
-    if (soundEnabled) playAudioChime();
+  };
+
+  // Status Change (Sync to DB)
+  const handleStatusChange = async (id: string, newStatus: string, type: "website" | "meta") => {
+    if (type === "website") {
+      setWebsiteLeads((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, leadStatus: newStatus as any } : x))
+      );
+    } else {
+      setMetaLeads((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, leadStatus: newStatus as any } : x))
+      );
+    }
+
+    try {
+      await updateLeadStatusServerFn({ data: { id, status: newStatus } });
+    } catch (e) {
+      console.warn("DB status update note:", e);
+    }
   };
 
   // Create Admin
@@ -344,8 +474,8 @@ export function CrmApp({ user }: { user: CrmUser }) {
     setNewAdminForm({ name: "", email: "", role: "ADMIN" });
   };
 
-  // Soft Delete Lead
-  const handleDeleteLead = (id: string, type: "website" | "meta") => {
+  // Soft Delete Lead + Sync to DB
+  const handleDeleteLead = async (id: string, type: "website" | "meta") => {
     if (type === "website") {
       const target = websiteLeads.find((l) => l.id === id);
       if (target) {
@@ -358,6 +488,12 @@ export function CrmApp({ user }: { user: CrmUser }) {
         setRecycleBin([{ ...target, itemType: "Meta Lead", deletedOn: new Date().toLocaleDateString() }, ...recycleBin]);
         setMetaLeads(metaLeads.filter((l) => l.id !== id));
       }
+    }
+
+    try {
+      await deleteLeadServerFn({ data: { id } });
+    } catch (e) {
+      console.warn("CRM DB delete note:", e);
     }
   };
 
@@ -405,14 +541,12 @@ export function CrmApp({ user }: { user: CrmUser }) {
       { id: "leads", label: "Leads Management", icon: Users, count: websiteLeads.length },
       { id: "meta", label: "Meta Leads", icon: Layers, count: metaLeads.length },
       { id: "orders", label: "Orders & Payments", icon: Package, count: orders.length },
-      { id: "calendly", label: "Calendly (India)", icon: Calendar, count: meetings.length },
     ];
 
     if (isSuperAdmin) {
       baseTabs.push(
         { id: "activity", label: "Activity History", icon: Clock, count: null },
         { id: "users", label: "User Management", icon: UserCheck, count: null },
-        { id: "ip-tracking", label: "Login / IP Tracking", icon: Shield, count: null },
         { id: "settings", label: "CRM Settings", icon: Settings, count: null }
       );
     }
@@ -420,7 +554,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
     baseTabs.push({ id: "recycle-bin", label: "Recycle Bin", icon: Trash2, count: recycleBin.length });
 
     return baseTabs;
-  }, [isSuperAdmin, websiteLeads.length, metaLeads.length, orders.length, meetings.length, recycleBin.length]);
+  }, [isSuperAdmin, websiteLeads.length, metaLeads.length, orders.length, recycleBin.length]);
 
   return (
     <div className="min-h-screen bg-[#07090e] text-slate-100 font-sans antialiased selection:bg-slate-800 selection:text-white">
@@ -455,15 +589,6 @@ export function CrmApp({ user }: { user: CrmUser }) {
               >
                 {isSuperAdmin ? "Super Admin" : "Admin"}
               </span>
-            </div>
-          </div>
-
-          {/* Center: Live Real-Time India Clock */}
-          <div className="hidden lg:flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/80 border border-white/10 text-xs font-mono text-slate-300">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-amber-300 font-semibold">IN (IST)</span>
-              <span>{istTime || "06:08:45 pm"}</span>
             </div>
           </div>
 
@@ -1004,9 +1129,17 @@ export function CrmApp({ user }: { user: CrmUser }) {
                           <td className="p-3.5 text-slate-300">{l.phone}</td>
                           <td className="p-3.5 text-slate-300">{l.videoScope}</td>
                           <td className="p-3.5">
-                            <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px]">
-                              {l.leadStatus}
-                            </span>
+                            <select
+                              value={l.leadStatus}
+                              onChange={(e) => handleStatusChange(l.id, e.target.value, "website")}
+                              className="px-2 py-1 rounded bg-blue-950/60 border border-blue-500/40 text-blue-200 text-xs font-semibold focus:outline-none cursor-pointer"
+                            >
+                              <option value="New">New</option>
+                              <option value="Contacted">Contacted</option>
+                              <option value="In Progress">In Progress</option>
+                              <option value="Hold">Hold</option>
+                              <option value="Closed">Closed</option>
+                            </select>
                           </td>
                           <td className="p-3.5">
                             <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px]">
@@ -1200,13 +1333,8 @@ export function CrmApp({ user }: { user: CrmUser }) {
                         <td className="p-3">
                           <select
                             value={m.leadStatus}
-                            onChange={(e) => {
-                              const updated = metaLeads.map((x) =>
-                                x.id === m.id ? { ...x, leadStatus: e.target.value as any } : x
-                              );
-                              setMetaLeads(updated);
-                            }}
-                            className="px-2 py-1 rounded bg-blue-950/60 border border-blue-500/40 text-blue-200 text-xs font-semibold focus:outline-none"
+                            onChange={(e) => handleStatusChange(m.id, e.target.value, "meta")}
+                            className="px-2 py-1 rounded bg-blue-950/60 border border-blue-500/40 text-blue-200 text-xs font-semibold focus:outline-none cursor-pointer"
                           >
                             <option value="New">New</option>
                             <option value="Contacted">Contacted</option>
@@ -1299,7 +1427,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   <span>Total Revenue</span>
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
                 </div>
-                <div className="text-3xl font-bold text-emerald-400 mt-2">$82.00</div>
+                <div className="text-3xl font-bold text-emerald-400 mt-2">$0.00</div>
               </div>
 
               <div className="rounded-2xl border border-white/[0.08] bg-[#0c101c] p-5">
@@ -1307,7 +1435,9 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   <span>Completed (Paid)</span>
                   <CheckCircle2 className="w-4 h-4 text-cyan-400" />
                 </div>
-                <div className="text-3xl font-bold text-cyan-400 mt-2">4</div>
+                <div className="text-3xl font-bold text-cyan-400 mt-2">
+                  {orders.filter((o) => o.paymentStatus === "Completed").length}
+                </div>
               </div>
 
               <div className="rounded-2xl border border-white/[0.08] bg-[#0c101c] p-5">
@@ -1315,7 +1445,9 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   <span>Pending</span>
                   <Clock className="w-4 h-4 text-amber-400" />
                 </div>
-                <div className="text-3xl font-bold text-amber-400 mt-2">0</div>
+                <div className="text-3xl font-bold text-amber-400 mt-2">
+                  {orders.filter((o) => o.paymentStatus === "Pending").length}
+                </div>
               </div>
             </div>
 
@@ -1333,8 +1465,8 @@ export function CrmApp({ user }: { user: CrmUser }) {
               </div>
               <div className="flex items-center gap-2">
                 <select className="px-3 py-1.5 rounded-lg border border-white/10 bg-black/40 text-xs text-white">
-                  <option>Completed (Paid)</option>
                   <option>All Orders</option>
+                  <option>Completed (Paid)</option>
                 </select>
                 <button
                   onClick={() => handleExportCsv("orders")}
@@ -1346,223 +1478,73 @@ export function CrmApp({ user }: { user: CrmUser }) {
               </div>
             </div>
 
-            {/* Orders Table */}
+            {/* Orders Table or Empty State */}
             <div className="rounded-2xl border border-white/[0.08] bg-[#0c101c] overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white/[0.02] border-b border-white/[0.07] text-[11px] uppercase tracking-wider text-slate-400">
-                    <tr>
-                      <th className="p-3.5">CUSTOMER</th>
-                      <th className="p-3.5">PACKAGE / ITEM</th>
-                      <th className="p-3.5">AMOUNT</th>
-                      <th className="p-3.5">PAYMENT STATUS</th>
-                      <th className="p-3.5">PAYPAL ORDER ID</th>
-                      <th className="p-3.5">DATE</th>
-                      <th className="p-3.5">ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.05]">
-                    {orders.map((ord) => (
-                      <tr key={ord.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="p-3.5">
-                          <div className="font-bold text-white">{ord.customerName}</div>
-                          <div className="text-[11px] text-slate-400">{ord.customerEmail}</div>
-                          <div className="text-[10px] text-slate-500 font-mono">{ord.customerPhone}</div>
-                        </td>
-                        <td className="p-3.5">
-                          <div className="font-semibold text-white">{ord.packageItem}</div>
-                          <span
-                            className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
-                              ord.badgeType === "PACKAGE"
-                                ? "bg-purple-900/50 text-purple-300"
-                                : "bg-blue-900/50 text-blue-300"
-                            }`}
-                          >
-                            {ord.badgeType}
-                          </span>
-                        </td>
-                        <td className="p-3.5 font-bold text-emerald-400 font-mono">
-                          {ord.amount}
-                        </td>
-                        <td className="p-3.5">
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 text-[10px] font-semibold">
-                            {ord.paymentStatus}
-                          </span>
-                        </td>
-                        <td className="p-3.5 font-mono text-[11px] text-slate-300">{ord.orderId}</td>
-                        <td className="p-3.5 text-slate-400 font-mono">{ord.date}</td>
-                        <td className="p-3.5">
-                          <button className="px-2.5 py-1 rounded border border-white/10 hover:bg-white/5 text-slate-300 text-xs transition-colors">
-                            Details
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================
-            TAB 5: CALENDLY STRATEGY CALLS & MEETINGS (INDIA)
-        ======================================================== */}
-        {activeTab === "calendly" && (
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-white/[0.08] bg-[#0c101c] p-5">
-              <div>
-                <h1 className="text-xl font-bold text-white flex items-center gap-2.5">
-                  <Calendar className="w-5 h-5 text-blue-400" />
-                  Calendly Strategy Calls & Meetings (India)
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
-                    {meetings.length} Total
-                  </span>
-                </h1>
-                <p className="text-xs text-slate-400 mt-1">
-                  Connect Calendly directly with the CRM. Live auto-sync with Calendly scheduled events, track meeting dates, client contact, meeting links, and statuses.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={triggerSync}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-                  Sync from Calendly
-                </button>
-                <a
-                  href="https://calendly.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
-                >
-                  Calendly Page
-                </a>
-              </div>
-            </div>
-
-            {/* 7 KPI Status Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-              {[
-                { label: "TOTAL MEETINGS", count: meetings.length, color: "text-blue-400" },
-                { label: "UPCOMING / SCHEDULED", count: 1, color: "text-blue-400" },
-                { label: "RESCHEDULED", count: 0, color: "text-amber-400" },
-                { label: "COMPLETED CALLS", count: 0, color: "text-emerald-400" },
-                { label: "NOT CONDUCTED", count: 0, color: "text-slate-400" },
-                { label: "NO SHOW", count: 0, color: "text-red-400" },
-                { label: "CANCELLED", count: 0, color: "text-rose-400" },
-              ].map((c, i) => (
-                <div key={i} className="rounded-xl border border-white/[0.07] bg-[#0c101c] p-3 text-center">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400">{c.label}</div>
-                  <div className={`text-xl font-bold mt-1 ${c.color}`}>{c.count}</div>
+              {orders.length === 0 ? (
+                <div className="p-16 text-center">
+                  <Package className="w-10 h-10 mx-auto text-slate-600 mb-3" />
+                  <div className="font-semibold text-sm text-slate-300">
+                    No payment transactions recorded yet
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                    Payment gateway is not connected yet. Once connected, live payments and checkout orders will appear here automatically.
+                  </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Filter Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border border-white/[0.07] bg-[#0c101c]">
-              {[
-                "All Statuses",
-                "Scheduled",
-                "Rescheduled",
-                "Completed",
-                "Not Conducted",
-                "No Show",
-                "Cancelled",
-              ].map((st) => (
-                <button
-                  key={st}
-                  onClick={() => setMeetingFilter(st)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                    meetingFilter === st
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-400 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  {st}
-                </button>
-              ))}
-            </div>
-
-            {/* Table */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0c101c] overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white/[0.02] border-b border-white/[0.07] text-[11px] uppercase tracking-wider text-slate-400">
-                    <tr>
-                      <th className="p-3 w-8">
-                        <input type="checkbox" className="rounded bg-black/40 border-white/20" />
-                      </th>
-                      <th className="p-3">MEETING DATE & TIME</th>
-                      <th className="p-3">CLIENT NAME & CONTACT</th>
-                      <th className="p-3">MEETING TYPE</th>
-                      <th className="p-3">MEETING STATUS</th>
-                      <th className="p-3">MEETING LINK</th>
-                      <th className="p-3">HANDLING USER</th>
-                      <th className="p-3">CREATED DATE</th>
-                      <th className="p-3">WORKFLOW ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.05]">
-                    {meetings.map((m) => (
-                      <tr key={m.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="p-3">
-                          <input type="checkbox" className="rounded bg-black/40 border-white/20" />
-                        </td>
-                        <td className="p-3">
-                          <div className="px-2 py-0.5 rounded bg-amber-950/40 text-amber-300 font-mono text-[10px] inline-block border border-amber-500/20">
-                            {m.meetingDateIst}
-                          </div>
-                          <div className="text-[10px] font-mono text-cyan-300/80 mt-1">
-                            {m.meetingDateEdt}
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="font-bold text-white text-sm">{m.clientName}</div>
-                          <div className="text-[11px] text-slate-400">{m.clientEmail}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">{m.clientPhone}</div>
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 mt-1 inline-block">
-                            {m.crmLeadBadge}
-                          </span>
-                        </td>
-                        <td className="p-3 font-semibold text-white">{m.meetingType}</td>
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 rounded bg-blue-950/60 text-blue-300 border border-blue-500/30 text-[10px] font-semibold">
-                            {m.meetingStatus}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <a
-                            href={m.meetingLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium"
-                          >
-                            Join Call ↗
-                          </a>
-                        </td>
-                        <td className="p-3 text-slate-400">{m.handlingUser}</td>
-                        <td className="p-3 font-mono text-slate-400 text-[10px]">{m.createdDateIst}</td>
-                        <td className="p-3">
-                          <div className="flex items-center gap-1.5">
-                            <button className="px-2 py-1 rounded border border-white/10 hover:bg-white/5 text-slate-300 text-xs">
-                              View Lead
-                            </button>
-                            <button className="px-2 py-1 rounded border border-white/10 hover:bg-white/5 text-slate-300 text-xs">
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-white/[0.02] border-b border-white/[0.07] text-[11px] uppercase tracking-wider text-slate-400">
+                      <tr>
+                        <th className="p-3.5">CUSTOMER</th>
+                        <th className="p-3.5">PACKAGE / ITEM</th>
+                        <th className="p-3.5">AMOUNT</th>
+                        <th className="p-3.5">PAYMENT STATUS</th>
+                        <th className="p-3.5">PAYPAL ORDER ID</th>
+                        <th className="p-3.5">DATE</th>
+                        <th className="p-3.5">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.05]">
+                      {orders.map((ord) => (
+                        <tr key={ord.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="p-3.5">
+                            <div className="font-bold text-white">{ord.customerName}</div>
+                            <div className="text-[11px] text-slate-400">{ord.customerEmail}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">{ord.customerPhone}</div>
+                          </td>
+                          <td className="p-3.5">
+                            <div className="font-semibold text-white">{ord.packageItem}</div>
+                            <span
+                              className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
+                                ord.badgeType === "PACKAGE"
+                                  ? "bg-purple-900/50 text-purple-300"
+                                  : "bg-blue-900/50 text-blue-300"
+                              }`}
+                            >
+                              {ord.badgeType}
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-bold text-emerald-400 font-mono">
+                            {ord.amount}
+                          </td>
+                          <td className="p-3.5">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 text-[10px] font-semibold">
+                              {ord.paymentStatus}
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-300">{ord.orderId}</td>
+                          <td className="p-3.5 text-slate-400 font-mono">{ord.date}</td>
+                          <td className="p-3.5">
+                            <button className="px-2.5 py-1 rounded border border-white/10 hover:bg-white/5 text-slate-300 text-xs transition-colors">
                               Details
                             </button>
-                            <button className="p-1 rounded text-red-400 hover:bg-red-500/10">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1582,7 +1564,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   </span>
                 </h1>
                 <p className="text-xs text-slate-400 mt-1">
-                  Real-time audit log categorized across Calendly bookings, Leads lifecycle, and User administrative actions.
+                  Real-time audit log categorized across Leads lifecycle, Client inquiries, and User administrative actions.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1605,7 +1587,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
 
             {/* Filter Pills */}
             <div className="flex items-center gap-2">
-              {["All Activities", "Calendly", "Leads", "User Activity"].map((cat) => (
+              {["All Activities", "Leads", "User Activity"].map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setActivityFilter(cat)}
@@ -1755,119 +1737,6 @@ export function CrmApp({ user }: { user: CrmUser }) {
           </div>
         )}
 
-        {/* ========================================================
-            TAB 8: IP / GPS LOGIN SECURITY TRACKING (SUPER ADMIN ONLY)
-        ======================================================== */}
-        {activeTab === "ip-tracking" && isSuperAdmin && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-white/[0.08] bg-[#0c101c] p-5">
-              <div>
-                <h1 className="text-xl font-bold text-white flex items-center gap-2.5">
-                  <Shield className="w-5 h-5 text-purple-400" />
-                  IP / GPS Login Security Tracking
-                </h1>
-                <p className="text-xs text-slate-400 mt-1">
-                  Audit log of all login attempts, IP addresses, location metrics, and device user agents.
-                </p>
-              </div>
-              <button
-                onClick={() => setIpSessions(ipSessions.filter((s) => s.isLiveSession))}
-                className="px-3.5 py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete All Except Live Sessions
-              </button>
-            </div>
-
-            <div className="text-xs text-slate-400">
-              Select entries to delete. 1 live session(s) are always kept.
-            </div>
-
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0c101c] overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white/[0.02] border-b border-white/[0.07] text-[11px] uppercase tracking-wider text-slate-400">
-                    <tr>
-                      <th className="p-3 w-8">
-                        <input type="checkbox" className="rounded bg-black/40 border-white/20" />
-                      </th>
-                      <th className="p-3">TIMESTAMP</th>
-                      <th className="p-3">USER EMAIL</th>
-                      <th className="p-3">ROLE</th>
-                      <th className="p-3">IP ADDRESS</th>
-                      <th className="p-3">GPS COORDINATES</th>
-                      <th className="p-3">OFFICE PROXIMITY</th>
-                      <th className="p-3">BROWSER & DEVICE</th>
-                      <th className="p-3">ACCESS STATUS</th>
-                      <th className="p-3">DELETE</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.05]">
-                    {ipSessions.map((session) => (
-                      <tr key={session.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="p-3">
-                          <input type="checkbox" className="rounded bg-black/40 border-white/20" />
-                        </td>
-                        <td className="p-3">
-                          {session.isLiveSession && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30 font-semibold mb-1 block w-max">
-                              LIVE SESSION
-                            </span>
-                          )}
-                          <div className="font-mono text-slate-300">{session.timestamp}</div>
-                        </td>
-                        <td className="p-3 font-mono text-white">{session.userEmail}</td>
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 rounded bg-purple-950 text-purple-300 text-[10px] font-semibold border border-purple-500/30">
-                            {session.role}
-                          </span>
-                        </td>
-                        <td className="p-3 font-mono text-cyan-400">{session.ipAddress}</td>
-                        <td className="p-3 font-mono text-slate-300">
-                          <div>{session.gpsCoordinates}</div>
-                          {session.accuracy && (
-                            <div className="text-[10px] text-slate-500">{session.accuracy}</div>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-purple-950/40 text-purple-300 border border-purple-500/20">
-                            {session.officeProximity}
-                          </span>
-                        </td>
-                        <td className="p-3 max-w-xs text-slate-400 truncate text-[11px]">
-                          {session.browserDevice}
-                        </td>
-                        <td className="p-3">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              session.accessStatus === "AUTHORIZED"
-                                ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/40"
-                                : "bg-amber-950/80 text-amber-300 border border-amber-500/40"
-                            }`}
-                          >
-                            {session.accessStatus}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          {session.isLiveSession ? (
-                            <span className="text-slate-500 text-[11px]">Kept</span>
-                          ) : (
-                            <button
-                              onClick={() => setIpSessions(ipSessions.filter((s) => s.id !== session.id))}
-                              className="p-1 rounded text-red-400 hover:bg-red-500/10"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* ========================================================
             TAB 9: CRM SETTINGS (SUPER ADMIN ONLY)
@@ -2110,20 +1979,14 @@ export function CrmApp({ user }: { user: CrmUser }) {
 
                   <div className="p-4 rounded-xl border border-white/[0.07] bg-white/[0.02]">
                     <div className="text-[11px] text-slate-400 uppercase">TOTAL ORDERS</div>
-                    <div className="text-2xl font-bold text-white mt-1">{counters.totalOrders}</div>
-                    <div className="text-[10px] text-slate-500 mt-1">4 paid • 1 unpaid</div>
+                    <div className="text-2xl font-bold text-white mt-1">{orders.length}</div>
+                    <div className="text-[10px] text-slate-500 mt-1">Pending gateway connection</div>
                   </div>
 
                   <div className="p-4 rounded-xl border border-white/[0.07] bg-white/[0.02]">
                     <div className="text-[11px] text-slate-400 uppercase">TOTAL REVENUE</div>
-                    <div className="text-2xl font-bold text-emerald-400 mt-1">{counters.totalRevenue}</div>
-                    <div className="text-[10px] text-slate-500 mt-1">Completed payments</div>
-                  </div>
-
-                  <div className="p-4 rounded-xl border border-white/[0.07] bg-white/[0.02]">
-                    <div className="text-[11px] text-slate-400 uppercase">CALENDLY CALLS</div>
-                    <div className="text-2xl font-bold text-white mt-1">{counters.calendlyCalls}</div>
-                    <div className="text-[10px] text-slate-500 mt-1">Meetings (not deleted)</div>
+                    <div className="text-2xl font-bold text-emerald-400 mt-1">$0.00</div>
+                    <div className="text-[10px] text-slate-500 mt-1">Pending gateway connection</div>
                   </div>
 
                   <div className="p-4 rounded-xl border border-white/[0.07] bg-white/[0.02]">
@@ -2136,12 +1999,6 @@ export function CrmApp({ user }: { user: CrmUser }) {
                     <div className="text-[11px] text-slate-400 uppercase">ACTIVITY LOGS</div>
                     <div className="text-2xl font-bold text-white mt-1">{activityLogs.length}</div>
                     <div className="text-[10px] text-slate-500 mt-1">Audit history entries</div>
-                  </div>
-
-                  <div className="p-4 rounded-xl border border-white/[0.07] bg-white/[0.02]">
-                    <div className="text-[11px] text-slate-400 uppercase">SECURITY LOGS</div>
-                    <div className="text-2xl font-bold text-white mt-1">{ipSessions.length}</div>
-                    <div className="text-[10px] text-slate-500 mt-1">Login & IP tracking</div>
                   </div>
                 </div>
 
@@ -2161,7 +2018,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
                 <div>
                   <h2 className="font-semibold text-white text-sm">Security, Inactivity Timeout, & Access Control Policies</h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Configure automated inactivity logout, failed-login lockout with email alerts, and approved office networks.
+                    Configure automated inactivity logout and failed-login lockout policies.
                   </p>
                 </div>
 
@@ -2195,24 +2052,6 @@ export function CrmApp({ user }: { user: CrmUser }) {
                       <option>5 Failed Attempts</option>
                     </select>
                     <p className="text-[10px] text-slate-500 mt-1">Currently in effect: 3 failed attempts</p>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl border border-white/[0.07] bg-white/[0.02] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-semibold text-white">Approved Office Networks</div>
-                      <div className="text-[11px] text-slate-400">Current connection: 49.201.8.82</div>
-                    </div>
-                    <button
-                      onClick={() => alert("Current office network approved.")}
-                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium"
-                    >
-                      + Approve This Network
-                    </button>
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Everyone except the Super Admin is location-checked at login and throughout the session.
                   </div>
                 </div>
               </div>
@@ -2254,7 +2093,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   <Trash2 className="w-10 h-10 mx-auto text-slate-600 mb-3" />
                   <div className="font-semibold text-sm text-slate-300">Recycle Bin is empty</div>
                   <div className="text-xs text-slate-500 mt-1">
-                    Deleted leads and meetings appear here.
+                    Deleted leads and records appear here.
                   </div>
                 </div>
               ) : (
@@ -2352,7 +2191,7 @@ export function CrmApp({ user }: { user: CrmUser }) {
                   </button>
                 </div>
                 {pinError && <p className="text-[11px] text-red-400 mt-1">{pinError}</p>}
-                <p className="text-[10px] text-slate-500 mt-1">Default PIN: 8080</p>
+                <p className="text-[10px] text-slate-500 mt-1">Default PIN: Admin@8080</p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">

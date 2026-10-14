@@ -25,7 +25,7 @@ function CrmLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberEmail, setRememberEmail] = useState(true);
+  const [rememberEmail, setRememberEmail] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -39,6 +39,7 @@ function CrmLoginPage() {
     const rem = getRememberedEmail();
     if (rem) {
       setEmail(rem);
+      setRememberEmail(true);
     }
   }, [navigate]);
 
@@ -52,9 +53,9 @@ function CrmLoginPage() {
       if (res.success && res.user) {
         // Remember email only
         if (rememberEmail) {
-          setRememberEmail(email.trim());
+          setRememberedEmail(email.trim());
         } else {
-          setRememberEmail("");
+          setRememberedEmail("");
         }
         // User session is stored in sessionStorage only (never persistent credentials)
         setStoredCrmUser(res.user, false);
