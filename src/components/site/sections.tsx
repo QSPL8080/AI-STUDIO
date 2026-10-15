@@ -60,21 +60,52 @@ import {
 } from "./data";
 import { BuyNowButton, openBuyNow } from "./india-checkout";
 
-/** Semi-transparent photo backdrop for a section (stills from our own AI videos, faded so
- *  the content stays readable). Phones get a single softly washed photo instead. */
-function SectionPhotoBg({ name, mobile = true }: { name: string; mobile?: boolean }) {
+/** Full-bleed realistic stock photo behind a section (free Pexels photos), darkened and blended
+ *  into the dark theme so the section content stays readable. */
+const SECTION_PHOTOS: Record<string, { id: number; position?: string; opacity?: number }> = {
+  services: { id: 24286929, position: "center 35%" }, // creator studio: camera, softbox, editing laptop
+  pricing: { id: 8102677, position: "center" }, // video editor at a colour-grading workstation
+  usecases: { id: 15406294, position: "center" }, // social media apps on a phone
+  whyus: { id: 7581119, position: "center 30%" }, // team collaborating in an office
+  whatsapp: { id: 3924870, position: "center 30%" }, // woman chatting on her phone
+  contact: { id: 34680730, position: "center" }, // cinema camera on set
+};
+const pexelsUrl = (id: number, w: number) =>
+  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${w}`;
+
+function SectionPhotoBg({ name }: { name: keyof typeof SECTION_PHOTOS | string; mobile?: boolean }) {
+  const photo = SECTION_PHOTOS[name];
+  if (!photo) return null;
   return (
-    <picture aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 block select-none">
-      {mobile ? <source media="(max-width: 767px)" srcSet={`/images/bg/bg-${name}-m.webp`} /> : null}
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 select-none overflow-hidden">
       <img
-        src={`/images/bg/bg-${name}.webp`}
+        src={pexelsUrl(photo.id, 1920)}
+        srcSet={[768, 1280, 1920, 2560].map((w) => `${pexelsUrl(photo.id, w)} ${w}w`).join(", ")}
+        sizes="100vw"
         alt=""
         loading="lazy"
         decoding="async"
         draggable={false}
         className="h-full w-full object-cover"
+        style={{ objectPosition: photo.position || "center", opacity: photo.opacity ?? 0.62 }}
       />
-    </picture>
+      {/* brand tint, soft fade into the neighbouring sections, slightly darker centre for the text */}
+      <div className="absolute inset-0 bg-[#2a1250]/25 mix-blend-multiply" />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to bottom, var(--background) 0%, color-mix(in oklab, var(--background) 30%, transparent) 18%, color-mix(in oklab, var(--background) 20%, transparent) 50%, color-mix(in oklab, var(--background) 30%, transparent) 82%, var(--background) 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, color-mix(in oklab, var(--background) 60%, transparent) 0%, color-mix(in oklab, var(--background) 20%, transparent) 55%, transparent 80%)",
+        }}
+      />
+    </div>
   );
 }
 
