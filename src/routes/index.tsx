@@ -51,21 +51,32 @@ function Index() {
     if ("scrollRestoration" in window.history) {
       window.history.scrollRestoration = "manual";
     }
-    window.scrollTo(0, 0);
 
+    // Arriving from another page with a section link (e.g. /#pricing from the footer):
+    // go to that section; otherwise start at the top.
+    const initialId = decodeURIComponent(window.location.hash.slice(1));
+    if (initialId) {
+      const go = () => document.getElementById(initialId)?.scrollIntoView({ behavior: "auto" });
+      requestAnimationFrame(go);
+      setTimeout(go, 400); // again after images / videos have settled the layout
+    } else {
+      window.scrollTo(0, 0);
+    }
+
+    // Smooth-scroll for "#section" and "/#section" links on this page.
     const handleAnchorClick = (e: MouseEvent) => {
-      const target = (e.target as HTMLElement)?.closest('a[href^="#"]');
+      const target = (e.target as HTMLElement)?.closest('a[href^="#"], a[href^="/#"]');
       if (!target) return;
 
       const href = target.getAttribute("href");
-      if (!href || href === "#") return;
+      if (!href || href === "#" || href === "/#") return;
 
-      const targetId = href.slice(1);
+      const targetId = href.slice(href.indexOf("#") + 1);
       const targetElement = document.getElementById(targetId);
       if (targetElement) {
         e.preventDefault();
         targetElement.scrollIntoView({ behavior: "smooth" });
-        window.history.pushState(null, "", href);
+        window.history.pushState(null, "", `#${targetId}`);
       }
     };
 

@@ -97,7 +97,7 @@ export function Header() {
       <div id="site-header-bar" className="relative border-b border-border/60 bg-background/85 backdrop-blur-xl z-50">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 py-2.5 sm:py-3 md:py-3.5">
           <a
-            href="#top"
+            href="/#top"
             id="navbar-logo-anchor"
             className="flex items-center shrink-0 transition-opacity hover:opacity-90"
             aria-label="Quickupp AI Studio Home"
@@ -132,7 +132,7 @@ export function Header() {
             <BuyNowButton size="sm" className="h-9 px-4 sm:h-[34px]" />
             <span className="hidden sm:inline-flex">
               <NeonButton
-                href="#contact"
+                href="/#contact"
                 variant="primary"
                 size="sm"
                 className="whitespace-nowrap text-xs py-2 px-3.5"
@@ -175,7 +175,7 @@ export function Header() {
 
               <div className="mt-3 flex flex-col gap-2.5 border-t border-white/10 pt-4">
                 <a
-                  href="#contact"
+                  href="/#contact"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gradient-brand py-3 text-sm font-bold text-neon-foreground shadow-md active:scale-95"
                 >
@@ -3332,23 +3332,23 @@ export function Footer() {
     {
       title: "AI Video Services",
       links: [
-        { label: "AI UGC Videos", href: "#services" },
-        { label: "AI Cartoon Animation", href: "#services" },
-        { label: "AI Avatar Videos", href: "#services" },
-        { label: "Hyper-Realistic AI Videos", href: "#services" },
-        { label: "AI Digital Twin Videos", href: "#services" },
-        { label: "Bulk Reels Packages", href: "#pricing" },
+        { label: "AI UGC Videos", href: "/#services" },
+        { label: "AI Cartoon Animation", href: "/#services" },
+        { label: "AI Avatar Videos", href: "/#services" },
+        { label: "Hyper-Realistic AI Videos", href: "/#services" },
+        { label: "AI Digital Twin Videos", href: "/#digital-twin" },
+        { label: "Bulk Reels Packages", href: "/#pricing" },
       ],
     },
     {
       title: "Company & Links",
       links: [
-        { label: "About Us", href: "#top" },
-        { label: "Video Portfolio", href: "#portfolio" },
-        { label: "Pricing Tiers", href: "#pricing" },
-        { label: "Our Process", href: "#process" },
-        { label: "FAQs", href: "#faq" },
-        { label: "Get a Quote", href: "#contact" },
+        { label: "About Us", href: "/#overview" },
+        { label: "Video Portfolio", href: "/portfolio" },
+        { label: "Pricing Tiers", href: "/#pricing" },
+        { label: "Our Process", href: "/#process" },
+        { label: "FAQs", href: "/#faq" },
+        { label: "Get a Quote", href: "/#contact" },
       ],
     },
   ];
@@ -3370,7 +3370,7 @@ export function Footer() {
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 items-start">
           {/* Col 1: Brand & Bio ONLY */}
           <div className="flex flex-col items-start gap-3.5">
-            <a href="#top" className="-ml-1 flex items-center transition-opacity hover:opacity-90">
+            <a href="/#top" className="-ml-1 flex items-center transition-opacity hover:opacity-90">
               <img
                 src="/images/logo.png"
                 alt="Quickupp AI Studio logo"

@@ -184,69 +184,57 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
 
 interface PortfolioReelCardProps {
   reel: PortfolioReelItem;
-  isActive: boolean;
-  onActivate: (id: string) => void;
+  /** True for the one reel the visitor unmuted; all other reels stay muted. */
+  hasSound: boolean;
+  onSound: (id: string | null) => void;
   onExpand: (reel: PortfolioReelItem) => void;
 }
 
-function PortfolioReelCard({ reel, isActive, onActivate, onExpand }: PortfolioReelCardProps) {
+function PortfolioReelCard({ reel, hasSound, onSound, onExpand }: PortfolioReelCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(true);
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
   const [hasError, setHasError] = useState<boolean>(false);
+  const userPausedRef = useRef(false);
+  const isMuted = !hasSound;
 
-  // Synchronize playback with active card state (ensures only 1 heavy video streams at a time)
+  // Every reel autoplays (muted) while it is on screen and pauses when scrolled away.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-
-    if (isActive) {
-      video.defaultMuted = true;
-      video.muted = isMuted;
-      video.playsInline = true;
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setIsPlaying(true);
-            setIsBuffering(false);
-          })
-          .catch(() => {
-            video.muted = true;
-            setIsMuted(true);
-            video
-              .play()
-              .then(() => setIsPlaying(true))
-              .catch(() => setIsPlaying(false));
-          });
-      }
-    } else {
-      video.pause();
-      setIsPlaying(false);
-      setIsBuffering(false);
-    }
-  }, [isActive, isMuted]);
-
-  // Keep in view observer with relaxed margin so minor scrolls don't pause playback
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
+    video.defaultMuted = true;
+    video.muted = true;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting && isActive) {
+        if (!entry) return;
+        if (entry.isIntersecting) {
+          if (!userPausedRef.current) video.play().catch(() => {});
+        } else {
           video.pause();
-          setIsPlaying(false);
         }
       },
-      { threshold: 0.05, rootMargin: "150px 0px 150px 0px" }
+      { threshold: 0.25 },
     );
-
     observer.observe(video);
     return () => observer.disconnect();
-  }, [isActive]);
+  }, [hasError]);
+
+  // Sound: only the reel the visitor chose plays with sound; every other reel stays muted.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = !hasSound;
+    if (hasSound && video.paused) {
+      userPausedRef.current = false;
+      video.play().catch(() => {
+        // Browser refused audio playback: fall back to muted.
+        video.muted = true;
+        onSound(null);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasSound]);
 
   const onTimeUpdate = () => {
     const video = videoRef.current;
@@ -260,17 +248,14 @@ function PortfolioReelCard({ reel, isActive, onActivate, onExpand }: PortfolioRe
     const video = videoRef.current;
     if (!video) return;
 
-    if (!isActive) {
-      onActivate(reel.id);
-      return;
-    }
-
     if (video.paused) {
+      userPausedRef.current = false;
       video
         .play()
         .then(() => setIsPlaying(true))
         .catch(() => {});
     } else {
+      userPausedRef.current = true;
       video.pause();
       setIsPlaying(false);
     }
@@ -278,18 +263,7 @@ function PortfolioReelCard({ reel, isActive, onActivate, onExpand }: PortfolioRe
 
   const toggleMute = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const video = videoRef.current;
-    if (!video) return;
-    const nextMuted = !video.muted;
-    video.muted = nextMuted;
-    setIsMuted(nextMuted);
-    if (!isActive) onActivate(reel.id);
-    if (!nextMuted && video.paused) {
-      video
-        .play()
-        .then(() => setIsPlaying(true))
-        .catch(() => {});
-    }
+    onSound(hasSound ? null : reel.id);
   };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -300,7 +274,6 @@ function PortfolioReelCard({ reel, isActive, onActivate, onExpand }: PortfolioRe
     const clickX = e.clientX - rect.left;
     const newTime = (clickX / rect.width) * video.duration;
     video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-    if (!isActive) onActivate(reel.id);
   };
 
   const handleRetry = (e: React.MouseEvent) => {
@@ -317,7 +290,7 @@ function PortfolioReelCard({ reel, isActive, onActivate, onExpand }: PortfolioRe
     <article
       onClick={togglePlay}
       className={`group relative flex aspect-[9/16] w-full max-w-[360px] flex-col justify-between overflow-hidden rounded-[26px] border bg-[#0c0919] shadow-2xl transition-all duration-300 cursor-pointer ${
-        isActive
+        hasSound
           ? "border-neon shadow-[0_0_40px_rgba(200,80,255,0.35)] scale-[1.01]"
           : "border-border/70 hover:border-neon/60 hover:shadow-[0_0_25px_rgba(200,80,255,0.2)]"
       }`}
@@ -328,10 +301,11 @@ function PortfolioReelCard({ reel, isActive, onActivate, onExpand }: PortfolioRe
           ref={videoRef}
           key={reel.id}
           src={reel.videoUrl}
-          muted={isMuted}
+          muted
+          autoPlay
           loop
           playsInline
-          preload={isActive ? "auto" : "metadata"}
+          preload="metadata"
           onTimeUpdate={onTimeUpdate}
           onWaiting={() => setIsBuffering(true)}
           onPlaying={() => {
@@ -468,11 +442,12 @@ interface ReelLightboxProps {
 function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
   const modalVideoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(true);
   const [progress, setProgress] = useState<number>(0);
 
   useEffect(() => {
     if (!reel) return;
+    setIsMuted(true); // opens muted; the visitor turns the sound on
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -660,7 +635,7 @@ function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
 }
 
 function PortfolioPage() {
-  const [activePlayingId, setActivePlayingId] = useState<string>("reel-1");
+  const [soundId, setSoundId] = useState<string | null>(null);
   const [expandedReel, setExpandedReel] = useState<PortfolioReelItem | null>(null);
 
   useEffect(() => {
@@ -707,9 +682,12 @@ function PortfolioPage() {
             <PortfolioReelCard
               key={reel.id}
               reel={reel}
-              isActive={activePlayingId === reel.id}
-              onActivate={(id) => setActivePlayingId(id)}
-              onExpand={(item) => setExpandedReel(item)}
+              hasSound={soundId === reel.id}
+              onSound={setSoundId}
+              onExpand={(item) => {
+                setSoundId(null); // no double audio behind the lightbox
+                setExpandedReel(item);
+              }}
             />
           ))}
         </div>
