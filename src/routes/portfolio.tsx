@@ -13,11 +13,8 @@ import {
   VolumeX,
   Play,
   Pause,
-  Maximize2,
-  X,
   RotateCcw,
   Film,
-  ArrowRight,
   Loader2,
 } from "lucide-react";
 
@@ -187,10 +184,9 @@ interface PortfolioReelCardProps {
   /** True for the one reel the visitor unmuted; all other reels stay muted. */
   hasSound: boolean;
   onSound: (id: string | null) => void;
-  onExpand: (reel: PortfolioReelItem) => void;
 }
 
-function PortfolioReelCard({ reel, hasSound, onSound, onExpand }: PortfolioReelCardProps) {
+function PortfolioReelCard({ reel, hasSound, onSound }: PortfolioReelCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
@@ -361,19 +357,6 @@ function PortfolioReelCard({ reel, hasSound, onSound, onExpand }: PortfolioReelC
             )}
           </button>
 
-          {/* Expand Lightbox Button */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onExpand(reel);
-            }}
-            className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-white/90 shadow transition-all duration-200 hover:scale-110 hover:border-neon hover:text-neon cursor-pointer"
-            title="Expand reel preview"
-            aria-label="Expand reel preview"
-          >
-            <Maximize2 className="w-3.5 h-3.5 text-white/80" />
-          </button>
         </div>
       </div>
 
@@ -434,209 +417,8 @@ function PortfolioReelCard({ reel, hasSound, onSound, onExpand }: PortfolioReelC
   );
 }
 
-interface ReelLightboxProps {
-  reel: PortfolioReelItem | null;
-  onClose: () => void;
-}
-
-function ReelLightbox({ reel, onClose }: ReelLightboxProps) {
-  const modalVideoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [isMuted, setIsMuted] = useState<boolean>(true);
-  const [progress, setProgress] = useState<number>(0);
-
-  useEffect(() => {
-    if (!reel) return;
-    setIsMuted(true); // opens muted; the visitor turns the sound on
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [reel, onClose]);
-
-  if (!reel) return null;
-
-  const toggleModalPlay = () => {
-    const video = modalVideoRef.current;
-    if (!video) return;
-    if (video.paused) {
-      video.play().then(() => setIsPlaying(true)).catch(() => {});
-    } else {
-      video.pause();
-      setIsPlaying(false);
-    }
-  };
-
-  const toggleModalMute = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const video = modalVideoRef.current;
-    if (!video) return;
-    const nextMuted = !video.muted;
-    video.muted = nextMuted;
-    setIsMuted(nextMuted);
-  };
-
-  const handleModalSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    const video = modalVideoRef.current;
-    if (!video || !video.duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const newTime = (clickX / rect.width) * video.duration;
-    video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 sm:p-6 animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div
-        className="relative flex flex-col lg:flex-row items-center max-w-4xl w-full bg-[#0c0919] border border-white/15 rounded-3xl overflow-hidden shadow-2xl max-h-[92vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Close Button */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-4 right-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 border border-white/20 text-white/90 hover:bg-white/20 transition-all cursor-pointer"
-          aria-label="Close modal"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* 9:16 Vertical Reel Player Container */}
-        <div className="relative aspect-[9/16] w-full max-w-[340px] sm:max-w-[380px] bg-black flex-shrink-0 overflow-hidden">
-          <video
-            ref={modalVideoRef}
-            src={reel.videoUrl}
-            autoPlay
-            loop
-            playsInline
-            muted={isMuted}
-            preload="auto"
-            onTimeUpdate={() => {
-              if (modalVideoRef.current?.duration) {
-                setProgress((modalVideoRef.current.currentTime / modalVideoRef.current.duration) * 100);
-              }
-            }}
-            className="w-full h-full object-cover"
-          >
-            <source src={reel.videoUrl} type="video/mp4" />
-            <source src={reel.fallbackUrl} type="video/mp4" />
-          </video>
-
-          {/* Tap overlay to play/pause */}
-          <button
-            type="button"
-            onClick={toggleModalPlay}
-            className="absolute inset-0 w-full h-full cursor-pointer z-10 bg-transparent border-none"
-            aria-label={isPlaying ? "Pause" : "Play"}
-          />
-
-          {/* Sound Toggle (Top Left) */}
-          <div className="absolute top-4 left-4 z-20">
-            <button
-              type="button"
-              onClick={toggleModalMute}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/70 border border-white/20 text-white shadow hover:scale-110 transition-transform cursor-pointer"
-            >
-              {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5 text-emerald-400" />}
-            </button>
-          </div>
-
-          {/* Center Play indicator */}
-          {!isPlaying && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-              <div className="w-16 h-16 rounded-full bg-gradient-brand text-neon-foreground flex items-center justify-center shadow-xl">
-                <Play className="w-7 h-7 fill-white translate-x-0.5 text-white" />
-              </div>
-            </div>
-          )}
-
-          {/* Bottom Progress Bar */}
-          <div
-            onClick={handleModalSeek}
-            className="absolute bottom-0 left-0 right-0 h-2 bg-white/20 cursor-pointer z-20"
-          >
-            <div
-              className="h-full bg-gradient-brand"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Modal Side Information & Direct CTA */}
-        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto max-h-[85vh]">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/60 border border-neon/30 text-neon text-xs font-bold uppercase tracking-wider mb-4 font-heading">
-              <span className="w-2 h-2 rounded-full bg-neon animate-pulse" />
-              {reel.category}
-            </div>
-
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight font-heading">
-              {reel.title}
-            </h2>
-            <p className="text-xs text-neon font-semibold uppercase tracking-wider mt-1 font-heading">
-              Industry: {reel.industry} • Duration: {reel.duration}
-            </p>
-
-            <p className="text-sm text-muted-foreground mt-4 leading-relaxed font-sans">
-              {reel.subtitle}
-            </p>
-
-            <div className="mt-6 space-y-2.5 text-xs text-muted-foreground/90 border-t border-white/10 pt-4 font-sans">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-neon shrink-0" />
-                <span>True 9:16 Vertical Reel format optimized for Instagram, TikTok & Shorts</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-neon shrink-0" />
-                <span>Ultra HD 1080x1920 crisp export with professional audio mixing</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-neon shrink-0" />
-                <span>Custom brand assets, product placements, and conversion-focused scripting</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-3">
-            <a
-              href="/#contact"
-              onClick={onClose}
-              className="flex-1 py-3 px-5 rounded-full bg-gradient-brand text-neon-foreground font-bold text-xs text-center shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer font-heading"
-            >
-              <span>Get Reel Quote</span>
-              <ArrowRight className="w-4 h-4" />
-            </a>
-            <a
-              href={`https://wa.me/918055679162?text=${encodeURIComponent(
-                `Hello Quickupp AI Studio Team,\n\nI was watching the "${reel.title}" (${reel.category}) reel in your portfolio and would like to order a similar video for my brand.\n\nWebsite: https://quickuppaistudio.in/\nEmail: info@quickuppaistudio.in`
-              )}`}
-              target="_blank"
-              rel="noreferrer"
-              className="py-3 px-5 rounded-full border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 font-semibold text-xs text-center flex items-center justify-center gap-2 transition-colors cursor-pointer font-heading"
-            >
-              Chat on WhatsApp
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function PortfolioPage() {
   const [soundId, setSoundId] = useState<string | null>(null);
-  const [expandedReel, setExpandedReel] = useState<PortfolioReelItem | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -684,10 +466,6 @@ function PortfolioPage() {
               reel={reel}
               hasSound={soundId === reel.id}
               onSound={setSoundId}
-              onExpand={(item) => {
-                setSoundId(null); // no double audio behind the lightbox
-                setExpandedReel(item);
-              }}
             />
           ))}
         </div>
@@ -720,12 +498,6 @@ function PortfolioPage() {
           </div>
         </div>
       </main>
-
-      {/* Expanded Reel Lightbox Modal */}
-      <ReelLightbox
-        reel={expandedReel}
-        onClose={() => setExpandedReel(null)}
-      />
 
       <Footer />
       <FloatingWhatsAppButton />
