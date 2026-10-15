@@ -253,8 +253,8 @@ export function IndiaCheckoutModal() {
             <form onSubmit={submit} noValidate className="px-5 py-5 sm:px-8 sm:py-7">
               {/* Order summary card */}
               <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-[#a832e6]/[0.07] p-4 sm:p-5">
-                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                  <div className="min-w-0">
+                <div className="flex flex-nowrap items-start justify-between gap-3 sm:gap-5">
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-[#a832e6]/35 bg-[#a832e6]/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#e2b8ff]">
                         {isSetup
@@ -280,12 +280,14 @@ export function IndiaCheckoutModal() {
                       </div>
                     )}
                   </div>
-                  <div className="text-left sm:text-right">
-                    <div className="bg-gradient-to-r from-[#a78bfa] via-[#e879f9] to-[#f472b6] bg-clip-text text-[28px] font-extrabold leading-none tracking-tight text-transparent sm:text-[32px]">
+                  <div className="shrink-0 text-right">
+                    <div className="inline-block whitespace-nowrap bg-gradient-to-r from-[#a78bfa] via-[#e879f9] to-[#f472b6] bg-clip-text text-[22px] font-extrabold leading-none tracking-tight text-transparent sm:text-[30px]">
                       {formatInr(quote.amount)} INR
                     </div>
-                    <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-white/40">
-                      One-time payment • No subscription
+                    <div className="mt-1.5 text-[9px] font-semibold uppercase leading-snug tracking-wider text-white/40 sm:text-[10px]">
+                      <span className="block sm:inline">One-time payment</span>
+                      <span className="hidden sm:inline"> • </span>
+                      <span className="block sm:inline">No subscription</span>
                     </div>
                   </div>
                 </div>
