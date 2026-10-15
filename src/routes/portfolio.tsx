@@ -60,6 +60,17 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
     gradient: "from-purple-900/40 via-violet-950/30 to-black/80",
   },
   {
+    id: "home-cartoon",
+    category: "AI Cartoon",
+    title: "3D Character Animation",
+    subtitle: "Expressive 3D character animation and storytelling reel for creative brands and entertainment",
+    industry: "Creative Brands & Entertainment",
+    videoUrl: "/videos/cartoon-portfolio.mp4",
+    fallbackUrl: "/videos/Cartoon%20Portfolio.mp4",
+    duration: "20s",
+    gradient: "from-amber-900/40 via-orange-950/30 to-black/80",
+  },
+  {
     id: "reel-2",
     category: "AI Avatar",
     title: "Architectural Stone Presenter",
@@ -69,6 +80,17 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
     fallbackUrl: "/videos/Page%202.mp4",
     duration: "45s",
     gradient: "from-blue-900/40 via-indigo-950/30 to-black/80",
+  },
+  {
+    id: "home-ugc",
+    category: "AI UGC",
+    title: "Creator-Led Product Review",
+    subtitle: "Authentic creator-led AI UGC product review and demonstration reel designed for high conversions",
+    industry: "D2C & Consumer Brands",
+    videoUrl: "/videos/ugc-portfolio.mp4",
+    fallbackUrl: "/videos/UGC%20Porfolio.mp4",
+    duration: "29s",
+    gradient: "from-purple-900/40 via-violet-950/30 to-black/80",
   },
   {
     id: "reel-3",
@@ -82,6 +104,17 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
     gradient: "from-rose-900/40 via-purple-950/30 to-black/80",
   },
   {
+    id: "home-digital-twin",
+    category: "Digital Twin",
+    title: "Founder Brand Update",
+    subtitle: "Founder-led brand update reel powered by a hyper-realistic digital twin, no camera or studio needed",
+    industry: "Founders & Personal Brands",
+    videoUrl: "/videos/digital-twin-sample.mp4",
+    fallbackUrl: "/videos/Digital%20Twin%20Sample.mp4",
+    duration: "78s",
+    gradient: "from-emerald-900/40 via-teal-950/30 to-black/80",
+  },
+  {
     id: "reel-4",
     category: "AI Cartoon",
     title: "3D Character Explainer",
@@ -91,6 +124,17 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
     fallbackUrl: "/videos/Page%204.mp4",
     duration: "40s",
     gradient: "from-amber-900/40 via-orange-950/30 to-black/80",
+  },
+  {
+    id: "home-avatar",
+    category: "AI Avatar",
+    title: "Interior Design Growth Presenter",
+    subtitle: "AI avatar presenter reel showcasing 360° growth solutions and premium client acquisition for interior designers",
+    industry: "Interior Design & Architecture",
+    videoUrl: "/videos/avatar-portfolio.mp4",
+    fallbackUrl: "/videos/Avtar%20Portfolio.mp4",
+    duration: "71s",
+    gradient: "from-blue-900/40 via-indigo-950/30 to-black/80",
   },
   {
     id: "reel-5",
@@ -104,6 +148,17 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
     gradient: "from-emerald-900/40 via-teal-950/30 to-black/80",
   },
   {
+    id: "home-jewellery",
+    category: "Hyper-Realistic",
+    title: "Luxury Jewellery Collection",
+    subtitle: "Cinematic product advertisement for a luxury jewellery collection",
+    industry: "Jewellery & Luxury",
+    videoUrl: "/videos/jewellery-portfolio.mp4",
+    fallbackUrl: "/videos/Jwellery%20Portfolio.mp4",
+    duration: "49s",
+    gradient: "from-rose-900/40 via-purple-950/30 to-black/80",
+  },
+  {
     id: "reel-6",
     category: "AI UGC",
     title: "Activewear Performance Demo",
@@ -112,6 +167,17 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
     videoUrl: "/videos/page-6.mp4",
     fallbackUrl: "/videos/Page%206.mp4",
     duration: "39s",
+    gradient: "from-cyan-900/40 via-blue-950/30 to-black/80",
+  },
+  {
+    id: "home-production",
+    category: "Hyper-Realistic",
+    title: "Cinematic AI Production",
+    subtitle: "Professional AI-powered video production reel showcasing cinematic quality and brand storytelling",
+    industry: "Brand Storytelling",
+    videoUrl: "/videos/portfolio-6.mp4",
+    fallbackUrl: "/videos/Portflio%206.mp4",
+    duration: "58s",
     gradient: "from-cyan-900/40 via-blue-950/30 to-black/80",
   },
 ];
@@ -631,11 +697,11 @@ function PortfolioPage() {
           </h1>
 
           <p className="mt-4 text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto font-sans">
-            Explore 6 high-converting AI-powered video concepts created across interior architecture, luxury real estate, heritage commercial, animated storytelling, and lifestyle fitness categories.
+            Explore 12 high-converting AI-powered video concepts created across interior architecture, luxury real estate, heritage commercial, jewellery, D2C brands, animated storytelling, founder branding and lifestyle fitness.
           </p>
         </div>
 
-        {/* 6 Reels Grid in True 9:16 Vertical Reel Format (No filter bar, all 6 reels immediately accessible) */}
+        {/* Reels grid in true 9:16 vertical format: the 6 portfolio-page reels with the 6 home page reels in between */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto justify-items-center">
           {PORTFOLIO_REELS.map((reel) => (
             <PortfolioReelCard
