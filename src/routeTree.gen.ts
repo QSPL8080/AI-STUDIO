@@ -16,6 +16,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiReceiptRouteImport } from './routes/api.receipt'
 import { Route as CrmIndexRouteImport } from './routes/crm.index'
 import { Route as CrmLoginRouteImport } from './routes/crm.login'
+import { Route as MediaFileRouteImport } from './routes/media.$file'
 import { Route as PaymentConfirmationRouteImport } from './routes/payment.confirmation'
 import { Route as ApiPayuCallbackRouteImport } from './routes/api.payu.callback'
 
@@ -54,6 +55,11 @@ const CrmLoginRoute = CrmLoginRouteImport.update({
   path: '/crm/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MediaFileRoute = MediaFileRouteImport.update({
+  id: '/media/$file',
+  path: '/media/$file',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PaymentConfirmationRoute = PaymentConfirmationRouteImport.update({
   id: '/payment/confirmation',
   path: '/payment/confirmation',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/api/receipt': typeof ApiReceiptRoute
   '/crm/login': typeof CrmLoginRoute
+  '/media/$file': typeof MediaFileRoute
   '/payment/confirmation': typeof PaymentConfirmationRoute
   '/crm/': typeof CrmIndexRoute
   '/api/payu/callback': typeof ApiPayuCallbackRoute
@@ -83,17 +90,11 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/api/receipt': typeof ApiReceiptRoute
   '/crm/login': typeof CrmLoginRoute
+  '/media/$file': typeof MediaFileRoute
   '/payment/confirmation': typeof PaymentConfirmationRoute
   '/crm': typeof CrmIndexRoute
   '/api/payu/callback': typeof ApiPayuCallbackRoute
 }
-
-
-
-
-
-
-
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
@@ -102,6 +103,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/api/receipt': typeof ApiReceiptRoute
   '/crm/login': typeof CrmLoginRoute
+  '/media/$file': typeof MediaFileRoute
   '/payment/confirmation': typeof PaymentConfirmationRoute
   '/crm/': typeof CrmIndexRoute
   '/api/payu/callback': typeof ApiPayuCallbackRoute
@@ -115,6 +117,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/api/receipt'
     | '/crm/login'
+    | '/media/$file'
     | '/payment/confirmation'
     | '/crm/'
     | '/api/payu/callback'
@@ -126,6 +129,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/api/receipt'
     | '/crm/login'
+    | '/media/$file'
     | '/payment/confirmation'
     | '/crm'
     | '/api/payu/callback'
@@ -137,6 +141,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/api/receipt'
     | '/crm/login'
+    | '/media/$file'
     | '/payment/confirmation'
     | '/crm/'
     | '/api/payu/callback'
@@ -149,6 +154,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ApiReceiptRoute: typeof ApiReceiptRoute
   CrmLoginRoute: typeof CrmLoginRoute
+  MediaFileRoute: typeof MediaFileRoute
   PaymentConfirmationRoute: typeof PaymentConfirmationRoute
   CrmIndexRoute: typeof CrmIndexRoute
   ApiPayuCallbackRoute: typeof ApiPayuCallbackRoute
@@ -205,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CrmLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/media/$file': {
+      id: '/media/$file'
+      path: '/media/$file'
+      fullPath: '/media/$file'
+      preLoaderRoute: typeof MediaFileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/payment/confirmation': {
       id: '/payment/confirmation'
       path: '/payment/confirmation'
@@ -229,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ApiReceiptRoute: ApiReceiptRoute,
   CrmLoginRoute: CrmLoginRoute,
+  MediaFileRoute: MediaFileRoute,
   PaymentConfirmationRoute: PaymentConfirmationRoute,
   CrmIndexRoute: CrmIndexRoute,
   ApiPayuCallbackRoute: ApiPayuCallbackRoute,

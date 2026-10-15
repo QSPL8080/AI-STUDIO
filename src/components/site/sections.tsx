@@ -59,6 +59,10 @@ import {
   standardWhatsAppMessage,
 } from "./data";
 import { BuyNowButton, openBuyNow } from "./india-checkout";
+
+/** First-frame image for a /media/<name>.mp4 video, shown instantly while the video loads. */
+const posterOf = (url?: string) =>
+  url ? url.replace(/^\/media\//, "/videos/posters/").replace(/\.mp4$/, ".jpg") : undefined;
 import { TWIN_SETUP, formatInr } from "@/lib/india-pricing";
 
 export function Header() {
@@ -585,7 +589,8 @@ export function Hero() {
                   el.playsInline = true;
                 }
               }}
-              src="/videos/Hero-Showcase.mp4"
+              src="/media/Hero-Showcase.mp4"
+              poster="/videos/posters/Hero-Showcase.jpg"
               autoPlay
               loop
               muted={isMuted}
@@ -594,7 +599,6 @@ export function Hero() {
               onClick={toggleAudio}
               className="h-full w-full object-cover object-center cursor-pointer"
             >
-              <track kind="captions" src="" label="English" default />
             </video>
 
             {/* Audio Voice Toggle Button */}
@@ -731,7 +735,8 @@ export function Hero() {
                     el.playsInline = true;
                   }
                 }}
-                src="/videos/Hero-Showcase.mp4"
+                src="/media/Hero-Showcase.mp4"
+                poster="/videos/posters/Hero-Showcase.jpg"
                 autoPlay
                 loop
                 muted={isMuted}
@@ -740,7 +745,6 @@ export function Hero() {
                 onClick={toggleAudio}
                 className="h-full w-full object-cover object-center cursor-pointer"
               >
-                <track kind="captions" src="" label="English" default />
               </video>
 
               {/* Audio Voice Toggle Button */}
@@ -1260,6 +1264,7 @@ export function Samples() {
                     }}
                     key={`sample-video-${item.videoUrl}-${activeTab}-${currentIndex}-${idx}`}
                     src={item.videoUrl}
+                    poster={posterOf(item.videoUrl)}
                     loop
                     muted={mutedMap[idx] ?? true}
                     playsInline
@@ -1274,7 +1279,6 @@ export function Samples() {
                     className="h-full w-full object-cover"
                   >
                     <source src={item.videoUrl} type="video/mp4" />
-                    <track kind="captions" src="" label="English" default />
                   </video>
 
                   {/* Loading / Buffering Spinner */}
@@ -1563,6 +1567,7 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
             }
           }}
           src={sample.videoUrl}
+          poster={posterOf(sample.videoUrl)}
           muted={isMuted}
           loop
           playsInline
@@ -1570,7 +1575,6 @@ function PortfolioCard({ sample }: { sample: (typeof portfolioItems)[number] }) 
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
         >
           <source src={sample.videoUrl} type="video/mp4" />
-          <track kind="captions" src="" label="English" default />
         </video>
       )}
 
