@@ -265,7 +265,7 @@ export function IndiaCheckoutModal() {
                       </span>
                       <span className="inline-flex items-center gap-1 text-xs text-white/50">
                         <Clock className="h-3.5 w-3.5 text-[#d8a8ff]" />
-                        {isSetup ? "Reusable for future videos" : "48–72 Hrs per reel"}
+                        {quote.delivery}
                       </span>
                     </div>
                     <div className="mt-2 text-base font-bold text-white sm:text-lg">{title}</div>

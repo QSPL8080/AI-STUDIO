@@ -10,6 +10,7 @@ import {
   quoteItem,
   TWIN_SETUP,
   TWIN_SETUP_ID,
+  deliveryFor,
 } from "./india-pricing";
 import { buildPayUForm, getPayUConfig, siteUrl, verifyPayUResponse } from "./payu";
 
@@ -91,6 +92,7 @@ function orderView(o: any) {
       ? TWIN_SETUP.name
       : svc?.name || String(o.item_name).split(" - ")[0] || String(o.item_name),
     pack: isSetup ? "One-Time Setup" : qty === 1 ? "Single Reel" : `${qty} Reels`,
+    delivery: deliveryFor(isSetup ? TWIN_SETUP_ID : String(d.serviceId || ""), qty),
     itemName: String(o.item_name),
     amount: Number(o.amount),
     status: String(o.payment_status),
@@ -166,6 +168,7 @@ async function sendReceipt(orderId: string) {
     orderNumber: v.orderNumber,
     service: v.service,
     pack: v.pack,
+    delivery: v.delivery,
     amount: formatInr(v.amount),
     method: v.method,
     transactionId: v.transactionId,

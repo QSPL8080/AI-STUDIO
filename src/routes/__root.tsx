@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -219,6 +220,8 @@ gtag('config', 'G-TGFHQZB6EP');`,
 }
 
 function RootComponent() {
+  // The decorative website cursor is not used inside the CRM (it sits over table text there).
+  const inCrm = useRouterState({ select: (st) => st.location.pathname.startsWith("/crm") });
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
@@ -248,7 +251,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <CustomCursor />
+      {!inCrm && <CustomCursor />}
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>

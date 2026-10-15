@@ -342,6 +342,7 @@ export async function sendPaymentReceiptEmail(o: {
   orderNumber: string;
   service: string;
   pack: string;
+  delivery?: string;
   amount: string;
   method: string;
   transactionId: string;
@@ -353,6 +354,7 @@ export async function sendPaymentReceiptEmail(o: {
     ["Order Number", o.orderNumber],
     ["Service", o.service],
     ["Package", o.pack],
+    ...(o.delivery ? ([["Delivery", o.delivery]] as [string, string][]) : []),
     ["Amount Paid", o.amount],
     ["Payment Method", o.method],
     ["Transaction ID", o.transactionId],

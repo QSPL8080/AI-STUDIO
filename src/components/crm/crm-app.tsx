@@ -226,22 +226,22 @@ const blankLeadForm = (source: string) => ({
 });
 
 const ORDER_STATUS_STYLE: Record<string, string> = {
-  COMPLETED: "bg-emerald-950/60 text-emerald-300 border-emerald-500/40",
-  PENDING: "bg-amber-950/60 text-amber-300 border-amber-500/40",
-  FAILED: "bg-red-950/60 text-red-300 border-red-500/40",
-  CANCELLED: "bg-red-950/60 text-red-300 border-red-500/40",
-  REFUNDED: "bg-slate-800 text-slate-300 border-white/10",
+  COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-300",
+  PENDING: "bg-amber-50 text-amber-700 border-amber-300",
+  FAILED: "bg-red-50 text-red-700 border-red-300",
+  CANCELLED: "bg-red-50 text-red-700 border-red-300",
+  REFUNDED: "bg-slate-100 text-slate-700 border-slate-200",
 };
 
-const card = "rounded-lg border border-white/[0.08] bg-[#0c101c]";
+const card = "rounded-lg border border-slate-200 bg-white";
 const btnGhost =
-  "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 text-[13px] font-medium transition-colors disabled:opacity-50";
+  "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 text-[13px] font-medium transition-colors disabled:opacity-50";
 const btnDanger =
-  "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-red-500/30 text-red-400 hover:bg-red-500/10 text-[13px] font-medium transition-colors disabled:opacity-50";
+  "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-red-200 text-red-600 hover:bg-red-500/10 text-[13px] font-medium transition-colors disabled:opacity-50";
 const iconBtn =
-  "inline-flex items-center justify-center w-9 h-9 rounded-md border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-colors";
+  "inline-flex items-center justify-center w-9 h-9 rounded-md border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors";
 const inputCls =
-  "w-full h-9 px-3 rounded-md border border-white/10 bg-black/40 text-[13px] text-white placeholder-slate-500 focus:outline-none focus:border-purple-500";
+  "w-full h-9 px-3 rounded-md border border-slate-200 bg-white text-[13px] text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500";
 
 type TabId = "dashboard" | "leads" | "meta" | "orders" | "activity" | "users" | "settings" | "recycle-bin";
 type Toast = { id: number; kind: "success" | "error" | "info"; text: string };
@@ -915,10 +915,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
   const roleBadge = (role: string) =>
     role === "SUPER_ADMIN"
-      ? "bg-purple-950/70 border-purple-500/40 text-purple-300"
+      ? "bg-purple-50 border-purple-300 text-purple-700"
       : role === "ADMIN"
-        ? "bg-blue-950/70 border-blue-500/40 text-blue-300"
-        : "bg-teal-950/70 border-teal-500/40 text-teal-300";
+        ? "bg-blue-50 border-blue-300 text-blue-700"
+        : "bg-teal-50 border-teal-300 text-teal-700";
 
   const canDelete = isSuperAdmin || !!perms?.delete_leads;
   const canExport = !!perms?.export;
@@ -928,8 +928,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   // -------------------------------------------------------------------------
   if (!loaded || !perms) {
     return (
-      <div className="min-h-screen bg-[#07090e] flex flex-col items-center justify-center p-4 text-slate-400 text-[13px]">
-        <div className="w-6 h-6 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-3" />
+      <div className="min-h-screen bg-[#f4f5f9] flex flex-col items-center justify-center p-4 text-slate-600 text-[13px]">
+        <div className="w-6 h-6 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin mb-3" />
         <span>{online ? "Loading live CRM data..." : "Cannot reach the CRM database. Retrying..."}</span>
       </div>
     );
@@ -938,9 +938,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const latestLeads = leads.slice(0, 20);
 
   return (
-    <div className="min-h-screen lg:h-dvh lg:overflow-hidden flex flex-col bg-[#07090e] text-slate-100 font-sans antialiased [color-scheme:dark]">
+    <div className="min-h-screen lg:h-dvh lg:overflow-hidden flex flex-col bg-[#f4f5f9] text-slate-900 font-sans antialiased [color-scheme:light]">
       {/* ===================== STICKY HEADER + TAB BAR ===================== */}
-      <div className="shrink-0 sticky top-0 z-40 bg-[#090c14] border-b border-white/[0.08] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.8)]">
+      <div className="shrink-0 sticky top-0 z-40 bg-white border-b border-slate-200 shadow-[0_1px_0_rgba(15,23,42,0.03),0_6px_20px_-12px_rgba(15,23,42,0.18)]">
         <header className="h-16 px-3 sm:px-5 lg:px-6 2xl:px-10">
           <div className="h-full w-full flex items-center justify-between gap-2 sm:gap-4">
             {/* Left */}
@@ -948,10 +948,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               <Link to="/" className={`${iconBtn} shrink-0`} title="Back to website">
                 <ArrowLeft className="w-4 h-4" />
               </Link>
-              <img src="/images/logo.png" alt="Quickupp AI Studio" className="h-6 sm:h-8 w-auto object-contain shrink-0" />
-              <div className="hidden md:block h-8 w-px bg-white/10" />
+              <img src="/images/logo-dark.png" alt="Quickupp AI Studio" className="h-6 sm:h-8 w-auto object-contain shrink-0" />
+              <div className="hidden md:block h-8 w-px bg-slate-200" />
               <div className="hidden md:flex flex-col min-w-0">
-                <span className="text-[15px] font-semibold text-white truncate leading-tight">{config.crmTitle}</span>
+                <span className="text-[15px] font-semibold text-slate-900 truncate leading-tight">{config.crmTitle}</span>
               </div>
               <span className={`hidden sm:inline-flex shrink-0 text-xs font-semibold px-2.5 py-1 rounded-md border ${roleBadge(me.role)}`}>{ROLE_LABEL[me.role]}</span>
             </div>
@@ -960,24 +960,24 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <div
                 className={`hidden lg:flex items-center gap-2 h-9 px-3 rounded-md border text-xs ${
-                  online ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-300" : "border-red-500/30 bg-red-500/10 text-red-300"
+                  online ? "border-emerald-200 bg-emerald-500/5 text-emerald-700" : "border-red-200 bg-red-500/10 text-red-700"
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
                 {online ? `Live • sync in ${syncCountdown}s` : "Offline • retrying"}
               </div>
               <button onClick={() => doSync()} className={iconBtn} title="Refresh now">
-                <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin text-cyan-400" : ""}`} />
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin text-cyan-600" : ""}`} />
               </button>
               <button
                 onClick={() => {
                   setSoundEnabled(!soundEnabled);
                   if (!soundEnabled) playAudioChime();
                 }}
-                className="hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-md border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                className="hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-md border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                 title={soundEnabled ? "Mute sound alerts" : "Enable sound alerts"}
               >
-                {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4" />}
+                {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4" />}
               </button>
 
               <div className="relative">
@@ -990,28 +990,28 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   )}
                 </button>
                 {showNotifications && (
-                  <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[26rem] rounded-lg border border-white/10 bg-[#0e121d] shadow-2xl z-50 text-[13px] flex flex-col max-h-[75vh]">
-                    <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10">
+                  <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[26rem] rounded-lg border border-slate-200 bg-white shadow-2xl z-50 text-[13px] flex flex-col max-h-[75vh]">
+                    <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
                       <div>
-                        <div className="font-semibold text-white text-sm">Notifications</div>
-                        <div className="text-xs text-slate-400">{unreadItems.length ? `${unreadItems.length} unread` : "You're all caught up"}</div>
+                        <div className="font-semibold text-slate-900 text-sm">Notifications</div>
+                        <div className="text-xs text-slate-600">{unreadItems.length ? `${unreadItems.length} unread` : "You're all caught up"}</div>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={markAllRead}
                           disabled={!unreadItems.length}
-                          className="h-8 px-2.5 rounded-md text-xs font-medium text-cyan-300 hover:bg-white/5 disabled:text-slate-600 disabled:hover:bg-transparent"
+                          className="h-8 px-2.5 rounded-md text-xs font-medium text-cyan-700 hover:bg-slate-100 disabled:text-slate-400 disabled:hover:bg-transparent"
                         >
                           Mark all as read
                         </button>
                         <button
                           onClick={clearAllNotifs}
                           disabled={!notifItems.length}
-                          className="h-8 px-2.5 rounded-md text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:text-slate-600 disabled:hover:bg-transparent"
+                          className="h-8 px-2.5 rounded-md text-xs font-medium text-red-700 hover:bg-red-500/10 disabled:text-slate-400 disabled:hover:bg-transparent"
                         >
                           Clear all
                         </button>
-                        <button onClick={() => setShowNotifications(false)} className="w-8 h-8 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-white/5" title="Close">
+                        <button onClick={() => setShowNotifications(false)} className="w-8 h-8 inline-flex items-center justify-center rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100" title="Close">
                           <X className="w-4 h-4" />
                         </button>
                       </div>
@@ -1022,19 +1022,19 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       ) : (
                         notifItems.map((n) => {
                           const unread = isUnread(n);
-                          const tone = n.type === "lead" ? "text-emerald-300 bg-emerald-500/10" : "text-purple-300 bg-purple-500/10";
+                          const tone = n.type === "lead" ? "text-emerald-700 bg-emerald-500/10" : "text-purple-700 bg-purple-500/10";
                           return (
                             <button
                               key={n.id}
                               onClick={() => openNotif(n)}
-                              className={`w-full text-left p-2.5 rounded-md flex items-start gap-2.5 transition-colors ${unread ? "bg-cyan-500/[0.07] hover:bg-cyan-500/[0.12]" : "hover:bg-white/[0.04]"}`}
+                              className={`w-full text-left p-2.5 rounded-md flex items-start gap-2.5 transition-colors ${unread ? "bg-cyan-500/[0.07] hover:bg-cyan-500/[0.12]" : "hover:bg-slate-100"}`}
                             >
                               <span className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${tone}`}>
                                 {n.type === "lead" ? <Users className="w-4 h-4" /> : <Package className="w-4 h-4" />}
                               </span>
                               <span className="flex-1 min-w-0">
-                                <span className={`block truncate ${unread ? "font-semibold text-white" : "text-slate-300"}`}>{n.title}</span>
-                                <span className="block text-xs text-slate-400 truncate">{n.sub}</span>
+                                <span className={`block truncate ${unread ? "font-semibold text-slate-900" : "text-slate-700"}`}>{n.title}</span>
+                                <span className="block text-xs text-slate-600 truncate">{n.sub}</span>
                                 <span className="block text-[11px] text-slate-500 mt-0.5">{fmtIst(n.createdAt)}</span>
                               </span>
                               {unread && <span className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 shrink-0" />}
@@ -1047,17 +1047,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 )}
               </div>
 
-              <div className="flex items-center gap-2.5 pl-2 sm:pl-3 sm:ml-1 border-l border-white/10">
+              <div className="flex items-center gap-2.5 pl-2 sm:pl-3 sm:ml-1 border-l border-slate-200">
                 <div className="hidden sm:flex w-9 h-9 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 items-center justify-center text-sm font-bold text-white">
                   {(me.name || me.email).charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden xl:flex flex-col leading-tight">
-                  <span className="text-[13px] font-semibold text-white">{me.name}</span>
-                  <span className="text-xs text-slate-400">{me.email}</span>
+                  <span className="text-[13px] font-semibold text-slate-900">{me.name}</span>
+                  <span className="text-xs text-slate-600">{me.email}</span>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-red-500/25 text-red-400 hover:bg-red-500/10 transition-colors"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-red-200 text-red-600 hover:bg-red-500/10 transition-colors"
                   title="Sign out"
                 >
                   <LogOut className="w-4 h-4" />
@@ -1067,7 +1067,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           </div>
         </header>
 
-        <nav className="h-12 px-3 sm:px-5 lg:px-6 2xl:px-10 border-t border-white/[0.05] overflow-x-auto no-scrollbar">
+        <nav className="h-12 px-3 sm:px-5 lg:px-6 2xl:px-10 border-t border-slate-100 overflow-x-auto no-scrollbar">
           <div className="h-full w-full flex items-center gap-1 min-w-max">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -1077,14 +1077,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   key={tab.id}
                   onClick={() => handleTabClick(tab.id)}
                   className={`h-9 flex items-center gap-2 px-3.5 rounded-md text-sm font-medium transition-all ${
-                    isActive ? "bg-purple-600 text-white shadow-[0_0_18px_-4px_rgba(168,85,247,0.7)]" : "text-slate-400 hover:text-slate-100 hover:bg-white/[0.05]"
+                    isActive ? "bg-purple-600 text-white shadow-[0_6px_16px_-6px_rgba(147,51,234,0.55)]" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
                   <span>{tab.label}</span>
                   {tab.id === "orders" && !orders && <Lock className="w-3 h-3 opacity-70" />}
                   {tab.count !== null && (
-                    <span className={`text-[11px] min-w-[20px] px-1.5 py-0.5 rounded-md font-semibold ${isActive ? "bg-white/20 text-white" : "bg-white/[0.06] text-slate-400"}`}>
+                    <span className={`text-[11px] min-w-[20px] px-1.5 py-0.5 rounded-md font-semibold ${isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
                       {tab.count}
                     </span>
                   )}
@@ -1101,7 +1101,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {activeTab === "dashboard" && perms.dashboard && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader
-              icon={<LayoutGrid className="w-5 h-5 text-purple-400" />}
+              icon={<LayoutGrid className="w-5 h-5 text-purple-600" />}
               title="Executive CRM Dashboard"
               subtitle="Real-time overview of inbound leads, production pipeline and revenue."
             >
@@ -1118,58 +1118,58 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             </PageHeader>
 
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-              <Kpi label="Total Leads" value={leads.length} sub="All sources" icon={<Users className="w-4 h-4 text-blue-400" />} />
+              <Kpi label="Total Leads" value={leads.length} sub="All sources" icon={<Users className="w-4 h-4 text-blue-600" />} />
               <Kpi
                 label="Revenue"
                 value={orders ? revenueText(revenueByCur) : perms.orders ? "Locked" : "—"}
                 sub={orders ? `${completedOrders.length} paid orders` : perms.orders ? "Unlock in Orders tab" : "No access"}
-                icon={<TrendingUp className="w-4 h-4 text-emerald-400" />}
-                valueClass="text-emerald-400"
+                icon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
+                valueClass="text-emerald-600"
               />
               <Kpi
                 label="In Production"
                 value={leads.filter((l) => l.projectStatus === "In Progress" || l.projectStatus === "Proj Active").length}
                 sub="Active videos"
-                icon={<Video className="w-4 h-4 text-amber-400" />}
-                valueClass="text-amber-400"
+                icon={<Video className="w-4 h-4 text-amber-600" />}
+                valueClass="text-amber-600"
               />
               <Kpi
                 label="Delivered"
                 value={countBy(leads, "projectStatus", "Delivered")}
                 sub="Completed projects"
-                icon={<CheckCircle2 className="w-4 h-4 text-purple-400" />}
-                valueClass="text-purple-400"
+                icon={<CheckCircle2 className="w-4 h-4 text-purple-600" />}
+                valueClass="text-purple-600"
               />
-              <Kpi className="col-span-2 lg:col-span-1" label="Closed Leads" value={closedCount} sub={`${conversion}% conversion`} icon={<CheckCircle2 className="w-4 h-4 text-teal-400" />} valueClass="text-teal-400" />
+              <Kpi className="col-span-2 lg:col-span-1" label="Closed Leads" value={closedCount} sub={`${conversion}% conversion`} icon={<CheckCircle2 className="w-4 h-4 text-teal-600" />} valueClass="text-teal-600" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 lg:flex-1 lg:min-h-0">
               <div className={`${card} p-5 flex flex-col lg:min-h-0 lg:col-span-5 xl:col-span-6`}>
-                <CardTitle icon={<Layers className="w-4 h-4 text-blue-400" />} title="Latest inbound leads" badge={leads.length} />
+                <CardTitle icon={<Layers className="w-4 h-4 text-blue-600" />} title="Latest inbound leads" badge={leads.length} />
                 <div className="pt-4 space-y-2.5 overflow-y-auto max-h-[60vh] lg:max-h-none lg:flex-1 lg:min-h-0 pr-1">
                   {latestLeads.length ? (
                     latestLeads.map((l) => (
                       <button
                         key={l.id}
                         onClick={() => setSelectedLead(l)}
-                        className="w-full flex items-center justify-between p-3 rounded-md border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] text-left"
+                        className="w-full flex items-center justify-between p-3 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left"
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm text-white truncate">{l.clientName}</span>
+                            <span className="font-semibold text-sm text-slate-900 truncate">{l.clientName}</span>
                             <span
                               className={`text-[11px] px-2 py-0.5 rounded-md border ${
-                                l.kind === "meta" ? "bg-purple-900/50 text-purple-300 border-purple-500/30" : "bg-blue-900/50 text-blue-300 border-blue-500/30"
+                                l.kind === "meta" ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-blue-50 text-blue-700 border-blue-200"
                               }`}
                             >
                               {l.kind === "meta" ? "Meta Ads" : l.source}
                             </span>
                           </div>
-                          <div className="text-[13px] text-slate-400 mt-1 truncate">
+                          <div className="text-[13px] text-slate-600 mt-1 truncate">
                             {l.companyName || "Direct inquiry"} • {l.videoScope} • {fmtIst(l.createdAt)}
                           </div>
                         </div>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30 shrink-0">{l.leadStatus}</span>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-700 border border-blue-200 shrink-0">{l.leadStatus}</span>
                       </button>
                     ))
                   ) : (
@@ -1179,7 +1179,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </div>
 
               <div className={`${card} p-5 flex flex-col lg:min-h-0 lg:col-span-3`}>
-                <CardTitle icon={<Clock className="w-4 h-4 text-purple-400" />} title="Lead pipeline by status" />
+                <CardTitle icon={<Clock className="w-4 h-4 text-purple-600" />} title="Lead pipeline by status" />
                 <div className="pt-4 space-y-3 overflow-y-auto lg:flex-1 lg:min-h-0">
                   {LEAD_STATUSES.map((s) => {
                     const n = countBy(leads, "leadStatus", s);
@@ -1187,12 +1187,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     return (
                       <div key={s}>
                         <div className="flex items-center justify-between text-[13px] mb-1">
-                          <span className="text-slate-300">{s}</span>
-                          <span className="text-slate-400">
-                            {n} <span className="text-slate-600">({pct}%)</span>
+                          <span className="text-slate-700">{s}</span>
+                          <span className="text-slate-600">
+                            {n} <span className="text-slate-400">({pct}%)</span>
                           </span>
                         </div>
-                        <div className="h-2 rounded-full bg-white/[0.05] overflow-hidden">
+                        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                           <div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-500" style={{ width: `${pct}%` }} />
                         </div>
                       </div>
@@ -1201,25 +1201,25 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 </div>
               </div>
               <div className={`${card} p-5 flex flex-col lg:min-h-0 lg:col-span-4 xl:col-span-3`}>
-                <CardTitle icon={<Globe className="w-4 h-4 text-cyan-400" />} title="Source-wise lead reporting" right={<span className="text-[13px] text-slate-400">{leads.length} total</span>} />
+                <CardTitle icon={<Globe className="w-4 h-4 text-cyan-600" />} title="Source-wise lead reporting" right={<span className="text-[13px] text-slate-600">{leads.length} total</span>} />
                 <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3 pt-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto content-start">
                   {[
-                    { label: "Website Inbound", n: websiteInbound, icon: <Globe className="w-4 h-4" />, tint: "bg-blue-500/10 text-blue-400", tab: "leads" as TabId, show: perms.leads },
-                    { label: "Manual Entry", n: manualCount, icon: <Users className="w-4 h-4" />, tint: "bg-amber-500/10 text-amber-400", tab: "leads" as TabId, show: perms.leads },
-                    { label: "Meta Ads", n: metaLeads.length, icon: <Layers className="w-4 h-4" />, tint: "bg-purple-500/10 text-purple-400", tab: "meta" as TabId, show: perms.meta },
+                    { label: "Website Inbound", n: websiteInbound, icon: <Globe className="w-4 h-4" />, tint: "bg-blue-500/10 text-blue-600", tab: "leads" as TabId, show: perms.leads },
+                    { label: "Manual Entry", n: manualCount, icon: <Users className="w-4 h-4" />, tint: "bg-amber-500/10 text-amber-600", tab: "leads" as TabId, show: perms.leads },
+                    { label: "Meta Ads", n: metaLeads.length, icon: <Layers className="w-4 h-4" />, tint: "bg-purple-500/10 text-purple-600", tab: "meta" as TabId, show: perms.meta },
                   ].map((s) => (
-                    <div key={s.label} className="px-4 py-3 rounded-md border border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
+                    <div key={s.label} className="px-4 py-3 rounded-md border border-slate-200 bg-slate-50 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`p-2.5 rounded-md ${s.tint}`}>{s.icon}</div>
                         <div>
-                          <div className="font-semibold text-sm text-white">{s.label}</div>
-                          <div className="text-xs text-slate-400">{leads.length ? Math.round((s.n / leads.length) * 100) : 0}% of total</div>
+                          <div className="font-semibold text-sm text-slate-900">{s.label}</div>
+                          <div className="text-xs text-slate-600">{leads.length ? Math.round((s.n / leads.length) * 100) : 0}% of total</div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xl font-bold text-white">{s.n}</div>
+                        <div className="text-xl font-bold text-slate-900">{s.n}</div>
                         {s.show && (
-                          <button onClick={() => setActiveTab(s.tab)} className="text-xs text-blue-400 hover:text-blue-300">
+                          <button onClick={() => setActiveTab(s.tab)} className="text-xs text-blue-600 hover:text-blue-700">
                             Manage →
                           </button>
                         )}
@@ -1248,7 +1248,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           return (
             <div key={tabKey} className="flex flex-col gap-4 lg:h-full lg:min-h-0">
               <PageHeader
-                icon={isMeta ? <Layers className="w-5 h-5 text-purple-400" /> : <Globe className="w-5 h-5 text-blue-400" />}
+                icon={isMeta ? <Layers className="w-5 h-5 text-purple-600" /> : <Globe className="w-5 h-5 text-blue-600" />}
                 title={isMeta ? "Meta Ads Leads" : "Website & Inbound Leads"}
                 badge={`${all.length} leads`}
                 subtitle={
@@ -1277,17 +1277,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5">
                 {[
-                  { label: "Total", n: all.length, c: "text-blue-400" },
-                  { label: "New", n: countBy(all, "leadStatus", "New"), c: "text-blue-400" },
-                  { label: "Contacted", n: countBy(all, "leadStatus", "Contacted"), c: "text-amber-400" },
-                  { label: "In Progress", n: countBy(all, "leadStatus", "In Progress"), c: "text-orange-400" },
-                  { label: "Hold", n: countBy(all, "leadStatus", "Hold"), c: "text-slate-300" },
-                  { label: "Closed", n: countBy(all, "leadStatus", "Closed"), c: "text-emerald-400" },
-                  { label: "Proj Active", n: countBy(all, "projectStatus", "Proj Active"), c: "text-cyan-400" },
-                  { label: "Delivered", n: countBy(all, "projectStatus", "Delivered"), c: "text-purple-400" },
+                  { label: "Total", n: all.length, c: "text-blue-600" },
+                  { label: "New", n: countBy(all, "leadStatus", "New"), c: "text-blue-600" },
+                  { label: "Contacted", n: countBy(all, "leadStatus", "Contacted"), c: "text-amber-600" },
+                  { label: "In Progress", n: countBy(all, "leadStatus", "In Progress"), c: "text-orange-600" },
+                  { label: "Hold", n: countBy(all, "leadStatus", "Hold"), c: "text-slate-700" },
+                  { label: "Closed", n: countBy(all, "leadStatus", "Closed"), c: "text-emerald-600" },
+                  { label: "Proj Active", n: countBy(all, "projectStatus", "Proj Active"), c: "text-cyan-600" },
+                  { label: "Delivered", n: countBy(all, "projectStatus", "Delivered"), c: "text-purple-600" },
                 ].map((k) => (
-                  <div key={k.label} className="rounded-md border border-white/[0.07] bg-[#0c101c] p-3 text-center">
-                    <div className="text-[11px] uppercase tracking-wider text-slate-400">{k.label}</div>
+                  <div key={k.label} className="rounded-md border border-slate-200 bg-white p-3 text-center">
+                    <div className="text-[11px] uppercase tracking-wider text-slate-600">{k.label}</div>
                     <div className={`text-xl font-bold mt-1 ${k.c}`}>{k.n}</div>
                   </div>
                 ))}
@@ -1335,7 +1335,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 ) : (
                   <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
                     <table className="w-full min-w-[1180px] text-left text-[13px]">
-                      <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
+                      <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                         <tr>
                           <th className="p-3.5 w-10">
                             {canDelete && (
@@ -1359,14 +1359,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                           <th className="p-3.5 text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/[0.05]">
+                      <tbody className="divide-y divide-slate-100">
                         {shown.map((l) => {
                           const checked = selectedIds.includes(l.id);
                           return (
                             <tr
                               key={l.id}
                               className={`align-top transition-colors ${
-                                checked ? "bg-purple-500/[0.06]" : unseenLeadIds.includes(l.id) ? "bg-emerald-500/[0.07] shadow-[inset_3px_0_0_0_rgb(52,211,153)]" : "hover:bg-white/[0.02]"
+                                checked ? "bg-purple-500/[0.06]" : unseenLeadIds.includes(l.id) ? "bg-emerald-500/[0.07] shadow-[inset_3px_0_0_0_rgb(16,185,129)]" : "hover:bg-slate-50"
                               }`}
                             >
                               <td className="p-3.5">
@@ -1386,52 +1386,52 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 <SourceBadge lead={l} />
                                 {unseenLeadIds.includes(l.id) && (
                                   <div className="mt-1.5">
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500 text-[10px] font-bold text-black uppercase tracking-wide">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-black/60 animate-pulse" /> New
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500 text-[10px] font-bold text-white uppercase tracking-wide">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-pulse" /> New
                                     </span>
                                   </div>
                                 )}
                               </td>
                               <td className="p-3.5 whitespace-nowrap">
-                                <div className="text-slate-200 font-medium">{fmtIstDate(l.createdAt)}</div>
-                                <div className="text-slate-400 font-mono text-xs mt-0.5">{fmtIstTime(l.createdAt)} IST</div>
+                                <div className="text-slate-800 font-medium">{fmtIstDate(l.createdAt)}</div>
+                                <div className="text-slate-600 font-mono text-xs mt-0.5">{fmtIstTime(l.createdAt)} IST</div>
                               </td>
                               <td className="p-3.5">
                                 <button onClick={() => setSelectedLead(l)} className="text-left group">
-                                  <div className="font-semibold text-white group-hover:text-purple-300">{l.clientName}</div>
-                                  <div className="text-xs text-slate-400">{l.companyName || "—"}</div>
+                                  <div className="font-semibold text-slate-900 group-hover:text-purple-700">{l.clientName}</div>
+                                  <div className="text-xs text-slate-600">{l.companyName || "—"}</div>
                                   <div className="text-xs text-slate-500">{l.email || "No email"}</div>
                                 </button>
                                 {isMeta && (l.campaign || l.formName) && (
                                   <div className="flex flex-wrap gap-1 mt-1">
-                                    {l.campaign && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-300">Camp: {l.campaign}</span>}
-                                    {l.adSet && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300">Ad: {l.adSet}</span>}
-                                    {l.formName && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">Form: {l.formName}</span>}
+                                    {l.campaign && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">Camp: {l.campaign}</span>}
+                                    {l.adSet && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">Ad: {l.adSet}</span>}
+                                    {l.formName && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">Form: {l.formName}</span>}
                                   </div>
                                 )}
                               </td>
                               <td className="p-3.5 whitespace-nowrap">
-                                <a href={`tel:${l.phone}`} className="flex items-center gap-1.5 font-mono text-slate-200 hover:text-white">
-                                  <Phone className="w-3.5 h-3.5 text-slate-400" /> {l.phone}
+                                <a href={`tel:${l.phone}`} className="flex items-center gap-1.5 font-mono text-slate-800 hover:text-slate-900">
+                                  <Phone className="w-3.5 h-3.5 text-slate-600" /> {l.phone}
                                 </a>
                                 <a
                                   href={`https://wa.me/${l.phone.replace(/[^0-9]/g, "")}`}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300"
+                                  className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700"
                                 >
                                   <MessageSquare className="w-3.5 h-3.5" /> Chat on WhatsApp
                                 </a>
                               </td>
                               <td className="p-3.5">
-                                <div className="text-slate-200 font-medium">{l.videoScope}</div>
+                                <div className="text-slate-800 font-medium">{l.videoScope}</div>
                                 {l.businessType && <div className="text-xs text-slate-500 mt-0.5">{l.businessType}</div>}
                               </td>
                               <td className="p-3.5">
                                 <select
                                   value={l.leadStatus}
                                   onChange={(e) => handleLeadField(l, "leadStatus", e.target.value)}
-                                  className="h-8 px-2 rounded-md bg-blue-950/60 border border-blue-500/40 text-blue-200 text-[13px] font-semibold focus:outline-none cursor-pointer"
+                                  className="h-8 px-2 rounded-md bg-blue-50 border border-blue-300 text-blue-700 text-[13px] font-semibold focus:outline-none cursor-pointer"
                                 >
                                   {LEAD_STATUSES.map((st) => (
                                     <option key={st}>{st}</option>
@@ -1443,7 +1443,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 <select
                                   value={l.projectStatus}
                                   onChange={(e) => handleLeadField(l, "projectStatus", e.target.value)}
-                                  className="h-8 px-2 rounded-md bg-amber-950/60 border border-amber-500/40 text-amber-200 text-[13px] font-semibold focus:outline-none cursor-pointer"
+                                  className="h-8 px-2 rounded-md bg-amber-50 border border-amber-300 text-amber-700 text-[13px] font-semibold focus:outline-none cursor-pointer"
                                 >
                                   {PROJECT_STATUSES.map((st) => (
                                     <option key={st}>{st}</option>
@@ -1451,19 +1451,19 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 </select>
                               </td>
                               <td className="p-3.5 max-w-[240px]">
-                                <div className="text-slate-400 line-clamp-2 break-words" title={l.notes}>
+                                <div className="text-slate-600 line-clamp-2 break-words" title={l.notes}>
                                   {l.notes || "—"}
                                 </div>
                               </td>
                               <td className="p-3.5">
                                 <div className="flex items-center justify-end gap-1">
-                                  <button onClick={() => setSelectedLead(l)} className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white" title="View details">
+                                  <button onClick={() => setSelectedLead(l)} className="p-1.5 rounded hover:bg-slate-200 text-slate-600 hover:text-slate-900" title="View details">
                                     <Eye className="w-4 h-4" />
                                   </button>
                                   {canDelete && (
                                     <button
                                       onClick={() => handleDeleteLead(l)}
-                                      className="p-1.5 rounded hover:bg-red-500/10 text-red-400"
+                                      className="p-1.5 rounded hover:bg-red-500/10 text-red-600"
                                       title={isSuperAdmin ? "Delete permanently" : "Move to Recycle Bin"}
                                     >
                                       <Trash2 className="w-4 h-4" />
@@ -1486,7 +1486,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {/* ---------------- ORDERS ---------------- */}
         {activeTab === "orders" && perms.orders && orders && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
-            <PageHeader icon={<Package className="w-5 h-5 text-purple-400" />} title="Orders & Payments" badge={`${orders.length} orders`} subtitle="Website checkout orders recorded in the database.">
+            <PageHeader icon={<Package className="w-5 h-5 text-purple-600" />} title="Orders & Payments" badge={`${orders.length} orders`} subtitle="Website checkout orders recorded in the database.">
               {canExport && (
                 <button
                   onClick={() =>
@@ -1503,14 +1503,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             </PageHeader>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <Kpi label="Total Orders" value={orders.length} icon={<Package className="w-4 h-4 text-purple-400" />} />
-              <Kpi label="Revenue (paid)" value={revenueText(revenueByCur)} icon={<TrendingUp className="w-4 h-4 text-emerald-400" />} valueClass="text-emerald-400" />
-              <Kpi label="Completed" value={completedOrders.length} icon={<CheckCircle2 className="w-4 h-4 text-cyan-400" />} valueClass="text-cyan-400" />
+              <Kpi label="Total Orders" value={orders.length} icon={<Package className="w-4 h-4 text-purple-600" />} />
+              <Kpi label="Revenue (paid)" value={revenueText(revenueByCur)} icon={<TrendingUp className="w-4 h-4 text-emerald-600" />} valueClass="text-emerald-600" />
+              <Kpi label="Completed" value={completedOrders.length} icon={<CheckCircle2 className="w-4 h-4 text-cyan-600" />} valueClass="text-cyan-600" />
               <Kpi
                 label="Pending / Failed"
                 value={`${orders.filter((o) => o.paymentStatus === "PENDING").length} / ${orders.filter((o) => o.paymentStatus === "FAILED" || o.paymentStatus === "CANCELLED").length}`}
-                icon={<Clock className="w-4 h-4 text-amber-400" />}
-                valueClass="text-amber-400"
+                icon={<Clock className="w-4 h-4 text-amber-600" />}
+                valueClass="text-amber-600"
               />
             </div>
 
@@ -1541,7 +1541,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       setSelectedIds([]);
                     }}
                     className={`h-9 px-3.5 rounded-md text-[13px] font-medium transition-colors ${
-                      ordersStatus === f.id ? "bg-purple-600 text-white" : "border border-white/10 text-slate-400 hover:text-white"
+                      ordersStatus === f.id ? "bg-purple-600 text-white" : "border border-slate-200 text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     {f.label} ({n})
@@ -1574,7 +1574,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               ) : (
                 <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
                   <table className="w-full min-w-[960px] text-left text-[13px]">
-                    <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
+                    <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                       <tr>
                         {isSuperAdmin && (
                           <th className="p-3.5 w-10">
@@ -1590,36 +1590,36 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[0.05]">
+                    <tbody className="divide-y divide-slate-100">
                       {shownOrders.map((o) => (
-                        <tr key={o.id} className={selectedIds.includes(o.id) ? "bg-purple-500/[0.06]" : "hover:bg-white/[0.02]"}>
+                        <tr key={o.id} className={selectedIds.includes(o.id) ? "bg-purple-500/[0.06]" : "hover:bg-slate-50"}>
                           {isSuperAdmin && (
                             <td className="p-3.5">
                               <SelectOne id={o.id} selected={selectedIds} setSelected={setSelectedIds} />
                             </td>
                           )}
                           <td className="p-3.5">
-                            <div className="font-bold text-white">{o.customerName}</div>
-                            <div className="text-xs text-slate-400">{o.customerEmail}</div>
+                            <div className="font-bold text-slate-900">{o.customerName}</div>
+                            <div className="text-xs text-slate-600">{o.customerEmail}</div>
                             {o.customerPhone && <div className="text-[11px] text-slate-500 font-mono">{o.customerPhone}</div>}
                           </td>
                           <td className="p-3.5">
-                            <div className="font-semibold text-white">{o.itemName}</div>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-900/50 text-purple-300 uppercase">{o.itemType}</span>
+                            <div className="font-semibold text-slate-900">{o.itemName}</div>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-50 text-purple-700 uppercase">{o.itemType}</span>
                           </td>
-                          <td className="p-3.5 font-bold text-emerald-400 font-mono">{fmtMoney(o.amount, o.currency)}</td>
+                          <td className="p-3.5 font-bold text-emerald-600 font-mono">{fmtMoney(o.amount, o.currency)}</td>
                           <td className="p-3.5">
                             <span className={`px-2 py-0.5 rounded-md border text-[11px] font-semibold ${ORDER_STATUS_STYLE[o.paymentStatus] || ORDER_STATUS_STYLE["REFUNDED"]}`}>{o.paymentStatus}</span>
                           </td>
-                          <td className="p-3.5 font-mono text-xs text-slate-300">{o.paypalOrderId}</td>
-                          <td className="p-3.5 text-slate-400 font-mono whitespace-nowrap">{fmtIst(o.createdAt)}</td>
+                          <td className="p-3.5 font-mono text-xs text-slate-700">{o.paypalOrderId}</td>
+                          <td className="p-3.5 text-slate-600 font-mono whitespace-nowrap">{fmtIst(o.createdAt)}</td>
                           <td className="p-3.5">
                             <div className="flex items-center justify-end gap-1.5">
-                              <button onClick={() => setSelectedOrder(o)} className="h-8 px-2.5 rounded-md border border-white/10 hover:bg-white/5 text-slate-300 text-[13px]">
+                              <button onClick={() => setSelectedOrder(o)} className="h-8 px-2.5 rounded-md border border-slate-200 hover:bg-slate-100 text-slate-700 text-[13px]">
                                 Details
                               </button>
                               {isSuperAdmin && (
-                                <button onClick={() => handleDeleteOrder(o)} className="p-1.5 rounded hover:bg-red-500/10 text-red-400" title="Delete permanently">
+                                <button onClick={() => handleDeleteOrder(o)} className="p-1.5 rounded hover:bg-red-500/10 text-red-600" title="Delete permanently">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               )}
@@ -1638,7 +1638,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {/* ---------------- ACTIVITY (SUPER ADMIN) ---------------- */}
         {activeTab === "activity" && isSuperAdmin && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
-            <PageHeader icon={<Clock className="w-5 h-5 text-purple-400" />} title="Activity History & Audit Log" badge="Super Admin only" subtitle="Every sign-in, lead, order, user and settings action — stored in the database.">
+            <PageHeader icon={<Clock className="w-5 h-5 text-purple-600" />} title="Activity History & Audit Log" badge="Super Admin only" subtitle="Every sign-in, lead, order, user and settings action — stored in the database.">
               <button
                 onClick={() =>
                   downloadCsv("quickupp_activity.csv", [
@@ -1672,7 +1672,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   key={cat}
                   onClick={() => setActivityFilter(cat)}
                   className={`h-9 px-3 rounded-md text-[13px] font-medium transition-colors ${
-                    activityFilter === cat ? "bg-purple-600 text-white" : "border border-white/10 text-slate-400 hover:text-white"
+                    activityFilter === cat ? "bg-purple-600 text-white" : "border border-slate-200 text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   {cat === "All" ? "All" : cat === "USER_ACTIVITY" ? "Users & sign-ins" : cat.charAt(0) + cat.slice(1).toLowerCase()} (
@@ -1687,9 +1687,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </button>
             </BulkBar>
 
-            <div className={`${card} divide-y divide-white/[0.06] overflow-y-auto max-h-[70vh] lg:max-h-none lg:min-h-0 lg:shrink`}>
+            <div className={`${card} divide-y divide-slate-100 overflow-y-auto max-h-[70vh] lg:max-h-none lg:min-h-0 lg:shrink`}>
               {shownActivity.length > 0 && (
-                <label className="sticky top-0 z-10 bg-[#101522] px-5 py-2.5 flex items-center gap-3 text-xs uppercase tracking-wider text-slate-400 cursor-pointer">
+                <label className="sticky top-0 z-10 bg-slate-50 px-5 py-2.5 flex items-center gap-3 text-xs uppercase tracking-wider text-slate-600 cursor-pointer">
                   <SelectAll ids={shownActivity.map((a) => a.id)} selected={selectedIds} setSelected={setSelectedIds} />
                   Select all ({shownActivity.length})
                 </label>
@@ -1703,23 +1703,23 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       <span className="mt-0.5">
                         <SelectOne id={a.id} selected={selectedIds} setSelected={setSelectedIds} />
                       </span>
-                      <Shield className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+                      <Shield className="w-4 h-4 text-purple-600 mt-0.5 shrink-0" />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-white text-[13px]">{a.title}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300">{a.category}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">{a.actorEmail}</span>
+                          <span className="font-semibold text-slate-900 text-[13px]">{a.title}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">{a.category}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono">{a.actorEmail}</span>
                         </div>
-                        <div className="text-[13px] text-slate-400 mt-1">{a.description}</div>
+                        <div className="text-[13px] text-slate-600 mt-1">{a.description}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-slate-400 font-mono">{fmtIst(a.createdAt)}</span>
+                      <span className="text-xs text-slate-600 font-mono">{fmtIst(a.createdAt)}</span>
                       <button
                         onClick={async () => {
                           if (await call(crmDeleteActivityFn({ data: { token: tok(), id: a.id } }))) setActivity((x) => x.filter((y) => y.id !== a.id));
                         }}
-                        className="text-slate-500 hover:text-red-400 p-1"
+                        className="text-slate-500 hover:text-red-600 p-1"
                         title="Delete entry"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1736,7 +1736,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {activeTab === "users" && isSuperAdmin && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader
-              icon={<UserCheck className="w-5 h-5 text-purple-400" />}
+              icon={<UserCheck className="w-5 h-5 text-purple-600" />}
               title="User Management"
               badge="Super Admin only"
               subtitle="Create Admins and Leads Managers, unlock, deactivate or permanently delete accounts."
@@ -1752,7 +1752,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
               <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
                 <table className="w-full min-w-[900px] text-left text-[13px]">
-                  <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                     <tr>
                       <th className="p-3.5">Name</th>
                       <th className="p-3.5">Email</th>
@@ -1763,37 +1763,37 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       <th className="p-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.05]">
+                  <tbody className="divide-y divide-slate-100">
                     {users.map((u) => (
-                      <tr key={u.id} className="hover:bg-white/[0.02]">
-                        <td className="p-3.5 font-bold text-white">
+                      <tr key={u.id} className="hover:bg-slate-50">
+                        <td className="p-3.5 font-bold text-slate-900">
                           {u.name}
                           {u.id === me.id && <span className="ml-2 text-[11px] text-slate-500 font-normal">(you)</span>}
                         </td>
-                        <td className="p-3.5 text-slate-300 font-mono">{u.email}</td>
+                        <td className="p-3.5 text-slate-700 font-mono">{u.email}</td>
                         <td className="p-3.5">
                           <span className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${roleBadge(u.role)}`}>{ROLE_LABEL[u.role]}</span>
                         </td>
                         <td className="p-3.5">
                           <span
                             className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${
-                              u.status === "ACTIVE" ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/30" : "bg-red-950/70 text-red-300 border-red-500/30"
+                              u.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
                             }`}
                           >
                             {u.status === "ACTIVE" ? "Active" : "Deactivated"}
                           </span>
                           {u.lockedUntil && (
-                            <div className="mt-1 text-[11px] text-red-300">Locked until {fmtIst(u.lockedUntil)}</div>
+                            <div className="mt-1 text-[11px] text-red-700">Locked until {fmtIst(u.lockedUntil)}</div>
                           )}
                         </td>
-                        <td className="p-3.5 text-slate-400 font-mono whitespace-nowrap">{fmtIst(u.lastLoginAt)}</td>
-                        <td className="p-3.5 text-slate-400 font-mono whitespace-nowrap">{fmtIst(u.createdAt)}</td>
+                        <td className="p-3.5 text-slate-600 font-mono whitespace-nowrap">{fmtIst(u.lastLoginAt)}</td>
+                        <td className="p-3.5 text-slate-600 font-mono whitespace-nowrap">{fmtIst(u.createdAt)}</td>
                         <td className="p-3.5">
                           <div className="flex items-center justify-end gap-2">
                             {u.lockedUntil && (
                               <button
                                 onClick={() => handleUnlockUser(u)}
-                                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-blue-500/30 text-blue-300 hover:bg-blue-500/10"
+                                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-500/10"
                               >
                                 <Lock className="w-3.5 h-3.5" /> Unlock
                               </button>
@@ -1807,12 +1807,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 <button
                                   onClick={() => handleToggleUser(u)}
                                   className={`h-8 px-2.5 rounded-md border ${
-                                    u.status === "ACTIVE" ? "border-amber-500/30 text-amber-300 hover:bg-amber-500/10" : "border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+                                    u.status === "ACTIVE" ? "border-amber-200 text-amber-700 hover:bg-amber-500/10" : "border-emerald-200 text-emerald-700 hover:bg-emerald-500/10"
                                   }`}
                                 >
                                   {u.status === "ACTIVE" ? "Deactivate" : "Activate"}
                                 </button>
-                                <button onClick={() => handleDeleteUser(u)} className="p-1.5 rounded text-red-400 hover:bg-red-500/10" title="Delete permanently">
+                                <button onClick={() => handleDeleteUser(u)} className="p-1.5 rounded text-red-600 hover:bg-red-500/10" title="Delete permanently">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </>
@@ -1832,7 +1832,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {activeTab === "settings" && isSuperAdmin && (
           <div className="flex flex-col gap-4">
             <PageHeader
-              icon={<Settings className="w-5 h-5 text-purple-400" />}
+              icon={<Settings className="w-5 h-5 text-purple-600" />}
               title="CRM Settings & Control Center"
               badge="Super Admin only"
               subtitle="Platform settings, role permissions, live record counts and security policies."
@@ -1859,7 +1859,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   key={st.id}
                   onClick={() => setSettingsSubTab(st.id as typeof settingsSubTab)}
                   className={`h-9 px-3.5 rounded-md text-[13px] font-medium transition-colors ${
-                    settingsSubTab === st.id ? "bg-purple-600 text-white" : "border border-white/10 text-slate-400 hover:text-white"
+                    settingsSubTab === st.id ? "bg-purple-600 text-white" : "border border-slate-200 text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   {st.label}
@@ -1870,8 +1870,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             {settingsSubTab === "general" && (
               <div className={`${card} p-4 sm:p-6 space-y-6`}>
                 <div>
-                  <h2 className="font-semibold text-white text-sm">General platform settings</h2>
-                  <p className="text-[13px] text-slate-400 mt-0.5">Saved to the database and applied to every signed-in user.</p>
+                  <h2 className="font-semibold text-slate-900 text-sm">General platform settings</h2>
+                  <p className="text-[13px] text-slate-600 mt-0.5">Saved to the database and applied to every signed-in user.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Field label="CRM title" hint="Shown in the CRM header.">
@@ -1888,7 +1888,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </select>
                   </Field>
                 </div>
-                <div className="flex items-center justify-between gap-4 p-4 rounded-md border border-white/[0.07] bg-white/[0.02]">
+                <div className="flex items-center justify-between gap-4 p-4 rounded-md border border-slate-200 bg-slate-50">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1897,8 +1897,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       className="w-4 h-4 accent-purple-600"
                     />
                     <div>
-                      <div className="text-[13px] font-semibold text-white">Sound alert for new leads</div>
-                      <div className="text-xs text-slate-400">Plays a chime when a new lead arrives.</div>
+                      <div className="text-[13px] font-semibold text-slate-900">Sound alert for new leads</div>
+                      <div className="text-xs text-slate-600">Plays a chime when a new lead arrives.</div>
                     </div>
                   </label>
                   <button onClick={playAudioChime} className={btnGhost}>
@@ -1912,13 +1912,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               <div className={`${card} p-4 sm:p-6 space-y-4`}>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div>
-                    <h2 className="font-semibold text-white text-sm">Role-Based Access Control (RBAC)</h2>
-                    <p className="text-[13px] text-slate-400 mt-0.5">
+                    <h2 className="font-semibold text-slate-900 text-sm">Role-Based Access Control (RBAC)</h2>
+                    <p className="text-[13px] text-slate-600 mt-0.5">
                       Click an Admin / Leads Manager cell to allow or block it, then save. Changes apply live to signed-in users within one refresh and are enforced by the server.
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {matrixDirty && <span className="text-xs text-amber-300">Unsaved changes</span>}
+                    {matrixDirty && <span className="text-xs text-amber-700">Unsaved changes</span>}
                     <button
                       onClick={() => {
                         setMatrixDraft(DEFAULT_MATRIX);
@@ -1937,9 +1937,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </button>
                   </div>
                 </div>
-                <div className="overflow-x-auto rounded-md border border-white/[0.06]">
+                <div className="overflow-x-auto rounded-md border border-slate-200">
                   <table className="w-full min-w-[720px] text-left text-[13px]">
-                    <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
+                    <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                       <tr>
                         <th className="p-3">Module / capability</th>
                         <th className="p-3">Super Admin</th>
@@ -1947,14 +1947,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <th className="p-3">Leads Manager</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[0.05]">
+                    <tbody className="divide-y divide-slate-100">
                       {PERMISSION_ROWS.map((row) => (
-                        <tr key={row.key} className="hover:bg-white/[0.02]">
+                        <tr key={row.key} className="hover:bg-slate-50">
                           <td className="p-3">
-                            <div className="font-medium text-white">{row.module}</div>
+                            <div className="font-medium text-slate-900">{row.module}</div>
                             <div className="text-[11px] text-slate-500">{row.location}</div>
                           </td>
-                          <td className="p-3 text-emerald-400 font-semibold">
+                          <td className="p-3 text-emerald-600 font-semibold">
                             {row.key === "delete_leads" ? "Permanent delete" : row.locked === "always" ? "Always allowed" : "Allowed"}
                           </td>
                           {(["ADMIN", "LEADS_MANAGER"] as ManagedRole[]).map((role) => {
@@ -1964,7 +1964,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 <td key={role} className="p-3">
                                   <span
                                     className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold border ${
-                                      row.locked === "always" ? "bg-emerald-950 text-emerald-300 border-emerald-500/30" : "bg-red-950 text-red-300 border-red-500/30"
+                                      row.locked === "always" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
                                     }`}
                                   >
                                     <Lock className="w-3 h-3" /> {row.locked === "always" ? "Always allowed" : "Super Admin only"}
@@ -1984,9 +1984,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                   className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-colors ${
                                     allowed
                                       ? row.key === "delete_leads"
-                                        ? "bg-amber-950 text-amber-300 border-amber-500/40 hover:bg-amber-900"
-                                        : "bg-emerald-950 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900"
-                                      : "bg-slate-800 text-slate-400 border-white/10 hover:bg-slate-700"
+                                        ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
+                                        : "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                                      : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
                                   }`}
                                 >
                                   {label}
@@ -2006,8 +2006,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               <div className={`${card} p-4 sm:p-6 space-y-5`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 className="font-semibold text-white text-sm">Live database record counters</h2>
-                    <p className="text-[13px] text-slate-400 mt-0.5">Counted directly from the database every {config.pollingSeconds} seconds.</p>
+                    <h2 className="font-semibold text-slate-900 text-sm">Live database record counters</h2>
+                    <p className="text-[13px] text-slate-600 mt-0.5">Counted directly from the database every {config.pollingSeconds} seconds.</p>
                   </div>
                   <button onClick={() => doSync()} className={btnGhost}>
                     <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} /> Refresh now
@@ -2018,17 +2018,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     <RecordCard label="Active leads" value={counts.activeLeads} sub={`${counts.websiteLeads} website • ${counts.metaLeads} Meta`} />
                     <RecordCard label="Recycle Bin" value={counts.recycleBin} sub="Soft-deleted leads" />
                     <RecordCard label="Total orders" value={counts.totalOrders} sub={`${counts.completedOrders} completed • ${counts.pendingOrders} pending • ${counts.failedOrders} failed`} />
-                    <RecordCard label="Total revenue" value={revenueText(counts.revenueByCurrency)} sub="Completed payments" valueClass="text-emerald-400" />
+                    <RecordCard label="Total revenue" value={revenueText(counts.revenueByCurrency)} sub="Completed payments" valueClass="text-emerald-600" />
                     <RecordCard label="User accounts" value={counts.userAccounts} sub={`${counts.activeUsers} active • ${counts.inactiveUsers} deactivated`} />
                     <RecordCard label="Activity logs" value={counts.activityLogs} sub="Audit history entries" />
                   </div>
                 )}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[13px] text-slate-400 pt-3 border-t border-white/[0.07]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[13px] text-slate-600 pt-3 border-t border-slate-200">
                   <span className="flex items-center gap-1.5">
                     <Database className="w-3.5 h-3.5" /> {counts?.database || "Database"} • Last counted{" "}
                     {counts ? new Date(counts.countedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "—"}
                   </span>
-                  <span className={`flex items-center gap-1.5 ${online ? "text-emerald-400" : "text-red-400"}`}>
+                  <span className={`flex items-center gap-1.5 ${online ? "text-emerald-600" : "text-red-600"}`}>
                     <span className={`w-2 h-2 rounded-full ${online ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
                     {online ? "Online & healthy" : "Database unreachable"}
                   </span>
@@ -2039,8 +2039,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             {settingsSubTab === "security" && (
               <div className={`${card} p-4 sm:p-6 space-y-6`}>
                 <div>
-                  <h2 className="font-semibold text-white text-sm">Security policies</h2>
-                  <p className="text-[13px] text-slate-400 mt-0.5">Applied to every account. Save with the button above.</p>
+                  <h2 className="font-semibold text-slate-900 text-sm">Security policies</h2>
+                  <p className="text-[13px] text-slate-600 mt-0.5">Applied to every account. Save with the button above.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Field label="Inactivity auto sign-out" hint={`In effect: ${config.inactivityMinutes} minutes`}>
@@ -2072,8 +2072,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </select>
                   </Field>
                 </div>
-                <div className="p-4 rounded-md border border-white/[0.07] bg-white/[0.02] text-[13px] text-slate-400 space-y-1">
-                  <div className="text-white font-semibold">How sessions are protected</div>
+                <div className="p-4 rounded-md border border-slate-200 bg-slate-50 text-[13px] text-slate-600 space-y-1">
+                  <div className="text-slate-900 font-semibold">How sessions are protected</div>
                   <div>• When any account (including Super Admin) reaches {config.failedLoginThreshold} wrong passwords in a row, an alert is emailed to {config.alertEmail} — not on every single failure.</div>
                   <div>• The sign-in page tells the user how many attempts are left (e.g. "2 attempts left", "1 attempt left").</div>
                   <div>• After {config.failedLoginThreshold} wrong passwords an Admin / Leads Manager is locked for {lockoutLabel(config.lockoutMinutes)}; every further lock is longer (up to 24 hours) until they sign in successfully. Unlock them early from User Management.</div>
@@ -2082,11 +2082,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   <div>• Deactivating or deleting a user signs them out on their next refresh (within {config.pollingSeconds}s).</div>
                   <div>• The Orders tab PIN is set with the ADMIN_PAYMENT_PIN server variable in Hostinger.</div>
                 </div>
-                <div className="p-4 rounded-md border border-white/[0.07] bg-white/[0.02] space-y-3">
+                <div className="p-4 rounded-md border border-slate-200 bg-slate-50 space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <div className="text-[13px] font-semibold text-white">Check login alert emails</div>
-                      <div className="text-xs text-slate-400 mt-0.5">Sends a test email to {config.alertEmail} and shows whether it was delivered.</div>
+                      <div className="text-[13px] font-semibold text-slate-900">Check login alert emails</div>
+                      <div className="text-xs text-slate-600 mt-0.5">Sends a test email to {config.alertEmail} and shows whether it was delivered.</div>
                     </div>
                     <button onClick={handleTestAlertEmail} disabled={busy === "test-email"} className={btnGhost}>
                       <Bell className="w-4 h-4" /> {busy === "test-email" ? "Sending..." : "Send test alert email"}
@@ -2095,7 +2095,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   {emailTest && (
                     <div
                       className={`p-3 rounded-md text-xs border ${
-                        emailTest.success ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-200" : "bg-red-950/40 border-red-500/30 text-red-200"
+                        emailTest.success ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-red-50 border-red-200 text-red-700"
                       }`}
                     >
                       {emailTest.success ? (
@@ -2122,7 +2122,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {activeTab === "recycle-bin" && perms.recycle_bin && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader
-              icon={<Trash2 className="w-5 h-5 text-red-400" />}
+              icon={<Trash2 className="w-5 h-5 text-red-600" />}
               title="Recycle Bin"
               badge={`${recycleBin.length} items`}
               subtitle={
@@ -2155,7 +2155,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               ) : (
                 <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
                   <table className="w-full min-w-[860px] text-left text-[13px]">
-                    <thead className="sticky top-0 z-10 bg-[#101522] border-b border-white/[0.07] text-xs uppercase tracking-wider text-slate-400">
+                    <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                       <tr>
                         <th className="p-3.5 w-10">
                           <SelectAll ids={recycleBin.map((l) => l.id)} selected={selectedIds} setSelected={setSelectedIds} />
@@ -2169,20 +2169,20 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[0.05]">
+                    <tbody className="divide-y divide-slate-100">
                       {recycleBin.map((l) => (
-                        <tr key={l.id} className={selectedIds.includes(l.id) ? "bg-purple-500/[0.06]" : "hover:bg-white/[0.02]"}>
+                        <tr key={l.id} className={selectedIds.includes(l.id) ? "bg-purple-500/[0.06]" : "hover:bg-slate-50"}>
                           <td className="p-3.5">
                             <SelectOne id={l.id} selected={selectedIds} setSelected={setSelectedIds} />
                           </td>
-                          <td className="p-3.5 text-slate-400">{l.kind === "meta" ? "Meta lead" : "Website lead"}</td>
-                          <td className="p-3.5 font-bold text-white">{l.clientName}</td>
-                          <td className="p-3.5 text-slate-300">
+                          <td className="p-3.5 text-slate-600">{l.kind === "meta" ? "Meta lead" : "Website lead"}</td>
+                          <td className="p-3.5 font-bold text-slate-900">{l.clientName}</td>
+                          <td className="p-3.5 text-slate-700">
                             <div className="font-mono">{l.phone}</div>
                             <div className="text-xs text-slate-500">{l.email}</div>
                           </td>
-                          <td className="p-3.5 text-slate-400">{l.videoScope}</td>
-                          <td className="p-3.5 text-slate-400 font-mono">{l.deletedBy || "—"}</td>
+                          <td className="p-3.5 text-slate-600">{l.videoScope}</td>
+                          <td className="p-3.5 text-slate-600 font-mono">{l.deletedBy || "—"}</td>
                           <td className="p-3.5 text-slate-500 font-mono whitespace-nowrap">{fmtIst(l.deletedAt)}</td>
                           <td className="p-3.5">
                             <div className="flex items-center justify-end gap-2">
@@ -2190,7 +2190,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 <RotateCcw className="w-3.5 h-3.5" /> Restore
                               </button>
                               {isSuperAdmin && (
-                                <button onClick={() => handlePurge(l)} className="p-1.5 rounded text-red-400 hover:bg-red-500/10" title="Delete permanently">
+                                <button onClick={() => handlePurge(l)} className="p-1.5 rounded text-red-600 hover:bg-red-500/10" title="Delete permanently">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               )}
@@ -2221,11 +2221,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   autoFocus
                   className={`${inputCls} pr-10`}
                 />
-                <button type="button" onClick={() => setShowPinText(!showPinText)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                <button type="button" onClick={() => setShowPinText(!showPinText)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-900">
                   {showPinText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {pinError && <p className="text-xs text-red-400 mt-1">{pinError}</p>}
+              {pinError && <p className="text-xs text-red-600 mt-1">{pinError}</p>}
             </Field>
             <ModalActions onCancel={() => setShowPinModal(false)} submitLabel="Unlock" />
           </form>
@@ -2297,7 +2297,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             </div>
 
             {leadForm.source === "Meta Ads" && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 rounded-md border border-purple-500/20 bg-purple-500/[0.04] p-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 rounded-md border border-purple-200 bg-purple-500/[0.04] p-3">
                 <Field label="Channel">
                   <select value={leadForm.channel} onChange={(e) => setLeadForm({ ...leadForm, channel: e.target.value })} className={inputCls}>
                     <option>Facebook</option>
@@ -2332,7 +2332,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 </select>
               </Field>
               <Field label="Delivery Target Date">
-                <input type="date" value={leadForm.deliveryDate} onChange={(e) => setLeadForm({ ...leadForm, deliveryDate: e.target.value })} className={`${inputCls} [color-scheme:dark]`} />
+                <input type="date" value={leadForm.deliveryDate} onChange={(e) => setLeadForm({ ...leadForm, deliveryDate: e.target.value })} className={`${inputCls} [color-scheme:light]`} />
               </Field>
             </div>
 
@@ -2342,10 +2342,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 value={leadForm.notes}
                 onChange={(e) => setLeadForm({ ...leadForm, notes: e.target.value })}
                 placeholder="Add specific requirements, deadlines, or client preferences..."
-                className="w-full px-3 py-2 rounded-md border border-white/10 bg-black/40 text-[13px] text-white placeholder-slate-500 resize-y focus:outline-none focus:border-purple-500"
+                className="w-full px-3 py-2 rounded-md border border-slate-200 bg-white text-[13px] text-slate-900 placeholder-slate-400 resize-y focus:outline-none focus:border-purple-500"
               />
             </Field>
-            <div className="border-t border-white/10 pt-4">
+            <div className="border-t border-slate-200 pt-4">
               <ModalActions onCancel={() => setShowAddLeadModal(false)} submitLabel={busy === "add-lead" ? "Saving..." : "Save Lead"} disabled={busy === "add-lead"} />
             </div>
           </form>
@@ -2371,7 +2371,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
                   className={`${inputCls} pr-10`}
                 />
-                <button type="button" onClick={() => setShowNewUserPw(!showNewUserPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                <button type="button" onClick={() => setShowNewUserPw(!showNewUserPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-900">
                   {showNewUserPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -2400,23 +2400,23 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         const sourceLabel = l.kind === "meta" ? `Meta Ads (${l.channel || "Facebook"})` : l.source === "Manual Entry" ? "Manual Entry" : displayLeadSource(l.source);
         return (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-6"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-2 sm:p-6"
             onMouseDown={(e) => e.target === e.currentTarget && setSelectedLead(null)}
           >
-            <div className="w-full max-w-5xl max-h-[94vh] sm:max-h-[90vh] flex flex-col rounded-lg border border-white/10 bg-[#0e121e] shadow-2xl overflow-hidden">
+            <div className="w-full max-w-5xl max-h-[94vh] sm:max-h-[90vh] flex flex-col rounded-lg border border-slate-200 bg-white shadow-2xl overflow-hidden">
               {/* Header — always visible */}
-              <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-white/[0.07] flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div className="w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-sm font-bold text-white">
                     {initials || "?"}
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-bold text-white truncate">{l.clientName}</h3>
+                      <h3 className="text-lg font-bold text-slate-900 truncate">{l.clientName}</h3>
                       <SourceBadge lead={l} />
-                      {l.deletedAt && <span className="text-xs px-2 py-0.5 rounded-md bg-red-950 text-red-300 border border-red-500/30">In Recycle Bin</span>}
+                      {l.deletedAt && <span className="text-xs px-2 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200">In Recycle Bin</span>}
                     </div>
-                    <p className="text-[13px] text-slate-400 truncate mt-0.5">
+                    <p className="text-[13px] text-slate-600 truncate mt-0.5">
                       {l.companyName || "No company"} · Received {fmtIst(l.createdAt)} IST
                     </p>
                   </div>
@@ -2445,14 +2445,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </div>
 
               {/* Status strip — change status right here */}
-              <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-white/[0.07] bg-white/[0.015] grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-slate-200 bg-slate-50/70 grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Lead status</div>
                   <select
                     value={l.leadStatus}
                     disabled={!editable}
                     onChange={(e) => handleLeadField(l, "leadStatus", e.target.value)}
-                    className="w-full h-9 px-2.5 rounded-md bg-blue-950/60 border border-blue-500/40 text-blue-100 text-[13px] font-semibold focus:outline-none disabled:opacity-60"
+                    className="w-full h-9 px-2.5 rounded-md bg-blue-50 border border-blue-300 text-blue-700 text-[13px] font-semibold focus:outline-none disabled:opacity-60"
                   >
                     {LEAD_STATUSES.map((st) => (
                       <option key={st}>{st}</option>
@@ -2465,7 +2465,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     value={l.projectStatus}
                     disabled={!editable}
                     onChange={(e) => handleLeadField(l, "projectStatus", e.target.value)}
-                    className="w-full h-9 px-2.5 rounded-md bg-amber-950/60 border border-amber-500/40 text-amber-100 text-[13px] font-semibold focus:outline-none disabled:opacity-60"
+                    className="w-full h-9 px-2.5 rounded-md bg-amber-50 border border-amber-300 text-amber-700 text-[13px] font-semibold focus:outline-none disabled:opacity-60"
                   >
                     {PROJECT_STATUSES.map((st) => (
                       <option key={st}>{st}</option>
@@ -2474,11 +2474,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Handled by</div>
-                  <div className="h-9 flex items-center text-sm font-medium text-white truncate">{l.handledBy || "Not assigned yet"}</div>
+                  <div className="h-9 flex items-center text-sm font-medium text-slate-900 truncate">{l.handledBy || "Not assigned yet"}</div>
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Closed</div>
-                  <div className="h-9 flex items-center text-sm font-medium text-white truncate">
+                  <div className="h-9 flex items-center text-sm font-medium text-slate-900 truncate">
                     {l.leadStatus === "Closed" && l.closedAt ? `${fmtIst(l.closedAt)}${l.closedBy ? ` · ${l.closedBy}` : ""}` : "Not closed"}
                   </div>
                 </div>
@@ -2493,7 +2493,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     <DetailRow
                       label="Phone / WhatsApp"
                       value={
-                        <a href={`tel:${l.phone}`} className="text-white hover:text-purple-300">
+                        <a href={`tel:${l.phone}`} className="text-slate-900 hover:text-purple-700">
                           {l.phone}
                         </a>
                       }
@@ -2502,7 +2502,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       label="Email"
                       value={
                         l.email ? (
-                          <a href={`mailto:${l.email}`} className="text-white hover:text-purple-300 break-all">
+                          <a href={`mailto:${l.email}`} className="text-slate-900 hover:text-purple-700 break-all">
                             {l.email}
                           </a>
                         ) : (
@@ -2518,7 +2518,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                             href={/^https?:\/\//i.test(l.website) ? l.website : `https://${l.website}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-white hover:text-purple-300 break-all"
+                            className="text-slate-900 hover:text-purple-700 break-all"
                           >
                             {l.website}
                           </a>
@@ -2541,13 +2541,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <DetailRow label="Ad set / form" value={[l.adSet, l.formName].filter(Boolean).join(" · ") || "—"} />
                       </>
                     ) : (
-                      <DetailRow label="Lead ID" value={<span className="font-mono text-xs text-slate-400">{l.id}</span>} />
+                      <DetailRow label="Lead ID" value={<span className="font-mono text-xs text-slate-600">{l.id}</span>} />
                     )}
                   </DetailCard>
                 </div>
 
                 <DetailCard icon={<Video className="w-4 h-4" />} title="Project & Creative Requirement" right={<StatusPill text={l.projectStatus} tone="amber" />}>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-white/[0.03] border border-white/[0.05]">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-slate-50 border border-slate-100">
                     <MiniStat label="Requirement / format" value={l.videoScope} />
                     <MiniStat label="Video quantity" value={l.videoQuantity || "—"} />
                     <MiniStat
@@ -2558,38 +2558,38 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   </div>
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Project details / campaign goals</div>
-                    <div className="px-4 py-3 rounded-md bg-white/[0.03] border border-white/[0.06] text-sm leading-relaxed text-slate-200 whitespace-pre-wrap break-words">
+                    <div className="px-4 py-3 rounded-md bg-slate-50 border border-slate-200 text-sm leading-relaxed text-slate-800 whitespace-pre-wrap break-words">
                       {l.notes || <span className="text-slate-500">No details were provided with this enquiry.</span>}
                     </div>
                   </div>
                 </DetailCard>
 
                 <DetailCard icon={<Calendar className="w-4 h-4" />} title="Meeting Information" right={<StatusPill text="Not scheduled" tone="slate" />}>
-                  <p className="text-sm text-slate-400">No meeting has been scheduled for this lead yet. Call or WhatsApp the client using the buttons at the top to set one up.</p>
+                  <p className="text-sm text-slate-600">No meeting has been scheduled for this lead yet. Call or WhatsApp the client using the buttons at the top to set one up.</p>
                 </DetailCard>
 
                 <DetailCard icon={<Clock className="w-4 h-4" />} title="Activity History & Audit Trail">
                   {leadHistory === null ? (
                     <div className="text-sm text-slate-500">Loading history…</div>
                   ) : (
-                    <ol className="relative border-l border-white/10 ml-1.5 space-y-4">
+                    <ol className="relative border-l border-slate-200 ml-1.5 space-y-4">
                       {leadHistory.map((h) => (
                         <li key={h.id} className="pl-5 relative">
                           <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-purple-500" />
                           <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5 sm:gap-4">
-                            <div className="text-sm font-semibold text-white">{h.title}</div>
+                            <div className="text-sm font-semibold text-slate-900">{h.title}</div>
                             <div className="text-xs text-slate-500 shrink-0">{fmtIst(h.createdAt)}</div>
                           </div>
-                          <div className="text-[13px] text-slate-400 mt-0.5 break-words">{h.description}</div>
+                          <div className="text-[13px] text-slate-600 mt-0.5 break-words">{h.description}</div>
                         </li>
                       ))}
                       <li className="pl-5 relative">
-                        <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-500" />
+                        <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-300" />
                         <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5 sm:gap-4">
-                          <div className="text-sm font-semibold text-white">Lead received</div>
+                          <div className="text-sm font-semibold text-slate-900">Lead received</div>
                           <div className="text-xs text-slate-500 shrink-0">{fmtIst(l.createdAt)}</div>
                         </div>
-                        <div className="text-[13px] text-slate-400 mt-0.5">Submitted via {sourceLabel}.</div>
+                        <div className="text-[13px] text-slate-600 mt-0.5">Submitted via {sourceLabel}.</div>
                       </li>
                     </ol>
                   )}
@@ -2603,7 +2603,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       {selectedOrder && (
         <Modal onClose={() => setSelectedOrder(null)} title={selectedOrder.itemName} subtitle={`${selectedOrder.customerName} • ${selectedOrder.customerEmail}`} icon={<Package className="w-5 h-5" />} wide>
           <div className="space-y-3 text-[13px]">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-md bg-white/[0.02] border border-white/[0.06]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-md bg-slate-50 border border-slate-200">
               <Info label="Amount" value={fmtMoney(selectedOrder.amount, selectedOrder.currency)} />
               <Info label="Status" value={selectedOrder.paymentStatus} />
               <Info label="Transaction ID" value={selectedOrder.paypalOrderId} />
@@ -2629,8 +2629,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {notifAlerts.slice(0, 3).map(({ key, item }) => {
           const tone =
             item.type === "lead"
-              ? { box: "border-emerald-500/40 bg-[#0b1a16]/95", icon: "bg-emerald-500/15 text-emerald-300", label: "text-emerald-300", text: "New lead received" }
-              : { box: "border-purple-500/40 bg-[#140b1a]/95", icon: "bg-purple-500/15 text-purple-300", label: "text-purple-300", text: item.title };
+              ? { box: "border-emerald-300 bg-white/95", icon: "bg-emerald-500/15 text-emerald-700", label: "text-emerald-700", text: "New lead received" }
+              : { box: "border-purple-300 bg-white/95", icon: "bg-purple-500/15 text-purple-700", label: "text-purple-700", text: item.title };
           return (
             <div key={key} className={`rounded-md border backdrop-blur shadow-2xl p-3.5 flex items-start gap-3 animate-in slide-in-from-right-4 fade-in ${tone.box}`}>
               <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${tone.icon}`}>
@@ -2644,11 +2644,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 }}
               >
                 <div className={`text-[11px] font-bold uppercase tracking-wider ${tone.label}`}>{tone.text}</div>
-                <div className="text-sm font-semibold text-white truncate mt-0.5">{item.lead ? item.lead.clientName : item.title}</div>
-                <div className="text-xs text-slate-400 truncate">{item.sub}</div>
+                <div className="text-sm font-semibold text-slate-900 truncate mt-0.5">{item.lead ? item.lead.clientName : item.title}</div>
+                <div className="text-xs text-slate-600 truncate">{item.sub}</div>
                 <div className={`text-xs mt-1 opacity-80 ${tone.label}`}>View details →</div>
               </button>
-              <button onClick={() => dismissAlert(key)} className="text-slate-500 hover:text-white p-0.5" title="Dismiss">
+              <button onClick={() => dismissAlert(key)} className="text-slate-500 hover:text-slate-900 p-0.5" title="Dismiss">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -2657,9 +2657,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {notifAlerts.length > 3 && (
           <button
             onClick={() => setShowNotifications(true)}
-            className="w-full rounded-md border border-white/10 bg-[#0e121d]/95 backdrop-blur shadow-2xl px-4 py-2.5 text-left text-[13px] text-slate-200 hover:bg-[#151a28]"
+            className="w-full rounded-md border border-slate-200 bg-white/95 backdrop-blur shadow-2xl px-4 py-2.5 text-left text-[13px] text-slate-800 hover:bg-slate-50"
           >
-            +{notifAlerts.length - 3} more notification{notifAlerts.length - 3 === 1 ? "" : "s"} · <span className="text-cyan-300">View all</span>
+            +{notifAlerts.length - 3} more notification{notifAlerts.length - 3 === 1 ? "" : "s"} · <span className="text-cyan-700">View all</span>
           </button>
         )}
         {toasts.map((t) => (
@@ -2667,10 +2667,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             key={t.id}
             className={`px-4 py-3 rounded-md border text-[13px] shadow-2xl backdrop-blur ${
               t.kind === "error"
-                ? "bg-red-950/90 border-red-500/40 text-red-200"
+                ? "bg-red-50 border-red-300 text-red-700"
                 : t.kind === "info"
-                  ? "bg-slate-900/90 border-white/10 text-slate-200"
-                  : "bg-emerald-950/90 border-emerald-500/40 text-emerald-200"
+                  ? "bg-white border-slate-200 text-slate-800"
+                  : "bg-emerald-50 border-emerald-300 text-emerald-700"
             }`}
           >
             {t.text}
@@ -2700,12 +2700,12 @@ function PageHeader({
   return (
     <div className={`${card} p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4`}>
       <div className="min-w-0">
-        <h1 className="text-xl font-bold text-white flex flex-wrap items-center gap-2.5">
+        <h1 className="text-xl font-bold text-slate-900 flex flex-wrap items-center gap-2.5">
           {icon}
           {title}
-          {badge && <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/30">{badge}</span>}
+          {badge && <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-700 border border-purple-200">{badge}</span>}
         </h1>
-        <p className="text-sm text-slate-400 mt-1">{subtitle}</p>
+        <p className="text-sm text-slate-600 mt-1">{subtitle}</p>
       </div>
       {children && <div className="flex flex-wrap items-center gap-2 shrink-0">{children}</div>}
     </div>
@@ -2714,11 +2714,11 @@ function PageHeader({
 
 function CardTitle({ icon, title, badge, right }: { icon: React.ReactNode; title: string; badge?: number; right?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between pb-3 border-b border-white/[0.07]">
-      <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wider text-slate-300">
+    <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+      <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wider text-slate-700">
         {icon}
         {title}
-        {badge !== undefined && <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300">{badge}</span>}
+        {badge !== undefined && <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-700">{badge}</span>}
       </div>
       {right}
     </div>
@@ -2730,7 +2730,7 @@ function Kpi({
   value,
   sub,
   icon,
-  valueClass = "text-white",
+  valueClass = "text-slate-900",
   className = "",
 }: {
   label: string;
@@ -2742,20 +2742,20 @@ function Kpi({
 }) {
   return (
     <div className={`${card} p-4 ${className}`}>
-      <div className="flex items-center justify-between text-slate-400 text-xs uppercase tracking-wider">
+      <div className="flex items-center justify-between text-slate-600 text-xs uppercase tracking-wider">
         <span>{label}</span>
         {icon}
       </div>
       <div className={`text-xl sm:text-2xl font-bold mt-2 truncate ${valueClass}`}>{value}</div>
-      {sub && <div className="text-xs text-slate-400 mt-0.5">{sub}</div>}
+      {sub && <div className="text-xs text-slate-600 mt-0.5">{sub}</div>}
     </div>
   );
 }
 
-function RecordCard({ label, value, sub, valueClass = "text-white" }: { label: string; value: React.ReactNode; sub: string; valueClass?: string }) {
+function RecordCard({ label, value, sub, valueClass = "text-slate-900" }: { label: string; value: React.ReactNode; sub: string; valueClass?: string }) {
   return (
-    <div className="p-4 rounded-md border border-white/[0.07] bg-white/[0.02]">
-      <div className="text-xs text-slate-400 uppercase tracking-wider">{label}</div>
+    <div className="p-4 rounded-md border border-slate-200 bg-slate-50">
+      <div className="text-xs text-slate-600 uppercase tracking-wider">{label}</div>
       <div className={`text-2xl font-bold mt-1 ${valueClass}`}>{value}</div>
       <div className="text-xs text-slate-500 mt-1">{sub}</div>
     </div>
@@ -2765,8 +2765,8 @@ function RecordCard({ label, value, sub, valueClass = "text-white" }: { label: s
 function Empty({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return (
     <div className="p-14 text-center">
-      <div className="mx-auto mb-3 text-slate-600 flex justify-center">{icon}</div>
-      <div className="font-semibold text-sm text-slate-300">{title}</div>
+      <div className="mx-auto mb-3 text-slate-400 flex justify-center">{icon}</div>
+      <div className="font-semibold text-sm text-slate-700">{title}</div>
       <div className="text-[13px] text-slate-500 mt-1 max-w-sm mx-auto">{text}</div>
     </div>
   );
@@ -2775,8 +2775,8 @@ function Empty({ icon, title, text }: { icon: React.ReactNode; title: string; te
 function BulkBar({ count, onClear, children }: { count: number; onClear: () => void; children: React.ReactNode }) {
   if (!count) return null;
   return (
-    <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-md border border-purple-500/30 bg-purple-950/30">
-      <span className="text-sm text-purple-200 font-medium">{count} selected</span>
+    <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-md border border-purple-200 bg-purple-50">
+      <span className="text-sm text-purple-700 font-medium">{count} selected</span>
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={onClear} className={btnGhost}>
           Clear selection
@@ -2816,29 +2816,29 @@ function SourceBadge({ lead }: { lead: LeadItem }) {
   const label = lead.kind === "meta" ? `Meta • ${lead.channel || "Facebook"}` : lead.source === "Manual Entry" ? "Manual" : displayLeadSource(lead.source);
   const tone =
     lead.kind === "meta"
-      ? "bg-blue-900/40 text-blue-300 border-blue-500/30"
+      ? "bg-blue-50 text-blue-700 border-blue-200"
       : lead.source === "Manual Entry"
-        ? "bg-purple-900/40 text-purple-300 border-purple-500/30"
-        : "bg-emerald-900/30 text-emerald-300 border-emerald-500/30";
+        ? "bg-purple-50 text-purple-700 border-purple-200"
+        : "bg-emerald-50 text-emerald-700 border-emerald-200";
   return <span className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-md text-xs font-semibold border ${tone}`}>{label}</span>;
 }
 
 function StatusPill({ text, tone = "blue" }: { text: string; tone?: "blue" | "amber" | "slate" }) {
   const c =
     tone === "amber"
-      ? "bg-amber-950/60 text-amber-300 border-amber-500/30"
+      ? "bg-amber-50 text-amber-700 border-amber-200"
       : tone === "slate"
-        ? "bg-slate-800 text-slate-300 border-white/10"
-        : "bg-blue-950/60 text-blue-300 border-blue-500/30";
+        ? "bg-slate-100 text-slate-700 border-slate-200"
+        : "bg-blue-50 text-blue-700 border-blue-200";
   return <span className={`inline-block px-2.5 py-0.5 rounded-md text-[13px] font-semibold border ${c}`}>{text}</span>;
 }
 
 function DetailCard({ icon, title, right, children }: { icon: React.ReactNode; title: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-white/[0.08] bg-white/[0.015] p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-white/[0.07]">
-        <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-slate-200">
-          <span className="text-purple-400">{icon}</span>
+    <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-200">
+        <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-slate-800">
+          <span className="text-purple-600">{icon}</span>
           {title}
         </div>
         {right}
@@ -2851,8 +2851,8 @@ function DetailCard({ icon, title, right, children }: { icon: React.ReactNode; t
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[110px_1fr] sm:grid-cols-[160px_1fr] items-start gap-3 text-sm py-0.5">
-      <span className="text-slate-400">{label}</span>
-      <span className="text-white font-medium text-right min-w-0 break-words">{value}</span>
+      <span className="text-slate-600">{label}</span>
+      <span className="text-slate-900 font-medium text-right min-w-0 break-words">{value}</span>
     </div>
   );
 }
@@ -2861,7 +2861,7 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="text-sm font-semibold text-white mt-1 break-words">{value}</div>
+      <div className="text-sm font-semibold text-slate-900 mt-1 break-words">{value}</div>
     </div>
   );
 }
@@ -2869,7 +2869,7 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[13px] font-medium text-slate-300 mb-1.5">{label}</label>
+      <label className="block text-[13px] font-medium text-slate-700 mb-1.5">{label}</label>
       {children}
       {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
     </div>
@@ -2880,7 +2880,7 @@ function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <span className="text-slate-500 block text-[11px] uppercase">{label}</span>
-      <span className="text-white font-medium break-words">{value}</span>
+      <span className="text-slate-900 font-medium break-words">{value}</span>
     </div>
   );
 }
@@ -2903,16 +2903,16 @@ function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`w-full ${size === "xl" ? "max-w-3xl" : wide ? "max-w-lg" : "max-w-md"} max-h-[90vh] overflow-y-auto rounded-lg border border-white/10 bg-[#0e121e] p-5 sm:p-6 shadow-2xl relative`}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className={`w-full ${size === "xl" ? "max-w-3xl" : wide ? "max-w-lg" : "max-w-md"} max-h-[90vh] overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl relative`}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-slate-600 hover:text-slate-900">
           <X className="w-4 h-4" />
         </button>
         <div className="flex items-center gap-3 mb-5 pr-6">
-          <div className="p-2.5 rounded-md bg-purple-600/20 text-purple-400 border border-purple-500/30 shrink-0">{icon}</div>
+          <div className="p-2.5 rounded-md bg-purple-50 text-purple-600 border border-purple-200 shrink-0">{icon}</div>
           <div className="min-w-0">
-            <h3 className="text-base font-bold text-white truncate">{title}</h3>
-            {subtitle && <p className="text-[13px] text-slate-400">{subtitle}</p>}
+            <h3 className="text-base font-bold text-slate-900 truncate">{title}</h3>
+            {subtitle && <p className="text-[13px] text-slate-600">{subtitle}</p>}
           </div>
         </div>
         {children}

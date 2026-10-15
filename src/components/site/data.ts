@@ -477,7 +477,7 @@ export const whyUs = [
   {
     title: "Fast Turnaround",
     description:
-      "Standard delivery within 48–72 working hours after script approval and receipt of required materials.",
+      "Single reel within 48–72 hours; 5, 10 and 15 reel packs within 5, 10 and 15 days, after script approval and receipt of required materials.",
   },
   {
     title: "Scalable Packages",
@@ -508,7 +508,7 @@ export const faqs = [
   {
     question: "How long does AI video production take?",
     answer:
-      "Our standard delivery timeline is 48–72 working hours after script approval and receipt of all required materials.",
+      "A single reel is delivered within 48–72 hours, 5 reels within 5 days, 10 reels within 10 days and 15 reels within 15 days. An AI Digital Twin setup is delivered within 7 days. Timelines start after script approval and receipt of all required materials.",
   },
   {
     question: "Can you create AI UGC videos for my product?",

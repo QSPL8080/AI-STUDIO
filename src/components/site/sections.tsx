@@ -112,7 +112,7 @@ function SectionPhotoBg({ name }: { name: keyof typeof SECTION_PHOTOS | string; 
 /** First-frame image for a /media/<name>.mp4 video, shown instantly while the video loads. */
 const posterOf = (url?: string) =>
   url ? url.replace(/^\/media\//, "/videos/posters/").replace(/\.mp4$/, ".jpg") : undefined;
-import { TWIN_SETUP, formatInr } from "@/lib/india-pricing";
+import { INDIA_PACKS, TWIN_SETUP, formatInr } from "@/lib/india-pricing";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -2160,10 +2160,15 @@ export function Pricing() {
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <th className="px-5 py-4 sm:px-6">Service</th>
-                <th className="px-5 py-4 text-neon sm:px-6">Single Reel</th>
-                <th className="px-5 py-4 sm:px-6">5 Reels</th>
-                <th className="px-5 py-4 sm:px-6">10 Reels</th>
-                <th className="px-5 py-4 sm:px-6">15 Reels</th>
+                {INDIA_PACKS.map((p, i) => (
+                  <th key={p.qty} className={`px-5 py-4 align-top sm:px-6 ${i === 0 ? "text-neon" : ""}`}>
+                    <span className="whitespace-nowrap">{p.label}</span>
+                    <span className="mt-1 flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold normal-case tracking-normal text-white/60">
+                      <Clock className="h-3 w-3 shrink-0 text-neon/80" />
+                      Within {p.deliveryShort}
+                    </span>
+                  </th>
+                ))}
                 <th className="px-5 py-4 text-right sm:px-6">
                   <span className="sr-only">Buy</span>
                 </th>
@@ -2426,6 +2431,10 @@ export function DigitalTwin() {
           </p>
           <p className="mt-6 text-2xl font-bold text-gradient-brand md:text-3xl">
             {formatInr(TWIN_SETUP.price)} One-Time Setup
+          </p>
+          <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-neon/35 bg-neon/10 px-3.5 py-1.5 text-sm font-semibold text-white">
+            <Clock className="h-4 w-4 text-neon" />
+            {TWIN_SETUP.delivery}
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <NeonButton href="#contact">Create My Digital Twin</NeonButton>

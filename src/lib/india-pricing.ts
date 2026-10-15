@@ -34,12 +34,19 @@ export const INDIA_SERVICES: IndiaService[] = [
   },
 ];
 
-export const INDIA_PACKS: { qty: IndiaPackQty; label: string }[] = [
-  { qty: 1, label: "Single Reel" },
-  { qty: 5, label: "5 Reels" },
-  { qty: 10, label: "10 Reels" },
-  { qty: 15, label: "15 Reels" },
+// delivery = turnaround after script approval and receipt of the required materials.
+export const INDIA_PACKS: { qty: IndiaPackQty; label: string; delivery: string; deliveryShort: string }[] = [
+  { qty: 1, label: "Single Reel", delivery: "Within 48–72 Hrs Delivery", deliveryShort: "48–72 Hrs" },
+  { qty: 5, label: "5 Reels", delivery: "Within 5 Days Delivery", deliveryShort: "5 Days" },
+  { qty: 10, label: "10 Reels", delivery: "Within 10 Days Delivery", deliveryShort: "10 Days" },
+  { qty: 15, label: "15 Reels", delivery: "Within 15 Days Delivery", deliveryShort: "15 Days" },
 ];
+
+/** Delivery promise for a pack size (or the twin setup). */
+export function deliveryFor(id: string, qty: number) {
+  if (id === "digital-twin-setup") return "Within 7 Days Delivery";
+  return (INDIA_PACKS.find((p) => p.qty === qty) || INDIA_PACKS[0]!).delivery;
+}
 
 export function formatInr(amount: number) {
   return `₹${amount.toLocaleString("en-IN")}`;
@@ -75,6 +82,7 @@ export const TWIN_SETUP = {
   id: TWIN_SETUP_ID,
   name: "AI Digital Twin Setup",
   price: 15000,
+  delivery: "Within 7 Days Delivery",
   includes: [
     "Face / avatar training",
     "Voice clone setup",
@@ -96,6 +104,7 @@ export function quoteItem(id: string, qty: number) {
       amount: TWIN_SETUP.price,
       perReel: TWIN_SETUP.price,
       saving: 0,
+      delivery: TWIN_SETUP.delivery,
       itemName: `${TWIN_SETUP.name} (One-Time)`,
     };
   const q = quoteIndia(
@@ -111,6 +120,7 @@ export function quoteItem(id: string, qty: number) {
     amount: q.amount,
     perReel: q.perReel,
     saving: q.saving,
+    delivery: deliveryFor(q.service.id, q.qty),
     itemName: q.itemName,
   };
 }

@@ -156,6 +156,7 @@ function OrderCard({ order }: { order: OrderView }) {
           <DetailRow label="Order Number" value={order.orderNumber} mono />
           <DetailRow label="Service" value={order.service} />
           <DetailRow label="Package" value={order.pack} />
+          {order.delivery && <DetailRow label="Delivery" value={order.delivery} />}
           <DetailRow
             label={paid ? "Amount Paid" : "Amount"}
             value={formatInr(order.amount)}

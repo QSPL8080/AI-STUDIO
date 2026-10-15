@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLightCrmPage } from "@/lib/crm-theme";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { Eye, EyeOff, Lock, Mail, ArrowLeft, ShieldCheck } from "lucide-react";
 import { crmLoginFn } from "@/lib/crm-actions";
@@ -22,6 +23,7 @@ export const Route = createFileRoute("/crm/login")({
 
 function CrmLoginPage() {
   const navigate = useNavigate();
+  useLightCrmPage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -82,135 +84,123 @@ function CrmLoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[#05040a] flex items-center justify-center p-4 sm:p-6 text-foreground antialiased selection:bg-purple-900 selection:text-white overflow-hidden">
-      {/* Dynamic Ambient Background Elements */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 overflow-hidden select-none"
-      >
-        {/* Top subtle spotlight glow */}
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[650px] h-[450px] bg-gradient-to-b from-purple-600/20 via-fuchsia-600/10 to-transparent blur-[120px] rounded-full" />
-
-        {/* Bottom subtle blue glow */}
-        <div className="absolute -bottom-40 left-1/2 -translate-x-1/2 w-[550px] h-[350px] bg-gradient-to-t from-blue-600/15 via-cyan-600/5 to-transparent blur-[120px] rounded-full" />
-
-        {/* Minimal grid pattern */}
+    <div className="relative min-h-screen w-full bg-[#f4f5f9] flex items-center justify-center p-4 sm:p-6 text-slate-900 antialiased [color-scheme:light] selection:bg-purple-200 selection:text-purple-900 overflow-hidden">
+      {/* Soft brand background */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden select-none">
+        <div className="absolute -top-48 left-1/2 -translate-x-1/2 w-[720px] h-[480px] rounded-full bg-gradient-to-b from-purple-300/45 via-fuchsia-200/30 to-transparent blur-[110px]" />
+        <div className="absolute -bottom-48 left-1/2 -translate-x-1/2 w-[620px] h-[380px] rounded-full bg-gradient-to-t from-blue-300/35 via-cyan-200/20 to-transparent blur-[110px]" />
         <div
-          className="absolute inset-0 opacity-[0.035]"
+          className="absolute inset-0 opacity-60"
           style={{
-            backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px)`,
-            backgroundSize: "28px 28px",
+            backgroundImage: "radial-gradient(rgba(15, 23, 42, 0.07) 1px, transparent 1px)",
+            backgroundSize: "26px 26px",
+            maskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+            WebkitMaskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
           }}
         />
       </div>
 
-      {/* Main Luxury Auth Card */}
-      <div className="relative z-10 w-full max-w-[460px]">
-        <div className="relative rounded-xl border border-white/10 bg-[#0c0919]/90 backdrop-blur-2xl p-6 sm:p-10 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.9),0_0_50px_-10px_rgba(168,85,247,0.18)] overflow-hidden">
-          {/* Subtle top accent gradient line */}
-          <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-purple-500/80 to-transparent" />
+      <div className="relative z-10 w-full max-w-[440px]">
+        <div className="relative rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-10 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_24px_60px_-20px_rgba(76,29,149,0.22)] overflow-hidden">
+          {/* Brand accent line */}
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#4f46e5] via-[#a832e6] to-[#e11d74]" />
 
-          {/* Brand Header */}
+          {/* Brand header */}
           <div className="text-center">
-            <Link to="/" className="inline-block transition-transform hover:scale-105">
-              <img
-                src="/images/logo.png"
-                alt="Quickupp AI Studio"
-                className="h-10 w-auto mx-auto object-contain drop-shadow-[0_0_20px_rgba(200,80,255,0.35)]"
-              />
+            <Link to="/" className="inline-block transition-opacity hover:opacity-80">
+              <img src="/images/logo-dark.png" alt="Quickupp AI Studio" className="h-9 w-auto mx-auto object-contain" />
             </Link>
 
-            <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-purple-500/10 border border-purple-500/25 text-purple-300 text-[11px] font-semibold uppercase tracking-widest">
-              <ShieldCheck className="w-3 h-3 text-purple-400" />
+            <div className="mt-5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-[11px] font-semibold uppercase tracking-widest">
+              <ShieldCheck className="w-3.5 h-3.5" />
               <span>Enterprise Portal</span>
             </div>
 
-            <h1 className="mt-3 text-2xl sm:text-[26px] font-bold tracking-tight text-white font-heading">
-              Admin Sign In
-            </h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              Sign in with your authorized credentials
-            </p>
+            <h1 className="mt-3 text-2xl sm:text-[26px] font-bold tracking-tight text-slate-900 font-heading">Admin Sign In</h1>
+            <p className="mt-1.5 text-sm text-slate-500">Sign in with your authorized credentials</p>
           </div>
 
-          {/* Error Message */}
+          {/* Error message */}
           {errorMessage && (
-            <div className="mt-5 p-3 rounded-md border border-red-500/30 bg-red-950/40 text-red-300 text-sm flex items-center gap-2.5 animate-in fade-in slide-in-from-top-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+            <div
+              role="alert"
+              className="mt-5 p-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm flex items-center gap-2.5 animate-in fade-in slide-in-from-top-1"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
               <span className="leading-snug">{errorMessage}</span>
             </div>
           )}
 
-          {/* Login Form */}
+          {/* Login form */}
           <form onSubmit={handleSubmit} className="mt-7 space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
+              <label htmlFor="crm-email" className="block text-sm font-semibold text-slate-700 mb-2">
                 Admin Email
               </label>
               <div className="relative">
                 <Mail className="w-[18px] h-[18px] absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
+                  id="crm-email"
                   type="email"
                   required
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@aistudio.in"
-                  className="w-full pl-11 pr-4 h-12 rounded-md border border-white/10 bg-black/40 text-[15px] text-white placeholder-slate-500 focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon/30 transition-all"
+                  className="w-full pl-11 pr-4 h-12 rounded-lg border border-slate-300 bg-white text-[15px] text-slate-900 placeholder-slate-400 shadow-sm focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/15 transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
+              <label htmlFor="crm-password" className="block text-sm font-semibold text-slate-700 mb-2">
                 Password
               </label>
               <div className="relative">
                 <Lock className="w-[18px] h-[18px] absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
+                  id="crm-password"
                   type={showPassword ? "text" : "password"}
                   required
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-11 pr-11 h-12 rounded-md border border-white/10 bg-black/40 text-[15px] text-white placeholder-slate-500 focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon/30 transition-all"
+                  className="w-full pl-11 pr-11 h-12 rounded-lg border border-slate-300 bg-white text-[15px] text-slate-900 placeholder-slate-400 shadow-sm focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/15 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer p-1"
                 >
                   {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
                 </button>
               </div>
             </div>
 
-            {/* Remember Email Option */}
+            {/* Remember email */}
             <div className="pt-1 flex items-center justify-between">
-              <label className="flex items-center gap-2.5 text-sm text-slate-300 cursor-pointer select-none group">
+              <label className="flex items-center gap-2.5 text-sm text-slate-600 cursor-pointer select-none group">
                 <input
                   type="checkbox"
                   checked={rememberEmail}
                   onChange={(e) => setRememberEmail(e.target.checked)}
-                  className="h-4 w-4 rounded border-white/20 bg-black/50 text-neon focus:ring-0 focus:ring-offset-0 cursor-pointer accent-purple-600"
+                  className="h-4 w-4 rounded border-slate-300 cursor-pointer accent-purple-600"
                 />
-                <span className="group-hover:text-white transition-colors">
-                  Remember email
-                </span>
+                <span className="group-hover:text-slate-900 transition-colors">Remember email</span>
               </label>
             </div>
 
-            {/* Submit Button */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
-              className="mt-2 w-full h-12 px-4 rounded-md bg-gradient-brand text-neon-foreground text-[15px] font-bold tracking-wide shadow-[0_0_25px_rgba(200,80,255,0.35)] hover:shadow-[0_0_35px_rgba(200,80,255,0.55)] hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed font-heading"
+              className="mt-2 w-full h-12 px-4 rounded-lg bg-gradient-to-r from-[#4f46e5] via-[#9333ea] to-[#db2777] text-white text-[15px] font-bold tracking-wide shadow-[0_10px_24px_-8px_rgba(147,51,234,0.55)] hover:shadow-[0_14px_30px_-8px_rgba(147,51,234,0.65)] hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed font-heading"
             >
               {isLoading ? (
                 <>
-                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                   <span>Verifying Credentials...</span>
                 </>
               ) : (
@@ -219,17 +209,14 @@ function CrmLoginPage() {
             </button>
           </form>
 
-          {/* Minimal Return Home Link */}
-          <div className="mt-6 text-center">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors py-1"
-            >
+          <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+            <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-purple-700 transition-colors py-1">
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Quickupp AI Studio</span>
             </Link>
           </div>
         </div>
+        <p className="mt-5 text-center text-xs text-slate-400">Authorized personnel only · Activity is logged</p>
       </div>
     </div>
   );

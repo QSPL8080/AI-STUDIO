@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLightCrmPage } from "@/lib/crm-theme";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CrmApp } from "@/components/crm/crm-app";
 import { getStoredCrmUser, CrmUser } from "@/lib/crm-auth";
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/crm/")({
 
 function CrmDashboardPage() {
   const navigate = useNavigate();
+  useLightCrmPage();
   const [currentUser, setCurrentUser] = useState<CrmUser | null>(null);
   const [isChecking, setIsChecking] = useState(true);
 
@@ -31,8 +33,8 @@ function CrmDashboardPage() {
 
   if (isChecking || !currentUser) {
     return (
-      <div className="min-h-screen bg-[#07090e] flex flex-col items-center justify-center p-4 text-slate-400 text-xs">
-        <div className="w-6 h-6 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-3"></div>
+      <div className="min-h-screen bg-[#f4f5f9] flex flex-col items-center justify-center p-4 text-slate-500 text-xs">
+        <div className="w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-3"></div>
         <span>Verifying Enterprise CRM Session...</span>
       </div>
     );
