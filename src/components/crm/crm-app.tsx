@@ -25,7 +25,6 @@ import {
   Search,
   Settings,
   Shield,
-  ShieldAlert,
   Trash2,
   TrendingUp,
   User,
@@ -82,7 +81,7 @@ import {
 import { displayLeadSource } from "@/lib/lead-source";
 import type { ActivityItem, LeadItem, OrderItem, RecordCounts, UserItem } from "./crm-types";
 
-type NotifItem = { id: string; type: "lead" | "order" | "security" | "email"; createdAt: string; title: string; sub: string; lead?: LeadItem };
+type NotifItem = { id: string; type: "lead" | "order"; createdAt: string; title: string; sub: string; lead?: LeadItem };
 
 export const LOGOUT_REASON_KEY = "quickupp_crm_logout_reason";
 
@@ -173,6 +172,59 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 const LEAD_STATUSES = ["New", "Contacted", "In Progress", "Hold", "Closed"];
 const PROJECT_STATUSES = ["New", "In Progress", "Proj Active", "On Hold", "Delivered", "Cancelled"];
 
+// "Add New Manual Lead" form (Leads and Meta Leads use the same form).
+const LEAD_SOURCE_OPTIONS = [
+  { value: "IND - Contact Form", label: "India Website - Contact Form" },
+  { value: "IND - Popup Modal", label: "India Website - Popup" },
+  { value: "Manual", label: "Manual" },
+  { value: "Meta Ads", label: "Meta Ads" },
+];
+const LEAD_INDUSTRIES = [
+  "E-commerce / D2C",
+  "Real Estate",
+  "Healthcare / Clinics",
+  "Education / Coaching",
+  "Finance / Insurance",
+  "SaaS / Technology",
+  "Jewellery & Fashion",
+  "Food & Restaurants",
+  "Interior Design / Architecture",
+  "Hospitality / Travel",
+  "Personal Brand / Founder",
+  "Agency / Marketing",
+  "Other",
+];
+const LEAD_VIDEO_TYPES = [
+  "AI UGC Video",
+  "AI Cartoon Animation",
+  "AI Avatar Video",
+  "Hyper-Realistic AI Video",
+  "AI Digital Twin / Clone",
+  "AI Digital Twin Setup",
+  "Custom / Not decided",
+];
+const LEAD_QUANTITIES = ["1 Video", "1 - 3 Videos", "5 Videos", "10 Videos", "15 Videos", "15 - 30 Videos / month", "30+ Videos / month", "Not decided"];
+const blankLeadForm = (source: string) => ({
+  source,
+  clientName: "",
+  business: "",
+  website: "",
+  phone: "",
+  email: "",
+  industry: "",
+  location: "",
+  videoScope: "AI UGC Video",
+  quantity: "1 Video",
+  leadStatus: "New",
+  projectStatus: "New",
+  deliveryDate: "",
+  notes: "",
+  channel: "Facebook",
+  campaign: "",
+  adSet: "",
+  formName: "",
+});
+
 const ORDER_STATUS_STYLE: Record<string, string> = {
   COMPLETED: "bg-emerald-950/60 text-emerald-300 border-emerald-500/40",
   PENDING: "bg-amber-950/60 text-amber-300 border-amber-500/40",
@@ -214,6 +266,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [ordersCount, setOrdersCount] = useState(0);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [orderEvents, setOrderEvents] = useState<ActivityItem[]>([]);
   const [counts, setCounts] = useState<RecordCounts | null>(null);
   const [serverMatrix, setServerMatrix] = useState<PermissionMatrix>(DEFAULT_MATRIX);
 
@@ -246,25 +299,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
   // Modals
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
-  const [showAddMetaModal, setShowAddMetaModal] = useState(false);
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState<LeadItem | null>(null);
   const [leadHistory, setLeadHistory] = useState<ActivityItem[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
 
-  const [newLeadForm, setNewLeadForm] = useState({ clientName: "", email: "", phone: "", business: "", videoScope: "AI UGC Video Ads", notes: "" });
-  const [newMetaForm, setNewMetaForm] = useState({
-    clientName: "",
-    email: "",
-    phone: "",
-    videoScope: "AI Video Ads",
-    channel: "Facebook",
-    campaign: "",
-    adSet: "",
-    formName: "",
-    notes: "",
-  });
+  const [leadForm, setLeadForm] = useState(() => blankLeadForm("Manual"));
+  const openAddLead = (source: string) => {
+    setLeadForm(blankLeadForm(source));
+    setShowAddLeadModal(true);
+  };
   const [newUserForm, setNewUserForm] = useState({ name: "", email: "", password: "", role: "ADMIN" as ManagedRole });
   const [showNewUserPw, setShowNewUserPw] = useState(false);
 
@@ -363,6 +408,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       }
       if (r.users) setUsers(r.users);
       if (r.activity) setActivity(r.activity);
+      setOrderEvents(r.orderEvents || []);
       if (r.counts) setCounts(r.counts);
       if (r.matrix) {
         setServerMatrix(r.matrix);
@@ -428,8 +474,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const metaLeads = useMemo(() => leads.filter((l) => l.kind === "meta"), [leads]);
 
   // -------------------------------------------------------------------------
-  // Notifications: new leads for everyone; for the Super Admin also account locks
-  // and email-delivery failures. Read state is saved per user on the server, so
+  // Notifications: only new leads, and new orders / payments. Read state is saved per user on the server, so
   // everything that arrived while someone was away is shown when they open the CRM.
   // -------------------------------------------------------------------------
   const notifItems = useMemo<NotifItem[]>(() => {
@@ -441,20 +486,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       sub: `${l.kind === "meta" ? "Meta Ads" : displayLeadSource(l.source)} • ${l.videoScope}${l.phone ? ` • ${l.phone}` : ""}`,
       lead: l,
     }));
-    if (isSuperAdmin) {
-      for (const a of activity.slice(0, 300)) {
-        if (a.title === "Account locked") items.push({ id: a.id, type: "security", createdAt: a.createdAt, title: `Account locked: ${a.actorEmail}`, sub: a.description });
-        else if (a.title === "New website order" || a.title === "Payment received" || a.title === "Payment failed")
-          items.push({ id: a.id, type: "order", createdAt: a.createdAt, title: a.title, sub: a.description });
-        else if (/email FAILED$/.test(a.title)) items.push({ id: a.id, type: "email", createdAt: a.createdAt, title: a.title, sub: a.description });
-      }
-    }
+    // Orders & payments (for everyone allowed to see Orders & Payments).
+    for (const a of orderEvents) items.push({ id: a.id, type: "order", createdAt: a.createdAt, title: a.title, sub: a.description });
     const cleared = notif?.clearedAt || "";
     return items
       .filter((n) => String(n.createdAt) > cleared)
       .sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt)))
       .slice(0, 60);
-  }, [leads, activity, isSuperAdmin, notif?.clearedAt]);
+  }, [leads, orderEvents, notif?.clearedAt]);
 
   const isUnread = useCallback(
     (n: { id: string; createdAt: string }) => !!notif && String(n.createdAt) > notif.seenAt && !notif.readIds.includes(n.id),
@@ -486,9 +525,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     markRead([n.id]);
     setShowNotifications(false);
     if (n.lead) setSelectedLead(n.lead);
-    else if (n.type === "security") setActiveTab("users");
-    else if (n.type === "order") setActiveTab("orders");
-    else setActiveTab("activity");
+    else setActiveTab("orders");
   };
 
   // Unread count in the browser tab title
@@ -609,26 +646,24 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     else setPinError(r?.error || "Invalid security PIN.");
   };
 
-  const handleAddLead = async (e: React.FormEvent, kind: "website" | "meta") => {
+  const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    const form = kind === "website" ? newLeadForm : newMetaForm;
-    if (!form.clientName.trim()) return;
+    const f = leadForm;
+    if (!f.clientName.trim() || !f.business.trim() || !f.phone.trim()) {
+      toast("Client name, company / brand and WhatsApp / phone are required.", "error");
+      return;
+    }
+    const isMetaLead = f.source === "Meta Ads";
     setBusy("add-lead");
-    const r = await call(crmCreateLeadFn({ data: { token: tok(), lead: { kind, ...form } } }));
+    const r = await call(crmCreateLeadFn({ data: { token: tok(), lead: { kind: isMetaLead ? "meta" : "website", ...f } } }));
     setBusy(null);
     if (!r) return;
     // Your own manual entry doesn't need to notify you.
     knownNotifIds.current?.add(r.lead.id);
     setNotif((st) => (st ? { ...st, readIds: [r.lead.id, ...st.readIds] } : st));
     crmMarkNotificationsFn({ data: { token: tok(), ids: [r.lead.id] } }).catch(() => null);
-    toast(kind === "meta" ? "Meta lead saved to database." : "Lead saved to database.");
-    if (kind === "website") {
-      setShowAddLeadModal(false);
-      setNewLeadForm({ clientName: "", email: "", phone: "", business: "", videoScope: "AI UGC Video Ads", notes: "" });
-    } else {
-      setShowAddMetaModal(false);
-      setNewMetaForm({ clientName: "", email: "", phone: "", videoScope: "AI Video Ads", channel: "Facebook", campaign: "", adSet: "", formName: "", notes: "" });
-    }
+    toast(isMetaLead ? "Meta lead saved to database." : "Lead saved to database.");
+    setShowAddLeadModal(false);
     doSync();
   };
 
@@ -987,7 +1022,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       ) : (
                         notifItems.map((n) => {
                           const unread = isUnread(n);
-                          const tone = n.type === "lead" ? "text-emerald-300 bg-emerald-500/10" : n.type === "order" ? "text-purple-300 bg-purple-500/10" : n.type === "security" ? "text-red-300 bg-red-500/10" : "text-amber-300 bg-amber-500/10";
+                          const tone = n.type === "lead" ? "text-emerald-300 bg-emerald-500/10" : "text-purple-300 bg-purple-500/10";
                           return (
                             <button
                               key={n.id}
@@ -995,7 +1030,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               className={`w-full text-left p-2.5 rounded-md flex items-start gap-2.5 transition-colors ${unread ? "bg-cyan-500/[0.07] hover:bg-cyan-500/[0.12]" : "hover:bg-white/[0.04]"}`}
                             >
                               <span className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${tone}`}>
-                                {n.type === "lead" ? <Users className="w-4 h-4" /> : n.type === "order" ? <Package className="w-4 h-4" /> : n.type === "security" ? <ShieldAlert className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
+                                {n.type === "lead" ? <Users className="w-4 h-4" /> : <Package className="w-4 h-4" />}
                               </span>
                               <span className="flex-1 min-w-0">
                                 <span className={`block truncate ${unread ? "font-semibold text-white" : "text-slate-300"}`}>{n.title}</span>
@@ -1071,12 +1106,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               subtitle="Real-time overview of inbound leads, production pipeline and revenue."
             >
               {perms.leads && (
-                <button onClick={() => setShowAddLeadModal(true)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold">
+                <button onClick={() => openAddLead("Manual")} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold">
                   <Plus className="w-4 h-4" /> Add Lead
                 </button>
               )}
               {perms.meta && (
-                <button onClick={() => setShowAddMetaModal(true)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[13px] font-semibold">
+                <button onClick={() => openAddLead("Meta Ads")} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[13px] font-semibold">
                   <Plus className="w-4 h-4" /> Add Meta Lead
                 </button>
               )}
@@ -1223,7 +1258,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 }
               >
                 <button
-                  onClick={() => (isMeta ? setShowAddMetaModal(true) : setShowAddLeadModal(true))}
+                  onClick={() => openAddLead(isMeta ? "Meta Ads" : "Manual")}
                   className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-white text-[13px] font-semibold ${isMeta ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
                 >
                   <Plus className="w-4 h-4" /> {isMeta ? "Add Meta Lead" : "Add Lead"}
@@ -2198,87 +2233,121 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       )}
 
       {showAddLeadModal && (
-        <Modal onClose={() => setShowAddLeadModal(false)} title="Add Website / Manual Lead" subtitle="Saved straight to the database." icon={<Plus className="w-5 h-5" />}>
-          <form onSubmit={(e) => handleAddLead(e, "website")} className="space-y-3.5">
-            <Field label="Client name *">
-              <input required value={newLeadForm.clientName} onChange={(e) => setNewLeadForm({ ...newLeadForm, clientName: e.target.value })} placeholder="e.g. Rahul Sharma" className={inputCls} />
-            </Field>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Email">
-                <input type="email" value={newLeadForm.email} onChange={(e) => setNewLeadForm({ ...newLeadForm, email: e.target.value })} placeholder="rahul@company.in" className={inputCls} />
+        <Modal
+          onClose={() => setShowAddLeadModal(false)}
+          title={leadForm.source === "Meta Ads" ? "Add New Meta Lead" : "Add New Manual Lead"}
+          subtitle="Saved straight to the database."
+          icon={<Plus className="w-5 h-5" />}
+          size="xl"
+        >
+          <form onSubmit={handleAddLead} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <Field label="Lead Source *">
+                <select value={leadForm.source} onChange={(e) => setLeadForm({ ...leadForm, source: e.target.value })} className={inputCls}>
+                  {LEAD_SOURCE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
-              <Field label="Phone / WhatsApp">
-                <input value={newLeadForm.phone} onChange={(e) => setNewLeadForm({ ...newLeadForm, phone: e.target.value })} placeholder="+91 98765 43210" className={inputCls} />
+              <Field label="Client Full Name *">
+                <input required value={leadForm.clientName} onChange={(e) => setLeadForm({ ...leadForm, clientName: e.target.value })} placeholder="e.g. Rahul Sharma" className={inputCls} />
+              </Field>
+              <Field label="Company / Brand Name *">
+                <input required value={leadForm.business} onChange={(e) => setLeadForm({ ...leadForm, business: e.target.value })} placeholder="e.g. Sharma Foods" className={inputCls} />
+              </Field>
+              <Field label="Website">
+                <input value={leadForm.website} onChange={(e) => setLeadForm({ ...leadForm, website: e.target.value })} placeholder="https://brand.in" className={inputCls} />
+              </Field>
+              <Field label="WhatsApp / Phone *">
+                <input required value={leadForm.phone} onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })} placeholder="+91 98765 43210" inputMode="tel" className={inputCls} />
+              </Field>
+              <Field label="Email Address">
+                <input type="email" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} placeholder="client@company.com" className={inputCls} />
               </Field>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Business">
-                <input value={newLeadForm.business} onChange={(e) => setNewLeadForm({ ...newLeadForm, business: e.target.value })} placeholder="Company name" className={inputCls} />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <Field label="Industry">
+                <select value={leadForm.industry} onChange={(e) => setLeadForm({ ...leadForm, industry: e.target.value })} className={inputCls}>
+                  <option value="">Select industry</option>
+                  {LEAD_INDUSTRIES.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
               </Field>
-              <Field label="Video scope">
-                <select value={newLeadForm.videoScope} onChange={(e) => setNewLeadForm({ ...newLeadForm, videoScope: e.target.value })} className={inputCls}>
-                  {["AI UGC Video Ads", "AI Avatar Video", "Digital Twin Clone", "AI Cartoon Animation", "Hyper-Realistic Video"].map((v) => (
-                    <option key={v}>{v}</option>
+              <Field label="Location / City">
+                <input value={leadForm.location} onChange={(e) => setLeadForm({ ...leadForm, location: e.target.value })} placeholder="e.g. Pune, Maharashtra" className={inputCls} />
+              </Field>
+              <Field label="Video Type / Need *">
+                <select value={leadForm.videoScope} onChange={(e) => setLeadForm({ ...leadForm, videoScope: e.target.value })} className={inputCls}>
+                  {LEAD_VIDEO_TYPES.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Video Quantity / Monthly Volume">
+                <select value={leadForm.quantity} onChange={(e) => setLeadForm({ ...leadForm, quantity: e.target.value })} className={inputCls}>
+                  {LEAD_QUANTITIES.map((o) => (
+                    <option key={o}>{o}</option>
                   ))}
                 </select>
               </Field>
             </div>
-            <Field label="Notes">
-              <textarea
-                rows={2}
-                value={newLeadForm.notes}
-                onChange={(e) => setNewLeadForm({ ...newLeadForm, notes: e.target.value })}
-                placeholder="Inquiry requirements..."
-                className="w-full px-3 py-2 rounded-md border border-white/10 bg-black/40 text-[13px] text-white resize-none focus:outline-none focus:border-purple-500"
-              />
-            </Field>
-            <ModalActions onCancel={() => setShowAddLeadModal(false)} submitLabel={busy === "add-lead" ? "Saving..." : "Save Lead"} disabled={busy === "add-lead"} />
-          </form>
-        </Modal>
-      )}
 
-      {showAddMetaModal && (
-        <Modal onClose={() => setShowAddMetaModal(false)} title="Add Meta Ads Lead" subtitle="Lead from a Facebook or Instagram lead form." icon={<Layers className="w-5 h-5" />}>
-          <form onSubmit={(e) => handleAddLead(e, "meta")} className="space-y-3.5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Channel">
-                <select value={newMetaForm.channel} onChange={(e) => setNewMetaForm({ ...newMetaForm, channel: e.target.value })} className={inputCls}>
-                  <option>Facebook</option>
-                  <option>Instagram</option>
+            {leadForm.source === "Meta Ads" && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 rounded-md border border-purple-500/20 bg-purple-500/[0.04] p-3">
+                <Field label="Channel">
+                  <select value={leadForm.channel} onChange={(e) => setLeadForm({ ...leadForm, channel: e.target.value })} className={inputCls}>
+                    <option>Facebook</option>
+                    <option>Instagram</option>
+                  </select>
+                </Field>
+                <Field label="Campaign">
+                  <input value={leadForm.campaign} onChange={(e) => setLeadForm({ ...leadForm, campaign: e.target.value })} placeholder="Campaign name" className={inputCls} />
+                </Field>
+                <Field label="Ad Set">
+                  <input value={leadForm.adSet} onChange={(e) => setLeadForm({ ...leadForm, adSet: e.target.value })} placeholder="Ad set" className={inputCls} />
+                </Field>
+                <Field label="Form Name">
+                  <input value={leadForm.formName} onChange={(e) => setLeadForm({ ...leadForm, formName: e.target.value })} placeholder="Lead form" className={inputCls} />
+                </Field>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <Field label="Initial Lead Status">
+                <select value={leadForm.leadStatus} onChange={(e) => setLeadForm({ ...leadForm, leadStatus: e.target.value })} className={inputCls}>
+                  {LEAD_STATUSES.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
                 </select>
               </Field>
-              <Field label="Form name">
-                <input value={newMetaForm.formName} onChange={(e) => setNewMetaForm({ ...newMetaForm, formName: e.target.value })} className={inputCls} />
+              <Field label="Project Status">
+                <select value={leadForm.projectStatus} onChange={(e) => setLeadForm({ ...leadForm, projectStatus: e.target.value })} className={inputCls}>
+                  {PROJECT_STATUSES.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Delivery Target Date">
+                <input type="date" value={leadForm.deliveryDate} onChange={(e) => setLeadForm({ ...leadForm, deliveryDate: e.target.value })} className={`${inputCls} [color-scheme:dark]`} />
               </Field>
             </div>
-            <Field label="Client name *">
-              <input required value={newMetaForm.clientName} onChange={(e) => setNewMetaForm({ ...newMetaForm, clientName: e.target.value })} placeholder="e.g. Priya Patel" className={inputCls} />
-            </Field>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Email">
-                <input type="email" value={newMetaForm.email} onChange={(e) => setNewMetaForm({ ...newMetaForm, email: e.target.value })} className={inputCls} />
-              </Field>
-              <Field label="Phone / WhatsApp">
-                <input value={newMetaForm.phone} onChange={(e) => setNewMetaForm({ ...newMetaForm, phone: e.target.value })} className={inputCls} />
-              </Field>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Campaign">
-                <input value={newMetaForm.campaign} onChange={(e) => setNewMetaForm({ ...newMetaForm, campaign: e.target.value })} className={inputCls} />
-              </Field>
-              <Field label="Ad set">
-                <input value={newMetaForm.adSet} onChange={(e) => setNewMetaForm({ ...newMetaForm, adSet: e.target.value })} className={inputCls} />
-              </Field>
-            </div>
-            <Field label="Notes">
+
+            <Field label="Internal Notes & Scope">
               <textarea
-                rows={2}
-                value={newMetaForm.notes}
-                onChange={(e) => setNewMetaForm({ ...newMetaForm, notes: e.target.value })}
-                className="w-full px-3 py-2 rounded-md border border-white/10 bg-black/40 text-[13px] text-white resize-none focus:outline-none focus:border-purple-500"
+                rows={3}
+                value={leadForm.notes}
+                onChange={(e) => setLeadForm({ ...leadForm, notes: e.target.value })}
+                placeholder="Add specific requirements, deadlines, or client preferences..."
+                className="w-full px-3 py-2 rounded-md border border-white/10 bg-black/40 text-[13px] text-white placeholder-slate-500 resize-y focus:outline-none focus:border-purple-500"
               />
             </Field>
-            <ModalActions onCancel={() => setShowAddMetaModal(false)} submitLabel={busy === "add-lead" ? "Saving..." : "Save Meta Lead"} disabled={busy === "add-lead"} />
+            <div className="border-t border-white/10 pt-4">
+              <ModalActions onCancel={() => setShowAddLeadModal(false)} submitLabel={busy === "add-lead" ? "Saving..." : "Save Lead"} disabled={busy === "add-lead"} />
+            </div>
           </form>
         </Modal>
       )}
@@ -2441,6 +2510,21 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         )
                       }
                     />
+                    {l.website ? (
+                      <DetailRow
+                        label="Website"
+                        value={
+                          <a
+                            href={/^https?:\/\//i.test(l.website) ? l.website : `https://${l.website}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-white hover:text-purple-300 break-all"
+                          >
+                            {l.website}
+                          </a>
+                        }
+                      />
+                    ) : null}
                     <DetailRow label="Location" value={l.location || "—"} />
                     <DetailRow label="Industry" value={l.businessType || "—"} />
                   </DetailCard>
@@ -2465,8 +2549,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <DetailCard icon={<Video className="w-4 h-4" />} title="Project & Creative Requirement" right={<StatusPill text={l.projectStatus} tone="amber" />}>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-white/[0.03] border border-white/[0.05]">
                     <MiniStat label="Requirement / format" value={l.videoScope} />
-                    <MiniStat label="Industry" value={l.businessType || "—"} />
-                    <MiniStat label="Project status" value={l.projectStatus} />
+                    <MiniStat label="Video quantity" value={l.videoQuantity || "—"} />
+                    <MiniStat
+                      label="Delivery target"
+                      value={l.deliveryTarget ? fmtIstDate(`${l.deliveryTarget}T12:00:00+05:30`) : "Not set"}
+                    />
                     <MiniStat label="Delivered on" value={l.deliveredAt ? fmtIst(l.deliveredAt) : "Not delivered yet"} />
                   </div>
                   <div>
@@ -2543,11 +2630,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           const tone =
             item.type === "lead"
               ? { box: "border-emerald-500/40 bg-[#0b1a16]/95", icon: "bg-emerald-500/15 text-emerald-300", label: "text-emerald-300", text: "New lead received" }
-              : item.type === "order"
-                ? { box: "border-purple-500/40 bg-[#140b1a]/95", icon: "bg-purple-500/15 text-purple-300", label: "text-purple-300", text: item.title }
-                : item.type === "security"
-                ? { box: "border-red-500/40 bg-[#1a0b0d]/95", icon: "bg-red-500/15 text-red-300", label: "text-red-300", text: "Security alert" }
-                : { box: "border-amber-500/40 bg-[#1a150b]/95", icon: "bg-amber-500/15 text-amber-300", label: "text-amber-300", text: "Email delivery problem" };
+              : { box: "border-purple-500/40 bg-[#140b1a]/95", icon: "bg-purple-500/15 text-purple-300", label: "text-purple-300", text: item.title };
           return (
             <div key={key} className={`rounded-md border backdrop-blur shadow-2xl p-3.5 flex items-start gap-3 animate-in slide-in-from-right-4 fade-in ${tone.box}`}>
               <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${tone.icon}`}>
@@ -2808,6 +2891,7 @@ function Modal({
   icon,
   onClose,
   wide,
+  size,
   children,
 }: {
   title: string;
@@ -2815,11 +2899,12 @@ function Modal({
   icon: React.ReactNode;
   onClose: () => void;
   wide?: boolean;
+  size?: "xl";
   children: React.ReactNode;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`w-full ${wide ? "max-w-lg" : "max-w-md"} max-h-[90vh] overflow-y-auto rounded-lg border border-white/10 bg-[#0e121e] p-5 sm:p-6 shadow-2xl relative`}>
+      <div className={`w-full ${size === "xl" ? "max-w-3xl" : wide ? "max-w-lg" : "max-w-md"} max-h-[90vh] overflow-y-auto rounded-lg border border-white/10 bg-[#0e121e] p-5 sm:p-6 shadow-2xl relative`}>
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white">
           <X className="w-4 h-4" />
         </button>

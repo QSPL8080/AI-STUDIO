@@ -59,8 +59,24 @@ export function isMetaRow(r: any) {
   return src.includes("meta") || r.channel === "Facebook" || r.channel === "Instagram";
 }
 
+/** Extra manual-entry fields are kept as "Label: value" lines in `additional` (no schema change needed). */
+const EXTRA_FIELDS = { website: "Website", quantity: "Video quantity", deliveryTarget: "Delivery target" } as const;
+function splitAdditional(additional: string) {
+  const extra = { website: "", quantity: "", deliveryTarget: "" };
+  const rest: string[] = [];
+  for (const line of String(additional || "").split("\n")) {
+    const m = /^(Website|Video quantity|Delivery target): (.*)$/.exec(line.trim());
+    if (m) {
+      const key = (Object.keys(EXTRA_FIELDS) as (keyof typeof EXTRA_FIELDS)[]).find((k) => EXTRA_FIELDS[k] === m[1])!;
+      extra[key] = m[2]!.trim();
+    } else if (line.trim()) rest.push(line);
+  }
+  return { extra, rest: rest.join("\n") };
+}
+
 function mapLead(r: any) {
-  const notes = [r.requirement, r.additional].filter(Boolean).join(" | ");
+  const { extra, rest } = splitAdditional(r.additional || "");
+  const notes = [r.requirement, rest].filter(Boolean).join(" | ");
   return {
     id: r.id as string,
     kind: (isMetaRow(r) ? "meta" : "website") as "meta" | "website",
@@ -81,7 +97,10 @@ function mapLead(r: any) {
     adSet: (r.ad_set || "") as string,
     formName: (r.form_name || "") as string,
     requirement: (r.requirement || "") as string,
-    additional: (r.additional || "") as string,
+    additional: rest,
+    website: extra.website,
+    videoQuantity: extra.quantity,
+    deliveryTarget: extra.deliveryTarget,
     handledBy: (r.handled_by || "") as string,
     closedBy: (r.closed_by || "") as string,
     closedAt: r.closed_at ? new Date(r.closed_at).toISOString() : null,
@@ -295,7 +314,15 @@ export async function sync(token: string, ordersPin?: string) {
   let orders: CrmOrder[] | null = null;
   let ordersCount = 0;
   let orderRows: any[] = [];
+  // New-order / payment events for the notification bell (no PIN needed; no customer details beyond the summary).
+  let orderEvents: ReturnType<typeof mapActivity>[] = [];
   if (ctx.perms.orders) {
+    const ev = await dbSelect("crm_activity_logs", {
+      filters: [{ col: "title", op: "in", value: ["New website order", "Payment received", "Payment failed"] }],
+      order: { col: "created_at", desc: true },
+      limit: 60,
+    });
+    orderEvents = ev.map(mapActivity);
     orderRows = await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } });
     ordersCount = orderRows.length;
     if (ordersPin && ordersPin === paymentsPin()) orders = orderRows.map(mapOrder);
@@ -341,6 +368,7 @@ export async function sync(token: string, ordersPin?: string) {
     user: publicUser(ctx.user),
     perms: ctx.perms,
     notif: await loadNotifState(ctx.user.id),
+    orderEvents,
     config,
     leads,
     recycleBin,
@@ -407,15 +435,26 @@ export async function unlockOrders(token: string, pin: string) {
 // ---------------------------------------------------------------------------
 // Leads
 // ---------------------------------------------------------------------------
+const LEAD_STATUS_LIST = ["New", "Contacted", "In Progress", "Hold", "Closed"];
+const PROJECT_STATUS_LIST = ["New", "In Progress", "Proj Active", "On Hold", "Delivered", "Cancelled"];
+
 export async function createLead(
   token: string,
   data: {
-    kind: "website" | "meta";
+    kind?: "website" | "meta";
+    source?: string;
     clientName: string;
-    email?: string;
-    phone?: string;
     business?: string;
+    website?: string;
+    phone?: string;
+    email?: string;
+    industry?: string;
+    location?: string;
     videoScope?: string;
+    quantity?: string;
+    leadStatus?: string;
+    projectStatus?: string;
+    deliveryDate?: string;
     notes?: string;
     channel?: string;
     campaign?: string;
@@ -423,38 +462,54 @@ export async function createLead(
     formName?: string;
   },
 ) {
-  const ctx = await requireSession(token, data.kind === "meta" ? "meta" : "leads");
-  if (!data.clientName?.trim()) throw new Error("Client name is required.");
-  const isMeta = data.kind === "meta";
+  const t = (v: unknown, max = 255) => String(v ?? "").trim().slice(0, max);
+  const isMeta = data.source === "Meta Ads" || (!data.source && data.kind === "meta");
+  const ctx = await requireSession(token, isMeta ? "meta" : "leads");
+  if (!t(data.clientName)) throw new Error("Client full name is required.");
+  if (!t(data.business)) throw new Error("Company / brand name is required.");
+  if (!t(data.phone)) throw new Error("WhatsApp / phone number is required.");
+  const source = isMeta ? "Meta Ads" : !data.source || data.source === "Manual" ? "Manual Entry" : t(data.source, 64);
+  const leadStatus = LEAD_STATUS_LIST.includes(String(data.leadStatus)) ? String(data.leadStatus) : "New";
+  const projectStatus = PROJECT_STATUS_LIST.includes(String(data.projectStatus)) ? String(data.projectStatus) : "New";
+  const extras = [
+    t(data.website) ? `Website: ${t(data.website)}` : "",
+    t(data.quantity) ? `Video quantity: ${t(data.quantity)}` : "",
+    /^\d{4}-\d{2}-\d{2}$/.test(t(data.deliveryDate)) ? `Delivery target: ${t(data.deliveryDate)}` : "",
+  ].filter(Boolean);
   const row = await dbInsertWithOptional(LEADS_TABLE, {
     id: newId("lead"),
-    source: isMeta ? "Meta Ads" : "Manual Entry",
-    name: data.clientName.trim(),
-    phone: (data.phone || "").trim() || "-",
-    email: data.email?.trim() || null,
-    video_type: data.videoScope || "AI Video",
-    business: data.business?.trim() || (isMeta ? "Meta Lead" : "General Inquiry"),
-    requirement: data.notes?.trim() || null,
-    status: "New",
-    project_status: "New",
+    source,
+    name: t(data.clientName),
+    phone: t(data.phone, 64),
+    email: t(data.email) || null,
+    video_type: t(data.videoScope, 128) || "AI Video",
+    business: t(data.business),
+    industry: t(data.industry, 128) || null,
+    location: t(data.location) || null,
+    requirement: t(data.notes, 4000) || null,
+    additional: extras.join("\n") || null,
+    status: leadStatus,
+    project_status: projectStatus,
     channel: isMeta ? data.channel || "Facebook" : "Manual",
-    campaign: isMeta ? data.campaign || null : null,
-    ad_set: isMeta ? data.adSet || null : null,
-    form_name: isMeta ? data.formName || null : null,
+    campaign: isMeta ? t(data.campaign) || null : null,
+    ad_set: isMeta ? t(data.adSet) || null : null,
+    form_name: isMeta ? t(data.formName) || null : null,
     created_at: new Date().toISOString(),
   }, { handled_by: ctx.user.name });
   // New-lead email (same as website form leads) → qsaistudio@gmail.com
   try {
     const { sendLeadNotificationEmail } = await import("./email");
     const mail = await sendLeadNotificationEmail({
-      source: isMeta ? `Meta Ads (${data.channel || "Facebook"})` : "Manual Entry (CRM)",
+      source: isMeta ? `Meta Ads (${data.channel || "Facebook"})` : `${source} (CRM)`,
       name: data.clientName.trim(),
       phone: (data.phone || "").trim() || "-",
       email: data.email?.trim() || undefined,
       videoType: data.videoScope || "AI Video",
-      business: data.business?.trim() || (isMeta ? "Meta Lead" : "General Inquiry"),
-      requirement: data.notes?.trim() || undefined,
-      additional: [isMeta && data.campaign ? `Campaign: ${data.campaign}` : "", isMeta && data.formName ? `Form: ${data.formName}` : "", `Added by ${ctx.user.name}`]
+      business: t(data.business),
+      industry: t(data.industry) || undefined,
+      location: t(data.location) || undefined,
+      requirement: t(data.notes, 4000) || undefined,
+      additional: [...extras, isMeta && data.campaign ? `Campaign: ${data.campaign}` : "", isMeta && data.formName ? `Form: ${data.formName}` : "", `Added by ${ctx.user.name}`]
         .filter(Boolean)
         .join(" • "),
       leadId: (row as any).id,

@@ -39,12 +39,20 @@ export const crmCreateLeadFn = createServerFn({ method: "POST" })
   .validator(
     (d: Tok & {
       lead: {
-        kind: "website" | "meta";
+        kind?: "website" | "meta";
+        source?: string;
         clientName: string;
-        email?: string;
-        phone?: string;
         business?: string;
+        website?: string;
+        phone?: string;
+        email?: string;
+        industry?: string;
+        location?: string;
         videoScope?: string;
+        quantity?: string;
+        leadStatus?: string;
+        projectStatus?: string;
+        deliveryDate?: string;
         notes?: string;
         channel?: string;
         campaign?: string;
