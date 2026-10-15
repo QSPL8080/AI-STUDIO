@@ -60,6 +60,24 @@ import {
 } from "./data";
 import { BuyNowButton, openBuyNow } from "./india-checkout";
 
+/** Semi-transparent photo backdrop for a section (stills from our own AI videos, faded so
+ *  the content stays readable). Phones get a single softly washed photo instead. */
+function SectionPhotoBg({ name, mobile = true }: { name: string; mobile?: boolean }) {
+  return (
+    <picture aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 block select-none">
+      {mobile ? <source media="(max-width: 767px)" srcSet={`/images/bg/bg-${name}-m.webp`} /> : null}
+      <img
+        src={`/images/bg/bg-${name}.webp`}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        className="h-full w-full object-cover"
+      />
+    </picture>
+  );
+}
+
 /** First-frame image for a /media/<name>.mp4 video, shown instantly while the video loads. */
 const posterOf = (url?: string) =>
   url ? url.replace(/^\/media\//, "/videos/posters/").replace(/\.mp4$/, ".jpg") : undefined;
@@ -1720,7 +1738,8 @@ export function Services() {
   }, []);
 
   return (
-    <Section id="services" className="relative overflow-hidden">
+    <Section id="services" className="relative isolate overflow-hidden">
+      <SectionPhotoBg name="services" />
       {/* Left Half-Cut Geometric Orbital Watermark */}
       <div className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-[520px] sm:w-[650px] lg:w-[780px] h-[520px] sm:h-[650px] lg:h-[780px] select-none z-0">
         <svg
@@ -2093,7 +2112,8 @@ export function Pricing() {
   }, []);
 
   return (
-    <Section id="pricing">
+    <Section id="pricing" className="relative isolate overflow-hidden">
+      <SectionPhotoBg name="pricing" />
       <SectionHeading
         eyebrow="AI Video Production Packages"
         title="AI Video Production Packages &"
@@ -2520,7 +2540,8 @@ export function UseCases() {
   }, []);
 
   return (
-    <Section className="bg-surface/40 overflow-hidden">
+    <Section className="relative isolate bg-surface/40 overflow-hidden">
+      <SectionPhotoBg name="usecases" />
       <SectionHeading
         eyebrow="Use Cases"
         title="What Can You Create With"
@@ -2654,7 +2675,8 @@ export function WhyUs() {
   }, []);
 
   return (
-    <Section className="bg-surface/40 overflow-hidden">
+    <Section className="relative isolate bg-surface/40 overflow-hidden">
+      <SectionPhotoBg name="whyus" />
       <SectionHeading
         eyebrow="AI Video Agency"
         title="Why Choose"
@@ -3093,7 +3115,8 @@ export function WhatsAppCtaSection() {
   const professionalMessage = encodeURIComponent(standardWhatsAppMessage);
 
   return (
-    <section className="border-t border-border bg-surface/40 px-5 py-12 md:py-16">
+    <section className="relative isolate overflow-hidden border-t border-border bg-surface/40 px-5 py-12 md:py-16">
+      <SectionPhotoBg name="whatsapp" />
       <div className="mx-auto max-w-4xl text-center">
         <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
           Have a Video Idea? Let's Turn It Into an{" "}
@@ -3284,11 +3307,12 @@ export function Contact() {
 
       <div ref={containerRef} className="mx-auto w-full max-w-5xl relative z-10">
         <div
-          className={`panel relative mx-auto overflow-hidden p-6 text-center sm:p-8 md:p-12 transition-all duration-700 hover:border-neon/70 hover:shadow-[0_0_50px_-5px_rgba(200,80,255,0.45)] ${
+          className={`panel relative isolate mx-auto overflow-hidden p-6 text-center sm:p-8 md:p-12 transition-all duration-700 hover:border-neon/70 hover:shadow-[0_0_50px_-5px_rgba(200,80,255,0.45)] ${
             isInView ? "animate-cta-float" : "opacity-0 translate-y-8"
           }`}
           style={{ backgroundImage: "var(--gradient-hero)" }}
         >
+          <SectionPhotoBg name="contact" mobile={false} />
           {/* Ambient Glowing Orbs */}
           <div className="pointer-events-none absolute -left-16 -top-16 h-44 w-44 rounded-full bg-neon/15 blur-2xl transition-all duration-700 group-hover:scale-125" />
           <div className="pointer-events-none absolute -right-16 -bottom-16 h-44 w-44 rounded-full bg-[#60a5fa]/15 blur-2xl transition-all duration-700 group-hover:scale-125" />
