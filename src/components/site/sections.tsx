@@ -64,10 +64,10 @@ import { BuyNowButton, openBuyNow } from "./india-checkout";
  *  into the dark theme so the section content stays readable. */
 const SECTION_PHOTOS: Record<string, { id: number; position?: string; opacity?: number }> = {
   services: { id: 24286929, position: "center 35%" }, // creator studio: camera, softbox, editing laptop
-  pricing: { id: 8102677, position: "center" }, // video editor at a colour-grading workstation
+  pricing: { id: 39857940, position: "center" }, // creator workspace flat lay: cameras, lenses, laptop
   usecases: { id: 15406294, position: "center" }, // social media apps on a phone
   whyus: { id: 7581119, position: "center 30%" }, // team collaborating in an office
-  whatsapp: { id: 3924870, position: "center 30%" }, // woman chatting on her phone
+  whatsapp: { id: 46924, position: "center 45%" }, // hand holding a phone with WhatsApp open
   contact: { id: 34680730, position: "center" }, // cinema camera on set
 };
 const pexelsUrl = (id: number, w: number) =>
@@ -3146,7 +3146,7 @@ export function WhatsAppCtaSection() {
   const professionalMessage = encodeURIComponent(standardWhatsAppMessage);
 
   return (
-    <section className="relative isolate overflow-hidden border-t border-border bg-surface/40 px-5 py-12 md:py-16">
+    <section className="relative isolate overflow-hidden border-t border-border bg-surface/40 px-5 py-16 md:py-24">
       <SectionPhotoBg name="whatsapp" />
       <div className="mx-auto max-w-4xl text-center">
         <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
