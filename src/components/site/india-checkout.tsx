@@ -6,7 +6,9 @@ import {
   INDIA_SERVICES,
   formatInr,
   isPackQty,
-  quoteIndia,
+  quoteItem,
+  TWIN_SETUP,
+  TWIN_SETUP_ID,
   type IndiaPackQty,
   type IndiaServiceId,
 } from "@/lib/india-pricing";
@@ -18,6 +20,8 @@ import { whatsAppNumber } from "./data";
 export interface BuyNowOptions {
   serviceId?: IndiaServiceId;
   qty?: IndiaPackQty;
+  /** "twin-setup" opens the one-time AI Digital Twin setup (₹15,000). */
+  product?: "twin-setup";
 }
 
 const OPEN_EVENT = "open-india-checkout";
@@ -31,6 +35,7 @@ export function openBuyNow(opts: BuyNowOptions = {}) {
 export function BuyNowButton({
   serviceId,
   qty,
+  product,
   size = "md",
   label = "Buy Now",
   className = "",
@@ -40,7 +45,13 @@ export function BuyNowButton({
   return (
     <button
       type="button"
-      onClick={() => openBuyNow({ ...(serviceId ? { serviceId } : {}), ...(qty ? { qty } : {}) })}
+      onClick={() =>
+        openBuyNow({
+          ...(serviceId ? { serviceId } : {}),
+          ...(qty ? { qty } : {}),
+          ...(product ? { product } : {}),
+        })
+      }
       className={`group inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white font-semibold text-[#0b0717] shadow-[0_4px_18px_rgba(255,255,255,0.12)] transition-all duration-200 hover:bg-white/90 hover:shadow-[0_6px_24px_rgba(255,255,255,0.22)] active:scale-95 cursor-pointer ${sizing} ${className}`}
     >
       <span>{label}</span>
@@ -63,23 +74,28 @@ interface PlacedOrder {
 }
 
 const inputCls =
-  "mt-1.5 w-full rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors focus:border-[#a832e6] focus:outline-none focus:ring-2 focus:ring-[#a832e6]/15";
+  "mt-1.5 w-full rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-white/35 transition-colors focus:border-[#a832e6] focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-[#a832e6]/25";
 const selectCls =
-  "w-full cursor-pointer appearance-none rounded-full border border-slate-200 bg-white py-2.5 pl-4 pr-10 text-sm font-medium text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus:border-[#a832e6] focus:outline-none focus:ring-2 focus:ring-[#a832e6]/15";
-const labelCls = "block text-[13px] font-semibold text-slate-700";
+  "w-full cursor-pointer appearance-none rounded-full border border-white/10 bg-white/[0.04] py-2.5 pl-4 pr-10 text-sm font-medium text-white [color-scheme:dark] focus:border-[#a832e6] focus:outline-none focus:ring-2 focus:ring-[#a832e6]/25";
+const labelCls = "block text-[13px] font-semibold text-white/80";
 
 export function IndiaCheckoutModal() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("form");
   const [serviceId, setServiceId] = useState<IndiaServiceId>("ai-ugc");
   const [qty, setQty] = useState<IndiaPackQty>(1);
+  const [isSetup, setIsSetup] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", email: "", company: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [busy, setBusy] = useState(false);
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
 
-  const quote = useMemo(() => quoteIndia(serviceId, qty), [serviceId, qty]);
+  const quote = useMemo(
+    () => quoteItem(isSetup ? TWIN_SETUP_ID : serviceId, qty),
+    [isSetup, serviceId, qty],
+  );
+  const reelService = INDIA_SERVICES.find((x) => x.id === serviceId) || INDIA_SERVICES[0]!;
 
   const close = useCallback(() => {
     if (step === "redirecting") return;
@@ -93,6 +109,7 @@ export function IndiaCheckoutModal() {
       if (d.serviceId && INDIA_SERVICES.some((s) => s.id === d.serviceId))
         setServiceId(d.serviceId);
       setQty(isPackQty(d.qty) ? d.qty : 1);
+      setIsSetup(d.product === "twin-setup");
       setStep("form");
       setServerError("");
       setErrors({});
@@ -143,8 +160,8 @@ export function IndiaCheckoutModal() {
     try {
       const r: any = await createIndiaOrderFn({
         data: {
-          serviceId,
-          qty,
+          serviceId: isSetup ? TWIN_SETUP_ID : serviceId,
+          qty: isSetup ? 1 : qty,
           name: form.name,
           email: form.email,
           phone: form.phone,
@@ -188,41 +205,42 @@ export function IndiaCheckoutModal() {
 
   if (!open) return null;
 
-  const isPack = qty > 1;
-  const packLabel = INDIA_PACKS.find((p) => p.qty === qty)!.label;
-  const title = isPack
-    ? `${packLabel} — ${quote.service.name}`
-    : `${quote.service.name} — Single Reel`;
+  const isPack = !isSetup && qty > 1;
+  const title = isSetup
+    ? `${TWIN_SETUP.name} (One-Time)`
+    : isPack
+      ? `${quote.packLabel} — ${quote.serviceName}`
+      : `${quote.serviceName} — Single Reel`;
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/55 backdrop-blur-[3px] sm:items-center sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/75 backdrop-blur-[4px] sm:items-center sm:p-4 animate-in fade-in duration-200"
       onMouseDown={(e) => e.target === e.currentTarget && close()}
       role="dialog"
       aria-modal="true"
       aria-label="Order checkout"
     >
-      <div className="relative flex max-h-[94dvh] w-full max-w-[640px] flex-col overflow-hidden rounded-t-[28px] bg-white text-slate-900 shadow-[0_30px_80px_rgba(15,23,42,0.35)] sm:rounded-[28px] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+      <div className="relative flex max-h-[94dvh] w-full max-w-[640px] flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-[#0d091a] text-white shadow-[0_30px_80px_rgba(0,0,0,0.6),0_0_70px_rgba(168,50,230,0.18)] sm:rounded-[28px] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
         <div className="h-1.5 w-full shrink-0 bg-gradient-to-r from-[#4f46e5] via-[#a832e6] to-[#e11d74]" />
 
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-7">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.07] px-5 py-4 sm:px-7">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f5edff] text-[#9333ea]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#a832e6]/15 text-[#d8a8ff] ring-1 ring-[#a832e6]/30">
               <Lock className="h-[18px] w-[18px]" />
             </div>
             <div>
-              <h2 className="text-lg font-bold leading-tight text-slate-900">
+              <h2 className="text-lg font-bold leading-tight text-white">
                 {step === "placed" ? "Order Received" : "Order Checkout"}
               </h2>
-              <p className="text-xs text-slate-500">Official Quickupp AI Studio Video Production</p>
+              <p className="text-xs text-white/50">Official Quickupp AI Studio Video Production</p>
             </div>
           </div>
           {step !== "redirecting" && (
             <button
               type="button"
               onClick={close}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/10 hover:text-white"
               aria-label="Close checkout"
             >
               <X className="h-5 w-5" />
@@ -234,26 +252,28 @@ export function IndiaCheckoutModal() {
           {step === "form" && (
             <form onSubmit={submit} noValidate className="px-5 py-5 sm:px-8 sm:py-7">
               {/* Order summary card */}
-              <div className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-white to-[#fbf7ff] p-4 sm:p-5">
+              <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-[#a832e6]/[0.07] p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-[#e9d5ff] bg-[#f5edff] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#9333ea]">
-                        {isPack ? "Package Tier" : "Individual Service"}
+                      <span className="rounded-full border border-[#a832e6]/35 bg-[#a832e6]/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#e2b8ff]">
+                        {isSetup
+                          ? "One-Time Setup"
+                          : isPack
+                            ? "Package Tier"
+                            : "Individual Service"}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                        <Clock className="h-3.5 w-3.5 text-[#9333ea]" />
-                        48–72 Hrs per reel
+                      <span className="inline-flex items-center gap-1 text-xs text-white/50">
+                        <Clock className="h-3.5 w-3.5 text-[#d8a8ff]" />
+                        {isSetup ? "Reusable for future videos" : "48–72 Hrs per reel"}
                       </span>
                     </div>
-                    <div className="mt-2 text-base font-bold text-slate-900 sm:text-lg">
-                      {title}
-                    </div>
+                    <div className="mt-2 text-base font-bold text-white sm:text-lg">{title}</div>
                     {isPack && (
-                      <div className="mt-0.5 text-xs text-slate-500">
+                      <div className="mt-0.5 text-xs text-white/50">
                         {formatInr(quote.perReel)} per reel
                         {quote.saving > 0 && (
-                          <span className="ml-1.5 font-semibold text-emerald-600">
+                          <span className="ml-1.5 font-semibold text-emerald-400">
                             · You save {formatInr(quote.saving)}
                           </span>
                         )}
@@ -261,58 +281,74 @@ export function IndiaCheckoutModal() {
                     )}
                   </div>
                   <div className="text-left sm:text-right">
-                    <div className="bg-gradient-to-r from-[#7c3aed] to-[#c026d3] bg-clip-text text-[28px] font-extrabold leading-none tracking-tight text-transparent sm:text-[32px]">
+                    <div className="bg-gradient-to-r from-[#a78bfa] via-[#e879f9] to-[#f472b6] bg-clip-text text-[28px] font-extrabold leading-none tracking-tight text-transparent sm:text-[32px]">
                       {formatInr(quote.amount)} INR
                     </div>
-                    <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-white/40">
                       One-time payment • No subscription
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 border-t border-slate-200/70 pt-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className={labelCls}>Package Volume:</span>
-                    <div className="relative mt-1.5">
-                      <select
-                        value={qty}
-                        onChange={(e) => setQty(Number(e.target.value) as IndiaPackQty)}
-                        className={selectCls}
-                      >
-                        {INDIA_PACKS.map((p) => (
-                          <option key={p.qty} value={p.qty}>
-                            {p.label} ({formatInr(quote.service.prices[p.qty])})
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700" />
+                {isSetup ? (
+                  <div className="mt-4 border-t border-white/10 pt-4">
+                    <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
+                      {TWIN_SETUP.includes.map((t) => (
+                        <span key={t} className="text-[13px] text-white/80">
+                          <span className="mr-1.5 text-[#c084fc]">✓</span>
+                          {t}
+                        </span>
+                      ))}
                     </div>
-                  </label>
-                  <label className="block">
-                    <span className={labelCls}>Video Style:</span>
-                    <div className="relative mt-1.5">
-                      <select
-                        id="co-service"
-                        value={serviceId}
-                        onChange={(e) => setServiceId(e.target.value as IndiaServiceId)}
-                        className={selectCls}
-                      >
-                        {INDIA_SERVICES.map((sv) => (
-                          <option key={sv.id} value={sv.id}>
-                            {sv.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700" />
-                    </div>
-                  </label>
-                </div>
+                    <p className="mt-3 text-[11px] leading-relaxed text-white/50">
+                      Digital twin and voice cloning require your authorization and consent.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-4 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-2">
+                    <label className="block">
+                      <span className={labelCls}>Package Volume:</span>
+                      <div className="relative mt-1.5">
+                        <select
+                          value={qty}
+                          onChange={(e) => setQty(Number(e.target.value) as IndiaPackQty)}
+                          className={selectCls}
+                        >
+                          {INDIA_PACKS.map((p) => (
+                            <option key={p.qty} value={p.qty} className="bg-[#0d091a] text-white">
+                              {p.label} ({formatInr(reelService.prices[p.qty])})
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
+                      </div>
+                    </label>
+                    <label className="block">
+                      <span className={labelCls}>Video Style:</span>
+                      <div className="relative mt-1.5">
+                        <select
+                          id="co-service"
+                          value={serviceId}
+                          onChange={(e) => setServiceId(e.target.value as IndiaServiceId)}
+                          className={selectCls}
+                        >
+                          {INDIA_SERVICES.map((sv) => (
+                            <option key={sv.id} value={sv.id} className="bg-[#0d091a] text-white">
+                              {sv.name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Customer */}
-              <div className="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="mt-6 text-xs font-semibold uppercase tracking-wide text-white/50">
                 Customer Information{" "}
-                <span className="ml-1 font-medium normal-case tracking-normal text-slate-400">
+                <span className="ml-1 font-medium normal-case tracking-normal text-white/40">
                   (required for project delivery)
                 </span>
               </div>
@@ -358,7 +394,7 @@ export function IndiaCheckoutModal() {
               </div>
 
               {serverError && (
-                <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+                <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">
                   {serverError}
                 </div>
               )}
@@ -379,13 +415,13 @@ export function IndiaCheckoutModal() {
                   </>
                 )}
               </button>
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-500">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-white/50">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
                 256-bit SSL encrypted • Secure checkout •{" "}
                 <a
                   href="/terms"
                   target="_blank"
-                  className="underline decoration-slate-300 underline-offset-2 hover:text-slate-700"
+                  className="underline decoration-white/30 underline-offset-2 hover:text-white"
                 >
                   Terms
                 </a>
@@ -395,11 +431,11 @@ export function IndiaCheckoutModal() {
 
           {step === "redirecting" && (
             <div className="px-6 py-14 text-center">
-              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-[#9333ea]" />
-              <p className="mt-5 text-sm font-semibold text-slate-900">
+              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[#c084fc]" />
+              <p className="mt-5 text-sm font-semibold text-white">
                 Taking you to the secure payment page...
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-white/50">
                 Please don't close or refresh this window.
               </p>
             </div>
@@ -408,10 +444,10 @@ export function IndiaCheckoutModal() {
           {step === "placed" && placed && (
             <div className="px-5 py-7 text-center sm:px-8">
               <StatusMark tone="ok" />
-              <h3 className="mt-4 text-xl font-bold text-slate-900">
+              <h3 className="mt-4 text-xl font-bold text-white">
                 Thank you, {form.name.trim().split(" ")[0]}!
               </h3>
-              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-600">
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-white/65">
                 Your order is reserved. Our team will send you a secure payment link on WhatsApp and
                 email shortly to confirm it.
               </p>
@@ -430,7 +466,7 @@ export function IndiaCheckoutModal() {
                 <button
                   type="button"
                   onClick={close}
-                  className="flex h-11 w-full shrink-0 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-800 hover:bg-slate-50 sm:w-auto sm:flex-1"
+                  className="flex h-11 w-full shrink-0 items-center justify-center rounded-full border border-white/15 text-sm font-semibold text-white hover:bg-white/5 sm:w-auto sm:flex-1"
                 >
                   Done
                 </button>
@@ -459,20 +495,20 @@ function Field({
       <span className={labelCls}>
         {label}
         {required ? (
-          <span className="text-red-500"> *</span>
+          <span className="text-pink-400"> *</span>
         ) : (
-          <span className="font-normal text-slate-400"> (Optional)</span>
+          <span className="font-normal text-white/40"> (Optional)</span>
         )}
       </span>
       {children}
-      {error ? <span className="mt-1 block pl-3 text-[11px] text-red-600">{error}</span> : null}
+      {error ? <span className="mt-1 block pl-3 text-[11px] text-red-400">{error}</span> : null}
     </label>
   );
 }
 
 function OrderSummary({ order }: { order: PlacedOrder }) {
   return (
-    <div className="mx-auto mt-5 max-w-sm rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left text-sm">
+    <div className="mx-auto mt-5 max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left text-sm">
       <Row k="Order Number" v={order.txnid} mono />
       <Row k="Package" v={order.itemName} />
       <Row k="Amount" v={formatInr(order.amount)} strong />
@@ -483,9 +519,9 @@ function OrderSummary({ order }: { order: PlacedOrder }) {
 function Row({ k, v, mono, strong }: { k: string; v: string; mono?: boolean; strong?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-4 py-1.5">
-      <span className="text-slate-500">{k}</span>
+      <span className="text-white/50">{k}</span>
       <span
-        className={`text-right ${mono ? "font-mono text-xs text-slate-800" : strong ? "font-bold text-slate-900" : "text-slate-800"}`}
+        className={`text-right ${mono ? "font-mono text-xs text-white/85" : strong ? "font-bold text-white" : "text-white/85"}`}
       >
         {v}
       </span>
@@ -496,10 +532,10 @@ function Row({ k, v, mono, strong }: { k: string; v: string; mono?: boolean; str
 function StatusMark({ tone }: { tone: "ok" | "fail" | "wait" }) {
   const cls =
     tone === "ok"
-      ? "bg-emerald-50 text-emerald-600 ring-emerald-200"
+      ? "bg-emerald-500/15 text-emerald-400 ring-emerald-500/40"
       : tone === "wait"
-        ? "bg-amber-50 text-amber-600 ring-amber-200"
-        : "bg-red-50 text-red-600 ring-red-200";
+        ? "bg-amber-500/15 text-amber-300 ring-amber-500/40"
+        : "bg-red-500/15 text-red-400 ring-red-500/40";
   return (
     <div
       className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold ring-1 ${cls}`}

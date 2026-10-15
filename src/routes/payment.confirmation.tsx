@@ -66,7 +66,7 @@ function ConfirmationPage() {
 
 function Card({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-[28px] bg-white text-slate-900 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#0d091a] text-white shadow-[0_30px_80px_rgba(0,0,0,0.55),0_0_70px_rgba(168,50,230,0.15)]">
       <div className="h-1.5 w-full bg-gradient-to-r from-[#4f46e5] via-[#a832e6] to-[#e11d74]" />
       {children}
     </div>
@@ -77,8 +77,8 @@ function LoadingCard() {
   return (
     <Card>
       <div className="px-6 py-16 text-center">
-        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-[#9333ea]" />
-        <p className="mt-5 text-sm font-semibold text-slate-800">
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[#c084fc]" />
+        <p className="mt-5 text-sm font-semibold text-white/85">
           Loading your order confirmation...
         </p>
       </div>
@@ -92,11 +92,11 @@ function ErrorCard({ message }: { message: string }) {
       <div className="px-6 py-12 text-center sm:px-10">
         <StatusMark tone="fail" />
         <h1 className="mt-5 text-2xl font-bold">Order not found</h1>
-        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-white/65">
           {message} If you have paid, your receipt email has the correct link, or write to us at{" "}
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
-            className="font-semibold text-[#7c3aed] underline underline-offset-2"
+            className="font-semibold text-[#d8a8ff] underline underline-offset-2"
           >
             {SUPPORT_EMAIL}
           </a>
@@ -126,22 +126,22 @@ function OrderCard({ order }: { order: OrderView }) {
         </h1>
         {paid ? (
           <>
-            <p className="mt-2 text-base font-semibold text-slate-800">Thank you for your order.</p>
-            <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-slate-600">
+            <p className="mt-2 text-base font-semibold text-white/85">Thank you for your order.</p>
+            <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-white/65">
               Your payment has been received successfully and your order is now confirmed.
             </p>
           </>
         ) : pending ? (
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-white/65">
             Your bank is still confirming this payment. You don't need to pay again: we'll email you
             as soon as it is confirmed.
           </p>
         ) : (
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-white/65">
             Your payment didn't go through and no money was taken. You can try again, or contact us
             and we'll help you complete the order.
             {order.failureReason ? (
-              <span className="mt-1 block text-xs text-slate-500">
+              <span className="mt-1 block text-xs text-white/50">
                 Reason: {order.failureReason}
               </span>
             ) : null}
@@ -152,7 +152,7 @@ function OrderCard({ order }: { order: OrderView }) {
       {/* Payment details */}
       <div className="px-5 sm:px-10">
         <SectionTitle>Payment Details</SectionTitle>
-        <div className="mt-3 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-slate-50/60 px-4 sm:px-5">
+        <div className="mt-3 divide-y divide-white/[0.06] rounded-2xl border border-white/10 bg-white/[0.03] px-4 sm:px-5">
           <DetailRow label="Order Number" value={order.orderNumber} mono />
           <DetailRow label="Service" value={order.service} />
           <DetailRow label="Package" value={order.pack} />
@@ -176,17 +176,17 @@ function OrderCard({ order }: { order: OrderView }) {
             />
           )}
           <div className="flex items-center justify-between gap-4 py-3">
-            <span className="text-sm text-slate-500">Status</span>
+            <span className="text-sm text-white/50">Status</span>
             {paid ? (
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+              <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300">
                 ✓ PAID
               </span>
             ) : pending ? (
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+              <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300">
                 PROCESSING
               </span>
             ) : (
-              <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+              <span className="rounded-full border border-red-500/40 bg-red-500/15 px-3 py-1 text-xs font-bold text-red-300">
                 NOT PAID
               </span>
             )}
@@ -197,18 +197,18 @@ function OrderCard({ order }: { order: OrderView }) {
       {/* Receipt */}
       {paid && (
         <div className="px-5 pt-6 sm:px-10">
-          <div className="rounded-2xl border border-[#e9d5ff] bg-[#faf5ff] p-4 sm:p-5">
-            <h2 className="text-base font-bold text-slate-900">Your Receipt Has Been Emailed</h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
+          <div className="rounded-2xl border border-[#a832e6]/30 bg-[#a832e6]/[0.08] p-4 sm:p-5">
+            <h2 className="text-base font-bold text-white">Your Receipt Has Been Emailed</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-white/65">
               A payment confirmation and PDF receipt have been sent to:
             </p>
             <a
               href={`mailto:${order.email}`}
-              className="mt-1 block break-all text-sm font-semibold text-[#7c3aed]"
+              className="mt-1 block break-all text-sm font-semibold text-[#d8a8ff]"
             >
               {order.email}
             </a>
-            <p className="mt-2 text-xs leading-relaxed text-slate-500">
+            <p className="mt-2 text-xs leading-relaxed text-white/50">
               Please check your inbox, and your spam/junk folder if you don't see it shortly.
             </p>
           </div>
@@ -217,9 +217,9 @@ function OrderCard({ order }: { order: OrderView }) {
 
       {/* Next steps + help */}
       <div className="grid gap-4 px-5 pt-6 sm:grid-cols-2 sm:px-10">
-        <div className="rounded-2xl border border-slate-200 p-4">
-          <h2 className="text-sm font-bold text-slate-900">What's Next?</h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+          <h2 className="text-sm font-bold text-white">What's Next?</h2>
+          <p className="mt-1.5 text-sm leading-relaxed text-white/65">
             {paid
               ? "Our team will review your order and contact you with the next steps."
               : pending
@@ -227,11 +227,11 @@ function OrderCard({ order }: { order: OrderView }) {
                 : "Go back to the website to place the order again, or message us and we'll send you a payment link."}
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200 p-4">
-          <h2 className="text-sm font-bold text-slate-900">Need help?</h2>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+          <h2 className="text-sm font-bold text-white">Need help?</h2>
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
-            className="mt-1.5 block text-sm font-semibold text-[#7c3aed] hover:underline"
+            className="mt-1.5 block text-sm font-semibold text-[#d8a8ff] hover:underline"
           >
             {SUPPORT_EMAIL}
           </a>
@@ -239,7 +239,7 @@ function OrderCard({ order }: { order: OrderView }) {
             href={`https://wa.me/918055679162?text=${encodeURIComponent(`Hello Quickupp AI Studio, about my order ${order.orderNumber}.`)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-1 block text-sm text-slate-600 hover:text-slate-900"
+            className="mt-1 block text-sm text-white/65 hover:text-white"
           >
             WhatsApp: +91 80556 79162
           </a>
@@ -251,7 +251,7 @@ function OrderCard({ order }: { order: OrderView }) {
           label={paid || pending ? "Back to Quickupp AI Studio" : "Try Again"}
           href={paid || pending ? "/" : "/#pricing"}
         />
-        <a href={SITE} className="mt-3 block text-xs text-slate-500 hover:text-slate-700">
+        <a href={SITE} className="mt-3 block text-xs text-white/50 hover:text-white">
           quickuppaistudio.in
         </a>
       </div>
@@ -260,7 +260,7 @@ function OrderCard({ order }: { order: OrderView }) {
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">{children}</h2>;
+  return <h2 className="text-xs font-bold uppercase tracking-wider text-white/50">{children}</h2>;
 }
 
 function DetailRow({
@@ -276,14 +276,14 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-start justify-between gap-4 py-3">
-      <span className="shrink-0 text-sm text-slate-500">{label}</span>
+      <span className="shrink-0 text-sm text-white/50">{label}</span>
       <span
         className={`min-w-0 break-all text-right ${
           mono
-            ? "font-mono text-[13px] text-slate-800"
+            ? "font-mono text-[13px] text-white/85"
             : strong
-              ? "text-base font-bold text-slate-900"
-              : "text-sm font-medium text-slate-800"
+              ? "text-base font-bold text-white"
+              : "text-sm font-medium text-white/85"
         }`}
       >
         {value}
@@ -315,10 +315,10 @@ function BackButton({
 function StatusMark({ tone }: { tone: "ok" | "fail" | "wait" }) {
   const cls =
     tone === "ok"
-      ? "bg-emerald-50 text-emerald-600 ring-emerald-200"
+      ? "bg-emerald-500/15 text-emerald-400 ring-emerald-500/40"
       : tone === "wait"
-        ? "bg-amber-50 text-amber-600 ring-amber-200"
-        : "bg-red-50 text-red-600 ring-red-200";
+        ? "bg-amber-500/15 text-amber-300 ring-amber-500/40"
+        : "bg-red-500/15 text-red-400 ring-red-500/40";
   return (
     <div
       className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-3xl font-bold ring-1 ${cls}`}

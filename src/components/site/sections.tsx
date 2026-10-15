@@ -59,6 +59,7 @@ import {
   standardWhatsAppMessage,
 } from "./data";
 import { BuyNowButton, openBuyNow } from "./india-checkout";
+import { TWIN_SETUP, formatInr } from "@/lib/india-pricing";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -2369,10 +2370,11 @@ export function DigitalTwin() {
             individual video.
           </p>
           <p className="mt-6 text-2xl font-bold text-gradient-brand md:text-3xl">
-            ₹15,000 One-Time Setup
+            {formatInr(TWIN_SETUP.price)} One-Time Setup
           </p>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-wrap items-center gap-3">
             <NeonButton href="#contact">Create My Digital Twin</NeonButton>
+            <BuyNowButton product="twin-setup" className="h-auto py-3" />
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
             Digital twin and voice cloning services require appropriate client authorization and

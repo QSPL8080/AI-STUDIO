@@ -7,8 +7,9 @@ import {
   formatInr,
   getIndiaService,
   isPackQty,
-  quoteIndia,
-  type IndiaServiceId,
+  quoteItem,
+  TWIN_SETUP,
+  TWIN_SETUP_ID,
 } from "./india-pricing";
 import { buildPayUForm, getPayUConfig, siteUrl, verifyPayUResponse } from "./payu";
 
@@ -81,12 +82,15 @@ function orderView(o: any) {
   const d = parseDetails(o);
   const svc = getIndiaService(d.serviceId);
   const qty = Number(d.qty) || 1;
+  const isSetup = d.serviceId === TWIN_SETUP_ID;
   const paidAt = o.payment_status === "COMPLETED" ? d.paidAt || o.updated_at : null;
   return {
     orderNumber: String(o.id),
     txnid: String(o.paypal_order_id),
-    service: svc?.name || String(o.item_name).split(" - ")[0] || String(o.item_name),
-    pack: qty === 1 ? "Single Reel" : `${qty} Reels`,
+    service: isSetup
+      ? TWIN_SETUP.name
+      : svc?.name || String(o.item_name).split(" - ")[0] || String(o.item_name),
+    pack: isSetup ? "One-Time Setup" : qty === 1 ? "Single Reel" : `${qty} Reels`,
     itemName: String(o.item_name),
     amount: Number(o.amount),
     status: String(o.payment_status),
@@ -208,8 +212,8 @@ const clean = (v: unknown, max: number) =>
     .slice(0, max);
 
 export async function createIndiaOrder(input: CheckoutInput) {
-  const service = getIndiaService(input.serviceId);
-  if (!service || !isPackQty(input.qty))
+  const isSetup = input.serviceId === TWIN_SETUP_ID;
+  if ((!isSetup && !getIndiaService(input.serviceId)) || (!isSetup && !isPackQty(input.qty)))
     return { ok: false as const, error: "Please choose a service and package." };
   const name = clean(input.name, 120);
   const email = clean(input.email, 160).toLowerCase();
@@ -225,7 +229,7 @@ export async function createIndiaOrder(input: CheckoutInput) {
     return { ok: false as const, error: "Please enter a valid mobile number." };
   const phone = phoneDigits.length === 10 ? `+91 ${phoneDigits}` : `+${phoneDigits}`;
 
-  const q = quoteIndia(service.id as IndiaServiceId, input.qty);
+  const q = quoteItem(input.serviceId, input.qty);
   const payu = getPayUConfig();
   const makeNumber = await nextOrderNumber();
   let orderId = makeNumber(0);
@@ -238,8 +242,8 @@ export async function createIndiaOrder(input: CheckoutInput) {
     customer_email: email,
     customer_phone: phone,
     customer_company: company || null,
-    item_type: q.qty === 1 ? "individual" : "package",
-    item_id: `${service.id}-${q.qty}`,
+    item_type: q.kind === "setup" ? "setup" : q.qty === 1 ? "individual" : "package",
+    item_id: q.kind === "setup" ? q.id : `${q.id}-${q.qty}`,
     item_name: q.itemName,
     amount: q.amount,
     currency: "INR",
@@ -248,7 +252,7 @@ export async function createIndiaOrder(input: CheckoutInput) {
     raw_details: JSON.stringify({
       gateway: "payu",
       gatewayConnected: !!payu,
-      serviceId: service.id,
+      serviceId: q.id,
       qty: q.qty,
       perReel: q.perReel,
       notes,

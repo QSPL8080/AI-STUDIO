@@ -68,3 +68,49 @@ export function quoteIndia(serviceId: IndiaServiceId, qty: IndiaPackQty) {
     itemName: `${service.name} - ${pack.label}`,
   };
 }
+
+// One-time AI Digital Twin setup (the "Build Your AI Digital Twin Once" section).
+export const TWIN_SETUP_ID = "digital-twin-setup" as const;
+export const TWIN_SETUP = {
+  id: TWIN_SETUP_ID,
+  name: "AI Digital Twin Setup",
+  price: 15000,
+  includes: [
+    "Face / avatar training",
+    "Voice clone setup",
+    "AI speaking & lip-sync model",
+    "Testing & optimization",
+  ],
+};
+export type CheckoutItemId = IndiaServiceId | typeof TWIN_SETUP_ID;
+
+/** Any checkout item: a reel service + package, or the one-time twin setup. */
+export function quoteItem(id: string, qty: number) {
+  if (id === TWIN_SETUP_ID)
+    return {
+      kind: "setup" as const,
+      id: TWIN_SETUP_ID as CheckoutItemId,
+      serviceName: TWIN_SETUP.name,
+      packLabel: "One-Time Setup",
+      qty: 1 as IndiaPackQty,
+      amount: TWIN_SETUP.price,
+      perReel: TWIN_SETUP.price,
+      saving: 0,
+      itemName: `${TWIN_SETUP.name} (One-Time)`,
+    };
+  const q = quoteIndia(
+    (getIndiaService(id)?.id || "ai-ugc") as IndiaServiceId,
+    isPackQty(qty) ? qty : 1,
+  );
+  return {
+    kind: "reels" as const,
+    id: q.service.id as CheckoutItemId,
+    serviceName: q.service.name,
+    packLabel: INDIA_PACKS.find((p) => p.qty === q.qty)!.label,
+    qty: q.qty,
+    amount: q.amount,
+    perReel: q.perReel,
+    saving: q.saving,
+    itemName: q.itemName,
+  };
+}
