@@ -83,6 +83,180 @@ export function renderBrandedEmail(opts: {
 </body></html>`;
 }
 
+// ---------------------------------------------------------------------------
+// Customer payment confirmation email (white, brand-styled, table layout with inline
+// styles so it renders the same in Gmail, Outlook, Apple Mail and phones).
+// ---------------------------------------------------------------------------
+const EMAIL_LOGO_DARK_URL =
+  process.env.EMAIL_LOGO_DARK_URL || `${SITE_URL}/images/logo-dark.png`;
+
+function renderPaymentConfirmationEmail(o: {
+  firstName: string;
+  name: string;
+  email: string;
+  company?: string | undefined;
+  billingAddress?: string | undefined;
+  orderNumber: string;
+  service: string;
+  pack: string;
+  delivery?: string | undefined;
+  amount: string;
+  method: string;
+  transactionId: string;
+  paymentDate: string;
+  paymentTime: string;
+  confirmationUrl: string;
+  receiptUrl: string;
+}) {
+  const e = escapeHtml;
+  const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const mono = "SFMono-Regular,Menlo,Consolas,'Courier New',monospace";
+  const row = (k: string, v: string, opts: { strong?: boolean; mono?: boolean; last?: boolean } = {}) => `
+          <tr>
+            <td style="padding:12px 0;${opts.last ? "" : "border-bottom:1px solid #eef0f4;"}font-family:${font};font-size:13px;color:#6b7280;width:46%;vertical-align:top">${e(k)}</td>
+            <td align="right" style="padding:12px 0;${opts.last ? "" : "border-bottom:1px solid #eef0f4;"}font-family:${opts.mono ? mono : font};font-size:${opts.strong ? "16px" : "14px"};font-weight:${opts.strong ? "800" : "600"};color:${opts.strong ? "#111827" : "#1f2937"};vertical-align:top;${opts.mono ? "word-break:break-all" : "overflow-wrap:break-word"}">${e(v)}</td>
+          </tr>`;
+  const details: [string, string, { strong?: boolean; mono?: boolean }?][] = [
+    ["Order / Invoice No.", o.orderNumber, { mono: true }],
+    ["Service", o.service],
+    ["Package", o.pack],
+    ...(o.delivery ? ([["Delivery", o.delivery]] as [string, string][]) : []),
+    ["Amount Paid", o.amount, { strong: true }],
+    ["Payment Date", o.paymentDate],
+    ["Payment Time", o.paymentTime],
+    ["Payment Method", o.method],
+    ["Transaction ID", o.transactionId, { mono: true }],
+  ];
+  const detailsHtml = details
+    .map(([k, v, opt], i) => row(k, v, { ...(opt || {}), last: i === details.length - 1 }))
+    .join("");
+  const billing: [string, string][] = [
+    ["Name", o.name],
+    ["Email", o.email],
+    ...(o.company ? ([["Company", o.company]] as [string, string][]) : []),
+    ...(o.billingAddress ? ([["Billing Address", o.billingAddress]] as [string, string][]) : []),
+  ];
+  const billingHtml = billing
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:4px 0;font-family:${font};font-size:13px;color:#6b7280;width:120px;vertical-align:top">${e(k)}:</td><td style="padding:4px 0;font-family:${font};font-size:14px;color:#1f2937;font-weight:600;vertical-align:top;overflow-wrap:anywhere">${e(v)}</td></tr>`,
+    )
+    .join("");
+  const sectionTitle = (t: string) =>
+    `<div style="font-family:${font};font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:#7c3aed;margin:0 0 10px">${e(t)}</div>`;
+  const site = SITE_URL.replace(/^https?:\/\//, "");
+
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
+<title>Payment Confirmed — Order #${e(o.orderNumber)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f2fa;-webkit-text-size-adjust:100%">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Your payment of ${e(o.amount)} for order #${e(o.orderNumber)} has been received. Receipt attached.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f2fa">
+<tr><td align="center" style="padding:32px 12px">
+
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e7e3f3">
+
+    <!-- Brand bar -->
+    <tr><td style="height:5px;line-height:5px;font-size:0;background-color:#a832e6;background-image:linear-gradient(90deg,#4f46e5,#a832e6,#e11d74)">&nbsp;</td></tr>
+
+    <!-- Logo -->
+    <tr><td align="center" style="padding:30px 32px 22px;border-bottom:1px solid #f0edf7">
+      <a href="${e(SITE_URL)}" target="_blank" style="text-decoration:none">
+        <img src="${e(EMAIL_LOGO_DARK_URL)}" alt="Quickupp AI Studio" width="220" style="display:block;width:220px;max-width:70%;height:auto;border:0;outline:none;font-family:${font};font-size:20px;font-weight:800;color:#111827">
+      </a>
+    </td></tr>
+
+    <!-- Greeting -->
+    <tr><td style="padding:30px 36px 6px;font-family:${font}">
+      <p style="margin:0 0 14px;font-size:16px;line-height:1.5;color:#111827;font-weight:700">Hi ${e(o.firstName)},</p>
+      <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#374151">Thank you for choosing <strong style="color:#111827">Quickupp AI Studio</strong>.</p>
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#374151">We’re pleased to confirm that your payment has been successfully received.</p>
+    </td></tr>
+
+    <!-- Payment confirmed -->
+    <tr><td style="padding:22px 36px 4px;font-family:${font}">
+      <div style="font-size:15px;font-weight:800;letter-spacing:1.5px;color:#15803d">PAYMENT CONFIRMED</div>
+      <div style="margin-top:6px;font-size:14px;color:#374151">Status: <strong style="color:#15803d">PAID &#10003;</strong></div>
+    </td></tr>
+
+    <!-- Order details -->
+    <tr><td style="padding:26px 36px 4px">
+      ${sectionTitle("Order Details")}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #eef0f4;border-radius:10px">
+        <tr><td style="padding:4px 18px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${detailsHtml}
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>
+
+    <!-- Billing -->
+    <tr><td style="padding:24px 36px 4px">
+      ${sectionTitle("Billing Information")}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#faf9fd;border:1px solid #eeeaf7;border-radius:10px">
+        <tr><td style="padding:12px 18px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${billingHtml}</table>
+        </td></tr>
+      </table>
+    </td></tr>
+
+    <!-- Receipt -->
+    <tr><td align="center" style="padding:26px 36px 6px;font-family:${font}">
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#4b5563">Your payment receipt/invoice is attached to this email as a PDF.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td align="center" style="border-radius:999px;background-color:#7c3aed;background-image:linear-gradient(90deg,#4f46e5,#a832e6,#e11d74)">
+          <a href="${e(o.receiptUrl)}" target="_blank" style="display:inline-block;padding:14px 30px;font-family:${font};font-size:14px;font-weight:800;letter-spacing:.6px;color:#ffffff;text-decoration:none;border-radius:999px">DOWNLOAD PAYMENT RECEIPT</a>
+        </td>
+      </tr></table>
+    </td></tr>
+
+    <!-- What happens next -->
+    <tr><td style="padding:24px 36px 4px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f3ff;border-left:4px solid #7c3aed;border-radius:8px">
+        <tr><td style="padding:18px 20px;font-family:${font}">
+          <div style="font-size:15px;font-weight:800;color:#111827;margin-bottom:8px">What Happens Next?</div>
+          <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#374151">Our team will process your order and contact you with the next steps.</p>
+          <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#374151">If you purchased a video/creative service, please keep your order number handy when communicating with our team.</p>
+          <div style="font-size:13px;color:#6b7280">Order Number: <span style="font-family:${mono};font-weight:700;color:#111827;background:#ffffff;border:1px solid #e4dcfb;border-radius:6px;padding:3px 8px">${e(o.orderNumber)}</span></div>
+        </td></tr>
+      </table>
+    </td></tr>
+
+    <!-- Contact & sign-off -->
+    <tr><td style="padding:24px 36px 30px;font-family:${font}">
+      <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#374151">If you have any questions, simply reply to this email or contact us at:</p>
+      <p style="margin:0 0 20px;font-size:14px;line-height:1.7;color:#374151">
+        <strong style="color:#111827">Quickupp AI Studio</strong><br>
+        Email: <a href="mailto:info@quickuppaistudio.in" style="color:#7c3aed;text-decoration:none;font-weight:600">info@quickuppaistudio.in</a><br>
+        Website: <a href="${e(SITE_URL)}" target="_blank" style="color:#7c3aed;text-decoration:none;font-weight:600">${e(site)}</a>
+      </p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.6;color:#374151">Thank you for choosing Quickupp AI Studio.</p>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#374151">Best regards,<br>
+        <strong style="color:#111827;font-size:15px">Quickupp AI Studio</strong><br>
+        <span style="color:#7c3aed;font-weight:600">AI-Powered Creative &amp; Video Studio</span><br>
+        <span style="color:#6b7280;font-size:13px">Operated by Quickupp Softech Private Limited</span>
+      </p>
+    </td></tr>
+
+    <!-- Footer -->
+    <tr><td align="center" style="padding:18px 32px;background:#0d091a;font-family:${font};font-size:12px;line-height:1.6;color:#a5a1b8">
+      <a href="${e(SITE_URL)}" target="_blank" style="color:#ffffff;text-decoration:none;font-weight:700">${e(site)}</a>
+      &nbsp;&middot;&nbsp;
+      <a href="mailto:info@quickuppaistudio.in" style="color:#ffffff;text-decoration:none">info@quickuppaistudio.in</a><br>
+      &copy; ${new Date().getFullYear()} Quickupp AI Studio &middot; Quickupp Softech Private Limited, Pune, India
+    </td></tr>
+  </table>
+
+  <div style="max-width:600px;padding:14px 12px 0;font-family:${font};font-size:11px;line-height:1.5;color:#9ca3af;text-align:center">
+    You are receiving this email because you placed an order on ${e(site)}.
+  </div>
+</td></tr></table>
+</body></html>`;
+}
+
 interface SmtpAccount {
   label: string;
   host: string;
@@ -339,51 +513,69 @@ export async function sendOrderNotificationEmail(o: {
 export async function sendPaymentReceiptEmail(o: {
   to: string;
   name: string;
+  email: string;
+  company?: string | undefined;
+  billingAddress?: string | undefined;
   orderNumber: string;
   service: string;
   pack: string;
-  delivery?: string;
+  delivery?: string | undefined;
   amount: string;
   method: string;
   transactionId: string;
-  paidAt: string;
+  paymentDate: string;
+  paymentTime: string;
   confirmationUrl: string;
+  receiptUrl: string;
   receipt?: MailAttachment | undefined;
 }): Promise<{ success: boolean; via?: string; errors: string[] }> {
-  const rows: [string, string][] = [
-    ["Order Number", o.orderNumber],
-    ["Service", o.service],
-    ["Package", o.pack],
-    ...(o.delivery ? ([["Delivery", o.delivery]] as [string, string][]) : []),
-    ["Amount Paid", o.amount],
-    ["Payment Method", o.method],
-    ["Transaction ID", o.transactionId],
-    ["Paid On", o.paidAt],
-    ["Status", "PAID"],
-  ];
-  const subject = `Payment Confirmed - Order ${o.orderNumber} | Quickupp AI Studio`;
-  const html = renderBrandedEmail({
-    eyebrow: "Payment Confirmed",
-    title: `Thank you for your order, ${o.name.split(" ")[0]}`,
-    intro: "Your payment has been received successfully and your order is now confirmed. Your PDF receipt is attached to this email.",
-    accent: "#16a34a",
-    rows,
-    buttons: [
-      { label: "View Order Confirmation", href: o.confirmationUrl, color: "#7c3aed" },
-      { label: "Chat on WhatsApp", href: "https://wa.me/918055679162", color: "#16a34a" },
-    ],
-    note: "What's next: our team will review your order and contact you with the next steps. Need help? Reply to this email or write to info@quickuppaistudio.in.",
-  });
+  const firstName = o.name.trim().split(/\s+/)[0] || "there";
+  const subject = `Payment Confirmed — Quickupp AI Studio | Order #${o.orderNumber}`;
+  const html = renderPaymentConfirmationEmail({ ...o, firstName });
   const text = [
-    "Quickupp AI Studio - Payment Confirmed",
+    `Hi ${firstName},`,
     "",
-    `Hi ${o.name},`,
-    "Your payment has been received successfully and your order is now confirmed.",
+    "Thank you for choosing Quickupp AI Studio.",
+    "We're pleased to confirm that your payment has been successfully received.",
     "",
-    ...rows.map(([k, v]) => `${k}: ${v}`),
+    "PAYMENT CONFIRMED - Status: PAID",
     "",
-    "What's next: our team will review your order and contact you with the next steps.",
-    "Need help? info@quickuppaistudio.in",
+    "ORDER DETAILS",
+    `Order / Invoice No.: ${o.orderNumber}`,
+    `Service: ${o.service}`,
+    `Package: ${o.pack}`,
+    ...(o.delivery ? [`Delivery: ${o.delivery}`] : []),
+    `Amount Paid: ${o.amount}`,
+    `Payment Date: ${o.paymentDate}`,
+    `Payment Time: ${o.paymentTime}`,
+    `Payment Method: ${o.method}`,
+    `Transaction ID: ${o.transactionId}`,
+    "",
+    "BILLING INFORMATION",
+    `Name: ${o.name}`,
+    `Email: ${o.email}`,
+    ...(o.company ? [`Company: ${o.company}`] : []),
+    ...(o.billingAddress ? [`Billing Address: ${o.billingAddress}`] : []),
+    "",
+    "Your payment receipt/invoice is attached to this email as a PDF.",
+    `Download payment receipt: ${o.receiptUrl}`,
+    "",
+    "WHAT HAPPENS NEXT?",
+    "Our team will process your order and contact you with the next steps.",
+    "If you purchased a video/creative service, please keep your order number handy when communicating with our team.",
+    `Order Number: ${o.orderNumber}`,
+    "",
+    "If you have any questions, simply reply to this email or contact us at:",
+    "Quickupp AI Studio",
+    "Email: info@quickuppaistudio.in",
+    "Website: quickuppaistudio.in",
+    "",
+    "Thank you for choosing Quickupp AI Studio.",
+    "",
+    "Best regards,",
+    "Quickupp AI Studio",
+    "AI-Powered Creative & Video Studio",
+    "Operated by Quickupp Softech Private Limited",
   ].join("\n");
   const attachments = o.receipt ? [o.receipt] : undefined;
   const replyTo = process.env.SUPPORT_EMAIL || "info@quickuppaistudio.in";

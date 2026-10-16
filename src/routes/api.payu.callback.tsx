@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 // PayU sends the customer's browser here (POST) after payment — used for both surl and furl.
 // With ?source=webhook it is also PayU's server-to-server webhook (see below).
 // The result is verified on the server, the order is updated, and the customer is redirected
-// to the order confirmation page (/payment/confirmation).
+// to the homepage, where the "Order Confirmed" popup shows the result.
 export const Route = createFileRoute("/api/payu/callback")({
   server: {
     handlers: {
@@ -35,8 +35,9 @@ export const Route = createFileRoute("/api/payu/callback")({
         }
         let location = "/";
         if (result.txnid) {
-          const { confirmationPath } = await import("@/lib/checkout-server");
-          location = confirmationPath(result.txnid);
+          // Back to the homepage with the "Order Confirmed" popup on top.
+          const { orderPopupPath } = await import("@/lib/checkout-server");
+          location = orderPopupPath(result.txnid);
         }
         return new Response(null, { status: 303, headers: { Location: location } });
       },

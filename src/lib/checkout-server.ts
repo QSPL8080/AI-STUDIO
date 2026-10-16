@@ -61,6 +61,13 @@ function validTxnToken(txnid: string, token: string) {
   const b = Buffer.from(String(token));
   return a.length === b.length && timingSafeEqual(a, b);
 }
+/** Homepage with the "Order Confirmed" popup (where PayU sends the customer back). */
+export function orderPopupPath(txnid: string) {
+  return `/?${new URLSearchParams({ order: txnid, ot: signTxn(txnid) }).toString()}`;
+}
+export function receiptPath(txnid: string) {
+  return `/api/receipt?${new URLSearchParams({ txn: txnid, t: signTxn(txnid) }).toString()}`;
+}
 export function confirmationPath(txnid: string) {
   return `/payment/confirmation?${new URLSearchParams({ txn: txnid, t: signTxn(txnid) }).toString()}`;
 }
@@ -172,20 +179,25 @@ async function sendReceipt(orderId: string) {
   const r = await sendPaymentReceiptEmail({
     to: v.email,
     name: v.name,
+    email: v.email,
+    company: v.company || undefined,
     orderNumber: v.orderNumber,
     service: v.service,
     pack: v.pack,
     delivery: v.delivery,
-    amount: formatInr(v.amount),
-    method: v.method,
+    amount: `${formatInr(v.amount)} INR`,
+    method: `${v.method} (via PayU)`,
     transactionId: v.transactionId,
-    paidAt:
-      paid.toLocaleString("en-IN", {
+    paymentDate: paid.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "long" }),
+    paymentTime:
+      paid.toLocaleTimeString("en-IN", {
         timeZone: "Asia/Kolkata",
-        dateStyle: "medium",
-        timeStyle: "short",
-      }) + " IST",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }).toUpperCase() + " IST",
     confirmationUrl: `${siteUrl()}${confirmationPath(v.txnid)}`,
+    receiptUrl: `${siteUrl()}${receiptPath(v.txnid)}`,
     receipt,
   });
   await dbUpdate(ORDERS_TABLE, [{ col: "id", op: "eq", value: orderId }], {
@@ -486,4 +498,12 @@ export async function getConfirmation(txnid: string, token: string) {
   if (!o) return { ok: false as const, error: "We couldn't find this order." };
   if (o.payment_status === "PENDING") o = await refreshPendingOrder(o);
   return { ok: true as const, order: orderView(o) };
+}
+
+/** Signed receipt download (link in the confirmation email). Paid orders only. */
+export async function getReceiptPdf(txnid: string, token: string) {
+  if (!validTxnToken(txnid, token)) return null;
+  const o = await findByTxn(txnid);
+  if (!o || o.payment_status !== "COMPLETED") return null;
+  return { filename: `Receipt-${String(o.id)}.pdf`, pdf: await buildReceiptPdf(o) };
 }
