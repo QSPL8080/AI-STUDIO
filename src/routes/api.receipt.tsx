@@ -17,8 +17,11 @@ export const Route = createFileRoute("/api/receipt")({
           return new Response(new Uint8Array(r.pdf), {
             status: 200,
             headers: {
+              // Always a file download (never opened as a web page).
               "Content-Type": "application/pdf",
-              "Content-Disposition": `attachment; filename="${r.filename}"`,
+              "Content-Disposition": `attachment; filename="${r.filename}"; filename*=UTF-8''${encodeURIComponent(r.filename)}`,
+              "Content-Length": String(r.pdf.length),
+              "X-Content-Type-Options": "nosniff",
               "Cache-Control": "private, no-store",
             },
           });

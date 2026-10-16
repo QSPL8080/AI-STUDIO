@@ -88,7 +88,7 @@ export function renderBrandedEmail(opts: {
 // styles so it renders the same in Gmail, Outlook, Apple Mail and phones).
 // ---------------------------------------------------------------------------
 const EMAIL_LOGO_DARK_URL =
-  process.env.EMAIL_LOGO_DARK_URL || `${SITE_URL}/images/logo-email.jpg`;
+  process.env.EMAIL_LOGO_DARK_URL || `${SITE_URL}/images/logo-email.png`;
 const EMAIL_LOGO_CID = "quickupp-ai-studio-logo";
 
 function renderPaymentConfirmationEmail(o: {
@@ -166,9 +166,9 @@ function renderPaymentConfirmationEmail(o: {
     <tr><td style="height:5px;line-height:5px;font-size:0;background-color:#a832e6;background-image:linear-gradient(90deg,#4f46e5,#a832e6,#e11d74)">&nbsp;</td></tr>
 
     <!-- Logo -->
-    <tr><td align="center" bgcolor="#ffffff" style="padding:26px 32px 18px;border-bottom:1px solid #f0edf7;background:#ffffff">
+    <tr><td align="center" bgcolor="#0d091a" style="padding:26px 32px;background:#0d091a">
       <a href="${e(SITE_URL)}" target="_blank" style="text-decoration:none">
-        <img src="${e(o.logoSrc)}" alt="Quickupp AI Studio" width="230" style="display:block;width:230px;max-width:72%;height:auto;border:0;outline:none;background:#ffffff;font-family:${font};font-size:20px;font-weight:800;color:#111827">
+        <img src="${e(o.logoSrc)}" alt="Quickupp AI Studio" width="220" style="display:block;width:220px;max-width:72%;height:auto;border:0;outline:none;font-family:${font};font-size:20px;font-weight:800;color:#ffffff">
       </a>
     </td></tr>
 
@@ -541,11 +541,11 @@ export async function sendPaymentReceiptEmail(o: {
   // Logo embedded inside the email (shows even when the email app blocks web images).
   let logo: MailAttachment | undefined;
   try {
-    const { getCompanyLogoDarkBuffer } = await import("./receipt-assets");
+    const { getCompanyLogoWhiteBuffer } = await import("./receipt-assets");
     logo = {
-      filename: "quickupp-ai-studio-logo.jpg",
-      content: getCompanyLogoDarkBuffer(),
-      contentType: "image/jpeg",
+      filename: "quickupp-ai-studio-logo.png",
+      content: getCompanyLogoWhiteBuffer(),
+      contentType: "image/png",
       cid: EMAIL_LOGO_CID,
     };
   } catch (e) {

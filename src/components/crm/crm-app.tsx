@@ -277,7 +277,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncCountdown, setSyncCountdown] = useState(10);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notif, setNotif] = useState<{ seenAt: string; readIds: string[]; clearedAt: string | null } | null>(null);
+  const [notif, setNotif] = useState<{ seenAt: string; readIds: string[]; clearedAt: string | null; alertedAt?: string | null } | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -511,13 +511,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   };
   const markSeen = (id: string) => markRead([id]);
   const markAllRead = () => {
-    setNotif((st) => ({ seenAt: new Date().toISOString(), readIds: [], clearedAt: st?.clearedAt ?? null }));
+    setNotif((st) => { const now = new Date().toISOString(); return { seenAt: now, readIds: [], clearedAt: st?.clearedAt ?? null, alertedAt: now }; });
     setNotifAlerts([]);
     crmMarkNotificationsFn({ data: { token: tokenRef.current, all: true } }).catch(() => null);
   };
   const clearAllNotifs = () => {
     const now = new Date().toISOString();
-    setNotif({ seenAt: now, readIds: [], clearedAt: now });
+    setNotif({ seenAt: now, readIds: [], clearedAt: now, alertedAt: now });
     setNotifAlerts([]);
     crmMarkNotificationsFn({ data: { token: tokenRef.current, clear: true } }).catch(() => null);
   };
@@ -541,12 +541,22 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   useEffect(() => {
     if (!loaded || !notif) return;
     const ids = new Set(notifItems.map((n) => n.id));
+    // Each notification pops up only once: unread items that already popped up on an earlier
+    // visit (created at or before alertedAt) stay on the bell list but don't pop up again.
+    const rememberAlerted = () => {
+      const at = new Date().toISOString();
+      setNotif((st) => (st ? { ...st, alertedAt: at } : st));
+      crmMarkNotificationsFn({ data: { token: tokenRef.current, alerted: at } }).catch(() => null);
+    };
     if (knownNotifIds.current === null) {
       knownNotifIds.current = ids;
-      if (unreadItems.length) {
-        if (soundRef.current && unreadItems.some((n) => n.type === "lead")) playAudioChime();
-        announce(unreadItems);
+      const alertedAt = notif.alertedAt || "";
+      const notYetPopped = unreadItems.filter((n) => String(n.createdAt) > alertedAt);
+      if (notYetPopped.length) {
+        if (soundRef.current && notYetPopped.some((n) => n.type === "lead")) playAudioChime();
+        announce(notYetPopped);
       }
+      rememberAlerted();
       return;
     }
     const fresh = notifItems.filter((n) => !knownNotifIds.current!.has(n.id) && isUnread(n));
@@ -554,6 +564,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     if (fresh.length) {
       if (soundRef.current && fresh.some((n) => n.type === "lead")) playAudioChime();
       announce(fresh);
+      rememberAlerted();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifItems, loaded, notif]);
@@ -2648,7 +2659,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <div className="text-xs text-slate-600 truncate">{item.sub}</div>
                 <div className={`text-xs mt-1 opacity-80 ${tone.label}`}>View details →</div>
               </button>
-              <button onClick={() => dismissAlert(key)} className="text-slate-500 hover:text-slate-900 p-0.5" title="Dismiss">
+              <button
+                onClick={() => {
+                  markRead([item.id]); // closing the card counts as seen: it won't come back
+                  dismissAlert(key);
+                }}
+                className="text-slate-500 hover:text-slate-900 p-0.5"
+                title="Dismiss"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>

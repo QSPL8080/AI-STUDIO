@@ -314,11 +314,12 @@ export async function sync(token: string, ordersPin?: string) {
   let orders: CrmOrder[] | null = null;
   let ordersCount = 0;
   let orderRows: any[] = [];
-  // New-order / payment events for the notification bell (no PIN needed; no customer details beyond the summary).
+  // Successful payments for the notification bell (no PIN needed; no customer details beyond the summary).
+  // New (unpaid) orders are not shown here: only "Payment received".
   let orderEvents: ReturnType<typeof mapActivity>[] = [];
   if (ctx.perms.orders) {
     const ev = await dbSelect("crm_activity_logs", {
-      filters: [{ col: "title", op: "in", value: ["New website order", "Payment received", "Payment failed"] }],
+      filters: [{ col: "title", op: "eq", value: "Payment received" }],
       order: { col: "created_at", desc: true },
       limit: 60,
     });
@@ -393,6 +394,9 @@ export interface NotifState {
   readIds: string[];
   /** "Clear all": items created at or before this time are no longer listed. */
   clearedAt: string | null;
+  /** Pop-up cards: items created at or before this time have already popped up once
+   *  (when the CRM was opened or when they arrived), so they never pop up again. */
+  alertedAt: string | null;
 }
 
 async function loadNotifState(userId: string): Promise<NotifState> {
@@ -402,23 +406,29 @@ async function loadNotifState(userId: string): Promise<NotifState> {
       seenAt: raw.seenAt,
       readIds: Array.isArray(raw.readIds) ? raw.readIds.slice(0, 500) : [],
       clearedAt: typeof raw.clearedAt === "string" ? raw.clearedAt : null,
+      alertedAt: typeof raw.alertedAt === "string" ? raw.alertedAt : null,
     };
   // First time: anything from the last 24 hours shows as new.
-  const state: NotifState = { seenAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), readIds: [], clearedAt: null };
+  const state: NotifState = { seenAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), readIds: [], clearedAt: null, alertedAt: null };
   await setSetting(`notif_seen:${userId}`, state);
   return state;
 }
 
-export async function markNotifications(token: string, data: { all?: boolean; clear?: boolean; ids?: string[] }) {
+export async function markNotifications(token: string, data: { all?: boolean; clear?: boolean; ids?: string[]; alerted?: string }) {
   const ctx = await requireSession(token);
   const key = `notif_seen:${ctx.user.id}`;
   let state = await loadNotifState(ctx.user.id);
   const now = new Date().toISOString();
-  if (data.clear) state = { seenAt: now, readIds: [], clearedAt: now };
-  else if (data.all) state = { ...state, seenAt: now, readIds: [] };
+  if (data.clear) state = { seenAt: now, readIds: [], clearedAt: now, alertedAt: now };
+  else if (data.all) state = { ...state, seenAt: now, readIds: [], alertedAt: now };
   else if (Array.isArray(data.ids) && data.ids.length) {
     const ids = data.ids.filter((x) => typeof x === "string").slice(0, 200);
     state = { ...state, readIds: [...new Set([...ids, ...state.readIds])].slice(0, 500) };
+  }
+  // Pop-up cards shown up to this moment (sent by the CRM right after it shows them).
+  if (typeof data.alerted === "string" && !Number.isNaN(Date.parse(data.alerted))) {
+    const at = new Date(Math.min(Date.parse(data.alerted), Date.now())).toISOString();
+    if (!state.alertedAt || at > state.alertedAt) state = { ...state, alertedAt: at };
   }
   await setSetting(key, state);
   return { ok: true as const, notif: state };

@@ -62,9 +62,14 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
 
   return new Promise((resolve, reject) => {
     try {
+      const regular = getReceiptRegularFont();
       const doc = new PDFDocument({
         size: "A4",
         margin: 0,
+        // IMPORTANT: start with our embedded font. Without this, PDFKit first loads its
+        // built-in Helvetica from a file on disk, which does not exist in the bundled
+        // production server, and every receipt fails ("Receipt not available").
+        font: regular as unknown as string,
         info: {
           Title: `Payment Receipt - ${data.orderNumber}`,
           Author: "Quickupp AI Studio",
@@ -72,7 +77,7 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
           Creator: "Quickupp AI Studio",
         },
       });
-      doc.registerFont("R", getReceiptRegularFont());
+      doc.registerFont("R", regular);
       doc.registerFont("B", getReceiptBoldFont());
 
       const chunks: Buffer[] = [];
@@ -112,7 +117,7 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       // ── Header ────────────────────────────────────────────────────
       let ly = 40;
       try {
-        doc.image(getCompanyLogoDarkBuffer(), M - 3.3, ly - 3.3, { width: 206.6 });
+        doc.image(getCompanyLogoDarkBuffer(), M, ly, { width: 200 });
         ly += 40;
       } catch {
         doc.font("B").fontSize(20).fillColor(C.brandDark).text("Quickupp AI Studio", M, ly);
