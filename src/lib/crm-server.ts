@@ -427,6 +427,13 @@ export async function markNotifications(token: string, data: { all?: boolean; cl
 export async function unlockOrders(token: string, pin: string) {
   const ctx = await requireSession(token, "orders");
   if ((pin || "").trim() !== paymentsPin()) return { ok: false as const, code: "ERROR" as const, error: "Invalid security PIN." };
+  // Re-check recent PENDING PayU orders with PayU, so the list shows the latest status.
+  try {
+    const { syncPendingPayUOrders } = await import("./checkout-server");
+    await syncPendingPayUOrders();
+  } catch (e) {
+    console.error("PayU pending sync failed", e);
+  }
   const rows = await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } });
   await logActivity({ title: "Opened Orders & Payments", category: "ORDERS", actorEmail: ctx.user.email, description: "Unlocked the payments tab with the security PIN." });
   return { ok: true as const, orders: rows.map(mapOrder) };

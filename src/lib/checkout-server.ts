@@ -12,7 +12,14 @@ import {
   TWIN_SETUP_ID,
   deliveryFor,
 } from "./india-pricing";
-import { buildPayUForm, getPayUConfig, siteUrl, verifyPayUResponse } from "./payu";
+import {
+  buildPayUForm,
+  fetchPayUStatus,
+  getPayUConfig,
+  siteUrl,
+  verifyPayUResponse,
+  type PayUTxnStatus,
+} from "./payu";
 
 // ---------------------------------------------------------------------------
 // Order numbers: QAS-2026-000127 (year + running number). Stored as the order id.
@@ -367,8 +374,38 @@ export async function handlePayUCallback(p: Record<string, string>) {
   // A paid order never goes back to failed / pending.
   if (order.payment_status === "COMPLETED") return { status: "success" as const, txnid };
 
-  const gw = String(p.status || "").toLowerCase();
-  const status = gw === "success" ? "COMPLETED" : gw === "pending" ? "PENDING" : "FAILED";
+  const status = await applyPayUResult(order, {
+    status: p.status || "",
+    amount: p.amount || "",
+    mihpayid: p.mihpayid,
+    mode: p.mode,
+    bank_ref_num: p.bank_ref_num,
+    error_Message: p.error_Message,
+  });
+  return { status: toResult(status), txnid };
+}
+
+/** Maps PayU's status words to our order status. Unknown / in-progress states stay PENDING. */
+function mapPayUStatus(raw: string) {
+  const gw = String(raw || "").toLowerCase();
+  if (gw === "success") return "COMPLETED";
+  if (["failure", "failed", "dropped", "bounced", "usercancelled", "cancelled"].includes(gw))
+    return "FAILED";
+  return "PENDING";
+}
+
+/**
+ * Writes a verified PayU result onto the order (from the browser callback, the webhook, or a
+ * server-to-server status check). A paid order never goes back to pending / failed.
+ */
+async function applyPayUResult(order: any, r: PayUTxnStatus) {
+  if (order.payment_status === "COMPLETED") return "COMPLETED";
+  const gw = String(r.status || "").toLowerCase();
+  const status = mapPayUStatus(gw);
+  const gwLabel = `PAYU_${gw.toUpperCase().replace(/\s+/g, "_") || "UNKNOWN"}`;
+  // Nothing new (e.g. still pending on a re-check): don't rewrite the row or spam the log.
+  if (status === order.payment_status && gwLabel === order.paypal_status) return status;
+
   let details: Record<string, unknown> = {};
   try {
     details = JSON.parse(order.raw_details || "{}");
@@ -377,17 +414,17 @@ export async function handlePayUCallback(p: Record<string, string>) {
   }
   await dbUpdate(ORDERS_TABLE, [{ col: "id", op: "eq", value: order.id }], {
     payment_status: status,
-    paypal_status: `PAYU_${gw.toUpperCase() || "UNKNOWN"}`,
-    paypal_capture_id: p.mihpayid || null,
+    paypal_status: gwLabel,
+    paypal_capture_id: r.mihpayid || order.paypal_capture_id || null,
     raw_details: JSON.stringify({
       ...details,
       ...(status === "COMPLETED" ? { paidAt: new Date().toISOString() } : {}),
       payu: {
-        status: p.status,
-        mihpayid: p.mihpayid,
-        mode: p.mode,
-        bank_ref_num: p.bank_ref_num,
-        error_Message: p.error_Message,
+        status: r.status,
+        mihpayid: r.mihpayid,
+        mode: r.mode,
+        bank_ref_num: r.bank_ref_num,
+        error_Message: r.error_Message,
       },
     }),
     updated_at: new Date().toISOString(),
@@ -401,18 +438,52 @@ export async function handlePayUCallback(p: Record<string, string>) {
           : "Payment failed",
     category: "ORDERS",
     actorEmail: order.customer_email,
-    description: `${order.customer_name} - ${order.item_name} (${formatInr(Number(order.amount))}), txn ${txnid}${p.mode ? `, ${p.mode}` : ""}${p.error_Message && status !== "COMPLETED" ? ` - ${p.error_Message}` : ""}.`,
+    description: `${order.customer_name} - ${order.item_name} (${formatInr(Number(order.amount))}), txn ${order.paypal_order_id}${r.mode ? `, ${r.mode}` : ""}${r.error_Message && status !== "COMPLETED" ? ` - ${r.error_Message}` : ""}.`,
   });
   if (status === "COMPLETED")
     void sendReceipt(order.id).catch((e) => console.error("Receipt email failed", e));
-  return { status: toResult(status), txnid };
+  return status;
+}
+
+/**
+ * For an order still PENDING, asks PayU for the latest status and updates the order.
+ * Returns the (possibly refreshed) order row.
+ */
+async function refreshPendingOrder(order: any) {
+  if (!order || order.payment_status !== "PENDING" || !getPayUConfig()) return order;
+  if (!String(order.paypal_status || "").startsWith("PAYU_")) return order;
+  const r = await fetchPayUStatus(String(order.paypal_order_id));
+  if (!r) return order;
+  if (Math.abs(Number(r.amount) - Number(order.amount)) >= 0.01) {
+    console.error(`PayU status check: amount mismatch for ${order.paypal_order_id}`);
+    return order;
+  }
+  await applyPayUResult(order, r);
+  return (await findByTxn(String(order.paypal_order_id))) || order;
+}
+
+/** CRM / admin: re-check every pending PayU order. Returns how many changed. */
+export async function syncPendingPayUOrders() {
+  const rows = await dbSelect(ORDERS_TABLE, {
+    filters: [{ col: "payment_status", op: "eq", value: "PENDING" }],
+  });
+  // Only recent orders: PayU settles pending payments within hours, not weeks.
+  const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000;
+  const recent = (rows as any[]).filter((o) => new Date(o.created_at).getTime() >= cutoff);
+  let changed = 0;
+  for (const o of recent) {
+    const after = await refreshPendingOrder(o);
+    if (after?.payment_status !== o.payment_status) changed++;
+  }
+  return { checked: recent.length, changed };
 }
 
 /** Order confirmation page data (signed link only). */
 export async function getConfirmation(txnid: string, token: string) {
   if (!validTxnToken(txnid, token))
     return { ok: false as const, error: "This confirmation link is not valid." };
-  const o = await findByTxn(txnid);
+  let o = await findByTxn(txnid);
   if (!o) return { ok: false as const, error: "We couldn't find this order." };
+  if (o.payment_status === "PENDING") o = await refreshPendingOrder(o);
   return { ok: true as const, order: orderView(o) };
 }

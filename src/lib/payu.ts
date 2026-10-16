@@ -112,3 +112,51 @@ export function verifyPayUResponse(p: Record<string, string>) {
   const expected = sha512(parts.join("|"));
   return !!p.hash && expected.toLowerCase() === String(p.hash).toLowerCase();
 }
+
+export interface PayUTxnStatus {
+  status: string; // "success" | "pending" | "failure" | ...
+  amount: string;
+  mihpayid?: string | undefined;
+  mode?: string | undefined;
+  bank_ref_num?: string | undefined;
+  error_Message?: string | undefined;
+}
+
+/**
+ * Asks PayU directly (server-to-server) for the latest status of a transaction.
+ * Used when the customer came back with a "pending" result (common for UPI), so the
+ * order can move to COMPLETED / FAILED once the bank confirms. Returns null if PayU
+ * isn't configured, can't be reached, or doesn't know the txnid.
+ */
+export async function fetchPayUStatus(txnid: string): Promise<PayUTxnStatus | null> {
+  const cfg = getPayUConfig();
+  if (!cfg || !txnid) return null;
+  const command = "verify_payment";
+  const hash = sha512([cfg.key, command, txnid, cfg.salt].join("|"));
+  const url = cfg.live
+    ? "https://info.payu.in/merchant/postservice.php?form=2"
+    : "https://test.payu.in/merchant/postservice.php?form=2";
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams({ key: cfg.key, command, var1: txnid, hash }).toString(),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+    const json: any = await res.json().catch(() => null);
+    const t = json?.transaction_details?.[txnid];
+    if (!t || !t.status || String(t.status).toLowerCase() === "not found") return null;
+    return {
+      status: String(t.status),
+      amount: String(t.amt ?? t.transaction_amount ?? ""),
+      mihpayid: t.mihpayid ? String(t.mihpayid) : undefined,
+      mode: t.mode ? String(t.mode) : undefined,
+      bank_ref_num: t.bank_ref_num ? String(t.bank_ref_num) : undefined,
+      error_Message: t.error_Message ? String(t.error_Message) : undefined,
+    };
+  } catch (e) {
+    console.error("PayU verify_payment failed", e);
+    return null;
+  }
+}

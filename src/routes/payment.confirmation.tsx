@@ -49,6 +49,26 @@ function ConfirmationPage() {
     };
   }, [txn, t]);
 
+  // While the bank is still confirming (common with UPI), re-check every 10 seconds for
+  // up to 5 minutes. The server asks PayU for the latest status on each check.
+  const isPending = order?.status === "PENDING";
+  useEffect(() => {
+    if (!isPending) return;
+    let tries = 0;
+    const id = setInterval(() => {
+      if (++tries > 30) return clearInterval(id);
+      getConfirmationFn({ data: { txn, t } })
+        .then((r: any) => {
+          if (r?.ok && r.order?.status !== "PENDING") {
+            setOrder(r.order);
+            clearInterval(id);
+          }
+        })
+        .catch(() => {});
+    }, 10000);
+    return () => clearInterval(id);
+  }, [isPending, txn, t]);
+
   return (
     <div className="min-h-screen w-full overflow-x-clip bg-background text-foreground">
       <Header />
