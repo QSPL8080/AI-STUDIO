@@ -2,33 +2,22 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp,
   BadgeCheck,
-  Bot,
   Check,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Clock,
-  ExternalLink,
-  FileText,
   Film,
   MapPin,
   Mail,
   Menu,
   MessageCircle,
-  Palette,
   Pause,
   Phone,
   Play,
-  RotateCcw,
   Smartphone,
   Sparkles,
-  UserCheck,
-  Video,
   Volume2,
   VolumeX,
-  Wand2,
   X,
-  Zap,
 } from "lucide-react";
 import { NeonButton, Section, SectionHeading } from "./ui";
 import { submitLeadServerFn, broadcastLeadEvent } from "@/lib/lead-actions";
@@ -44,7 +33,6 @@ import {
   footerIndiaMapUrl,
   footerPhone,
   footerTagline,
-  heroBadges,
   industries,
   nav,
   pricingRows,
@@ -116,34 +104,6 @@ import { INDIA_PACKS, TWIN_SETUP, formatInr } from "@/lib/india-pricing";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isLogoDocked, setIsLogoDocked] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const heroTrack = document.getElementById("hero-scroll-track");
-      if (!heroTrack) {
-        setIsLogoDocked(true);
-        return;
-      }
-      const rect = heroTrack.getBoundingClientRect();
-      const scrollableDistance = heroTrack.offsetHeight - window.innerHeight;
-      if (scrollableDistance <= 0) {
-        setIsLogoDocked(true);
-        return;
-      }
-      const scrolled = -rect.top;
-      const progress = scrolled / scrollableDistance;
-      setIsLogoDocked(progress >= 0.94);
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", handleScroll, { passive: true });
-    handleScroll();
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleScroll);
-    };
-  }, []);
 
   return (
     <header id="site-nav-container" className="fixed top-0 left-0 right-0 z-50 flex flex-col">
@@ -638,8 +598,8 @@ export function Hero() {
                   el.playsInline = true;
                 }
               }}
-              src="/media/Hero-Showcase.mp4"
-              poster="/videos/posters/Hero-Showcase.jpg"
+              src="/media/hero-showcase-v2.mp4"
+              poster="/videos/posters/hero-showcase-v2.jpg"
               autoPlay
               loop
               muted={isMuted}
@@ -784,8 +744,8 @@ export function Hero() {
                     el.playsInline = true;
                   }
                 }}
-                src="/media/Hero-Showcase.mp4"
-                poster="/videos/posters/Hero-Showcase.jpg"
+                src="/media/hero-showcase-v2.mp4"
+                poster="/videos/posters/hero-showcase-v2.jpg"
                 autoPlay
                 loop
                 muted={isMuted}
@@ -1738,14 +1698,6 @@ export function Portfolio() {
   );
 }
 
-const serviceIcons: Record<string, typeof Sparkles> = {
-  "AI UGC Video Production": Video,
-  "AI Cartoon Animation Services": Palette,
-  "AI Avatar Video Production": Bot,
-  "Hyper-Realistic AI Video Production": Wand2,
-  "AI Digital Twin & Clone Video Services": UserCheck,
-};
-
 export function Services() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
@@ -1901,8 +1853,6 @@ export function Services() {
           className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 lg:gap-7"
         >
         {services.map((service, idx) => {
-          const Icon = serviceIcons[service.title] || Sparkles;
-          const isFeatured = idx === 0 || idx === 3;
           const animationClass = isInView
             ? "animate-service-card"
             : "opacity-0 scale-90 translate-y-6";
@@ -2252,86 +2202,6 @@ export function Pricing() {
   );
 }
 
-export function Deliverables() {
-  const [open, setOpen] = useState<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isInView, setIsInView] = useState(false);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) {
-          setIsInView(true);
-          observer.unobserve(el);
-        }
-      },
-      { threshold: 0.08, rootMargin: "0px 0px -30px 0px" },
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <Section id="deliverables">
-      <SectionHeading
-        eyebrow="Deliverables"
-        title="What's Included in Your"
-        highlight="AI Video?"
-        description="Complete AI video production from script to final 9:16 reel."
-        center={true}
-      />
-      <div ref={containerRef} className="mx-auto max-w-4xl space-y-3 overflow-hidden">
-        {deliverables.map((item, i) => {
-          const isLeft = i % 2 === 0;
-          const animationClass = isInView
-            ? isLeft
-              ? "animate-item-left"
-              : "animate-item-right"
-            : `opacity-0 ${isLeft ? "-translate-x-10" : "translate-x-10"}`;
-
-          return (
-            <div
-              key={item.title}
-              style={{ animationDelay: `${i * 0.14}s` }}
-              className={`panel overflow-hidden transition-all duration-300 ${animationClass}`}
-            >
-              <button
-                onClick={() => setOpen(open === i ? null : i)}
-                className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left text-base font-semibold transition-colors hover:bg-white/[0.02]"
-                aria-expanded={open === i}
-              >
-                <span>{item.title}</span>
-                <span className="text-neon transition-transform duration-200">
-                  {open === i ? "−" : "+"}
-                </span>
-              </button>
-              {open === i ? (
-                <div className="border-t border-border/60 bg-secondary/20 px-6 py-5">
-                  <ul className="grid gap-3 sm:grid-cols-2">
-                    {item.items.map((line) => (
-                      <li
-                        key={line}
-                        className="flex items-start gap-2.5 text-sm text-muted-foreground"
-                      >
-                        <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-neon" />
-                        <span>{line}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-    </Section>
-  );
-}
-
 export function DigitalTwin() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const twinVideoRef = useRef<HTMLVideoElement>(null);
@@ -2512,8 +2382,6 @@ export function Industries() {
       <div ref={sectionRef} className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {industries.map((industry, i) => {
           const animationClass = isInView ? "animate-industry-card" : "opacity-0 translate-y-6";
-
-          const isFirstCard = i === 0;
 
           return (
             <article

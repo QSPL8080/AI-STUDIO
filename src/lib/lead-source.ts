@@ -23,10 +23,4 @@ export function displayLeadSource(source: string): string {
   return source;
 }
 
-export function isIndContactSource(source: string): boolean {
-  return displayLeadSource(source) === IND_CONTACT_SOURCE;
-}
 
-export function isIndPopupSource(source: string): boolean {
-  return displayLeadSource(source) === IND_POPUP_SOURCE;
-}

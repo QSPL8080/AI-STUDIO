@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLightCrmPage } from "@/lib/crm-theme";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CrmApp } from "@/components/crm/crm-app";

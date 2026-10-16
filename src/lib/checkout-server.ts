@@ -416,11 +416,3 @@ export async function getConfirmation(txnid: string, token: string) {
   if (!o) return { ok: false as const, error: "We couldn't find this order." };
   return { ok: true as const, order: orderView(o) };
 }
-
-/** PDF receipt download (signed link, paid orders only). */
-export async function getReceiptPdf(txnid: string, token: string) {
-  if (!validTxnToken(txnid, token)) return null;
-  const o = await findByTxn(txnid);
-  if (!o || o.payment_status !== "COMPLETED") return null;
-  return { filename: `Receipt-${o.id}.pdf`, pdf: await buildReceiptPdf(o) };
-}

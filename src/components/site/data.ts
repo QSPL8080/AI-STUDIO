@@ -2,15 +2,6 @@ import { INDIA_SERVICES, formatInr, type IndiaServiceId } from "@/lib/india-pric
 
 const priceOf = (id: IndiaServiceId) => `${formatInr(INDIA_SERVICES.find((x) => x.id === id)!.prices[1])} / Reel`;
 
-export const heroBadges = [
-  "Script Included",
-  "5+ AI Video Formats",
-  "Up to 60-Second Videos",
-  "9:16 Reel Format",
-  "48–72 Hour Delivery",
-  "1 Revision Included",
-];
-
 export const formats = ["AI UGC", "AI Cartoon", "AI Avatar", "Hyper-Realistic", "Digital Twin"];
 
 export const samples = [
@@ -28,9 +19,9 @@ export const samples = [
   },
   {
     format: "Hyper-Realistic",
-    industry: "Jewellery & Luxury",
-    description: "Cinematic product advertisement for a luxury jewellery collection.",
-    videoUrl: "/media/hyper-realistic-sample.mp4",
+    industry: "Footwear & Sportswear",
+    description: "Cinematic hyper-realistic product ad for a running shoe, with dynamic action shots and studio hero frames.",
+    videoUrl: "/media/hyper-realistic-sample-v2.mp4",
   },
   {
     format: "AI Cartoon",
