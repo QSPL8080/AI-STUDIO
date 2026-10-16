@@ -39,13 +39,17 @@ export interface PayUPaymentInput {
   email: string;
   phone: string;
   udf1?: string; // our order id
+  udf2?: string; // payment plan: FULL / ADVANCE / BALANCE (shown in the PayU dashboard)
+  udf3?: string; // order total in INR
+  udf4?: string; // balance still due after this payment, in INR
+  udf5?: string;
 }
 
 /** Fields for the auto-submitted form that sends the customer to PayU. */
 export function buildPayUForm(input: PayUPaymentInput) {
   const cfg = getPayUConfig();
   if (!cfg) return null;
-  const udf = [input.udf1 || "", "", "", "", ""];
+  const udf = [input.udf1 || "", input.udf2 || "", input.udf3 || "", input.udf4 || "", input.udf5 || ""];
   // key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
   const hash = sha512(
     [
@@ -76,6 +80,10 @@ export function buildPayUForm(input: PayUPaymentInput) {
       email: input.email,
       phone: input.phone,
       udf1: udf[0]!,
+      udf2: udf[1]!,
+      udf3: udf[2]!,
+      udf4: udf[3]!,
+      udf5: udf[4]!,
       surl: callback,
       furl: callback,
       hash,

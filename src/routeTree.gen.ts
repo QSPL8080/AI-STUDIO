@@ -19,6 +19,7 @@ import { Route as MediaFileRouteImport } from './routes/media.$file'
 import { Route as PaymentConfirmationRouteImport } from './routes/payment.confirmation'
 import { Route as ApiPayuCallbackRouteImport } from './routes/api.payu.callback'
 import { Route as ApiReceiptRouteImport } from './routes/api.receipt'
+import { Route as ApiPayBalanceRouteImport } from './routes/api.pay-balance'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -70,6 +71,11 @@ const ApiReceiptRoute = ApiReceiptRouteImport.update({
   path: '/api/receipt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPayBalanceRoute = ApiPayBalanceRouteImport.update({
+  id: '/api/pay-balance',
+  path: '/api/pay-balance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/crm/': typeof CrmIndexRoute
   '/api/payu/callback': typeof ApiPayuCallbackRoute
   '/api/receipt': typeof ApiReceiptRoute
+  '/api/pay-balance': typeof ApiPayBalanceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/crm': typeof CrmIndexRoute
   '/api/payu/callback': typeof ApiPayuCallbackRoute
   '/api/receipt': typeof ApiReceiptRoute
+  '/api/pay-balance': typeof ApiPayBalanceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/crm/': typeof CrmIndexRoute
   '/api/payu/callback': typeof ApiPayuCallbackRoute
   '/api/receipt': typeof ApiReceiptRoute
+  '/api/pay-balance': typeof ApiPayBalanceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/crm/'
     | '/api/payu/callback'
     | '/api/receipt'
+    | '/api/pay-balance'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/crm'
     | '/api/payu/callback'
     | '/api/receipt'
+    | '/api/pay-balance'
   id:
     | '__root__'
     | '/'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/crm/'
     | '/api/payu/callback'
     | '/api/receipt'
+    | '/api/pay-balance'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -158,6 +170,7 @@ export interface RootRouteChildren {
   CrmIndexRoute: typeof CrmIndexRoute
   ApiPayuCallbackRoute: typeof ApiPayuCallbackRoute
   ApiReceiptRoute: typeof ApiReceiptRoute
+  ApiPayBalanceRoute: typeof ApiPayBalanceRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReceiptRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pay-balance': {
+      id: '/api/pay-balance'
+      path: '/api/pay-balance'
+      fullPath: '/api/pay-balance'
+      preLoaderRoute: typeof ApiPayBalanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -246,6 +266,7 @@ const rootRouteChildren: RootRouteChildren = {
   CrmIndexRoute: CrmIndexRoute,
   ApiPayuCallbackRoute: ApiPayuCallbackRoute,
   ApiReceiptRoute: ApiReceiptRoute,
+  ApiPayBalanceRoute: ApiPayBalanceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

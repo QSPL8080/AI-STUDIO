@@ -130,7 +130,15 @@ export function OrderResultModal() {
             <div className="text-center">
               <StatusIcon tone={paid ? "ok" : pending ? "wait" : "fail"} />
               <h2 id="order-result-title" className="mt-4 text-2xl font-extrabold tracking-tight">
-                {paid ? "Payment Successful!" : pending ? "Confirming Payment..." : "Payment Failed"}
+                {paid
+                  ? order.plan === "advance" && order.balanceDue > 0
+                    ? "Advance Payment Successful!"
+                    : order.plan === "balance"
+                      ? "Balance Paid. Order Complete!"
+                      : "Payment Successful!"
+                  : pending
+                    ? "Confirming Payment..."
+                    : "Payment Failed"}
               </h2>
               <p className="mx-auto mt-1.5 max-w-xs text-sm leading-relaxed text-white/65">
                 {paid ? (
@@ -148,14 +156,51 @@ export function OrderResultModal() {
             {/* Details */}
             <div className="mt-5 divide-y divide-white/[0.07] rounded-2xl border border-white/10 bg-white/[0.03] px-4">
               <Row label="Service / Package:" value={`${order.service} · ${order.pack}`} bold />
+              {order.plan !== "full" && (
+                <Row label="Order Total:" value={`${formatInr(order.orderTotal)} INR`} />
+              )}
+              {order.plan === "balance" && (
+                <Row label="Paid Earlier (50%):" value={`${formatInr(order.paidBefore)} INR`} />
+              )}
               <Row
-                label={paid ? "Amount Paid:" : "Amount:"}
+                label={
+                  !paid
+                    ? "Amount:"
+                    : order.plan === "advance"
+                      ? "Amount Paid (50%):"
+                      : order.plan === "balance"
+                        ? "Balance Paid:"
+                        : "Amount Paid:"
+                }
                 value={`${formatInr(order.amount)} INR`}
                 accent
               />
+              {paid && order.plan !== "full" && (
+                <Row
+                  label="Balance Due:"
+                  value={order.balanceDue > 0 ? `${formatInr(order.balanceDue)} INR` : "Nil (Fully Paid)"}
+                  warn={order.balanceDue > 0}
+                  bold
+                />
+              )}
               <Row label="Order ID:" value={order.orderNumber} mono />
               <Row label="Transaction ID:" value={order.transactionId} mono />
             </div>
+
+            {/* Balance still to pay (50% advance orders) */}
+            {paid && order.balanceDue > 0 && order.payBalanceUrl && (
+              <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/[0.08] p-4 text-center">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-amber-300">Balance Pending</p>
+                <p className="mt-1 text-xl font-extrabold text-white">{formatInr(order.balanceDue)} INR</p>
+                <p className="mt-1 text-xs text-white/55">Pay it now, or anytime later from the link in your email.</p>
+                <a
+                  href={order.payBalanceUrl}
+                  className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-white px-5 text-sm font-bold text-[#0d091a] transition-transform hover:scale-[1.02]"
+                >
+                  Pay Remaining Balance
+                </a>
+              </div>
+            )}
 
             {/* Next step note */}
             {paid && (
@@ -191,13 +236,15 @@ export function OrderResultModal() {
   );
 }
 
-function Row({ label, value, mono, bold, accent }: { label: string; value: string; mono?: boolean; bold?: boolean; accent?: boolean }) {
+function Row({ label, value, mono, bold, accent, warn }: { label: string; value: string; mono?: boolean; bold?: boolean; accent?: boolean; warn?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-4 py-3">
       <span className="shrink-0 text-sm text-white/50">{label}</span>
       <span
         className={`min-w-0 break-all text-right ${
-          accent
+          warn
+            ? "text-sm font-bold text-amber-300"
+            : accent
             ? "bg-gradient-to-r from-[#c084fc] to-[#f472b6] bg-clip-text text-lg font-extrabold text-transparent"
             : mono
               ? "font-mono text-[13px] text-white/85"

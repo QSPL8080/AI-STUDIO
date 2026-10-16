@@ -25,6 +25,18 @@ export interface InvoiceData {
   total?: number | undefined;
   paymentMethod?: string | undefined;
   transactionId: string;
+  /** Payment plan: "full" (default), "advance" (50% now) or "balance" (rest of an advance order). */
+  plan?: "full" | "advance" | "balance" | undefined;
+  planLabel?: string | undefined;
+  /** Full price of the order (amount = what this payment charged). */
+  orderTotal?: number | undefined;
+  /** Already paid before this payment (balance payments). */
+  paidBefore?: number | undefined;
+  /** Paid so far in total, including this payment. */
+  paidTotal?: number | undefined;
+  /** Still to be paid after this payment. */
+  balanceDue?: number | undefined;
+  parentOrderNumber?: string | undefined;
 }
 
 const SITE = "quickuppaistudio.in";
@@ -146,12 +158,16 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       doc.font("R").fontSize(11).fillColor(C.body).text(`Date: ${issueDate}`, rx, ry, { width: rw, align: "right" });
       ry += 18;
       // PAID pill
-      const pillW = 118;
+      const plan = data.plan || "full";
+      const balanceDue = Math.max(0, data.balanceDue ?? 0);
+      const partly = plan === "advance" && balanceDue > 0;
+      const pillText = partly ? "ADVANCE PAID" : "PAYMENT: PAID";
+      const pillW = doc.font("B").fontSize(10).widthOfString(pillText) + (partly ? 24 : 40);
       const pillH = 22;
       const pillX = R - pillW;
-      doc.roundedRect(pillX, ry, pillW, pillH, 11).fill("#dcfce7");
-      doc.font("B").fontSize(10).fillColor(C.green).text("PAYMENT: PAID", pillX + 12, ry + 6, { lineBreak: false });
-      drawTick(doc, pillX + pillW - 22, ry + 7.5);
+      doc.roundedRect(pillX, ry, pillW, pillH, 11).fill(partly ? "#fef3c7" : "#dcfce7");
+      doc.font("B").fontSize(10).fillColor(partly ? "#b45309" : C.green).text(pillText, pillX + 12, ry + 6, { lineBreak: false });
+      if (!partly) drawTick(doc, pillX + pillW - 22, ry + 7.5);
       ry += pillH;
 
       let y = Math.max(ly, ry) + 22;
@@ -170,7 +186,8 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
         y += 19;
       }
       pair("Billing Address:", (data.billingAddress || "India").replace(/[\r\n]+/g, ", ").trim(), M, y, { bold: false, color: C.ink });
-      y += 28;
+      const tight = plan !== "full"; // advance / balance receipts have extra rows: tighten spacing
+      y += tight ? 24 : 28;
 
       // ── Payment details: one table (item, subtotal, tax, total) ──
       section("PAYMENT DETAILS", y);
@@ -180,14 +197,38 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       const c2w = 60;
       const c3w = 130;
       const c3 = R - 16 - c3w;
-      const sub = data.subtotal ?? data.amount;
+      const orderTotal = data.orderTotal ?? data.subtotal ?? data.amount;
+      const sub = data.subtotal ?? orderTotal;
       const tot = data.total ?? data.amount;
+      const paidTotal = data.paidTotal ?? data.amount;
       const headH = 32;
       const rowH = 46;
-      const sumH = 30;
+      const sumH = tight ? 27 : 30;
       const totH = 40;
-      const sumRows: [string, string][] = [["Subtotal", money(sub)]];
+      const sumRows: [string, string][] =
+        plan === "advance"
+          ? [
+              ["Order Total", money(orderTotal)],
+              ["Amount Paid (50% Advance)", money(data.amount)],
+            ]
+          : plan === "balance"
+            ? [
+                ["Order Total", money(orderTotal)],
+                ["Paid Earlier (50% Advance)", money(data.paidBefore ?? 0)],
+                ["Amount Paid Now (Balance)", money(data.amount)],
+              ]
+            : [["Subtotal", money(sub)]];
       if (data.tax !== undefined) sumRows.push(["Tax", money(data.tax)]);
+      // Last (highlighted) row: what is still due for an advance, otherwise the total paid.
+      const lastRow = partly
+        ? { label: "Balance Due:", value: `${money(balanceDue)} ${currency}`, bg: "#fffbeb", line: "#fde68a", color: "#b45309" }
+        : {
+            label: plan === "balance" ? "Total Paid (Fully Paid):" : "Total:",
+            value: `${money(plan === "balance" ? paidTotal : tot)} ${currency}`,
+            bg: C.brandSoft,
+            line: C.brandLine,
+            color: C.brandDark,
+          };
       const tableTop = y;
       const tableH = headH + rowH + sumH * sumRows.length + totH;
 
@@ -195,7 +236,7 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       doc.save();
       doc.roundedRect(M, tableTop, CW, tableH, 8).clip();
       doc.rect(M, tableTop, CW, headH).fill("#f1f5f9");
-      doc.rect(M, tableTop + tableH - totH, CW, totH).fill(C.brandSoft);
+      doc.rect(M, tableTop + tableH - totH, CW, totH).fill(lastRow.bg);
       doc.restore();
       doc.roundedRect(M, tableTop, CW, tableH, 8).lineWidth(1).strokeColor(C.line).stroke();
 
@@ -211,7 +252,7 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       const item = data.packageDescription ? `${data.serviceName} – ${data.packageDescription}` : data.serviceName;
       doc.font("B").fontSize(12).fillColor(C.ink).text(item, c1, y + 16, { width: c2 - c1 - 10 });
       doc.font("R").fontSize(12).fillColor(C.ink).text(String(data.qty || 1), c2, y + 16, { width: c2w, align: "center" });
-      doc.font("B").fontSize(12).fillColor(C.ink).text(money(data.amount), c3, y + 16, { width: c3w, align: "right" });
+      doc.font("B").fontSize(12).fillColor(C.ink).text(money(orderTotal), c3, y + 16, { width: c3w, align: "right" });
       y += rowH;
 
       // Subtotal / tax rows (label sits under the Qty column, value under Amount)
@@ -225,13 +266,13 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       }
 
       // Total row
-      doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.brandLine).stroke();
-      doc.font("B").fontSize(13).fillColor(C.brandDark).text("Total:", labelX, y + 13, { width: labelW, align: "right" });
-      doc.font("B").fontSize(13).fillColor(C.brandDark).text(`${money(tot)} ${currency}`, c3 - 30, y + 13, { width: c3w + 30, align: "right" });
-      y += totH + 28;
+      doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(lastRow.line).stroke();
+      doc.font("B").fontSize(13).fillColor(lastRow.color).text(lastRow.label, labelX, y + 13, { width: labelW, align: "right" });
+      doc.font("B").fontSize(13).fillColor(lastRow.color).text(lastRow.value, c3 - 30, y + 13, { width: c3w + 30, align: "right" });
+      y += totH + (tight ? 22 : 28);
 
       // ── Payment information card ─────────────────────────────────
-      const cardH = 106;
+      const cardH = 108;
       doc.roundedRect(M, y, CW, cardH, 10).fillAndStroke(C.panel, C.line);
       doc.font("B").fontSize(12).fillColor(C.body).text("PAYMENT INFORMATION", M + 20, y + 18, { characterSpacing: 0.4 });
       const ix = M + 20;
@@ -248,30 +289,52 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       pair("Transaction ID:", data.transactionId, ix, cy, { size: 10.5 });
       pair("Payment Time:", paymentTime, jx, cy, { size: 10.5 });
       cy += 20;
-      pair("Payment Status:", "PAID", ix, cy, { size: 10.5, color: C.green });
-      const tickX =
-        ix +
-        doc.font("R").fontSize(10.5).widthOfString("Payment Status: ") +
-        doc.font("B").fontSize(10.5).widthOfString("PAID") +
-        5;
-      drawTick(doc, tickX, cy + 2);
-      y += cardH + 28;
+      const statusText = partly ? "PARTIALLY PAID" : "PAID";
+      pair("Payment Status:", statusText, ix, cy, { size: 10.5, color: partly ? "#b45309" : C.green });
+      if (!partly) {
+        const tickX =
+          ix +
+          doc.font("R").fontSize(10.5).widthOfString("Payment Status: ") +
+          doc.font("B").fontSize(10.5).widthOfString(statusText) +
+          5;
+        drawTick(doc, tickX, cy + 2);
+      }
+      pair("Payment Type:", data.planLabel || "Full Payment", jx, cy, { size: 10.5 });
+      y += cardH + (tight ? 18 : 28);
 
       // ── Thank you ─────────────────────────────────────────────────
       doc.font("B").fontSize(15).fillColor(C.ink).text("THANK YOU FOR YOUR PURCHASE", M, y);
-      y += 24;
+      y += tight ? 22 : 24;
       doc.font("R").fontSize(11).fillColor(C.body).text("Your payment has been successfully received.", M, y);
-      y += 17;
-      doc.font("R").fontSize(11).fillColor(C.body).text("Your order is now being processed by the Quickupp AI Studio team.", M, y);
-      y += 17;
-      doc.font("R").fontSize(11).fillColor(C.body).text(
-        "Please keep your receipt number handy when communicating with our team.",
-        M,
-        y,
-      );
+      y += tight ? 16 : 17;
+      if (plan !== "balance") {
+        doc.font("R").fontSize(11).fillColor(C.body).text("Your order is now being processed by the Quickupp AI Studio team.", M, y);
+        y += tight ? 16 : 17;
+      }
+      if (partly) {
+        doc.font("B").fontSize(11).fillColor("#b45309").text(
+          `Balance due: ${money(balanceDue)} ${currency}. You can pay it anytime using the link in your payment email.`,
+          M,
+          y,
+          { width: CW },
+        );
+      } else if (plan === "balance") {
+        doc.font("B").fontSize(11).fillColor(C.green).text(
+          `Your order${data.parentOrderNumber ? ` ${data.parentOrderNumber}` : ""} is now fully paid. Thank you!`,
+          M,
+          y,
+          { width: CW },
+        );
+      } else {
+        doc.font("R").fontSize(11).fillColor(C.body).text(
+          "Please keep your receipt number handy when communicating with our team.",
+          M,
+          y,
+        );
+      }
 
       // ── Footer (anchored to the bottom of the page) ──────────────
-      const fy = H - 140;
+      const fy = H - 132;
       doc.moveTo(M, fy).lineTo(R, fy).lineWidth(1).strokeColor(C.line).stroke();
       let f = fy + 18;
       doc.font("B").fontSize(10.5).fillColor(C.body).text("For questions regarding your order or payment:", M, f);

@@ -15,7 +15,8 @@ export interface IndiaService {
 }
 
 export const INDIA_SERVICES: IndiaService[] = [
-  { id: "ai-ugc", name: "AI UGC Video", prices: { 1: 1999, 5: 8999, 10: 16999, 15: 23999 } },
+  // TEST PRICE: single reel set to ₹1 for a live payment test. Change 1 back to 1999 after testing.
+  { id: "ai-ugc", name: "AI UGC Video", prices: { 1: 1, 5: 8999, 10: 16999, 15: 23999 } },
   {
     id: "ai-cartoon",
     name: "AI Cartoon Animation",
@@ -123,4 +124,20 @@ export function quoteItem(id: string, qty: number) {
     delivery: deliveryFor(q.service.id, q.qty),
     itemName: q.itemName,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Payment plans: pay in full, or pay 50% now and the balance later.
+// ---------------------------------------------------------------------------
+export type PaymentPlan = "full" | "advance";
+export const ADVANCE_PERCENT = 50;
+
+/** What the customer pays now and what stays due, for an order total in rupees. */
+export function splitPayment(total: number, plan: PaymentPlan) {
+  if (plan !== "advance") return { plan: "full" as PaymentPlan, payNow: total, balance: 0 };
+  const payNow = Math.ceil((total * ADVANCE_PERCENT) / 100);
+  const balance = total - payNow;
+  // Very small totals (e.g. a ₹1 test price) can't be split: charge in full.
+  if (balance <= 0) return { plan: "full" as PaymentPlan, payNow: total, balance: 0 };
+  return { plan: "advance" as PaymentPlan, payNow, balance };
 }

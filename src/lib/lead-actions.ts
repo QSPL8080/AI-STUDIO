@@ -21,9 +21,13 @@ export const submitLeadServerFn = createServerFn({ method: "POST" })
       // 1. Save lead to PostgreSQL / Supabase Database for Admin Panel
       const saved = await saveLeadToDb(data);
 
-      // 2. New-lead email to qsaistudio@gmail.com — sent in the background so the website
-      //    form answers instantly. The outcome (route used, or the exact error) goes to
-      //    CRM → Activity History.
+      // 2. New-lead alerts, sent in the background so the website form answers instantly.
+      //    Email → qsaistudio@gmail.com, WhatsApp → +91 80556 79162 (see whatsapp.ts).
+      //    Each outcome (route used, or the exact error) goes to CRM → Activity History.
+      void (async () => {
+        const { notifyLeadOnWhatsApp } = await import("./whatsapp");
+        await notifyLeadOnWhatsApp({ ...data, source: String(data.source) }, { leadId: saved.id });
+      })();
       void (async () => {
         try {
           const mail = await sendLeadNotificationEmail({ ...data, leadId: saved.id });

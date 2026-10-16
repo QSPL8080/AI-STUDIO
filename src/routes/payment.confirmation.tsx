@@ -177,11 +177,38 @@ function OrderCard({ order, token }: { order: OrderView; token: string }) {
           <DetailRow label="Service" value={order.service} />
           <DetailRow label="Package" value={order.pack} />
           {order.delivery && <DetailRow label="Delivery" value={order.delivery} />}
+          {order.plan !== "full" && <DetailRow label="Order Total" value={formatInr(order.orderTotal)} />}
+          {order.plan === "balance" && <DetailRow label="Paid Earlier (50% Advance)" value={formatInr(order.paidBefore)} />}
           <DetailRow
-            label={paid ? "Amount Paid" : "Amount"}
+            label={
+              !paid
+                ? "Amount"
+                : order.plan === "advance"
+                  ? "Amount Paid (50% Advance)"
+                  : order.plan === "balance"
+                    ? "Balance Paid"
+                    : "Amount Paid"
+            }
             value={formatInr(order.amount)}
             strong
           />
+          {paid && order.plan !== "full" && (
+            <DetailRow
+              label="Balance Due"
+              value={order.balanceDue > 0 ? formatInr(order.balanceDue) : "Nil (Fully Paid)"}
+              strong
+            />
+          )}
+          {paid && order.balanceDue > 0 && order.payBalanceUrl && (
+            <div className="py-3 text-center">
+              <a
+                href={order.payBalanceUrl}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-white px-5 text-sm font-bold text-[#0d091a]"
+              >
+                Pay Remaining Balance ({formatInr(order.balanceDue)})
+              </a>
+            </div>
+          )}
           {paid && <DetailRow label="Payment Method" value={order.method} />}
           <DetailRow label="Transaction ID" value={order.transactionId} mono />
           {order.paidAt && (

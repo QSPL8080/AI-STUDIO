@@ -528,6 +528,35 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     else setActiveTab("orders");
   };
 
+  // Lead link from a WhatsApp / email alert (/crm?lead=<id>): open that lead once it is loaded.
+  useEffect(() => {
+    if (!loaded) return;
+    let id = "";
+    try {
+      id = new URLSearchParams(window.location.search).get("lead") || sessionStorage.getItem("crm_open_lead") || "";
+    } catch {
+      /* ignore */
+    }
+    if (!id) return;
+    try {
+      sessionStorage.removeItem("crm_open_lead");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("lead");
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    } catch {
+      /* ignore */
+    }
+    const lead = leads.find((l) => l.id === id);
+    if (lead) {
+      setActiveTab(lead.kind === "meta" ? "meta" : "leads");
+      setSelectedLead(lead);
+      markRead([lead.id]);
+    } else {
+      toast("This lead is not available to your account (it may have been deleted).", "info");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
+
   // Unread count in the browser tab title
   useEffect(() => {
     const base = "AI STUDIO INDIA – Enterprise CRM";
@@ -1586,8 +1615,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <button
                   onClick={() =>
                     downloadCsv("quickupp_orders.csv", [
-                      ["Order ID", "Transaction ID", "Payment ref", "Customer", "Email", "Phone", "Company", "Item", "Amount", "Currency", "Status", "Created (IST)"],
-                      ...shownOrders.map((o) => [o.id, o.paypalOrderId, o.captureId, o.customerName, o.customerEmail, o.customerPhone, o.customerCompany, o.itemName, o.amount, o.currency, o.paymentStatus, fmtIst(o.createdAt)]),
+                      ["Order ID", "Transaction ID", "Payment ref", "Customer", "Email", "Phone", "Company", "Item", "Payment type", "Order total", "Amount (this payment)", "Paid so far", "Balance due", "Currency", "Status", "Created (IST)"],
+                      ...shownOrders.map((o) => [o.id, o.paypalOrderId, o.captureId, o.customerName, o.customerEmail, o.customerPhone, o.customerCompany, o.itemName, o.planLabel, o.orderTotal, o.amount, o.paidTotal, o.balanceDue, o.currency, o.paymentStatus, fmtIst(o.createdAt)]),
                     ])
                   }
                   className={btnGhost}
@@ -1597,8 +1626,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               )}
             </PageHeader>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
               <Kpi label="Total Orders" value={orders.length} icon={<Package className="w-4 h-4 text-purple-600" />} />
+              <Kpi
+                label="Balance Pending"
+                value={fmtMoney(orders.filter((o) => o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED").reduce((t, o) => t + (o.balanceDue || 0), 0), "INR")}
+                icon={<Clock className="w-4 h-4 text-orange-600" />}
+                valueClass="text-orange-600"
+              />
               <Kpi label="Revenue (paid)" value={revenueText(revenueByCur)} icon={<TrendingUp className="w-4 h-4 text-emerald-600" />} valueClass="text-emerald-600" />
               <Kpi label="Completed" value={completedOrders.length} icon={<CheckCircle2 className="w-4 h-4 text-cyan-600" />} valueClass="text-cyan-600" />
               <Kpi
@@ -1702,7 +1737,28 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                             <div className="font-semibold text-slate-900">{o.itemName}</div>
                             <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-50 text-purple-700 uppercase">{o.itemType}</span>
                           </td>
-                          <td className="p-3.5 font-bold text-emerald-600 font-mono">{fmtMoney(o.amount, o.currency)}</td>
+                          <td className="p-3.5">
+                            <div className="font-bold text-emerald-600 font-mono">{fmtMoney(o.amount, o.currency)}</div>
+                            <span
+                              className={`inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase ${
+                                o.paymentPlan === "advance" ? "bg-amber-50 text-amber-700" : o.paymentPlan === "balance" ? "bg-sky-50 text-sky-700" : "bg-emerald-50 text-emerald-700"
+                              }`}
+                            >
+                              {o.planLabel}
+                            </span>
+                            {o.paymentPlan !== "full" && (
+                              <div className="text-[11px] text-slate-500 mt-0.5">of {fmtMoney(o.orderTotal, o.currency)} total</div>
+                            )}
+                            {o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED" && o.balanceDue > 0 && (
+                              <div className="text-[11px] font-semibold text-orange-600">Balance due {fmtMoney(o.balanceDue, o.currency)}</div>
+                            )}
+                            {o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED" && o.balanceDue <= 0 && (
+                              <div className="text-[11px] font-semibold text-emerald-700">Fully paid</div>
+                            )}
+                            {o.paymentPlan === "balance" && o.parentOrderId && (
+                              <div className="text-[11px] text-slate-500">for {o.parentOrderId}</div>
+                            )}
+                          </td>
                           <td className="p-3.5">
                             <span className={`px-2 py-0.5 rounded-md border text-[11px] font-semibold ${ORDER_STATUS_STYLE[o.paymentStatus] || ORDER_STATUS_STYLE["REFUNDED"]}`}>{o.paymentStatus}</span>
                           </td>
@@ -2700,8 +2756,51 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         <Modal onClose={() => setSelectedOrder(null)} title={selectedOrder.itemName} subtitle={`${selectedOrder.customerName} • ${selectedOrder.customerEmail}`} icon={<Package className="w-5 h-5" />} wide>
           <div className="space-y-3 text-[13px]">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-md bg-slate-50 border border-slate-200">
-              <Info label="Amount" value={fmtMoney(selectedOrder.amount, selectedOrder.currency)} />
+              <Info label="Amount (this payment)" value={fmtMoney(selectedOrder.amount, selectedOrder.currency)} />
               <Info label="Status" value={selectedOrder.paymentStatus} />
+              <Info label="Payment type" value={selectedOrder.planLabel} />
+              <Info label="Order total" value={fmtMoney(selectedOrder.orderTotal, selectedOrder.currency)} />
+              <Info label="Paid so far" value={fmtMoney(selectedOrder.paidTotal, selectedOrder.currency)} />
+              <Info
+                label="Balance due"
+                value={selectedOrder.paymentPlan === "balance" ? "— (balance payment)" : selectedOrder.balanceDue > 0 ? fmtMoney(selectedOrder.balanceDue, selectedOrder.currency) : "Nil"}
+              />
+              {selectedOrder.parentOrderId && <Info label="Balance for order" value={selectedOrder.parentOrderId} />}
+              {selectedOrder.payBalanceUrl && (
+                <div className="sm:col-span-2 rounded-md border border-orange-200 bg-orange-50 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-orange-700">Balance payment link</div>
+                  <div className="mt-1 text-[12px] font-mono text-slate-700 break-all">{selectedOrder.payBalanceUrl}</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard
+                          ?.writeText(selectedOrder.payBalanceUrl)
+                          .then(() => toast("Balance payment link copied."))
+                          .catch(() => toast("Could not copy. Select the link and copy it.", "error"));
+                      }}
+                      className="h-8 px-3 rounded-md border border-orange-300 bg-white text-[13px] font-semibold text-orange-700 hover:bg-orange-100"
+                    >
+                      Copy link
+                    </button>
+                    {selectedOrder.customerPhone && (
+                      <a
+                        href={`https://wa.me/${(() => {
+                          const d = selectedOrder.customerPhone.replace(/[^\d]/g, "");
+                          return d.length === 10 ? `91${d}` : d;
+                        })()}?text=${encodeURIComponent(
+                          `Hello ${selectedOrder.customerName.split(" ")[0]}, thank you for your order ${selectedOrder.id} with Quickupp AI Studio. The remaining balance of ${fmtMoney(selectedOrder.balanceDue, selectedOrder.currency)} can be paid securely here: ${selectedOrder.payBalanceUrl}`,
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-8 px-3 inline-flex items-center rounded-md bg-emerald-600 text-[13px] font-semibold text-white hover:bg-emerald-700"
+                      >
+                        Send on WhatsApp
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+              {selectedOrder.balanceOrderId && <Info label="Balance paid in" value={selectedOrder.balanceOrderId} />}
               <Info label="Transaction ID" value={selectedOrder.paypalOrderId} />
               <Info label="Payment ref" value={selectedOrder.captureId || "—"} />
               <Info label="Phone" value={selectedOrder.customerPhone || "—"} />

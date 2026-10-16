@@ -22,6 +22,14 @@ function CrmDashboardPage() {
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
+    // Lead link from a WhatsApp / email alert (/crm?lead=<id>): remember it so the lead
+    // opens right after signing in.
+    try {
+      const leadId = new URLSearchParams(window.location.search).get("lead");
+      if (leadId) sessionStorage.setItem("crm_open_lead", leadId);
+    } catch {
+      /* ignore */
+    }
     const user = getStoredCrmUser();
     if (!user) {
       navigate({ to: "/crm/login" });

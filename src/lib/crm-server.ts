@@ -3,6 +3,9 @@
 //   • Super Admin deletes are PERMANENT (row removed from the database).
 //   • Admin / Leads Manager can only SOFT delete leads (moved to Recycle Bin).
 //   • Activity History, User Management and CRM Settings are Super Admin only.
+import { paymentSummary } from "./payment-plan";
+import { payBalancePath } from "./checkout-server";
+import { siteUrl } from "./payu";
 import {
   dbDelete,
   dbInsert,
@@ -112,7 +115,20 @@ function mapLead(r: any) {
 export type CrmLead = ReturnType<typeof mapLead>;
 
 function mapOrder(r: any) {
+  const ps = paymentSummary(r);
   return {
+    paymentPlan: ps.plan,
+    planLabel: ps.planLabel,
+    orderTotal: ps.orderTotal,
+    paidTotal: ps.paidTotal,
+    balanceDue: ps.paidTotal > 0 ? ps.balanceDue : 0,
+    parentOrderId: ps.parentOrderId,
+    balanceOrderId: ps.balanceOrderId,
+    /** Customer's secure "pay remaining balance" link (paid 50% advance orders with a balance left). */
+    payBalanceUrl:
+      ps.plan === "advance" && r.payment_status === "COMPLETED" && ps.balanceDue > 0
+        ? `${siteUrl()}${payBalancePath(String(r.paypal_order_id))}`
+        : "",
     id: r.id as string,
     paypalOrderId: r.paypal_order_id as string,
     captureId: (r.paypal_capture_id || "") as string,
@@ -513,6 +529,26 @@ export async function createLead(
     form_name: isMeta ? t(data.formName) || null : null,
     created_at: new Date().toISOString(),
   }, { handled_by: ctx.user.name });
+  // New-lead WhatsApp alert (same as website form leads) → +91 80556 79162, in the background.
+  {
+    const leadId = String((row as any).id);
+    void import("./whatsapp").then(({ notifyLeadOnWhatsApp }) =>
+      notifyLeadOnWhatsApp(
+        {
+          source: isMeta ? `Meta Ads (${data.channel || "Facebook"})` : `${source} (CRM)`,
+          name: data.clientName.trim(),
+          phone: (data.phone || "").trim() || "-",
+          email: data.email?.trim() || undefined,
+          videoType: data.videoScope || "AI Video",
+          business: t(data.business),
+          industry: t(data.industry) || undefined,
+          location: t(data.location) || undefined,
+          requirement: t(data.notes, 4000) || undefined,
+        },
+        { leadId, actorEmail: ctx.user.email },
+      ),
+    );
+  }
   // New-lead email (same as website form leads) → qsaistudio@gmail.com
   try {
     const { sendLeadNotificationEmail } = await import("./email");

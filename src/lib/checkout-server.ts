@@ -11,7 +11,10 @@ import {
   TWIN_SETUP,
   TWIN_SETUP_ID,
   deliveryFor,
+  splitPayment,
+  type PaymentPlan,
 } from "./india-pricing";
+import { paymentSummary } from "./payment-plan";
 import {
   buildPayUForm,
   fetchPayUStatus,
@@ -64,6 +67,10 @@ function validTxnToken(txnid: string, token: string) {
 /** Homepage with the "Order Confirmed" popup (where PayU sends the customer back). */
 export function orderPopupPath(txnid: string) {
   return `/?${new URLSearchParams({ order: txnid, ot: signTxn(txnid) }).toString()}`;
+}
+/** Signed link that lets the customer pay the remaining balance of a 50% advance order. */
+export function payBalancePath(txnid: string) {
+  return `/api/pay-balance?${new URLSearchParams({ txn: txnid, t: signTxn(txnid) }).toString()}`;
 }
 export function receiptPath(txnid: string) {
   return `/api/receipt?${new URLSearchParams({ txn: txnid, t: signTxn(txnid) }).toString()}`;
@@ -118,6 +125,24 @@ function orderView(o: any) {
     paidAt: paidAt ? new Date(paidAt).toISOString() : null,
     receiptEmail: (d.receiptEmail as "sent" | "failed" | undefined) || null,
     failureReason: o.payment_status === "FAILED" ? String(d.payu?.error_Message || "") : "",
+    ...(() => {
+      const ps = paymentSummary(o);
+      return {
+        plan: ps.plan,
+        planLabel: ps.planLabel,
+        orderTotal: ps.orderTotal,
+        paidBefore: ps.paidBefore,
+        paidTotal: ps.paidTotal,
+        balanceDue: ps.balanceDue,
+        fullyPaid: ps.fullyPaid,
+        parentOrderId: ps.parentOrderId,
+        /** Signed "Pay remaining balance" link (paid advance orders with a balance left). */
+        payBalanceUrl:
+          ps.plan === "advance" && o.payment_status === "COMPLETED" && ps.balanceDue > 0
+            ? payBalancePath(String(o.paypal_order_id))
+            : "",
+      };
+    })(),
   };
 }
 export type OrderView = ReturnType<typeof orderView>;
@@ -156,6 +181,13 @@ export async function buildReceiptPdf(o: any) {
     currency: "INR",
     paymentMethod: `PayU / ${v.method}`,
     transactionId: v.transactionId,
+    plan: v.plan,
+    planLabel: v.planLabel,
+    orderTotal: v.orderTotal,
+    paidBefore: v.paidBefore,
+    paidTotal: v.paidTotal,
+    balanceDue: v.balanceDue,
+    parentOrderNumber: v.parentOrderId || undefined,
   });
 }
 
@@ -200,6 +232,14 @@ async function sendReceipt(orderId: string) {
       }).toUpperCase() + " IST",
     confirmationUrl: `${siteUrl()}${confirmationPath(v.txnid)}`,
     receiptUrl: `${siteUrl()}${receiptPath(v.txnid)}`,
+    plan: v.plan,
+    planLabel: v.planLabel,
+    orderTotal: `${formatInr(v.orderTotal)} INR`,
+    paidBefore: v.paidBefore > 0 ? `${formatInr(v.paidBefore)} INR` : undefined,
+    paidTotal: `${formatInr(v.paidTotal)} INR`,
+    balanceDue: v.balanceDue > 0 ? `${formatInr(v.balanceDue)} INR` : undefined,
+    payBalanceUrl: v.payBalanceUrl ? `${siteUrl()}${v.payBalanceUrl}` : undefined,
+    parentOrderNumber: v.parentOrderId || undefined,
     receipt,
   });
   await dbUpdate(ORDERS_TABLE, [{ col: "id", op: "eq", value: orderId }], {
@@ -227,6 +267,8 @@ export interface CheckoutInput {
   phone: string;
   company?: string;
   notes?: string;
+  /** "full" (default) or "advance" (pay 50% now, the balance later). */
+  paymentPlan?: PaymentPlan;
 }
 
 const clean = (v: unknown, max: number) =>
@@ -254,6 +296,8 @@ export async function createIndiaOrder(input: CheckoutInput) {
   const phone = phoneDigits.length === 10 ? `+91 ${phoneDigits}` : `+${phoneDigits}`;
 
   const q = quoteItem(input.serviceId, input.qty);
+  const split = splitPayment(q.amount, input.paymentPlan === "advance" ? "advance" : "full");
+  const advance = split.plan === "advance";
   const payu = getPayUConfig();
   const makeNumber = await nextOrderNumber();
   let orderId = makeNumber(0);
@@ -269,7 +313,7 @@ export async function createIndiaOrder(input: CheckoutInput) {
     item_type: q.kind === "setup" ? "setup" : q.qty === 1 ? "individual" : "package",
     item_id: q.kind === "setup" ? q.id : `${q.id}-${q.qty}`,
     item_name: q.itemName,
-    amount: q.amount,
+    amount: split.payNow, // charged in this transaction (50% when paying an advance)
     currency: "INR",
     payment_status: "PENDING",
     paypal_status: payu ? "PAYU_INITIATED" : "AWAITING_PAYMENT_LINK",
@@ -280,6 +324,9 @@ export async function createIndiaOrder(input: CheckoutInput) {
       qty: q.qty,
       perReel: q.perReel,
       notes,
+      paymentPlan: split.plan,
+      orderTotal: q.amount,
+      balanceAfterPayment: split.balance,
     }),
     created_at: now,
     updated_at: now,
@@ -299,7 +346,7 @@ export async function createIndiaOrder(input: CheckoutInput) {
     title: "New website order",
     category: "ORDERS",
     actorEmail: email,
-    description: `${name} ordered ${q.itemName} for ${formatInr(q.amount)} (order ${orderId}, txn ${txnid}). ${payu ? "Sent to PayU for payment." : "Payment gateway not connected yet: send the customer a payment link."}`,
+    description: `${name} ordered ${q.itemName} for ${formatInr(q.amount)}${advance ? ` (paying 50% advance ${formatInr(split.payNow)} now, balance ${formatInr(split.balance)} later)` : ""} (order ${orderId}, txn ${txnid}). ${payu ? "Sent to PayU for payment." : "Payment gateway not connected yet: send the customer a payment link."}`,
   });
 
   // Team email in the background (doesn't slow the checkout down).
@@ -310,7 +357,9 @@ export async function createIndiaOrder(input: CheckoutInput) {
         orderId,
         txnid,
         itemName: q.itemName,
-        amount: formatInr(q.amount),
+        amount: advance
+          ? `${formatInr(q.amount)} total: ${formatInr(split.payNow)} now (50% advance) + ${formatInr(split.balance)} balance`
+          : formatInr(q.amount),
         name,
         email,
         phone,
@@ -336,12 +385,19 @@ export async function createIndiaOrder(input: CheckoutInput) {
 
   const form = buildPayUForm({
     txnid,
-    amount: q.amount.toFixed(2),
-    productinfo: q.itemName.slice(0, 100),
+    amount: split.payNow.toFixed(2),
+    // Shown in the PayU dashboard, so the team can tell advances from full payments.
+    productinfo: (advance
+      ? `${q.itemName} | 50% Advance of INR ${q.amount}`
+      : `${q.itemName} | Full Payment`
+    ).slice(0, 100),
     firstname: name.split(" ")[0]!.slice(0, 60),
     email,
     phone: phoneDigits.slice(-10),
     udf1: orderId,
+    udf2: advance ? "ADVANCE_50" : "FULL",
+    udf3: String(q.amount),
+    udf4: String(split.balance),
   });
 
   return {
@@ -349,7 +405,9 @@ export async function createIndiaOrder(input: CheckoutInput) {
     orderId,
     txnid,
     itemName: q.itemName,
-    amount: q.amount,
+    amount: split.payNow,
+    orderTotal: q.amount,
+    balance: split.balance,
     payment: form, // null until PayU is configured
   };
 }
@@ -463,6 +521,34 @@ async function applyPayUResult(order: any, r: PayUTxnStatus) {
     actorEmail: order.customer_email,
     description: `${order.customer_name} - ${order.item_name} (${formatInr(Number(order.amount))}), txn ${order.paypal_order_id}${r.mode ? `, ${r.mode}` : ""}${r.error_Message && status !== "COMPLETED" ? ` - ${r.error_Message}` : ""}.`,
   });
+  if (status === "COMPLETED" && details.paymentPlan === "balance" && details.parentOrderId) {
+    try {
+      const prow: any = (
+        await dbSelect(ORDERS_TABLE, { filters: [{ col: "id", op: "eq", value: String(details.parentOrderId) }] })
+      )[0];
+      if (prow) {
+        const pd = parseDetails(prow);
+        await dbUpdate(ORDERS_TABLE, [{ col: "id", op: "eq", value: prow.id }], {
+          raw_details: JSON.stringify({
+            ...pd,
+            balancePaid: true,
+            balanceAmount: Number(order.amount),
+            balanceOrderId: order.id,
+            balancePaidAt: new Date().toISOString(),
+          }),
+          updated_at: new Date().toISOString(),
+        });
+        await logActivity({
+          title: "Balance received",
+          category: "ORDERS",
+          actorEmail: order.customer_email,
+          description: `Balance ${formatInr(Number(order.amount))} received for order ${prow.id} (${order.customer_name}). Order is now fully paid.`,
+        });
+      }
+    } catch (e) {
+      console.error("Could not update the advance order after the balance payment", e);
+    }
+  }
   if (status === "COMPLETED")
     void sendReceipt(order.id).catch((e) => console.error("Receipt email failed", e));
   return status;
@@ -517,4 +603,75 @@ export async function getReceiptPdf(txnid: string, token: string) {
   const o = await findByTxn(txnid);
   if (!o || o.payment_status !== "COMPLETED") return null;
   return { filename: `Receipt-${String(o.id)}.pdf`, pdf: await buildReceiptPdf(o) };
+}
+
+/**
+ * "Pay remaining balance" (signed link from the email / success popup): creates a balance
+ * order linked to the paid 50% advance and returns the PayU form to send the customer to.
+ */
+export async function createBalancePayment(txnid: string, token: string) {
+  if (!validTxnToken(txnid, token)) return { ok: false as const, error: "This payment link is not valid." };
+  const parent: any = await findByTxn(txnid);
+  if (!parent) return { ok: false as const, error: "We couldn't find this order." };
+  const ps = paymentSummary(parent);
+  if (ps.plan !== "advance" || parent.payment_status !== "COMPLETED")
+    return { ok: false as const, error: "This order has no balance to pay." };
+  if (ps.balanceDue <= 0 || ps.balancePaid)
+    return { ok: false as const, error: "This order is already fully paid. Thank you!", paid: true as const, txnid };
+  const payu = getPayUConfig();
+  if (!payu) return { ok: false as const, error: "Online payment is not available right now. Please contact us." };
+
+  const pd = parseDetails(parent);
+  const existing = await dbSelect<{ id: string }>(ORDERS_TABLE, { columns: ["id"] });
+  const n = existing.filter((r) => String(r.id).startsWith(`${parent.id}-B`)).length + 1;
+  const orderId = `${parent.id}-B${n}`;
+  const balTxn = `QAS${Date.now()}${Math.floor(Math.random() * 900 + 100)}`;
+  const now = new Date().toISOString();
+  await dbInsert(ORDERS_TABLE, {
+    id: orderId,
+    paypal_order_id: balTxn,
+    customer_name: parent.customer_name,
+    customer_email: parent.customer_email,
+    customer_phone: parent.customer_phone,
+    customer_company: parent.customer_company || null,
+    item_type: parent.item_type,
+    item_id: parent.item_id,
+    item_name: `${parent.item_name} - Balance`,
+    amount: ps.balanceDue,
+    currency: "INR",
+    payment_status: "PENDING",
+    paypal_status: "PAYU_INITIATED",
+    raw_details: JSON.stringify({
+      gateway: "payu",
+      gatewayConnected: true,
+      serviceId: pd.serviceId,
+      qty: pd.qty,
+      paymentPlan: "balance",
+      parentOrderId: parent.id,
+      parentTxn: parent.paypal_order_id,
+      orderTotal: ps.orderTotal,
+      paidBefore: ps.paidTotal,
+    }),
+    created_at: now,
+    updated_at: now,
+  });
+  await logActivity({
+    title: "Balance payment started",
+    category: "ORDERS",
+    actorEmail: parent.customer_email,
+    description: `${parent.customer_name} is paying the balance ${formatInr(ps.balanceDue)} for order ${parent.id} (balance order ${orderId}, txn ${balTxn}).`,
+  });
+  const form = buildPayUForm({
+    txnid: balTxn,
+    amount: ps.balanceDue.toFixed(2),
+    productinfo: `${parent.item_name} | Balance of INR ${ps.orderTotal}`.slice(0, 100),
+    firstname: String(parent.customer_name).split(" ")[0]!.slice(0, 60),
+    email: parent.customer_email,
+    phone: String(parent.customer_phone || "").replace(/[^\d]/g, "").slice(-10),
+    udf1: orderId,
+    udf2: "BALANCE",
+    udf3: String(ps.orderTotal),
+    udf4: "0",
+  });
+  return { ok: true as const, form };
 }

@@ -11,6 +11,8 @@ import {
   TWIN_SETUP_ID,
   type IndiaPackQty,
   type IndiaServiceId,
+  splitPayment,
+  type PaymentPlan,
 } from "@/lib/india-pricing";
 import { whatsAppNumber } from "./data";
 
@@ -90,12 +92,17 @@ export function IndiaCheckoutModal() {
   const [serverError, setServerError] = useState("");
   const [busy, setBusy] = useState(false);
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
+  const [plan, setPlan] = useState<PaymentPlan>("full");
 
   const quote = useMemo(
     () => quoteItem(isSetup ? TWIN_SETUP_ID : serviceId, qty),
     [isSetup, serviceId, qty],
   );
   const reelService = INDIA_SERVICES.find((x) => x.id === serviceId) || INDIA_SERVICES[0]!;
+  const advanceSplit = useMemo(() => splitPayment(quote.amount, "advance"), [quote.amount]);
+  const canAdvance = advanceSplit.plan === "advance";
+  const effectivePlan: PaymentPlan = canAdvance ? plan : "full";
+  const payNow = effectivePlan === "advance" ? advanceSplit.payNow : quote.amount;
 
   const close = useCallback(() => {
     if (step === "redirecting") return;
@@ -111,6 +118,7 @@ export function IndiaCheckoutModal() {
       setQty(isPackQty(d.qty) ? d.qty : 1);
       setIsSetup(d.product === "twin-setup");
       setStep("form");
+      setPlan("full");
       setServerError("");
       setErrors({});
       setPlaced(null);
@@ -166,6 +174,7 @@ export function IndiaCheckoutModal() {
           email: form.email,
           phone: form.phone,
           company: form.company,
+          paymentPlan: effectivePlan,
         },
       });
       if (!r?.ok) {
@@ -347,6 +356,72 @@ export function IndiaCheckoutModal() {
                 )}
               </div>
 
+              {/* Payment option: pay in full, or 50% now and the balance later */}
+              {canAdvance && (
+                <>
+                  <div className="mt-6 text-xs font-semibold uppercase tracking-wide text-white/50">
+                    Payment Option
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Payment option">
+                    {(
+                      [
+                        {
+                          id: "full" as PaymentPlan,
+                          title: "Pay in Full",
+                          amount: quote.amount,
+                          note: "Pay the full amount now",
+                        },
+                        {
+                          id: "advance" as PaymentPlan,
+                          title: "Pay 50% Advance",
+                          amount: advanceSplit.payNow,
+                          note: `Balance ${formatInr(advanceSplit.balance)} payable later`,
+                        },
+                      ]
+                    ).map((opt) => {
+                      const active = effectivePlan === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => setPlan(opt.id)}
+                          className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition-colors ${
+                            active
+                              ? "border-[#a832e6] bg-[#a832e6]/[0.12] shadow-[0_0_0_1px_rgba(168,50,230,0.4)]"
+                              : "border-white/10 bg-white/[0.03] hover:border-white/25"
+                          }`}
+                        >
+                          <span
+                            className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 ${
+                              active ? "border-[#c084fc]" : "border-white/30"
+                            }`}
+                          >
+                            {active && <span className="h-2 w-2 rounded-full bg-[#c084fc]" />}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-baseline justify-between gap-2">
+                              <span className="text-sm font-semibold text-white">{opt.title}</span>
+                              <span className="whitespace-nowrap text-sm font-bold text-white">
+                                {formatInr(opt.amount)}
+                              </span>
+                            </span>
+                            <span className="mt-0.5 block text-xs text-white/50">{opt.note}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {effectivePlan === "advance" && (
+                    <p className="mt-2.5 text-[11px] leading-relaxed text-white/50">
+                      You pay {formatInr(advanceSplit.payNow)} now. The balance of {formatInr(advanceSplit.balance)} can be
+                      paid anytime using the secure link in your payment confirmation email.
+                    </p>
+                  )}
+                </>
+              )}
+
               {/* Customer */}
               <div className="mt-6 text-xs font-semibold uppercase tracking-wide text-white/50">
                 Customer Information{" "}
@@ -410,7 +485,7 @@ export function IndiaCheckoutModal() {
                   "Placing your order..."
                 ) : (
                   <>
-                    <span>Proceed to Payment</span>
+                    <span>Proceed to Pay {formatInr(payNow)}</span>
                     <span aria-hidden className="transition-transform group-hover:translate-x-1">
                       →
                     </span>

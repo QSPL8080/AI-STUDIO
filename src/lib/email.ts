@@ -110,6 +110,15 @@ function renderPaymentConfirmationEmail(o: {
   paymentTime: string;
   confirmationUrl: string;
   receiptUrl: string;
+  /** "full" (default), "advance" (50% paid, balance due) or "balance" (rest of an advance). */
+  plan?: "full" | "advance" | "balance" | undefined;
+  planLabel?: string | undefined;
+  orderTotal?: string | undefined;
+  paidBefore?: string | undefined;
+  paidTotal?: string | undefined;
+  balanceDue?: string | undefined;
+  payBalanceUrl?: string | undefined;
+  parentOrderNumber?: string | undefined;
 }) {
   const e = escapeHtml;
   const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
@@ -124,7 +133,21 @@ function renderPaymentConfirmationEmail(o: {
     ["Service", o.service],
     ["Package", o.pack],
     ...(o.delivery ? ([["Delivery", o.delivery]] as [string, string][]) : []),
-    ["Amount Paid", o.amount, { strong: true }],
+    ...((o.plan === "advance"
+      ? [
+          ["Order Total", o.orderTotal || o.amount],
+          ["Amount Paid (50% Advance)", o.amount, { strong: true }],
+          ["Balance Due", o.balanceDue || "-", { strong: true }],
+        ]
+      : o.plan === "balance"
+        ? [
+            ["Order Total", o.orderTotal || o.amount],
+            ["Paid Earlier (50% Advance)", o.paidBefore || "-"],
+            ["Amount Paid Now (Balance)", o.amount, { strong: true }],
+            ["Balance Due", "Nil (Fully Paid)"],
+          ]
+        : [["Amount Paid", o.amount, { strong: true }]]) as [string, string, { strong?: boolean; mono?: boolean }?][]),
+    ["Payment Type", o.planLabel || "Full Payment"],
     ["Payment Date", o.paymentDate],
     ["Payment Time", o.paymentTime],
     ["Payment Method", o.method],
@@ -181,8 +204,13 @@ function renderPaymentConfirmationEmail(o: {
 
     <!-- Payment confirmed -->
     <tr><td style="padding:22px 36px 4px;font-family:${font}">
-      <div style="font-size:15px;font-weight:800;letter-spacing:1.5px;color:#15803d">PAYMENT CONFIRMED</div>
-      <div style="margin-top:6px;font-size:14px;color:#374151">Status: <strong style="color:#15803d">PAID &#10003;</strong></div>
+      ${
+        o.plan === "advance" && o.balanceDue
+          ? `<div style="font-size:15px;font-weight:800;letter-spacing:1.5px;color:#b45309">ADVANCE PAYMENT CONFIRMED</div>
+      <div style="margin-top:6px;font-size:14px;color:#374151">Status: <strong style="color:#b45309">ADVANCE PAID (50%)</strong> &middot; Balance due: <strong style="color:#b45309">${e(o.balanceDue)}</strong></div>`
+          : `<div style="font-size:15px;font-weight:800;letter-spacing:1.5px;color:#15803d">PAYMENT CONFIRMED</div>
+      <div style="margin-top:6px;font-size:14px;color:#374151">Status: <strong style="color:#15803d">${o.plan === "balance" ? "FULLY PAID" : "PAID"} &#10003;</strong></div>`
+      }
     </td></tr>
 
     <!-- Order details -->
@@ -206,6 +234,26 @@ function renderPaymentConfirmationEmail(o: {
       </table>
     </td></tr>
 
+    ${
+      o.plan === "advance" && o.balanceDue && o.payBalanceUrl
+        ? `<!-- Balance due -->
+    <tr><td style="padding:24px 36px 4px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px">
+        <tr><td align="center" style="padding:18px 20px;font-family:${font}">
+          <div style="font-size:13px;font-weight:800;letter-spacing:1px;color:#b45309">BALANCE PENDING</div>
+          <div style="margin-top:6px;font-size:22px;font-weight:800;color:#111827">${e(o.balanceDue)}</div>
+          <p style="margin:6px 0 14px;font-size:13px;line-height:1.6;color:#6b7280">Pay the remaining balance anytime with the secure link below.</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td align="center" style="border-radius:999px;background:#111827">
+              <a href="${e(o.payBalanceUrl)}" target="_blank" style="display:inline-block;padding:12px 26px;font-family:${font};font-size:14px;font-weight:800;letter-spacing:.5px;color:#ffffff;text-decoration:none;border-radius:999px">PAY REMAINING BALANCE</a>
+            </td>
+          </tr></table>
+        </td></tr>
+      </table>
+    </td></tr>
+`
+        : ""
+    }
     <!-- Receipt -->
     <tr><td align="center" style="padding:26px 36px 6px;font-family:${font}">
       <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#4b5563">Your payment receipt/invoice is attached to this email as a PDF.</p>
@@ -534,10 +582,24 @@ export async function sendPaymentReceiptEmail(o: {
   paymentTime: string;
   confirmationUrl: string;
   receiptUrl: string;
+  /** "full" (default), "advance" (50% paid, balance due) or "balance" (rest of an advance). */
+  plan?: "full" | "advance" | "balance" | undefined;
+  planLabel?: string | undefined;
+  orderTotal?: string | undefined;
+  paidBefore?: string | undefined;
+  paidTotal?: string | undefined;
+  balanceDue?: string | undefined;
+  payBalanceUrl?: string | undefined;
+  parentOrderNumber?: string | undefined;
   receipt?: MailAttachment | undefined;
 }): Promise<{ success: boolean; via?: string; errors: string[] }> {
   const firstName = o.name.trim().split(/\s+/)[0] || "there";
-  const subject = `Payment Confirmed — Quickupp AI Studio | Order #${o.orderNumber}`;
+  const subject =
+    o.plan === "advance" && o.balanceDue
+      ? `Advance Payment Confirmed — Quickupp AI Studio | Order #${o.orderNumber}`
+      : o.plan === "balance"
+        ? `Balance Payment Confirmed (Fully Paid) — Quickupp AI Studio | Order #${o.parentOrderNumber || o.orderNumber}`
+        : `Payment Confirmed — Quickupp AI Studio | Order #${o.orderNumber}`;
   // Logo embedded inside the email (shows even when the email app blocks web images).
   let logo: MailAttachment | undefined;
   try {
@@ -564,14 +626,26 @@ export async function sendPaymentReceiptEmail(o: {
     "Thank you for choosing Quickupp AI Studio.",
     "We're pleased to confirm that your payment has been successfully received.",
     "",
-    "PAYMENT CONFIRMED - Status: PAID",
+    o.plan === "advance" && o.balanceDue
+      ? `ADVANCE PAYMENT CONFIRMED - Status: ADVANCE PAID (50%) - Balance due: ${o.balanceDue}`
+      : `PAYMENT CONFIRMED - Status: ${o.plan === "balance" ? "FULLY PAID" : "PAID"}`,
     "",
     "ORDER DETAILS",
     `Order / Invoice No.: ${o.orderNumber}`,
     `Service: ${o.service}`,
     `Package: ${o.pack}`,
     ...(o.delivery ? [`Delivery: ${o.delivery}`] : []),
-    `Amount Paid: ${o.amount}`,
+    ...(o.plan === "advance"
+      ? [`Order Total: ${o.orderTotal || o.amount}`, `Amount Paid (50% Advance): ${o.amount}`, `Balance Due: ${o.balanceDue || "-"}`]
+      : o.plan === "balance"
+        ? [
+            `Order Total: ${o.orderTotal || o.amount}`,
+            `Paid Earlier (50% Advance): ${o.paidBefore || "-"}`,
+            `Amount Paid Now (Balance): ${o.amount}`,
+            "Balance Due: Nil (Fully Paid)",
+          ]
+        : [`Amount Paid: ${o.amount}`]),
+    `Payment Type: ${o.planLabel || "Full Payment"}`,
     `Payment Date: ${o.paymentDate}`,
     `Payment Time: ${o.paymentTime}`,
     `Payment Method: ${o.method}`,
@@ -583,6 +657,9 @@ export async function sendPaymentReceiptEmail(o: {
     ...(o.company ? [`Company: ${o.company}`] : []),
     ...(o.billingAddress ? [`Billing Address: ${o.billingAddress}`] : []),
     "",
+    ...(o.plan === "advance" && o.balanceDue && o.payBalanceUrl
+      ? ["BALANCE PENDING: " + o.balanceDue, `Pay the remaining balance: ${o.payBalanceUrl}`, ""]
+      : []),
     "Your payment receipt/invoice is attached to this email as a PDF.",
     `Download payment receipt: ${o.receiptUrl}`,
     "",
