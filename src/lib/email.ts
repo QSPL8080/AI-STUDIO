@@ -288,8 +288,13 @@ export interface MailAttachment {
   contentType: string;
 }
 
-async function sendViaSmtp(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; fromName: string; attachments?: MailAttachment[] | undefined }) {
-  const { accounts, missing } = smtpAccounts();
+async function sendViaSmtp(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; fromName: string; attachments?: MailAttachment[] | undefined; preferWebsiteMailbox?: boolean }) {
+  const { accounts: all, missing } = smtpAccounts();
+  // Customer emails go out from the website mailbox (info@quickuppaistudio.in) when it is set up;
+  // Gmail stays as the backup.
+  const accounts = mail.preferWebsiteMailbox
+    ? [...all.filter((a) => a.label === "Hostinger SMTP"), ...all.filter((a) => a.label !== "Hostinger SMTP")]
+    : all;
   const errors: string[] = [...missing];
   for (const acc of accounts) {
     for (const port of [465, 587]) {
@@ -579,7 +584,7 @@ export async function sendPaymentReceiptEmail(o: {
   ].join("\n");
   const attachments = o.receipt ? [o.receipt] : undefined;
   const replyTo = process.env.SUPPORT_EMAIL || "info@quickuppaistudio.in";
-  const smtp = await sendViaSmtp({ to: o.to, subject, html, text, replyTo, fromName: "Quickupp AI Studio", attachments });
+  const smtp = await sendViaSmtp({ to: o.to, subject, html, text, replyTo, fromName: "Quickupp AI Studio", attachments, preferWebsiteMailbox: true });
   if (smtp.success) return { success: true, via: smtp.via, errors: smtp.errors };
   const errors = [...smtp.errors];
   const resend = await sendViaResend({ to: o.to, subject, html, text, replyTo, from: "Quickupp AI Studio <orders@quickuppaistudio.in>", attachments });

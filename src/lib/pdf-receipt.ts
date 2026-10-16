@@ -2,7 +2,7 @@ import PDFDocument from "pdfkit";
 import {
   getReceiptRegularFont,
   getReceiptBoldFont,
-  getCompanyLogoBuffer,
+  getCompanyLogoDarkBuffer,
 } from "./receipt-assets.ts";
 
 export interface InvoiceData {
@@ -27,486 +27,278 @@ export interface InvoiceData {
   transactionId: string;
 }
 
+const SITE = "quickuppaistudio.in";
+const SITE_URL = "https://quickuppaistudio.in";
+const SUPPORT_EMAIL = "info@quickuppaistudio.in";
+const COMPANY = "Quickupp Softech Private Limited";
+
+const C = {
+  brand: "#7c3aed",
+  brandDark: "#6d28d9",
+  brandSoft: "#f5f3ff",
+  brandLine: "#ddd6fe",
+  ink: "#0f172a",
+  body: "#334155",
+  muted: "#64748b",
+  faint: "#94a3b8",
+  line: "#e2e8f0",
+  panel: "#f8fafc",
+  link: "#2563eb",
+  green: "#16a34a",
+};
+
 /**
- * Generates an official, beautiful PDF Payment Receipt / Invoice buffer
- * matching Quickupp AI Studio branding and official format.
- * 100% self-contained with embedded fonts and logo for zero-crash reliability.
+ * Official A4 PDF payment receipt for Quickupp AI Studio (India).
+ * Fills the full page: header, bill-to, payment table, totals, payment information,
+ * thank-you note, and a contact footer anchored to the bottom of the page.
+ * Fonts and logo are embedded, so it renders the same everywhere.
  */
 export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffer> {
   const currency = data.currency || "INR";
   const money = (n: number) =>
     currency === "INR"
-      ? `INR ${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      ? `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       : `${currency} ${n.toFixed(2)}`;
+
   return new Promise((resolve, reject) => {
     try {
-      const regularFont = getReceiptRegularFont();
-      const boldFont = getReceiptBoldFont();
-      const logoBuffer = getCompanyLogoBuffer();
-
       const doc = new PDFDocument({
-        font: regularFont as unknown as string,
-        margin: 42,
         size: "A4",
+        margin: 0,
         info: {
           Title: `Payment Receipt - ${data.orderNumber}`,
           Author: "Quickupp AI Studio",
           Subject: `Official Payment Receipt for Order ${data.orderNumber}`,
-          Creator: "Quickupp AI Studio Invoice Generator",
+          Creator: "Quickupp AI Studio",
         },
       });
-
-      doc.registerFont("ReceiptRegular", regularFont);
-      doc.registerFont("ReceiptBold", boldFont);
+      doc.registerFont("R", getReceiptRegularFont());
+      doc.registerFont("B", getReceiptBoldFont());
 
       const chunks: Buffer[] = [];
-      doc.on("data", (chunk) => chunks.push(chunk));
+      doc.on("data", (c) => chunks.push(c));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", (err) => reject(err));
+      doc.on("error", reject);
 
-      const pageWidth = 595.28;
-      const margin = 42;
-      const contentWidth = pageWidth - margin * 2;
+      const W = 595.28;
+      const H = 841.89;
+      const M = 48;
+      const CW = W - M * 2;
+      const R = W - M;
 
-      // Top colored accent bar
-      doc
-        .rect(0, 0, pageWidth, 6)
-        .fill("#7c3aed");
+      // Label + value on one line ("Label: value"), returns nothing; caller manages y.
+      const pair = (
+        label: string,
+        value: string,
+        x: number,
+        y: number,
+        o: { size?: number; bold?: boolean; color?: string; link?: string; width?: number } = {},
+      ) => {
+        const size = o.size ?? 11;
+        doc.font("R").fontSize(size).fillColor(C.muted).text(`${label} `, x, y, { continued: true });
+        doc
+          .font(o.bold === false ? "R" : "B")
+          .fillColor(o.link ? C.link : o.color || C.ink)
+          .text(value, o.link ? { link: o.link, underline: true } : {});
+      };
+      const section = (t: string, y: number) =>
+        doc.font("B").fontSize(12).fillColor(C.brandDark).text(t, M, y, { characterSpacing: 0.4 });
 
-      const topY = 24;
+      // ── Top brand bar ─────────────────────────────────────────────
+      const grad = doc.linearGradient(0, 0, W, 0);
+      grad.stop(0, "#4f46e5").stop(0.5, "#a832e6").stop(1, "#e11d74");
+      doc.rect(0, 0, W, 8).fill(grad);
 
-      // 1. TOP LEFT: Official PDF Logo
-      let leftEndY = topY;
+      // ── Header ────────────────────────────────────────────────────
+      let ly = 40;
       try {
-        // The logo has white lettering, so it sits on a dark brand panel.
-        doc.roundedRect(margin, topY - 4, 181, 36, 6).fill("#0b0717");
-        doc.image(logoBuffer, margin + 8, topY + 2, { width: 165 });
-        leftEndY = topY + 40;
+        doc.image(getCompanyLogoDarkBuffer(), M, ly, { width: 200 });
+        ly += 40;
       } catch {
-        doc
-          .font("ReceiptBold")
-          .fontSize(16)
-          .fillColor("#6d28d9")
-          .text("QUICKUPP AI STUDIO", margin, topY);
-        leftEndY = topY + 22;
+        doc.font("B").fontSize(20).fillColor(C.brandDark).text("Quickupp AI Studio", M, ly);
+        ly += 30;
       }
+      doc.font("R").fontSize(10.5).fillColor(C.muted).text("AI-Powered Creative & Video Studio", M, ly);
+      ly += 15;
+      doc.font("R").fontSize(10).fillColor(C.muted).text(`Operated by ${COMPANY}`, M, ly);
+      ly += 17;
+      pair("Email:", SUPPORT_EMAIL, M, ly, { size: 10.5, bold: false, link: `mailto:${SUPPORT_EMAIL}` });
+      ly += 15;
+      pair("Website:", SITE, M, ly, { size: 10.5, bold: false, link: SITE_URL });
+      ly += 15;
 
-      // Left subtitle lines below logo (Company metadata)
-      doc
-        .font("ReceiptRegular")
-        .fontSize(8.5)
-        .fillColor("#64748b")
-        .text("AI-Powered Creative & Video Studio", margin, leftEndY);
+      const rw = 260;
+      const rx = R - rw;
+      let ry = 40;
+      doc.font("B").fontSize(24).fillColor(C.ink).text("PAYMENT RECEIPT", rx, ry, { width: rw, align: "right" });
+      ry += 34;
+      doc.font("B").fontSize(11).fillColor(C.ink).text(`Receipt No: ${data.orderNumber}`, rx, ry, { width: rw, align: "right" });
+      ry += 17;
+      const issueDate =
+        data.issueDate ||
+        data.paymentDate ||
+        new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "long" });
+      doc.font("R").fontSize(11).fillColor(C.body).text(`Date: ${issueDate}`, rx, ry, { width: rw, align: "right" });
+      ry += 18;
+      // PAID pill
+      const pillW = 118;
+      const pillH = 22;
+      const pillX = R - pillW;
+      doc.roundedRect(pillX, ry, pillW, pillH, 11).fill("#dcfce7");
+      doc.font("B").fontSize(10).fillColor(C.green).text("PAYMENT: PAID", pillX + 12, ry + 6, { lineBreak: false });
+      drawTick(doc, pillX + pillW - 22, ry + 7.5);
+      ry += pillH;
 
-      leftEndY += 12;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(8)
-        .fillColor("#64748b")
-        .text("Hinjewadi Phase 1, Pune, Maharashtra, India", margin, leftEndY);
+      let y = Math.max(ly, ry) + 22;
+      doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.line).stroke();
+      y += 24;
 
-      leftEndY += 12;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(8.5)
-        .fillColor("#475569")
-        .text("Email: ", margin, leftEndY, { continued: true })
-        .fillColor("#2563eb")
-        .text("info@quickuppaistudio.in", {
-          link: "mailto:info@quickuppaistudio.in",
-          underline: true,
-        });
-
-      leftEndY += 12;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(8.5)
-        .fillColor("#475569")
-        .text("Website: ", margin, leftEndY, { continued: true })
-        .fillColor("#2563eb")
-        .text("quickuppaistudio.in", {
-          link: "https://quickuppaistudio.in",
-          underline: true,
-        });
-
-      leftEndY += 14;
-
-      // TOP RIGHT: Clean Header (No overlapping text)
-      const rightColWidth = 250;
-      const rightColX = pageWidth - margin - rightColWidth;
-      let rightY = topY;
-
-      doc
-        .font("ReceiptBold")
-        .fontSize(16)
-        .fillColor("#0f172a")
-        .text("PAYMENT RECEIPT", rightColX, rightY, { width: rightColWidth, align: "right" });
-
-      rightY += 22;
-
-      doc
-        .font("ReceiptBold")
-        .fontSize(9)
-        .fillColor("#0f172a")
-        .text(`Receipt No: ${data.orderNumber}`, rightColX, rightY, { width: rightColWidth, align: "right" });
-
-      rightY += 13;
-
-      const issueDateStr = data.issueDate || data.paymentDate || new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "long" });
-      doc
-        .font("ReceiptRegular")
-        .fontSize(9)
-        .fillColor("#475569")
-        .text(`Date: ${issueDateStr}`, rightColX, rightY, { width: rightColWidth, align: "right" });
-
-      rightY += 13;
-
-      doc
-        .font("ReceiptBold")
-        .fontSize(9)
-        .fillColor("#16a34a")
-        .text("Payment Status: PAID", rightColX, rightY, { width: rightColWidth, align: "right" });
-
-      rightY += 14;
-
-      // Divider line
-      let currentY = Math.max(leftEndY, rightY) + 10;
-      doc
-        .strokeColor("#e2e8f0")
-        .lineWidth(1)
-        .moveTo(margin, currentY)
-        .lineTo(pageWidth - margin, currentY)
-        .stroke();
-
-      currentY += 14;
-
-      // 2. BILL TO Section
-      doc
-        .font("ReceiptBold")
-        .fontSize(10)
-        .fillColor("#6d28d9")
-        .text("BILL TO", margin, currentY);
-
-      currentY += 14;
-
-      doc
-        .font("ReceiptRegular")
-        .fontSize(9.5)
-        .fillColor("#475569")
-        .text("Customer Name: ", margin, currentY, { continued: true })
-        .font("ReceiptBold")
-        .fillColor("#0f172a")
-        .text(data.customerName);
-
-      currentY += 14;
-
-      doc
-        .font("ReceiptRegular")
-        .fontSize(9.5)
-        .fillColor("#475569")
-        .text("Email: ", margin, currentY, { continued: true })
-        .fillColor("#2563eb")
-        .text(data.customerEmail, {
-          link: `mailto:${data.customerEmail}`,
-          underline: true,
-        });
-
-      if (data.customerCompany && data.customerCompany.trim()) {
-        currentY += 14;
-        doc
-          .font("ReceiptRegular")
-          .fontSize(9.5)
-          .fillColor("#475569")
-          .text("Company: ", margin, currentY, { continued: true })
-          .font("ReceiptBold")
-          .fillColor("#0f172a")
-          .text(data.customerCompany);
+      // ── Bill to ───────────────────────────────────────────────────
+      section("BILL TO", y);
+      y += 22;
+      pair("Customer Name:", data.customerName, M, y);
+      y += 19;
+      pair("Email:", data.customerEmail, M, y, { bold: false, link: `mailto:${data.customerEmail}` });
+      y += 19;
+      if (data.customerCompany?.trim()) {
+        pair("Company:", data.customerCompany.trim(), M, y);
+        y += 19;
       }
+      pair("Billing Address:", (data.billingAddress || "India").replace(/[\r\n]+/g, ", ").trim(), M, y, { bold: false, color: C.ink });
+      y += 28;
 
-      // Billing address - single clean line as requested
-      const formattedAddress = (data.billingAddress || "India").replace(/[\r\n]+/g, ", ").trim();
-      currentY += 14;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(9.5)
-        .fillColor("#475569")
-        .text("Billing Address: ", margin, currentY, { continued: true })
-        .font("ReceiptRegular")
-        .fillColor("#0f172a")
-        .text(formattedAddress);
+      // ── Payment details table ─────────────────────────────────────
+      section("PAYMENT DETAILS", y);
+      y += 22;
+      const c1 = M + 16;
+      const c2 = M + 340;
+      const c2w = 60;
+      const c3w = 120;
+      const c3 = R - 16 - c3w;
+      doc.roundedRect(M, y, CW, 30, 6).fill("#f1f5f9");
+      doc.font("B").fontSize(10.5).fillColor(C.muted);
+      doc.text("Description", c1, y + 10);
+      doc.text("Qty", c2, y + 10, { width: c2w, align: "center" });
+      doc.text("Amount", c3, y + 10, { width: c3w, align: "right" });
+      y += 30;
+      const item = data.packageDescription ? `${data.serviceName} – ${data.packageDescription}` : data.serviceName;
+      const rowH = 46;
+      doc.font("B").fontSize(12).fillColor(C.ink).text(item, c1, y + 16, { width: c2 - c1 - 10 });
+      doc.font("R").fontSize(12).fillColor(C.ink).text(String(data.qty || 1), c2, y + 16, { width: c2w, align: "center" });
+      doc.font("B").fontSize(12).fillColor(C.ink).text(money(data.amount), c3, y + 16, { width: c3w, align: "right" });
+      y += rowH;
+      doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.line).stroke();
+      y += 16;
 
-      currentY += 20;
-
-      // 3. PAYMENT DETAILS Table
-      doc
-        .font("ReceiptBold")
-        .fontSize(10)
-        .fillColor("#6d28d9")
-        .text("PAYMENT DETAILS", margin, currentY);
-
-      currentY += 13;
-
-      // Table Header Box
-      const tableX = margin;
-      const tableRight = tableX + contentWidth; // 553.28
-      const col1X = tableX + 12;
-      const col1Width = 320;
-      const col2X = tableX + 332;
-      const col2Width = 50;
-      const col3X = tableX + 382;
-      const col3Width = tableRight - 12 - col3X; // 541.28 - 424 = 117.28
-
-      doc
-        .rect(tableX, currentY, contentWidth, 20)
-        .fill("#f8fafc")
-        .strokeColor("#e2e8f0")
-        .lineWidth(1)
-        .stroke();
-
-      doc
-        .font("ReceiptBold")
-        .fontSize(9)
-        .fillColor("#475569")
-        .text("Description", col1X, currentY + 5, { width: col1Width })
-        .text("Qty", col2X, currentY + 5, { width: col2Width, align: "center" })
-        .text("Amount", col3X, currentY + 5, { width: col3Width, align: "right" });
-
-      currentY += 20;
-
-      // Table Row
-      const rowHeight = 30;
-      doc
-        .rect(tableX, currentY, contentWidth, rowHeight)
-        .fill("#ffffff")
-        .strokeColor("#e2e8f0")
-        .lineWidth(1)
-        .stroke();
-
-      const itemDesc = data.packageDescription
-        ? `${data.serviceName} – ${data.packageDescription}`
-        : `${data.serviceName}`;
-
-      const qty = data.qty || 1;
-      const formattedAmount = money(data.amount);
-
-      doc
-        .font("ReceiptBold")
-        .fontSize(9.5)
-        .fillColor("#0f172a")
-        .text(itemDesc, col1X, currentY + 9, { width: col1Width })
-        .font("ReceiptRegular")
-        .fontSize(9.5)
-        .text(String(qty), col2X, currentY + 9, { width: col2Width, align: "center" })
-        .font("ReceiptBold")
-        .fontSize(9.5)
-        .text(formattedAmount, col3X, currentY + 9, { width: col3Width, align: "right" });
-
-      currentY += rowHeight + 10;
-
-      // Subtotal, Tax, Total Block (Mathematically right aligned to exact table border)
-      const totalsWidth = 220;
-      const totalsX = tableRight - totalsWidth; // 333.28 to 553.28
-      const padRight = 12; // Matches table column right padding
-      const totalsLabelX = totalsX + 12;
-      const totalsLabelWidth = 90;
-      const totalsValX = totalsX + totalsLabelWidth;
-      const totalsValWidth = totalsWidth - totalsLabelWidth - padRight; // 220 - 90 - 12 = 118 (terminates at 541.28)
-
-      const subtotalVal = data.subtotal !== undefined ? data.subtotal : data.amount;
-      const taxVal = data.tax !== undefined ? data.tax : 0;
-      const totalVal = data.total !== undefined ? data.total : data.amount;
-
-      doc
-        .font("ReceiptRegular")
-        .fontSize(9)
-        .fillColor("#64748b")
-        .text("Subtotal:", totalsLabelX, currentY, { width: totalsLabelWidth, align: "left" })
-        .font("ReceiptBold")
-        .fillColor("#0f172a")
-        .text(money(subtotalVal), totalsValX, currentY, { width: totalsValWidth, align: "right" });
-
-      currentY += 14;
-
+      // Totals
+      const tw = 250;
+      const tx = R - tw;
+      const tl = tx + 16;
+      const tv = R - 16 - 130;
+      const sub = data.subtotal ?? data.amount;
+      const tot = data.total ?? data.amount;
+      doc.font("R").fontSize(11).fillColor(C.muted).text("Subtotal:", tl, y);
+      doc.font("B").fontSize(11).fillColor(C.ink).text(money(sub), tv, y, { width: 130, align: "right" });
+      y += 20;
       if (data.tax !== undefined) {
-        doc
-          .font("ReceiptRegular")
-          .fontSize(9)
-          .fillColor("#64748b")
-          .text("Tax:", totalsLabelX, currentY, { width: totalsLabelWidth, align: "left" })
-          .font("ReceiptBold")
-          .fillColor("#0f172a")
-          .text(money(taxVal), totalsValX, currentY, { width: totalsValWidth, align: "right" });
-        currentY += 15;
-      } else {
-        currentY += 1;
+        doc.font("R").fontSize(11).fillColor(C.muted).text("Tax:", tl, y);
+        doc.font("B").fontSize(11).fillColor(C.ink).text(money(data.tax), tv, y, { width: 130, align: "right" });
+        y += 20;
       }
+      doc.roundedRect(tx, y, tw, 36, 8).fillAndStroke(C.brandSoft, C.brandLine);
+      doc.font("B").fontSize(13).fillColor(C.brandDark).text("Total:", tl, y + 11);
+      doc.font("B").fontSize(13).fillColor(C.brandDark).text(`${money(tot)} ${currency}`, tv - 20, y + 11, { width: 150, align: "right" });
+      y += 36 + 24;
 
-      // Total Box (Border and values align perfectly with table)
-      doc
-        .roundedRect(totalsX, currentY - 4, totalsWidth, 24, 4)
-        .fill("#f5f3ff")
-        .strokeColor("#ddd6fe")
-        .lineWidth(1)
-        .stroke();
+      // ── Payment information card ─────────────────────────────────
+      const cardH = 106;
+      doc.roundedRect(M, y, CW, cardH, 10).fillAndStroke(C.panel, C.line);
+      doc.font("B").fontSize(12).fillColor(C.body).text("PAYMENT INFORMATION", M + 20, y + 18, { characterSpacing: 0.4 });
+      const ix = M + 20;
+      const jx = M + CW / 2 + 10;
+      let cy = y + 44;
+      const paymentTime =
+        data.paymentTime ||
+        new Date()
+          .toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true })
+          .toUpperCase() + " IST";
+      pair("Payment Method:", data.paymentMethod || "PayU", ix, cy, { size: 10.5 });
+      pair("Payment Date:", data.paymentDate || issueDate, jx, cy, { size: 10.5 });
+      cy += 20;
+      pair("Transaction ID:", data.transactionId, ix, cy, { size: 10.5 });
+      pair("Payment Time:", paymentTime, jx, cy, { size: 10.5 });
+      cy += 20;
+      pair("Payment Status:", "PAID", ix, cy, { size: 10.5, color: C.green });
+      const tickX =
+        ix +
+        doc.font("R").fontSize(10.5).widthOfString("Payment Status: ") +
+        doc.font("B").fontSize(10.5).widthOfString("PAID") +
+        5;
+      drawTick(doc, tickX, cy + 2);
+      y += cardH + 28;
+
+      // ── Thank you ─────────────────────────────────────────────────
+      doc.font("B").fontSize(15).fillColor(C.ink).text("THANK YOU FOR YOUR PURCHASE", M, y);
+      y += 24;
+      doc.font("R").fontSize(11).fillColor(C.body).text("Your payment has been successfully received.", M, y);
+      y += 17;
+      doc.font("R").fontSize(11).fillColor(C.body).text("Your order is now being processed by the Quickupp AI Studio team.", M, y);
+      y += 17;
+      doc.font("R").fontSize(11).fillColor(C.body).text(
+        "Please keep your receipt number handy when communicating with our team.",
+        M,
+        y,
+      );
+
+      // ── Footer (anchored to the bottom of the page) ──────────────
+      const fy = H - 140;
+      doc.moveTo(M, fy).lineTo(R, fy).lineWidth(1).strokeColor(C.line).stroke();
+      let f = fy + 18;
+      doc.font("B").fontSize(10.5).fillColor(C.body).text("For questions regarding your order or payment:", M, f);
+      f += 18;
+      doc.font("B").fontSize(12).fillColor(C.brandDark).text("Quickupp AI Studio", M, f);
+      f += 18;
+      pair("Email:", SUPPORT_EMAIL, M, f, { size: 10.5, bold: false, link: `mailto:${SUPPORT_EMAIL}` });
+      f += 16;
+      pair("Website:", SITE, M, f, { size: 10.5, bold: false, link: SITE_URL });
+
+      // Right side of footer: receipt summary
+      const sx = R - 200;
+      doc.font("R").fontSize(9.5).fillColor(C.muted).text("Receipt No.", sx, fy + 18, { width: 200, align: "right" });
+      doc.font("B").fontSize(11).fillColor(C.ink).text(data.orderNumber, sx, fy + 32, { width: 200, align: "right" });
+      doc.font("R").fontSize(9.5).fillColor(C.muted).text("Amount Paid", sx, fy + 54, { width: 200, align: "right" });
+      doc.font("B").fontSize(11).fillColor(C.ink).text(`${money(tot)} ${currency}`, sx, fy + 68, { width: 200, align: "right" });
 
       doc
-        .font("ReceiptBold")
-        .fontSize(10)
-        .fillColor("#6d28d9")
-        .text("Total:", totalsLabelX, currentY + 3, { width: totalsLabelWidth, align: "left" })
+        .font("R")
+        .fontSize(8)
+        .fillColor(C.faint)
         .text(
-          money(totalVal),
-          totalsValX,
-          currentY + 3,
-          { width: totalsValWidth, align: "right" }
+          `This document serves as your official payment receipt for the transaction described above. Operated by ${COMPANY}.`,
+          M,
+          H - 32,
+          { width: CW, align: "center" },
         );
-
-      currentY += 32;
-
-      // 4. Payment Information Card
-      doc
-        .roundedRect(margin, currentY, contentWidth, 74, 6)
-        .fill("#f8fafc")
-        .strokeColor("#e2e8f0")
-        .lineWidth(1)
-        .stroke();
-
-      doc
-        .font("ReceiptBold")
-        .fontSize(9.5)
-        .fillColor("#475569")
-        .text("PAYMENT INFORMATION", margin + 14, currentY + 10);
-
-      const infoLeftX = margin + 14;
-      const infoRightX = margin + 270;
-      let cardY = currentY + 25;
-
-      const paymentMethodStr = data.paymentMethod || "PayU";
-      doc
-        .font("ReceiptRegular")
-        .fontSize(9)
-        .fillColor("#64748b")
-        .text("Payment Method: ", infoLeftX, cardY, { continued: true })
-        .font("ReceiptBold")
-        .fillColor("#0f172a")
-        .text(paymentMethodStr);
-
-      const paymentDateStr = data.paymentDate || issueDateStr;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(9)
-        .fillColor("#64748b")
-        .text("Payment Date: ", infoRightX, cardY, { continued: true })
-        .font("ReceiptBold")
-        .fillColor("#0f172a")
-        .text(paymentDateStr);
-
-      cardY += 14;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(9)
-        .fillColor("#64748b")
-        .text("Transaction ID: ", infoLeftX, cardY, { continued: true })
-        .font("ReceiptBold")
-        .fillColor("#0f172a")
-        .text(data.transactionId);
-
-      const paymentTimeStr = data.paymentTime || new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit" }) + " IST";
-      doc
-        .font("ReceiptRegular")
-        .fontSize(9)
-        .fillColor("#64748b")
-        .text("Payment Time: ", infoRightX, cardY, { continued: true })
-        .font("ReceiptBold")
-        .fillColor("#0f172a")
-        .text(paymentTimeStr);
-
-      cardY += 14;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(9)
-        .fillColor("#64748b")
-        .text("Payment Status: ", infoLeftX, cardY, { continued: true })
-        .font("ReceiptBold")
-        .fillColor("#16a34a")
-        .text("PAID");
-
-      currentY += 88;
-
-      // 5. THANK YOU FOR YOUR PURCHASE Section
-      doc
-        .font("ReceiptBold")
-        .fontSize(10)
-        .fillColor("#0f172a")
-        .text("THANK YOU FOR YOUR PURCHASE", margin, currentY);
-
-      currentY += 13;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(8.5)
-        .fillColor("#334155")
-        .text("Your payment has been successfully received.", margin, currentY);
-
-      currentY += 12;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(8.5)
-        .fillColor("#334155")
-        .text("Your order is now being processed by the Quickupp AI Studio team.", margin, currentY);
-
-      currentY += 14;
-      doc
-        .font("ReceiptBold")
-        .fontSize(8.5)
-        .fillColor("#475569")
-        .text("For questions regarding your order or payment:", margin, currentY);
-
-      currentY += 12;
-      doc
-        .font("ReceiptBold")
-        .fontSize(9)
-        .fillColor("#6d28d9")
-        .text("Quickupp AI Studio", margin, currentY);
-
-      currentY += 12;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(8.5)
-        .fillColor("#475569")
-        .text("Email: ", margin, currentY, { continued: true })
-        .fillColor("#2563eb")
-        .text("info@quickuppaistudio.in", {
-          link: "mailto:info@quickuppaistudio.in",
-          underline: true,
-        });
-
-      currentY += 12;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(8.5)
-        .fillColor("#475569")
-        .text("Website: ", margin, currentY, { continued: true })
-        .fillColor("#2563eb")
-        .text("quickuppaistudio.in", {
-          link: "https://quickuppaistudio.in",
-          underline: true,
-        });
-
-      currentY += 16;
-      doc
-        .font("ReceiptRegular")
-        .fontSize(7.5)
-        .fillColor("#94a3b8")
-        .text(
-          "This document serves as your official payment receipt for the transaction described above. Quickupp AI Studio, Office 411, Suratwala Mark Plazzo, Hinjewadi Phase 1, Pune 411057, India.",
-          margin,
-          currentY,
-          { width: contentWidth }
-        );
+      doc.rect(0, H - 8, W, 8).fill(grad);
 
       doc.end();
     } catch (err) {
       reject(err);
     }
   });
+}
+
+/** Small green check mark (drawn, so it never shows as a missing-glyph box). */
+function drawTick(doc: PDFKit.PDFDocument, x: number, y: number) {
+  doc
+    .save()
+    .lineWidth(1.7)
+    .lineCap("round")
+    .lineJoin("round")
+    .strokeColor("#16a34a")
+    .moveTo(x, y + 4)
+    .lineTo(x + 3.2, y + 7.2)
+    .lineTo(x + 9, y)
+    .stroke()
+    .restore();
 }

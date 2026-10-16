@@ -143,7 +143,8 @@ export async function buildReceiptPdf(o: any) {
         timeZone: "Asia/Kolkata",
         hour: "numeric",
         minute: "2-digit",
-      }) + " IST",
+        hour12: true,
+      }).toUpperCase() + " IST",
     customerName: v.name,
     customerEmail: v.email,
     customerCompany: v.company || undefined,
@@ -153,7 +154,7 @@ export async function buildReceiptPdf(o: any) {
     qty: 1,
     amount: v.amount,
     currency: "INR",
-    paymentMethod: `${v.method} (PayU)`,
+    paymentMethod: `PayU / ${v.method}`,
     transactionId: v.transactionId,
   });
 }
@@ -163,6 +164,7 @@ async function sendReceipt(orderId: string) {
   const rows = await dbSelect(ORDERS_TABLE, { filters: [{ col: "id", op: "eq", value: orderId }] });
   const o: any = rows[0];
   if (!o || o.payment_status !== "COMPLETED") return;
+  if (parseDetails(o).receiptEmail === "sent") return; // already emailed
   const v = orderView(o);
   let receipt;
   try {
@@ -424,7 +426,12 @@ async function applyPayUResult(order: any, r: PayUTxnStatus) {
   } catch {
     /* ignore */
   }
-  await dbUpdate(ORDERS_TABLE, [{ col: "id", op: "eq", value: order.id }], {
+  // Only update if nobody else changed the order meanwhile (the browser callback and PayU's
+  // webhook can arrive at the same moment): this way the receipt email is sent exactly once.
+  const updated = await dbUpdate(ORDERS_TABLE, [
+    { col: "id", op: "eq", value: order.id },
+    { col: "payment_status", op: "eq", value: order.payment_status },
+  ], {
     payment_status: status,
     paypal_status: gwLabel,
     paypal_capture_id: r.mihpayid || order.paypal_capture_id || null,
@@ -441,6 +448,10 @@ async function applyPayUResult(order: any, r: PayUTxnStatus) {
     }),
     updated_at: new Date().toISOString(),
   });
+  if (!updated.length) {
+    const fresh = await findByTxn(String(order.paypal_order_id));
+    return String(fresh?.payment_status || order.payment_status);
+  }
   await logActivity({
     title:
       status === "COMPLETED"

@@ -76,7 +76,7 @@ function ConfirmationPage() {
         <div className="mx-auto w-full max-w-2xl">
           {!order && !error && <LoadingCard />}
           {error && <ErrorCard message={error} />}
-          {order && <OrderCard order={order} />}
+          {order && <OrderCard order={order} token={t} />}
         </div>
       </main>
       <Footer />
@@ -128,7 +128,7 @@ function ErrorCard({ message }: { message: string }) {
   );
 }
 
-function OrderCard({ order }: { order: OrderView }) {
+function OrderCard({ order, token }: { order: OrderView; token: string }) {
   const paid = order.status === "COMPLETED";
   const pending = order.status === "PENDING";
 
@@ -232,6 +232,12 @@ function OrderCard({ order }: { order: OrderView }) {
             <p className="mt-2 text-xs leading-relaxed text-white/50">
               Please check your inbox, and your spam/junk folder if you don't see it shortly.
             </p>
+            <a
+              href={`/api/receipt?${new URLSearchParams({ txn: order.txnid, t: token }).toString()}`}
+              className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-5 text-sm font-semibold text-white transition-colors hover:bg-white/[0.1]"
+            >
+              ⤓ Download Receipt (PDF)
+            </a>
           </div>
         </div>
       )}
