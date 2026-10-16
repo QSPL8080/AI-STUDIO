@@ -88,9 +88,12 @@ export function renderBrandedEmail(opts: {
 // styles so it renders the same in Gmail, Outlook, Apple Mail and phones).
 // ---------------------------------------------------------------------------
 const EMAIL_LOGO_DARK_URL =
-  process.env.EMAIL_LOGO_DARK_URL || `${SITE_URL}/images/logo-dark.png`;
+  process.env.EMAIL_LOGO_DARK_URL || `${SITE_URL}/images/logo-email.jpg`;
+const EMAIL_LOGO_CID = "quickupp-ai-studio-logo";
 
 function renderPaymentConfirmationEmail(o: {
+  /** Image source for the logo: "cid:..." when embedded in the email, otherwise a URL. */
+  logoSrc: string;
   firstName: string;
   name: string;
   email: string;
@@ -163,9 +166,9 @@ function renderPaymentConfirmationEmail(o: {
     <tr><td style="height:5px;line-height:5px;font-size:0;background-color:#a832e6;background-image:linear-gradient(90deg,#4f46e5,#a832e6,#e11d74)">&nbsp;</td></tr>
 
     <!-- Logo -->
-    <tr><td align="center" style="padding:30px 32px 22px;border-bottom:1px solid #f0edf7">
+    <tr><td align="center" bgcolor="#ffffff" style="padding:26px 32px 18px;border-bottom:1px solid #f0edf7;background:#ffffff">
       <a href="${e(SITE_URL)}" target="_blank" style="text-decoration:none">
-        <img src="${e(EMAIL_LOGO_DARK_URL)}" alt="Quickupp AI Studio" width="220" style="display:block;width:220px;max-width:70%;height:auto;border:0;outline:none;font-family:${font};font-size:20px;font-weight:800;color:#111827">
+        <img src="${e(o.logoSrc)}" alt="Quickupp AI Studio" width="230" style="display:block;width:230px;max-width:72%;height:auto;border:0;outline:none;background:#ffffff;font-family:${font};font-size:20px;font-weight:800;color:#111827">
       </a>
     </td></tr>
 
@@ -229,7 +232,6 @@ function renderPaymentConfirmationEmail(o: {
     <tr><td style="padding:24px 36px 30px;font-family:${font}">
       <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#374151">If you have any questions, simply reply to this email or contact us at:</p>
       <p style="margin:0 0 20px;font-size:14px;line-height:1.7;color:#374151">
-        <strong style="color:#111827">Quickupp AI Studio</strong><br>
         Email: <a href="mailto:info@quickuppaistudio.in" style="color:#7c3aed;text-decoration:none;font-weight:600">info@quickuppaistudio.in</a><br>
         Website: <a href="${e(SITE_URL)}" target="_blank" style="color:#7c3aed;text-decoration:none;font-weight:600">${e(site)}</a>
       </p>
@@ -242,11 +244,9 @@ function renderPaymentConfirmationEmail(o: {
     </td></tr>
 
     <!-- Footer -->
-    <tr><td align="center" style="padding:18px 32px;background:#0d091a;font-family:${font};font-size:12px;line-height:1.6;color:#a5a1b8">
-      <a href="${e(SITE_URL)}" target="_blank" style="color:#ffffff;text-decoration:none;font-weight:700">${e(site)}</a>
-      &nbsp;&middot;&nbsp;
-      <a href="mailto:info@quickuppaistudio.in" style="color:#ffffff;text-decoration:none">info@quickuppaistudio.in</a><br>
-      &copy; ${new Date().getFullYear()} Quickupp AI Studio &middot; Quickupp Softech Private Limited, Pune, India
+    <tr><td align="center" style="padding:18px 32px;background:#0d091a;font-family:${font};font-size:12px;line-height:1.7;color:#a5a1b8">
+      &copy; ${new Date().getFullYear()} Quickupp AI Studio<br>
+      Quickupp Softech Private Limited, Pune, India
     </td></tr>
   </table>
 
@@ -286,6 +286,8 @@ export interface MailAttachment {
   filename: string;
   content: Buffer;
   contentType: string;
+  /** Set for images shown inside the email body (<img src="cid:...">). */
+  cid?: string;
 }
 
 async function sendViaSmtp(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; fromName: string; attachments?: MailAttachment[] | undefined; preferWebsiteMailbox?: boolean }) {
@@ -536,7 +538,26 @@ export async function sendPaymentReceiptEmail(o: {
 }): Promise<{ success: boolean; via?: string; errors: string[] }> {
   const firstName = o.name.trim().split(/\s+/)[0] || "there";
   const subject = `Payment Confirmed — Quickupp AI Studio | Order #${o.orderNumber}`;
-  const html = renderPaymentConfirmationEmail({ ...o, firstName });
+  // Logo embedded inside the email (shows even when the email app blocks web images).
+  let logo: MailAttachment | undefined;
+  try {
+    const { getCompanyLogoDarkBuffer } = await import("./receipt-assets");
+    logo = {
+      filename: "quickupp-ai-studio-logo.jpg",
+      content: getCompanyLogoDarkBuffer(),
+      contentType: "image/jpeg",
+      cid: EMAIL_LOGO_CID,
+    };
+  } catch (e) {
+    console.error("Email logo not available", e);
+  }
+  const html = renderPaymentConfirmationEmail({
+    ...o,
+    firstName,
+    logoSrc: logo ? `cid:${EMAIL_LOGO_CID}` : EMAIL_LOGO_DARK_URL,
+  });
+  // The HTTPS fallback (Resend) links the hosted logo instead of embedding it.
+  const htmlLinkedLogo = renderPaymentConfirmationEmail({ ...o, firstName, logoSrc: EMAIL_LOGO_DARK_URL });
   const text = [
     `Hi ${firstName},`,
     "",
@@ -571,7 +592,6 @@ export async function sendPaymentReceiptEmail(o: {
     `Order Number: ${o.orderNumber}`,
     "",
     "If you have any questions, simply reply to this email or contact us at:",
-    "Quickupp AI Studio",
     "Email: info@quickuppaistudio.in",
     "Website: quickuppaistudio.in",
     "",
@@ -582,12 +602,12 @@ export async function sendPaymentReceiptEmail(o: {
     "AI-Powered Creative & Video Studio",
     "Operated by Quickupp Softech Private Limited",
   ].join("\n");
-  const attachments = o.receipt ? [o.receipt] : undefined;
+  const attachments = [...(logo ? [logo] : []), ...(o.receipt ? [o.receipt] : [])];
   const replyTo = process.env.SUPPORT_EMAIL || "info@quickuppaistudio.in";
   const smtp = await sendViaSmtp({ to: o.to, subject, html, text, replyTo, fromName: "Quickupp AI Studio", attachments, preferWebsiteMailbox: true });
   if (smtp.success) return { success: true, via: smtp.via, errors: smtp.errors };
   const errors = [...smtp.errors];
-  const resend = await sendViaResend({ to: o.to, subject, html, text, replyTo, from: "Quickupp AI Studio <orders@quickuppaistudio.in>", attachments });
+  const resend = await sendViaResend({ to: o.to, subject, html: htmlLinkedLogo, text, replyTo, from: "Quickupp AI Studio <orders@quickuppaistudio.in>", attachments: o.receipt ? [o.receipt] : undefined });
   if (resend?.ok) return { success: true, via: "Resend", errors };
   if (resend) errors.push(resend.error);
   return { success: false, errors };

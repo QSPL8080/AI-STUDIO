@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Check, Clock, Download, Lock, Sparkles, X } from "lucide-react";
+import { AlertCircle, Check, Clock, Lock, Sparkles, X } from "lucide-react";
 import { getConfirmationFn } from "@/lib/checkout-actions";
 import { formatInr } from "@/lib/india-pricing";
 import type { OrderView } from "@/lib/checkout-server";
@@ -173,15 +173,6 @@ export function OrderResultModal() {
               <p className="mt-3 text-center text-xs text-white/45">Reason: {order.failureReason}</p>
             )}
 
-            {paid && params && (
-              <a
-                href={`/api/receipt?${new URLSearchParams({ txn: params.txn, t: params.t }).toString()}`}
-                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/[0.04] text-sm font-semibold text-white transition-colors hover:bg-white/[0.09]"
-              >
-                <Download className="h-4 w-4" />
-                Download Receipt (PDF)
-              </a>
-            )}
             {failed ? (
               <PrimaryButton onClick={() => close("#pricing")}>Try Again</PrimaryButton>
             ) : (

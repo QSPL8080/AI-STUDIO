@@ -112,7 +112,7 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       // ── Header ────────────────────────────────────────────────────
       let ly = 40;
       try {
-        doc.image(getCompanyLogoDarkBuffer(), M, ly, { width: 200 });
+        doc.image(getCompanyLogoDarkBuffer(), M - 3.3, ly - 3.3, { width: 206.6 });
         ly += 40;
       } catch {
         doc.font("B").fontSize(20).fillColor(C.brandDark).text("Quickupp AI Studio", M, ly);
@@ -167,48 +167,63 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       pair("Billing Address:", (data.billingAddress || "India").replace(/[\r\n]+/g, ", ").trim(), M, y, { bold: false, color: C.ink });
       y += 28;
 
-      // ── Payment details table ─────────────────────────────────────
+      // ── Payment details: one table (item, subtotal, tax, total) ──
       section("PAYMENT DETAILS", y);
       y += 22;
       const c1 = M + 16;
-      const c2 = M + 340;
+      const c2 = M + 330;
       const c2w = 60;
-      const c3w = 120;
+      const c3w = 130;
       const c3 = R - 16 - c3w;
-      doc.roundedRect(M, y, CW, 30, 6).fill("#f1f5f9");
-      doc.font("B").fontSize(10.5).fillColor(C.muted);
-      doc.text("Description", c1, y + 10);
-      doc.text("Qty", c2, y + 10, { width: c2w, align: "center" });
-      doc.text("Amount", c3, y + 10, { width: c3w, align: "right" });
-      y += 30;
-      const item = data.packageDescription ? `${data.serviceName} – ${data.packageDescription}` : data.serviceName;
+      const sub = data.subtotal ?? data.amount;
+      const tot = data.total ?? data.amount;
+      const headH = 32;
       const rowH = 46;
+      const sumH = 30;
+      const totH = 40;
+      const sumRows: [string, string][] = [["Subtotal", money(sub)]];
+      if (data.tax !== undefined) sumRows.push(["Tax", money(data.tax)]);
+      const tableTop = y;
+      const tableH = headH + rowH + sumH * sumRows.length + totH;
+
+      // Frame + header band + total band (clipped to the rounded frame)
+      doc.save();
+      doc.roundedRect(M, tableTop, CW, tableH, 8).clip();
+      doc.rect(M, tableTop, CW, headH).fill("#f1f5f9");
+      doc.rect(M, tableTop + tableH - totH, CW, totH).fill(C.brandSoft);
+      doc.restore();
+      doc.roundedRect(M, tableTop, CW, tableH, 8).lineWidth(1).strokeColor(C.line).stroke();
+
+      // Header
+      doc.font("B").fontSize(10.5).fillColor(C.muted);
+      doc.text("Description", c1, y + 11);
+      doc.text("Qty", c2, y + 11, { width: c2w, align: "center" });
+      doc.text("Amount", c3, y + 11, { width: c3w, align: "right" });
+      y += headH;
+      doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.line).stroke();
+
+      // Item
+      const item = data.packageDescription ? `${data.serviceName} – ${data.packageDescription}` : data.serviceName;
       doc.font("B").fontSize(12).fillColor(C.ink).text(item, c1, y + 16, { width: c2 - c1 - 10 });
       doc.font("R").fontSize(12).fillColor(C.ink).text(String(data.qty || 1), c2, y + 16, { width: c2w, align: "center" });
       doc.font("B").fontSize(12).fillColor(C.ink).text(money(data.amount), c3, y + 16, { width: c3w, align: "right" });
       y += rowH;
-      doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.line).stroke();
-      y += 16;
 
-      // Totals
-      const tw = 250;
-      const tx = R - tw;
-      const tl = tx + 16;
-      const tv = R - 16 - 130;
-      const sub = data.subtotal ?? data.amount;
-      const tot = data.total ?? data.amount;
-      doc.font("R").fontSize(11).fillColor(C.muted).text("Subtotal:", tl, y);
-      doc.font("B").fontSize(11).fillColor(C.ink).text(money(sub), tv, y, { width: 130, align: "right" });
-      y += 20;
-      if (data.tax !== undefined) {
-        doc.font("R").fontSize(11).fillColor(C.muted).text("Tax:", tl, y);
-        doc.font("B").fontSize(11).fillColor(C.ink).text(money(data.tax), tv, y, { width: 130, align: "right" });
-        y += 20;
+      // Subtotal / tax rows (label sits under the Qty column, value under Amount)
+      const labelX = c1;
+      const labelW = c3 - 40 - c1;
+      for (const [k, v] of sumRows) {
+        doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.line).stroke();
+        doc.font("R").fontSize(11).fillColor(C.muted).text(`${k}:`, labelX, y + 9, { width: labelW, align: "right" });
+        doc.font("B").fontSize(11).fillColor(C.ink).text(v, c3, y + 9, { width: c3w, align: "right" });
+        y += sumH;
       }
-      doc.roundedRect(tx, y, tw, 36, 8).fillAndStroke(C.brandSoft, C.brandLine);
-      doc.font("B").fontSize(13).fillColor(C.brandDark).text("Total:", tl, y + 11);
-      doc.font("B").fontSize(13).fillColor(C.brandDark).text(`${money(tot)} ${currency}`, tv - 20, y + 11, { width: 150, align: "right" });
-      y += 36 + 24;
+
+      // Total row
+      doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.brandLine).stroke();
+      doc.font("B").fontSize(13).fillColor(C.brandDark).text("Total:", labelX, y + 13, { width: labelW, align: "right" });
+      doc.font("B").fontSize(13).fillColor(C.brandDark).text(`${money(tot)} ${currency}`, c3 - 30, y + 13, { width: c3w + 30, align: "right" });
+      y += totH + 28;
 
       // ── Payment information card ─────────────────────────────────
       const cardH = 106;
@@ -261,13 +276,6 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       pair("Email:", SUPPORT_EMAIL, M, f, { size: 10.5, bold: false, link: `mailto:${SUPPORT_EMAIL}` });
       f += 16;
       pair("Website:", SITE, M, f, { size: 10.5, bold: false, link: SITE_URL });
-
-      // Right side of footer: receipt summary
-      const sx = R - 200;
-      doc.font("R").fontSize(9.5).fillColor(C.muted).text("Receipt No.", sx, fy + 18, { width: 200, align: "right" });
-      doc.font("B").fontSize(11).fillColor(C.ink).text(data.orderNumber, sx, fy + 32, { width: 200, align: "right" });
-      doc.font("R").fontSize(9.5).fillColor(C.muted).text("Amount Paid", sx, fy + 54, { width: 200, align: "right" });
-      doc.font("B").fontSize(11).fillColor(C.ink).text(`${money(tot)} ${currency}`, sx, fy + 68, { width: 200, align: "right" });
 
       doc
         .font("R")
