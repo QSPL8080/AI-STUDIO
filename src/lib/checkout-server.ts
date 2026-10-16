@@ -558,17 +558,54 @@ async function applyPayUResult(order: any, r: PayUTxnStatus) {
  * For an order still PENDING, asks PayU for the latest status and updates the order.
  * Returns the (possibly refreshed) order row.
  */
+/** Marks an unfinished payment attempt as not completed (it can still turn COMPLETED later
+ *  if PayU reports a success for it). */
+async function closeUnfinishedAttempt(order: any, reason: string, label = "PAYU_NOT_COMPLETED") {
+  const updated = await dbUpdate(
+    ORDERS_TABLE,
+    [
+      { col: "id", op: "eq", value: order.id },
+      { col: "payment_status", op: "eq", value: "PENDING" },
+    ],
+    {
+      payment_status: "CANCELLED",
+      paypal_status: label,
+      raw_details: JSON.stringify({ ...parseDetails(order), closedReason: reason, closedAt: new Date().toISOString() }),
+      updated_at: new Date().toISOString(),
+    },
+  );
+  if (updated.length)
+    await logActivity({
+      title: "Payment not completed",
+      category: "ORDERS",
+      actorEmail: order.customer_email,
+      description: `Order ${order.id} (${order.customer_name}, ${formatInr(Number(order.amount))}): ${reason}`,
+    });
+}
+
 async function refreshPendingOrder(order: any) {
   if (!order || order.payment_status !== "PENDING" || !getPayUConfig()) return order;
   if (!String(order.paypal_status || "").startsWith("PAYU_")) return order;
+  const ageMin = (Date.now() - new Date(order.created_at).getTime()) / 60000;
   const r = await fetchPayUStatus(String(order.paypal_order_id));
+  if (r && r.status === "not found") {
+    // Customer opened checkout but never paid: close the attempt after 30 minutes.
+    if (ageMin > 30) await closeUnfinishedAttempt(order, "The customer left the payment page without paying.");
+    return (await findByTxn(String(order.paypal_order_id))) || order;
+  }
   if (!r) return order;
   if (Math.abs(Number(r.amount) - Number(order.amount)) >= 0.01) {
     console.error(`PayU status check: amount mismatch for ${order.paypal_order_id}`);
     return order;
   }
   await applyPayUResult(order, r);
-  return (await findByTxn(String(order.paypal_order_id))) || order;
+  const fresh = (await findByTxn(String(order.paypal_order_id))) || order;
+  // Still not paid after 24 hours: treat it as abandoned.
+  if (fresh.payment_status === "PENDING" && ageMin > 24 * 60) {
+    await closeUnfinishedAttempt(fresh, "Still unpaid 24 hours after checkout.");
+    return (await findByTxn(String(order.paypal_order_id))) || fresh;
+  }
+  return fresh;
 }
 
 /** CRM / admin: re-check every pending PayU order. Returns how many changed. */
@@ -576,8 +613,8 @@ export async function syncPendingPayUOrders() {
   const rows = await dbSelect(ORDERS_TABLE, {
     filters: [{ col: "payment_status", op: "eq", value: "PENDING" }],
   });
-  // Only recent orders: PayU settles pending payments within hours, not weeks.
-  const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000;
+  // Only recent orders (older unfinished attempts are already closed by then).
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const recent = (rows as any[]).filter((o) => new Date(o.created_at).getTime() >= cutoff);
   let changed = 0;
   for (const o of recent) {
@@ -622,8 +659,12 @@ export async function createBalancePayment(txnid: string, token: string) {
   if (!payu) return { ok: false as const, error: "Online payment is not available right now. Please contact us." };
 
   const pd = parseDetails(parent);
-  const existing = await dbSelect<{ id: string }>(ORDERS_TABLE, { columns: ["id"] });
-  const n = existing.filter((r) => String(r.id).startsWith(`${parent.id}-B`)).length + 1;
+  const existing = await dbSelect<any>(ORDERS_TABLE, { columns: ["id", "payment_status", "paypal_order_id", "customer_email", "customer_name", "amount", "raw_details"] });
+  const earlier = existing.filter((r) => String(r.id).startsWith(`${parent.id}-B`));
+  // A new click replaces any earlier unfinished balance attempt for this order.
+  for (const old of earlier.filter((r) => r.payment_status === "PENDING"))
+    await closeUnfinishedAttempt(old, "Replaced by a newer balance payment attempt.", "PAYU_SUPERSEDED");
+  const n = earlier.length + 1;
   const orderId = `${parent.id}-B${n}`;
   const balTxn = `QAS${Date.now()}${Math.floor(Math.random() * 900 + 100)}`;
   const now = new Date().toISOString();

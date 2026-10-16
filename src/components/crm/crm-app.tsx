@@ -229,7 +229,7 @@ const ORDER_STATUS_STYLE: Record<string, string> = {
   COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-300",
   PENDING: "bg-amber-50 text-amber-700 border-amber-300",
   FAILED: "bg-red-50 text-red-700 border-red-300",
-  CANCELLED: "bg-red-50 text-red-700 border-red-300",
+  CANCELLED: "bg-slate-100 text-slate-600 border-slate-300",
   REFUNDED: "bg-slate-100 text-slate-700 border-slate-200",
 };
 
@@ -294,7 +294,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [metaSearch, setMetaSearch] = useState("");
   const [metaStatus, setMetaStatus] = useState("All");
   const [ordersSearch, setOrdersSearch] = useState("");
-  const [ordersStatus, setOrdersStatus] = useState("COMPLETED");
+  const [ordersStatus, setOrdersStatus] = useState("All");
   const [activityFilter, setActivityFilter] = useState("All");
 
   // Modals
@@ -624,7 +624,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       ordersPinRef.current = "";
       setOrders(null);
       setSelectedOrder(null);
-      setOrdersStatus("COMPLETED");
+      setOrdersStatus("All");
       setOrdersSearch("");
     }
   }, [activeTab]);
@@ -935,11 +935,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   };
   const shownWebsite = filterLeads(websiteLeads, leadsSearch, leadsStatus);
   const shownMeta = filterLeads(metaLeads, metaSearch, metaStatus);
+  // 50% advance paid, balance still due ("Balance Pending").
+  const isPartlyPaid = (o: OrderItem) => o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED" && o.balanceDue > 0;
+  const orderTab = (o: OrderItem) => (isPartlyPaid(o) ? "BALANCE" : o.paymentStatus === "REFUNDED" ? "REFUNDED" : "COMPLETED");
   const shownOrders = (orders || []).filter((o) => {
     const s = ordersSearch.trim().toLowerCase();
-    const statusOk =
-      ordersStatus === "All" ||
-      (ordersStatus === "FAILED" ? o.paymentStatus === "FAILED" || o.paymentStatus === "CANCELLED" : o.paymentStatus === ordersStatus);
+    const statusOk = ordersStatus === "All" || orderTab(o) === ordersStatus;
     return statusOk && (!s || [o.customerName, o.customerEmail, o.paypalOrderId, o.itemName, o.id].some((v) => (v || "").toLowerCase().includes(s)));
   });
   const activityCats = ["All", "LEADS", "ORDERS", "USER_ACTIVITY", "SETTINGS"];
@@ -1635,13 +1636,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 valueClass="text-orange-600"
               />
               <Kpi label="Revenue (paid)" value={revenueText(revenueByCur)} icon={<TrendingUp className="w-4 h-4 text-emerald-600" />} valueClass="text-emerald-600" />
-              <Kpi label="Completed" value={completedOrders.length} icon={<CheckCircle2 className="w-4 h-4 text-cyan-600" />} valueClass="text-cyan-600" />
-              <Kpi
-                label="Pending / Failed"
-                value={`${orders.filter((o) => o.paymentStatus === "PENDING").length} / ${orders.filter((o) => o.paymentStatus === "FAILED" || o.paymentStatus === "CANCELLED").length}`}
-                icon={<Clock className="w-4 h-4 text-amber-600" />}
-                valueClass="text-amber-600"
-              />
+              <Kpi label="Fully Paid" value={completedOrders.filter((o) => !isPartlyPaid(o)).length} icon={<CheckCircle2 className="w-4 h-4 text-cyan-600" />} valueClass="text-cyan-600" />
+              <Kpi label="Partially Paid" value={orders.filter(isPartlyPaid).length} icon={<Clock className="w-4 h-4 text-amber-600" />} valueClass="text-amber-600" />
             </div>
 
             <div className={`${card} p-4 flex flex-col sm:flex-row gap-2`}>
@@ -1654,15 +1650,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { id: "All", label: "All" },
-                { id: "COMPLETED", label: "Completed" },
-                { id: "PENDING", label: "Pending" },
-                { id: "FAILED", label: "Failed" },
+                { id: "COMPLETED", label: "Fully Paid" },
+                { id: "BALANCE", label: "Balance Pending" },
                 { id: "REFUNDED", label: "Refunded" },
               ].map((f) => {
-                const n =
-                  f.id === "All"
-                    ? orders.length
-                    : orders.filter((o) => (f.id === "FAILED" ? o.paymentStatus === "FAILED" || o.paymentStatus === "CANCELLED" : o.paymentStatus === f.id)).length;
+                const n = f.id === "All" ? orders.length : orders.filter((o) => orderTab(o) === f.id).length;
                 return (
                   <button
                     key={f.id}
@@ -1697,9 +1689,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       ? "No payment transactions yet"
                       : ordersStatus === "All"
                         ? "No orders match your search"
-                        : `No ${ordersStatus === "FAILED" ? "failed" : ordersStatus.toLowerCase()} orders`
+                        : ordersStatus === "BALANCE"
+                          ? "No orders with a balance pending"
+                          : ordersStatus === "COMPLETED"
+                            ? "No fully paid orders"
+                            : "No refunded orders"
                   }
-                  text={ordersStatus === "COMPLETED" && orders.length ? "Completed payments appear here. Use the filters above to see other orders." : "Checkout orders appear here automatically."}
+                  text="Only real payments appear here. Unfinished checkouts are not listed."
                 />
               ) : (
                 <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
@@ -1760,7 +1756,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                             )}
                           </td>
                           <td className="p-3.5">
-                            <span className={`px-2 py-0.5 rounded-md border text-[11px] font-semibold ${ORDER_STATUS_STYLE[o.paymentStatus] || ORDER_STATUS_STYLE["REFUNDED"]}`}>{o.paymentStatus}</span>
+                            <span className={`px-2 py-0.5 rounded-md border text-[11px] font-semibold ${isPartlyPaid(o) ? "bg-orange-50 text-orange-700 border-orange-300" : ORDER_STATUS_STYLE[o.paymentStatus] || ORDER_STATUS_STYLE["REFUNDED"]}`}>
+                              {isPartlyPaid(o) ? "PARTIALLY PAID" : o.paymentStatus === "COMPLETED" ? "PAID" : o.paymentStatus}
+                            </span>
                           </td>
                           <td className="p-3.5 font-mono text-xs text-slate-700">{o.paypalOrderId}</td>
                           <td className="p-3.5 text-slate-600 font-mono whitespace-nowrap">{fmtIst(o.createdAt)}</td>
@@ -2168,7 +2166,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4">
                     <RecordCard label="Active leads" value={counts.activeLeads} sub={`${counts.websiteLeads} website • ${counts.metaLeads} Meta`} />
                     <RecordCard label="Recycle Bin" value={counts.recycleBin} sub="Soft-deleted leads" />
-                    <RecordCard label="Total orders" value={counts.totalOrders} sub={`${counts.completedOrders} completed • ${counts.pendingOrders} pending • ${counts.failedOrders} failed`} />
+                    <RecordCard label="Total orders" value={counts.totalOrders} sub={`${counts.completedOrders} paid • ${counts.pendingOrders} with balance pending`} />
                     <RecordCard label="Total revenue" value={revenueText(counts.revenueByCurrency)} sub="Completed payments" valueClass="text-emerald-600" />
                     <RecordCard label="User accounts" value={counts.userAccounts} sub={`${counts.activeUsers} active • ${counts.inactiveUsers} deactivated`} />
                     <RecordCard label="Activity logs" value={counts.activityLogs} sub="Audit history entries" />

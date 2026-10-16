@@ -114,6 +114,10 @@ function mapLead(r: any) {
 }
 export type CrmLead = ReturnType<typeof mapLead>;
 
+/** Only real payments (money received, or refunded) are shown in the CRM. Unfinished /
+ *  abandoned / failed checkout attempts stay in the database and Activity History only. */
+const isRealPayment = (r: any) => r.payment_status === "COMPLETED" || r.payment_status === "REFUNDED";
+
 function mapOrder(r: any) {
   const ps = paymentSummary(r);
   return {
@@ -340,7 +344,7 @@ export async function sync(token: string, ordersPin?: string) {
       limit: 60,
     });
     orderEvents = ev.map(mapActivity);
-    orderRows = await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } });
+    orderRows = (await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } })).filter(isRealPayment);
     ordersCount = orderRows.length;
     if (ordersPin && ordersPin === paymentsPin()) orders = orderRows.map(mapOrder);
   }
@@ -367,7 +371,8 @@ export async function sync(token: string, ordersPin?: string) {
       metaLeads: allLeadRows.filter((r) => !r.deleted_at && isMetaRow(r)).length,
       recycleBin: allLeadRows.filter((r) => r.deleted_at).length,
       totalOrders: orderRows.length,
-      pendingOrders: orderRows.filter((o) => o.payment_status === "PENDING").length,
+      // "Pending" = paid 50% advance with a balance still due.
+      pendingOrders: orderRows.filter((o) => o.payment_status === "COMPLETED" && paymentSummary(o).plan === "advance" && paymentSummary(o).balanceDue > 0).length,
       completedOrders: completed.length,
       failedOrders: orderRows.filter((o) => o.payment_status === "FAILED" || o.payment_status === "CANCELLED").length,
       revenueByCurrency,
@@ -460,7 +465,7 @@ export async function unlockOrders(token: string, pin: string) {
   } catch (e) {
     console.error("PayU pending sync failed", e);
   }
-  const rows = await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } });
+  const rows = (await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } })).filter(isRealPayment);
   await logActivity({ title: "Opened Orders & Payments", category: "ORDERS", actorEmail: ctx.user.email, description: "Unlocked the payments tab with the security PIN." });
   return { ok: true as const, orders: rows.map(mapOrder) };
 }

@@ -154,7 +154,9 @@ export async function fetchPayUStatus(txnid: string): Promise<PayUTxnStatus | nu
     if (!res.ok) return null;
     const json: any = await res.json().catch(() => null);
     const t = json?.transaction_details?.[txnid];
-    if (!t || !t.status || String(t.status).toLowerCase() === "not found") return null;
+    if (!t || !t.status) return null;
+    // PayU has no record of this transaction (the customer never paid / left the page).
+    if (String(t.status).toLowerCase() === "not found") return { status: "not found", amount: "" };
     return {
       status: String(t.status),
       amount: String(t.amt ?? t.transaction_amount ?? ""),
