@@ -116,7 +116,9 @@ export type CrmLead = ReturnType<typeof mapLead>;
 
 /** Only real payments (money received, or refunded) are shown in the CRM. Unfinished /
  *  abandoned / failed checkout attempts stay in the database and Activity History only. */
-const isRealPayment = (r: any) => r.payment_status === "COMPLETED" || r.payment_status === "REFUNDED";
+// Balance payments are not listed separately: they update their 50% advance order's row.
+const isRealPayment = (r: any) =>
+  (r.payment_status === "COMPLETED" || r.payment_status === "REFUNDED") && paymentSummary(r).plan !== "balance";
 
 function mapOrder(r: any) {
   const ps = paymentSummary(r);
@@ -129,6 +131,19 @@ function mapOrder(r: any) {
     parentOrderId: ps.parentOrderId,
     balanceOrderId: ps.balanceOrderId,
     /** Customer's secure "pay remaining balance" link (paid 50% advance orders with a balance left). */
+    ...(() => {
+      let d: any = {};
+      try {
+        d = JSON.parse(r.raw_details || "{}");
+      } catch {
+        /* ignore */
+      }
+      return {
+        balanceTxn: String(d.balanceTxn || ""),
+        balancePayuId: String(d.balancePayuId || ""),
+        balancePaidAt: d.balancePaidAt ? new Date(d.balancePaidAt).toISOString() : "",
+      };
+    })(),
     payBalanceUrl:
       ps.plan === "advance" && r.payment_status === "COMPLETED" && ps.balanceDue > 0
         ? `${siteUrl()}${payBalancePath(String(r.paypal_order_id))}`
@@ -363,7 +378,7 @@ export async function sync(token: string, ordersPin?: string) {
     const revenueByCurrency: Record<string, number> = {};
     for (const o of completed) {
       const cur = o.currency || "USD";
-      revenueByCurrency[cur] = (revenueByCurrency[cur] || 0) + (typeof o.amount === "string" ? parseFloat(o.amount) : Number(o.amount || 0));
+      revenueByCurrency[cur] = (revenueByCurrency[cur] || 0) + paymentSummary(o).paidTotal;
     }
     counts = {
       activeLeads: allLeadRows.filter((r) => !r.deleted_at).length,

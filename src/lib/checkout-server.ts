@@ -510,18 +510,26 @@ async function applyPayUResult(order: any, r: PayUTxnStatus) {
     const fresh = await findByTxn(String(order.paypal_order_id));
     return String(fresh?.payment_status || order.payment_status);
   }
-  await logActivity({
-    title:
-      status === "COMPLETED"
-        ? "Payment received"
-        : status === "PENDING"
-          ? "Payment pending"
-          : "Payment failed",
-    category: "ORDERS",
-    actorEmail: order.customer_email,
-    description: `${order.customer_name} - ${order.item_name} (${formatInr(Number(order.amount))}), txn ${order.paypal_order_id}${r.mode ? `, ${r.mode}` : ""}${r.error_Message && status !== "COMPLETED" ? ` - ${r.error_Message}` : ""}.`,
-  });
-  if (status === "COMPLETED" && details.paymentPlan === "balance" && details.parentOrderId) {
+  const isBalance = details.paymentPlan === "balance" && !!details.parentOrderId;
+  const planNote =
+    details.paymentPlan === "advance"
+      ? ` - 50% advance of ${formatInr(Number(details.orderTotal) || Number(order.amount))}, balance ${formatInr(Math.max(0, (Number(details.orderTotal) || 0) - Number(order.amount)))} due`
+      : "";
+  // A paid balance does not get its own notification: the order's existing
+  // "Payment received" notification is refreshed below instead.
+  if (!(isBalance && status === "COMPLETED"))
+    await logActivity({
+      title:
+        status === "COMPLETED"
+          ? "Payment received"
+          : status === "PENDING"
+            ? "Payment pending"
+            : "Payment failed",
+      category: "ORDERS",
+      actorEmail: order.customer_email,
+      description: `${order.customer_name} - ${order.item_name} (${formatInr(Number(order.amount))}${planNote}), order ${order.id}, txn ${order.paypal_order_id}${r.mode ? `, ${r.mode}` : ""}${r.error_Message && status !== "COMPLETED" ? ` - ${r.error_Message}` : ""}.`,
+    });
+  if (status === "COMPLETED" && isBalance) {
     try {
       const prow: any = (
         await dbSelect(ORDERS_TABLE, { filters: [{ col: "id", op: "eq", value: String(details.parentOrderId) }] })
@@ -534,15 +542,30 @@ async function applyPayUResult(order: any, r: PayUTxnStatus) {
             balancePaid: true,
             balanceAmount: Number(order.amount),
             balanceOrderId: order.id,
+            balanceTxn: order.paypal_order_id,
+            balancePayuId: r.mihpayid || "",
+            balanceMode: r.mode || "",
             balancePaidAt: new Date().toISOString(),
           }),
           updated_at: new Date().toISOString(),
         });
+        const total = Number(pd.orderTotal) || Number(prow.amount) + Number(order.amount);
+        // Refresh the order's payment notification: the earlier "advance" notification is
+        // retired and replaced by one that shows the order as fully paid.
+        try {
+          const olds = await dbSelect<any>("crm_activity_logs", {
+            filters: [{ col: "title", op: "eq", value: "Payment received" }],
+          });
+          for (const a of olds.filter((x: any) => String(x.description || "").includes(String(prow.paypal_order_id))))
+            await dbUpdate("crm_activity_logs", [{ col: "id", op: "eq", value: a.id }], { title: "Advance payment received" });
+        } catch (e) {
+          console.error("Could not refresh the payment notification", e);
+        }
         await logActivity({
-          title: "Balance received",
+          title: "Payment received",
           category: "ORDERS",
           actorEmail: order.customer_email,
-          description: `Balance ${formatInr(Number(order.amount))} received for order ${prow.id} (${order.customer_name}). Order is now fully paid.`,
+          description: `${order.customer_name} - ${prow.item_name}: balance ${formatInr(Number(order.amount))} received${r.mode ? ` (${r.mode})` : ""}. Order ${prow.id} is now FULLY PAID (${formatInr(total)}), txn ${prow.paypal_order_id}.`,
         });
       }
     } catch (e) {

@@ -918,7 +918,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const websiteInbound = websiteLeads.length - manualCount;
   const completedOrders = (orders || []).filter((o) => o.paymentStatus === "COMPLETED");
   const revenueByCur = completedOrders.reduce<Record<string, number>>((acc, o) => {
-    acc[o.currency] = (acc[o.currency] || 0) + o.amount;
+    acc[o.currency] = (acc[o.currency] || 0) + (o.paidTotal || o.amount);
     return acc;
   }, {});
 
@@ -1734,7 +1734,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                             <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-50 text-purple-700 uppercase">{o.itemType}</span>
                           </td>
                           <td className="p-3.5">
-                            <div className="font-bold text-emerald-600 font-mono">{fmtMoney(o.amount, o.currency)}</div>
+                            <div className="font-bold text-emerald-600 font-mono">{fmtMoney(o.paidTotal || o.amount, o.currency)}</div>
                             <span
                               className={`inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase ${
                                 o.paymentPlan === "advance" ? "bg-amber-50 text-amber-700" : o.paymentPlan === "balance" ? "bg-sky-50 text-sky-700" : "bg-emerald-50 text-emerald-700"
@@ -2754,7 +2754,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         <Modal onClose={() => setSelectedOrder(null)} title={selectedOrder.itemName} subtitle={`${selectedOrder.customerName} • ${selectedOrder.customerEmail}`} icon={<Package className="w-5 h-5" />} wide>
           <div className="space-y-3 text-[13px]">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-md bg-slate-50 border border-slate-200">
-              <Info label="Amount (this payment)" value={fmtMoney(selectedOrder.amount, selectedOrder.currency)} />
+              <Info
+                label={selectedOrder.paymentPlan === "advance" ? "Advance paid (50%)" : "Amount paid"}
+                value={fmtMoney(selectedOrder.amount, selectedOrder.currency)}
+              />
               <Info label="Status" value={selectedOrder.paymentStatus} />
               <Info label="Payment type" value={selectedOrder.planLabel} />
               <Info label="Order total" value={fmtMoney(selectedOrder.orderTotal, selectedOrder.currency)} />
@@ -2798,7 +2801,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   </div>
                 </div>
               )}
-              {selectedOrder.balanceOrderId && <Info label="Balance paid in" value={selectedOrder.balanceOrderId} />}
+              {selectedOrder.balanceTxn && (
+                <>
+                  <Info label="Balance paid" value={fmtMoney(selectedOrder.paidTotal - selectedOrder.amount, selectedOrder.currency)} />
+                  <Info label="Balance paid on" value={selectedOrder.balancePaidAt ? fmtIst(selectedOrder.balancePaidAt) : "—"} />
+                  <Info label="Balance transaction ID" value={selectedOrder.balanceTxn} />
+                  <Info label="Balance payment ref" value={selectedOrder.balancePayuId || "—"} />
+                </>
+              )}
               <Info label="Transaction ID" value={selectedOrder.paypalOrderId} />
               <Info label="Payment ref" value={selectedOrder.captureId || "—"} />
               <Info label="Phone" value={selectedOrder.customerPhone || "—"} />
