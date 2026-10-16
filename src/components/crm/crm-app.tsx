@@ -1078,7 +1078,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           </div>
         </header>
 
-        <nav className="h-12 px-3 sm:px-5 lg:px-6 2xl:px-10 border-t border-slate-100 overflow-x-auto no-scrollbar">
+        {/* Phones / tablets: the menu stays a horizontal bar under the header */}
+        <nav className="lg:hidden h-12 px-3 sm:px-5 border-t border-slate-100 overflow-x-auto no-scrollbar">
           <div className="h-full w-full flex items-center gap-1 min-w-max">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -1106,8 +1107,38 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         </nav>
       </div>
 
+      {/* ===================== SIDEBAR + MAIN (side by side on laptops / desktops) ===================== */}
+      <div className="flex-1 min-h-0 flex">
+        <aside className="hidden lg:flex w-64 2xl:w-72 shrink-0 flex-col bg-white border-r border-slate-200 overflow-y-auto">
+          <div className="px-4 pt-5 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Menu</div>
+          <nav className="px-3 pb-4 flex flex-col gap-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabClick(tab.id)}
+                  className={`w-full h-10 flex items-center gap-3 px-3 rounded-md text-sm font-medium text-left transition-all ${
+                    isActive ? "bg-purple-600 text-white shadow-[0_6px_16px_-6px_rgba(147,51,234,0.55)]" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="flex-1 truncate">{tab.label}</span>
+                  {tab.id === "orders" && !orders && <Lock className="w-3 h-3 opacity-70 shrink-0" />}
+                  {tab.count !== null && (
+                    <span className={`text-[11px] min-w-[22px] text-center px-1.5 py-0.5 rounded-md font-semibold shrink-0 ${isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
       {/* ===================== MAIN ===================== */}
-      <main className="flex-1 min-h-0 w-full px-3 sm:px-5 lg:px-6 2xl:px-10 py-4 sm:py-5 lg:overflow-y-auto">
+      <main className="flex-1 min-h-0 min-w-0 w-full px-3 sm:px-5 lg:px-6 2xl:px-10 py-4 sm:py-5 lg:overflow-y-auto">
         {/* ---------------- DASHBOARD ---------------- */}
         {activeTab === "dashboard" && perms.dashboard && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
@@ -2217,6 +2248,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           </div>
         )}
       </main>
+      </div>
 
       {/* ===================== MODALS ===================== */}
       {showPinModal && (
