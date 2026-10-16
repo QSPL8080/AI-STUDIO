@@ -15,8 +15,7 @@ export interface IndiaService {
 }
 
 export const INDIA_SERVICES: IndiaService[] = [
-  // TEST PRICE: single reel set to ₹2 (₹1 advance + ₹1 balance) for a live test. Change 2 back to 1999 after testing.
-  { id: "ai-ugc", name: "AI UGC Video", prices: { 1: 2, 5: 8999, 10: 16999, 15: 23999 } },
+  { id: "ai-ugc", name: "AI UGC Video", prices: { 1: 1999, 5: 8999, 10: 16999, 15: 23999 } },
   {
     id: "ai-cartoon",
     name: "AI Cartoon Animation",
