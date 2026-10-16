@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronDown, Clock, Lock, ShieldCheck, X } from "lucide-react";
+import { ChevronDown, Clock, Lock, X } from "lucide-react";
 import { createIndiaOrderFn } from "@/lib/checkout-actions";
 import {
   INDIA_PACKS,
@@ -492,17 +492,6 @@ export function IndiaCheckoutModal() {
                   </>
                 )}
               </button>
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-white/50">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                256-bit SSL encrypted • Secure checkout •{" "}
-                <a
-                  href="/terms"
-                  target="_blank"
-                  className="underline decoration-white/30 underline-offset-2 hover:text-white"
-                >
-                  Terms
-                </a>
-              </p>
             </form>
           )}
 
