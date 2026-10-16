@@ -49,10 +49,10 @@ export interface PortfolioReelItem {
 const PORTFOLIO_REELS: PortfolioReelItem[] = [
   {
     id: "reel-1",
-    category: "AI UGC",
-    title: "Bharat Stone Lifestyle",
-    subtitle: "High-impact creator-led demonstration reel highlighting luxury architectural stone surfaces",
-    industry: "Interior Architecture & Luxury",
+    category: "AI Avatar",
+    title: "Bharat Stone: Feature Walls",
+    subtitle: "AI presenter walks through a luxury living room showcasing premium carved stone feature walls, ending with a get-a-quote call to action",
+    industry: "Stone & Interior Finishes",
     videoUrl: "/media/page-1.mp4",
     fallbackUrl: "/videos/page-1.mp4",
     posterUrl: "/videos/posters/page-1.jpg",
@@ -62,9 +62,9 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   {
     id: "home-cartoon",
     category: "AI Cartoon",
-    title: "3D Character Animation",
-    subtitle: "Expressive 3D character animation and storytelling reel for creative brands and entertainment",
-    industry: "Creative Brands & Entertainment",
+    title: "Owl Movie Night",
+    subtitle: "Cute 3D animated owl characters enjoy a movie night with popcorn: playful character storytelling made for brand ads",
+    industry: "Entertainment & Kids Brands",
     videoUrl: "/media/cartoon-portfolio.mp4",
     fallbackUrl: "/videos/cartoon-portfolio.mp4",
     posterUrl: "/videos/posters/cartoon-portfolio.jpg",
@@ -74,9 +74,9 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   {
     id: "reel-2",
     category: "AI Avatar",
-    title: "Architectural Stone Presenter",
-    subtitle: "Studio-grade AI avatar presenter demonstrating modern residential & commercial stone finishes",
-    industry: "Real Estate & Home Decor",
+    title: "Bharat Stone: Carved Relief Walls",
+    subtitle: "AI presenter highlights hand-carved stone relief walls in elegant interiors, \"Your Wall Can Do More\"",
+    industry: "Stone & Interior Finishes",
     videoUrl: "/media/page-2.mp4",
     fallbackUrl: "/videos/page-2.mp4",
     posterUrl: "/videos/posters/page-2.jpg",
@@ -85,10 +85,10 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   },
   {
     id: "home-ugc",
-    category: "AI UGC",
-    title: "Creator-Led Product Review",
-    subtitle: "Authentic creator-led AI UGC product review and demonstration reel designed for high conversions",
-    industry: "D2C & Consumer Brands",
+    category: "Hyper-Realistic",
+    title: "LEVL Energy Drink Ad",
+    subtitle: "Energy drink commercial moving from everyday fatigue to a gym refuel, with dynamic 3D can product shots",
+    industry: "Food & Beverage",
     videoUrl: "/media/ugc-portfolio.mp4",
     fallbackUrl: "/videos/ugc-portfolio.mp4",
     posterUrl: "/videos/posters/ugc-portfolio.jpg",
@@ -97,10 +97,10 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   },
   {
     id: "reel-3",
-    category: "Hyper-Realistic",
-    title: "Royal Heritage & Saree",
-    subtitle: "Cinematic commercial reel with grand heritage palace architecture and traditional elegance",
-    industry: "Luxury Fashion & Heritage",
+    category: "AI Avatar",
+    title: "Bharat Stone: Marble Mandirs",
+    subtitle: "AI presenter in a red saree showcases white marble home mandirs, family moments and a plan-your-dream-mandir call to action",
+    industry: "Home Temples & Stone Craft",
     videoUrl: "/media/page-3.mp4",
     fallbackUrl: "/videos/page-3.mp4",
     posterUrl: "/videos/posters/page-3.jpg",
@@ -110,9 +110,9 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   {
     id: "home-digital-twin",
     category: "Digital Twin",
-    title: "Founder Brand Update",
-    subtitle: "Founder-led brand update reel powered by a hyper-realistic digital twin, no camera or studio needed",
-    industry: "Founders & Personal Brands",
+    title: "Quickupp Softech: Brand Talk",
+    subtitle: "Hinglish talking-head reel from an approved digital twin, on services, business focus and branding",
+    industry: "Marketing & Personal Brands",
     videoUrl: "/media/digital-twin-sample.mp4",
     fallbackUrl: "/videos/digital-twin-sample.mp4",
     posterUrl: "/videos/posters/digital-twin-sample.jpg",
@@ -121,10 +121,10 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   },
   {
     id: "reel-4",
-    category: "AI Cartoon",
-    title: "3D Character Explainer",
-    subtitle: "Engaging animated mascot storytelling engineered for viral social engagement & brand recall",
-    industry: "Animated Brands & EdTech",
+    category: "Hyper-Realistic",
+    title: "Bharat Stone: Designer Mandirs",
+    subtitle: "Cinematic showcase of carved mandirs in black, green and white marble, presented by an AI host",
+    industry: "Home Temples & Stone Craft",
     videoUrl: "/media/page-4.mp4",
     fallbackUrl: "/videos/page-4.mp4",
     posterUrl: "/videos/posters/page-4.jpg",
@@ -135,7 +135,7 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
     id: "home-avatar",
     category: "AI Avatar",
     title: "Interior Design Growth Presenter",
-    subtitle: "AI avatar presenter reel showcasing 360° growth solutions and premium client acquisition for interior designers",
+    subtitle: "Hinglish AI presenter pitching 360° marketing and Google Ads to help interior designers win ₹10–25 Lakh+ projects",
     industry: "Interior Design & Architecture",
     videoUrl: "/media/avatar-portfolio.mp4",
     fallbackUrl: "/videos/avatar-portfolio.mp4",
@@ -145,10 +145,10 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   },
   {
     id: "reel-5",
-    category: "Digital Twin",
-    title: "Founder Keynote Clone",
-    subtitle: "Ultra-realistic voice clone & lip-sync model for scalable executive branding & content",
-    industry: "Personal Brand & Leadership",
+    category: "AI Avatar",
+    title: "Bharat Stone: Staircase Pillars",
+    subtitle: "AI presenter in a bridal saree highlights premium stone staircase pillars and refined architectural details for luxury homes",
+    industry: "Luxury Homes & Stone",
     videoUrl: "/media/page-5.mp4",
     fallbackUrl: "/videos/page-5.mp4",
     posterUrl: "/videos/posters/page-5.jpg",
@@ -158,9 +158,9 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   {
     id: "home-jewellery",
     category: "Hyper-Realistic",
-    title: "Luxury Jewellery Collection",
-    subtitle: "Cinematic product advertisement for a luxury jewellery collection",
-    industry: "Jewellery & Luxury",
+    title: "Arihant: Bridal Jewellery",
+    subtitle: "Bridal jewellery ad featuring a gold kundan necklace, maang tikka and nath on an AI model in a silk saree",
+    industry: "Jewellery & Bridal",
     videoUrl: "/media/jewellery-portfolio.mp4",
     fallbackUrl: "/videos/jewellery-portfolio.mp4",
     posterUrl: "/videos/posters/jewellery-portfolio.jpg",
@@ -169,10 +169,10 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   },
   {
     id: "reel-6",
-    category: "AI UGC",
-    title: "Activewear Performance Demo",
-    subtitle: "Dynamic vertical reel demonstration engineered for high conversions across Meta & TikTok ads",
-    industry: "Fitness, Health & Apparel",
+    category: "AI Avatar",
+    title: "Bharat Stone: Grand Staircases",
+    subtitle: "AI presenter shows green marble pillars and carved staircase railings crafted for luxury homes, with a project consultation call to action",
+    industry: "Luxury Homes & Stone",
     videoUrl: "/media/page-6.mp4",
     fallbackUrl: "/videos/page-6.mp4",
     posterUrl: "/videos/posters/page-6.jpg",
@@ -181,10 +181,10 @@ const PORTFOLIO_REELS: PortfolioReelItem[] = [
   },
   {
     id: "home-production",
-    category: "Hyper-Realistic",
-    title: "Cinematic AI Production",
-    subtitle: "Professional AI-powered video production reel showcasing cinematic quality and brand storytelling",
-    industry: "Brand Storytelling",
+    category: "AI Avatar",
+    title: "Quickupp AI Studio: Marathi Promo",
+    subtitle: "AI presenter explains our AI video service in Marathi: AI UGC videos, scripting to editing, delivered in 48 hours",
+    industry: "AI Video Production",
     videoUrl: "/media/portfolio-6.mp4",
     fallbackUrl: "/videos/portfolio-6.mp4",
     posterUrl: "/videos/posters/portfolio-6.jpg",
@@ -349,13 +349,8 @@ function PortfolioReelCard({ reel, hasSound, onSound }: PortfolioReelCardProps) 
       {/* Cinematic Soft Gradient Overlays for contrast */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-transparent to-black/60 pointer-events-none z-10" />
 
-      {/* Top Header Bar: Category Tag & Controls */}
-      <div className="relative z-20 flex items-center justify-between p-4 sm:p-5 pointer-events-none">
-        <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-black/75 backdrop-blur-md border border-neon/40 text-neon shadow-md font-heading">
-          <span className="w-1.5 h-1.5 rounded-full bg-neon animate-pulse" />
-          {reel.category}
-        </span>
-
+      {/* Top Header Bar: Controls */}
+      <div className="relative z-20 flex items-center justify-end p-4 sm:p-5 pointer-events-none">
         <div className="flex items-center gap-2 pointer-events-auto">
           {/* Sound Toggle */}
           <button

@@ -33,45 +33,46 @@ export const samples = [
   {
     format: "Digital Twin",
     industry: "Founder Branding",
-    description: "Founder-led update reel created from an approved digital twin.",
+    description: "Hinglish talking-head brand reel created from an approved digital twin of the presenter.",
     videoUrl: "/media/digital-twin-sample.mp4",
   },
 ];
 
 export const portfolioItems = [
   {
-    industry: "3D Character Animation",
+    industry: "Entertainment & Kids Brands",
     description:
-      "Expressive 3D character animation and storytelling reel for creative brands and entertainment.",
+      "Cute 3D animated owl characters enjoy a movie night with popcorn: playful character storytelling made for brand ads.",
     videoUrl: "/media/cartoon-portfolio.mp4",
   },
   {
-    industry: "D2C & Consumer Brands",
+    industry: "Food & Beverage",
     description:
-      "Authentic creator-led AI UGC product review and demonstration reel designed for high conversions.",
+      "Hyper-realistic energy drink commercial for LEVL, moving from everyday fatigue to a gym refuel, with dynamic 3D can product shots.",
     videoUrl: "/media/ugc-portfolio.mp4",
   },
   {
     industry: "Interior Design & Architecture",
     description:
-      "High-impact AI avatar presenter reel showcasing 360° growth solutions and premium client acquisition for interior designers.",
+      "Hinglish AI avatar presenter pitching 360° marketing and Google Ads to help interior designers win ₹10–25 Lakh+ projects.",
     videoUrl: "/media/avatar-portfolio.mp4",
   },
   {
-    industry: "Jewellery & Luxury",
-    description: "Cinematic product advertisement for a luxury jewellery collection.",
+    industry: "Jewellery & Bridal",
+    description:
+      "Hyper-realistic bridal jewellery ad for Arihant, featuring a gold kundan necklace, maang tikka and nath on an AI model.",
     videoUrl: "/media/jewellery-portfolio.mp4",
   },
   {
     industry: "Digital Twin",
     description:
-      "Founder-led brand update reel powered by a hyper-realistic digital twin — no camera, no studio needed.",
+      "Hinglish talking-head brand reel created from an approved digital twin, no camera or studio needed.",
     videoUrl: "/media/digital-twin-sample.mp4",
   },
   {
     industry: "AI Video Production",
     description:
-      "Professional AI-powered video production reel showcasing cinematic quality and brand storytelling.",
+      "AI presenter explains our AI video service in Marathi: AI UGC videos, scripting to editing, delivered in 48 hours.",
     videoUrl: "/media/portfolio-6.mp4",
   },
 ];
