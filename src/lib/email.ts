@@ -511,41 +511,72 @@ export async function sendSecurityAlertEmail(opts: {
   return { success: false, errors };
 }
 
-/** New website order (checkout) → the lead notification address. */
+/** PAID website order → the lead notification address (qsaistudio@gmail.com).
+ *  Sent only after a successful payment: full, 50% advance, or the balance of an advance. */
 export async function sendOrderNotificationEmail(o: {
+  kind: "full" | "advance" | "balance";
   orderId: string;
   txnid: string;
   itemName: string;
+  /** Paid in this payment. */
   amount: string;
+  orderTotal: string;
+  paidTotal: string;
+  balanceDue?: string | undefined;
   name: string;
   email: string;
   phone: string;
   company?: string | undefined;
   notes?: string | undefined;
   paymentMode: string;
+  paymentId: string;
+  paidAt: string;
 }): Promise<{ success: boolean; via?: string; errors: string[] }> {
-  const when = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST";
   const cleanPhone = o.phone.replace(/[^0-9+]/g, "");
   const waPhone = cleanPhone.startsWith("+") ? cleanPhone.slice(1) : cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+  const label = o.kind === "advance" ? "50% Advance Paid" : o.kind === "balance" ? "Fully Paid (Balance Received)" : "Full Payment";
   const rows: [string, string][] = [
     ["Package", o.itemName],
-    ["Amount", o.amount],
-    ["Payment", o.paymentMode],
+    ["Payment Type", label],
+    [o.kind === "balance" ? "Balance Received" : "Amount Paid", o.amount],
+    ["Order Total", o.orderTotal],
+  ];
+  if (o.kind !== "full") rows.push(["Total Paid", o.paidTotal]);
+  if (o.balanceDue) rows.push(["Balance Pending", o.balanceDue]);
+  rows.push(
+    ["Payment Method", o.paymentMode],
+    ["Payment ID", o.paymentId],
     ["Order ID", o.orderId],
     ["Transaction ID", o.txnid],
     ["Customer", o.name],
     ["Phone", o.phone],
     ["Email", o.email],
-  ];
+  );
   if (o.company) rows.push(["Company / Brand", o.company]);
   if (o.notes) rows.push(["Video brief", o.notes]);
-  rows.push(["Placed", when]);
-  const subject = `New Order: ${o.name} - ${o.itemName} (${o.amount})`;
+  rows.push(["Paid On", o.paidAt]);
+  const eyebrow = o.kind === "advance" ? "Advance Payment Received" : o.kind === "balance" ? "Balance Payment Received" : "Payment Received";
+  const subject =
+    o.kind === "advance"
+      ? `Advance Paid: ${o.name} - ${o.itemName} (${o.amount} of ${o.orderTotal})`
+      : o.kind === "balance"
+        ? `Fully Paid: ${o.name} - ${o.itemName} (balance ${o.amount} received)`
+        : `New Paid Order: ${o.name} - ${o.itemName} (${o.amount})`;
   const html = renderBrandedEmail({
-    eyebrow: "New Order",
-    title: `${o.name} ordered ${o.itemName}`,
-    intro: "A customer placed an order from the website checkout. It is saved in CRM > Orders & Payments.",
-    accent: "#7c3aed",
+    eyebrow,
+    title:
+      o.kind === "advance"
+        ? `${o.name} paid a 50% advance for ${o.itemName}`
+        : o.kind === "balance"
+          ? `${o.name} paid the balance: order ${o.orderId} is fully paid`
+          : `${o.name} paid for ${o.itemName}`,
+    intro:
+      o.kind === "advance"
+        ? `The 50% advance is received. ${o.balanceDue ? `Balance pending: ${o.balanceDue}. ` : ""}See CRM > Orders & Payments > Balance Pending.`
+        : o.kind === "balance"
+          ? "The remaining balance is received and the order is now fully paid. The order row in CRM > Orders & Payments is updated."
+          : "Payment is received in full. The order is in CRM > Orders & Payments.",
+    accent: o.kind === "advance" ? "#d97706" : "#16a34a",
     rows,
     buttons: [
       { label: "Reply on WhatsApp", href: `https://wa.me/${waPhone}`, color: "#16a34a" },
@@ -553,7 +584,7 @@ export async function sendOrderNotificationEmail(o: {
       { label: "Open CRM", href: `${SITE_URL}/crm`, color: "#7c3aed" },
     ],
   });
-  const text = ["Quickupp AI Studio - New Order", "", ...rows.map(([k, v]) => `${k}: ${v}`)].join("\n");
+  const text = [`Quickupp AI Studio - ${eyebrow}`, "", ...rows.map(([k, v]) => `${k}: ${v}`)].join("\n");
   const smtp = await sendViaSmtp({ to: NOTIFICATION_EMAIL, subject, html, text, replyTo: o.email, fromName: "Quickupp AI Studio" });
   if (smtp.success) return { success: true, via: smtp.via, errors: smtp.errors };
   const errors = [...smtp.errors];

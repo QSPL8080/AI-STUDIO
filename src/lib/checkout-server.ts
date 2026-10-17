@@ -259,6 +259,58 @@ async function sendReceipt(orderId: string) {
   });
 }
 
+/**
+ * Team email (qsaistudio@gmail.com) for a PAID order only: full payment, 50% advance paid,
+ * or the balance of an advance paid (order now fully paid). Never for pending / failed
+ * attempts. Sent once per payment.
+ */
+async function sendTeamOrderEmail(orderId: string) {
+  const rows = await dbSelect(ORDERS_TABLE, { filters: [{ col: "id", op: "eq", value: orderId }] });
+  const o: any = rows[0];
+  if (!o || o.payment_status !== "COMPLETED") return;
+  const d = parseDetails(o);
+  if (d.teamEmail === "sent") return;
+  const v = orderView(o);
+  const kind = v.plan === "balance" ? "balance" : v.plan === "advance" ? "advance" : "full";
+  // A balance payment is reported on its original order (the one in the CRM).
+  let parent: any = null;
+  if (kind === "balance" && v.parentOrderId) {
+    parent = (await dbSelect(ORDERS_TABLE, { filters: [{ col: "id", op: "eq", value: v.parentOrderId }] }))[0] || null;
+  }
+  const base = parent || o;
+  const pd = parent ? parseDetails(parent) : d;
+  const paid = v.paidAt ? new Date(v.paidAt) : new Date();
+  const { sendOrderNotificationEmail } = await import("./email");
+  const r = await sendOrderNotificationEmail({
+    kind,
+    orderId: String(base.id),
+    txnid: v.txnid,
+    itemName: String(base.item_name),
+    amount: `${formatInr(v.amount)}`,
+    orderTotal: formatInr(v.orderTotal),
+    paidTotal: formatInr(v.paidTotal),
+    balanceDue: v.balanceDue > 0 ? formatInr(v.balanceDue) : undefined,
+    name: v.name,
+    email: v.email,
+    phone: String(base.customer_phone || o.customer_phone || ""),
+    company: v.company || undefined,
+    notes: String(pd.notes || "") || undefined,
+    paymentMode: `PayU / ${v.method}`,
+    paymentId: v.transactionId,
+    paidAt:
+      paid.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST",
+  });
+  await dbUpdate(ORDERS_TABLE, [{ col: "id", op: "eq", value: orderId }], {
+    raw_details: JSON.stringify({ ...parseDetails((await dbSelect(ORDERS_TABLE, { filters: [{ col: "id", op: "eq", value: orderId }] }))[0] || o), teamEmail: r.success ? "sent" : "failed" }),
+  });
+  await logActivity({
+    title: r.success ? "Order email sent" : "Order email FAILED",
+    category: "ORDERS",
+    actorEmail: "website",
+    description: (r.success ? `Paid order ${base.id} (${v.planLabel}): emailed to the team via ${r.via}.` : `Paid order ${base.id}: ${r.errors.join(" | ")}`).slice(0, 1200),
+  });
+}
+
 export interface CheckoutInput {
   serviceId: string;
   qty: number;
@@ -349,39 +401,7 @@ export async function createIndiaOrder(input: CheckoutInput) {
     description: `${name} ordered ${q.itemName} for ${formatInr(q.amount)}${advance ? ` (paying 50% advance ${formatInr(split.payNow)} now, balance ${formatInr(split.balance)} later)` : ""} (order ${orderId}, txn ${txnid}). ${payu ? "Sent to PayU for payment." : "Payment gateway not connected yet: send the customer a payment link."}`,
   });
 
-  // Team email in the background (doesn't slow the checkout down).
-  void (async () => {
-    try {
-      const { sendOrderNotificationEmail } = await import("./email");
-      const r = await sendOrderNotificationEmail({
-        orderId,
-        txnid,
-        itemName: q.itemName,
-        amount: advance
-          ? `${formatInr(q.amount)} total: ${formatInr(split.payNow)} now (50% advance) + ${formatInr(split.balance)} balance`
-          : formatInr(q.amount),
-        name,
-        email,
-        phone,
-        company: company || undefined,
-        notes: notes || undefined,
-        paymentMode: payu
-          ? "PayU (customer sent to the payment page)"
-          : "Pending: send the customer a payment link",
-      });
-      await logActivity({
-        title: r.success ? "Order email sent" : "Order email FAILED",
-        category: "ORDERS",
-        actorEmail: "website",
-        description: (r.success
-          ? `Order ${txnid}: emailed via ${r.via}.`
-          : `Order ${txnid}: ${r.errors.join(" | ")}`
-        ).slice(0, 1200),
-      });
-    } catch (e) {
-      console.error("Order email failed", e);
-    }
-  })();
+  // The team email (qsaistudio@gmail.com) is sent only once the payment succeeds: see sendTeamOrderEmail.
 
   const form = buildPayUForm({
     txnid,
@@ -573,7 +593,11 @@ async function applyPayUResult(order: any, r: PayUTxnStatus) {
     }
   }
   if (status === "COMPLETED")
-    void sendReceipt(order.id).catch((e) => console.error("Receipt email failed", e));
+    // One after the other: both save a flag on the same order row.
+    void (async () => {
+      await sendReceipt(order.id).catch((e) => console.error("Receipt email failed", e));
+      await sendTeamOrderEmail(order.id).catch((e) => console.error("Order email failed", e));
+    })();
   return status;
 }
 
