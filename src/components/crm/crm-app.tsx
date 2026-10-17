@@ -316,6 +316,10 @@ const iconBtn =
 const inputCls =
   "w-full h-9 px-3 rounded-md border border-slate-200 bg-white text-[13px] text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500";
 
+// Compact control for the lead filter bar (no w-full, so widths stay fixed and items sit inline).
+const filterCtl =
+  "h-9 shrink-0 rounded-md border border-slate-200 bg-white px-2.5 text-[13px] text-slate-900 focus:outline-none focus:border-purple-500 [color-scheme:light]";
+
 type TabId = "dashboard" | "leads" | "meta" | "orders" | "activity" | "users" | "settings" | "recycle-bin";
 type Toast = { id: number; kind: "success" | "error" | "info"; text: string };
 
@@ -1440,7 +1444,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           const filterSelect = (label: string, key: keyof LeadFilter, allLabel: string, options: string[], width = "w-40") => (
             <label className="flex items-center gap-1.5">
               <span className="text-[12px] text-slate-500 whitespace-nowrap">{label}:</span>
-              <select value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} className={`${inputCls} ${width} !px-2.5`}>
+              <select value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} className={`${filterCtl} ${width}`}>
                 <option value="All">{allLabel}</option>
                 {options.map((o) => (
                   <option key={o} value={o}>
@@ -1526,30 +1530,30 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </button>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-slate-100 pt-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-slate-100 pt-3">
                   {isMeta
                     ? filterSelect("Meta Channel", "source", "All Meta Channels", META_CHANNEL_FILTERS, "w-44")
-                    : filterSelect("Source", "source", "All Sources", WEBSITE_SOURCE_FILTERS, "w-52")}
-                  {filterSelect("Lead Status", "leadStatus", "All Lead Statuses", LEAD_STATUSES)}
+                    : filterSelect("Source", "source", "All Sources", WEBSITE_SOURCE_FILTERS, "w-56")}
+                  {filterSelect("Lead Status", "leadStatus", "All Lead Statuses", LEAD_STATUSES, "w-40")}
                   {filterSelect("Project Status", "projectStatus", "All Project Statuses", PROJECT_STATUSES, "w-44")}
-                  {filterSelect("Video Type", "videoType", "All Video Types", [...VIDEO_TYPE_FILTERS.map((v) => v.label), "Other"])}
-                  {filterSelect("Closed By", "closedBy", "All Admins", closers)}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    value={draft.dateField}
-                    onChange={(e) => setDraft({ ...draft, dateField: e.target.value as LeadFilter["dateField"] })}
-                    className={`${inputCls} w-36 !px-2.5`}
-                  >
-                    <option value="created">Created Date</option>
-                    <option value="closed">Closed Date</option>
-                    <option value="delivery">Delivery Date</option>
-                  </select>
-                  <input type="date" value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} className={`${inputCls} w-40 [color-scheme:light]`} />
-                  <span className="text-[12px] text-slate-500">to</span>
-                  <input type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => setDraft({ ...draft, to: e.target.value })} className={`${inputCls} w-40 [color-scheme:light]`} />
+                  {filterSelect("Video Type", "videoType", "All Video Types", [...VIDEO_TYPE_FILTERS.map((v) => v.label), "Other"], "w-40")}
+                  {filterSelect("Closed By", "closedBy", "All Admins", closers, "w-40")}
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={draft.dateField}
+                      onChange={(e) => setDraft({ ...draft, dateField: e.target.value as LeadFilter["dateField"] })}
+                      className={`${filterCtl} w-36`}
+                    >
+                      <option value="created">Created Date</option>
+                      <option value="closed">Closed Date</option>
+                      <option value="delivery">Delivery Date</option>
+                    </select>
+                    <input type="date" value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} className={`${filterCtl} w-40`} />
+                    <span className="text-[12px] text-slate-500">to</span>
+                    <input type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => setDraft({ ...draft, to: e.target.value })} className={`${filterCtl} w-40`} />
+                  </div>
                   {(isFilterActive(filter) || search) && (
-                    <span className="text-[12px] text-slate-500 ml-1">
+                    <span className="text-[12px] font-medium text-blue-600">
                       Showing {shown.length} of {all.length}
                     </span>
                   )}
