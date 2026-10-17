@@ -1737,7 +1737,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                             <div className="font-bold text-emerald-600 font-mono">{fmtMoney(o.paidTotal || o.amount, o.currency)}</div>
                             <span
                               className={`inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase ${
-                                o.paymentPlan === "advance" ? "bg-amber-50 text-amber-700" : o.paymentPlan === "balance" ? "bg-sky-50 text-sky-700" : "bg-emerald-50 text-emerald-700"
+                                isPartlyPaid(o) ? "bg-amber-50 text-amber-700" : o.paymentPlan === "full" ? "bg-emerald-50 text-emerald-700" : "bg-sky-50 text-sky-700"
                               }`}
                             >
                               {o.planLabel}
