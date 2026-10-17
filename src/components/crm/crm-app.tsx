@@ -35,6 +35,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  Filter,
 } from "lucide-react";
 import { CrmUser, clearStoredCrmUser, setStoredCrmUser } from "@/lib/crm-auth";
 import {
@@ -170,7 +171,79 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 }
 
 const LEAD_STATUSES = ["New", "Contacted", "In Progress", "Hold", "Closed"];
-const PROJECT_STATUSES = ["New", "In Progress", "Proj Active", "On Hold", "Delivered", "Cancelled"];
+const PROJECT_STATUSES = ["Not Started", "In Progress", "Proj Active", "On Hold", "Delivered", "Cancelled"];
+
+// ---- Lead filters (Leads + Meta Leads tabs) ----
+type LeadFilter = {
+  source: string;
+  leadStatus: string;
+  projectStatus: string;
+  videoType: string;
+  closedBy: string;
+  dateField: "created" | "closed" | "delivery";
+  from: string;
+  to: string;
+};
+const blankLeadFilter = (): LeadFilter => ({
+  source: "All",
+  leadStatus: "All",
+  projectStatus: "All",
+  videoType: "All",
+  closedBy: "All",
+  dateField: "created",
+  from: "",
+  to: "",
+});
+const isFilterActive = (f: LeadFilter) =>
+  f.source !== "All" || f.leadStatus !== "All" || f.projectStatus !== "All" || f.videoType !== "All" || f.closedBy !== "All" || !!f.from || !!f.to;
+const WEBSITE_SOURCE_FILTERS = ["India Website - Contact Form", "India Website - Popup", "Manual"];
+const META_CHANNEL_FILTERS = ["Meta Ads", "Facebook Ads", "Instagram Ads"];
+const VIDEO_TYPE_FILTERS: { label: string; match: RegExp }[] = [
+  { label: "AI UGC", match: /ugc/i },
+  { label: "AI Avatar", match: /avatar/i },
+  { label: "Cartoon", match: /cartoon|animation/i },
+  { label: "Hyper Realistic", match: /hyper/i },
+  { label: "Digital Twin", match: /twin|clone/i },
+];
+function leadSourceFilter(l: LeadItem) {
+  if (l.kind === "meta") {
+    const c = `${l.channel || ""} ${l.source || ""}`.toLowerCase();
+    return c.includes("instagram") ? "Instagram Ads" : c.includes("facebook") ? "Facebook Ads" : "Meta Ads";
+  }
+  const base = displayLeadSource(String(l.source || "").replace(/\s*\(CRM\)$/, ""));
+  if (base === "IND - Contact Form") return "India Website - Contact Form";
+  if (base === "IND - Popup Modal") return "India Website - Popup";
+  return "Manual";
+}
+function leadVideoFilter(l: LeadItem) {
+  return VIDEO_TYPE_FILTERS.find((v) => v.match.test(l.videoScope || ""))?.label || "Other";
+}
+// Calendar day (yyyy-mm-dd) in India time, for the date range filter.
+function istDay(value?: string | null) {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+function applyLeadFilter(list: LeadItem[], q: string, f: LeadFilter) {
+  const s = q.trim().toLowerCase();
+  return list.filter((l) => {
+    if (f.source !== "All" && leadSourceFilter(l) !== f.source) return false;
+    if (f.leadStatus !== "All" && l.leadStatus !== f.leadStatus) return false;
+    if (f.projectStatus !== "All" && l.projectStatus !== f.projectStatus) return false;
+    if (f.videoType !== "All" && leadVideoFilter(l) !== f.videoType) return false;
+    if (f.closedBy !== "All" && (l.leadStatus !== "Closed" || l.closedBy !== f.closedBy)) return false;
+    if (f.from || f.to) {
+      const raw = f.dateField === "closed" ? l.closedAt : f.dateField === "delivery" ? l.deliveredAt || l.deliveryTarget : l.createdAt;
+      const day = istDay(raw);
+      if (!day) return false;
+      if (f.from && day < f.from) return false;
+      if (f.to && day > f.to) return false;
+    }
+    if (!s) return true;
+    return [l.clientName, l.email, l.phone, l.companyName, l.notes, l.videoScope, l.campaign, l.location].some((v) => (v || "").toLowerCase().includes(s));
+  });
+}
 
 // "Add New Manual Lead" form (Leads and Meta Leads use the same form).
 const LEAD_SOURCE_OPTIONS = [
@@ -216,7 +289,7 @@ const blankLeadForm = (source: string) => ({
   videoScope: "AI UGC Video",
   quantity: "1 Video",
   leadStatus: "New",
-  projectStatus: "New",
+  projectStatus: "Not Started",
   deliveryDate: "",
   notes: "",
   channel: "Facebook",
@@ -290,9 +363,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
   // Filters
   const [leadsSearch, setLeadsSearch] = useState("");
-  const [leadsStatus, setLeadsStatus] = useState("All");
+  const [leadsFilter, setLeadsFilter] = useState<LeadFilter>(blankLeadFilter);
+  const [leadsDraft, setLeadsDraft] = useState<LeadFilter>(blankLeadFilter);
   const [metaSearch, setMetaSearch] = useState("");
-  const [metaStatus, setMetaStatus] = useState("All");
+  const [metaFilter, setMetaFilter] = useState<LeadFilter>(blankLeadFilter);
+  const [metaDraft, setMetaDraft] = useState<LeadFilter>(blankLeadFilter);
   const [ordersSearch, setOrdersSearch] = useState("");
   const [ordersStatus, setOrdersStatus] = useState("All");
   const [activityFilter, setActivityFilter] = useState("All");
@@ -922,19 +997,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     return acc;
   }, {});
 
-  const filterLeads = (list: LeadItem[], q: string, status: string) => {
-    const s = q.trim().toLowerCase();
-    return list.filter(
-      (l) =>
-        (status === "All" || l.leadStatus === status) &&
-        (!s ||
-          [l.clientName, l.email, l.phone, l.companyName, l.notes, l.videoScope, l.campaign, l.location].some((v) =>
-            (v || "").toLowerCase().includes(s),
-          )),
-    );
-  };
-  const shownWebsite = filterLeads(websiteLeads, leadsSearch, leadsStatus);
-  const shownMeta = filterLeads(metaLeads, metaSearch, metaStatus);
+  const shownWebsite = applyLeadFilter(websiteLeads, leadsSearch, leadsFilter);
+  const shownMeta = applyLeadFilter(metaLeads, metaSearch, metaFilter);
   // 50% advance paid, balance still due ("Balance Pending").
   const isPartlyPaid = (o: OrderItem) => o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED" && o.balanceDue > 0;
   const orderTab = (o: OrderItem) => (isPartlyPaid(o) ? "BALANCE" : o.paymentStatus === "REFUNDED" ? "REFUNDED" : "COMPLETED");
@@ -1368,8 +1432,24 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           const shown = isMeta ? shownMeta : shownWebsite;
           const search = isMeta ? metaSearch : leadsSearch;
           const setSearch = isMeta ? setMetaSearch : setLeadsSearch;
-          const status = isMeta ? metaStatus : leadsStatus;
-          const setStatus = isMeta ? setMetaStatus : setLeadsStatus;
+          const filter = isMeta ? metaFilter : leadsFilter;
+          const setFilter = isMeta ? setMetaFilter : setLeadsFilter;
+          const draft = isMeta ? metaDraft : leadsDraft;
+          const setDraft = isMeta ? setMetaDraft : setLeadsDraft;
+          const closers = Array.from(new Set([...all.map((l) => l.closedBy).filter(Boolean), ...users.map((u) => u.name).filter(Boolean)])).sort();
+          const filterSelect = (label: string, key: keyof LeadFilter, allLabel: string, options: string[], width = "w-40") => (
+            <label className="flex items-center gap-1.5">
+              <span className="text-[12px] text-slate-500 whitespace-nowrap">{label}:</span>
+              <select value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} className={`${inputCls} ${width} !px-2.5`}>
+                <option value="All">{allLabel}</option>
+                {options.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </label>
+          );
           return (
             <div key={tabKey} className="flex flex-col gap-4 lg:h-full lg:min-h-0">
               <PageHeader
@@ -1418,28 +1498,62 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 ))}
               </div>
 
-              <div className={`${card} p-4 flex flex-col sm:flex-row gap-2`}>
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, business, phone, email, notes..." className={`${inputCls} pl-9`} />
+              <div className={`${card} p-4 flex flex-col gap-3`}>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1 sm:max-w-xl">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && setFilter(draft)}
+                      placeholder={isMeta ? "Search Meta leads by Name, Business, Phone, Notes..." : "Search by Client Name, Business Name, Phone, Notes..."}
+                      className={`${inputCls} pl-9`}
+                    />
+                  </div>
+                  <div className="flex gap-2 sm:ml-auto">
+                    <button onClick={() => setFilter(draft)} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold">
+                      <Filter className="w-4 h-4" /> Apply Filter
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSearch("");
+                        setDraft(blankLeadFilter());
+                        setFilter(blankLeadFilter());
+                      }}
+                      className={btnGhost}
+                    >
+                      <RotateCcw className="w-4 h-4" /> Clear Filter
+                    </button>
+                  </div>
                 </div>
-                <select value={status} onChange={(e) => setStatus(e.target.value)} className={`${inputCls} sm:w-48`}>
-                  <option value="All">All lead statuses</option>
-                  {LEAD_STATUSES.map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-                {(search || status !== "All") && (
-                  <button
-                    onClick={() => {
-                      setSearch("");
-                      setStatus("All");
-                    }}
-                    className={btnGhost}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-slate-100 pt-3">
+                  {isMeta
+                    ? filterSelect("Meta Channel", "source", "All Meta Channels", META_CHANNEL_FILTERS, "w-44")
+                    : filterSelect("Source", "source", "All Sources", WEBSITE_SOURCE_FILTERS, "w-52")}
+                  {filterSelect("Lead Status", "leadStatus", "All Lead Statuses", LEAD_STATUSES)}
+                  {filterSelect("Project Status", "projectStatus", "All Project Statuses", PROJECT_STATUSES, "w-44")}
+                  {filterSelect("Video Type", "videoType", "All Video Types", [...VIDEO_TYPE_FILTERS.map((v) => v.label), "Other"])}
+                  {filterSelect("Closed By", "closedBy", "All Admins", closers)}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={draft.dateField}
+                    onChange={(e) => setDraft({ ...draft, dateField: e.target.value as LeadFilter["dateField"] })}
+                    className={`${inputCls} w-36 !px-2.5`}
                   >
-                    Clear filter
-                  </button>
-                )}
+                    <option value="created">Created Date</option>
+                    <option value="closed">Closed Date</option>
+                    <option value="delivery">Delivery Date</option>
+                  </select>
+                  <input type="date" value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} className={`${inputCls} w-40 [color-scheme:light]`} />
+                  <span className="text-[12px] text-slate-500">to</span>
+                  <input type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => setDraft({ ...draft, to: e.target.value })} className={`${inputCls} w-40 [color-scheme:light]`} />
+                  {(isFilterActive(filter) || search) && (
+                    <span className="text-[12px] text-slate-500 ml-1">
+                      Showing {shown.length} of {all.length}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {canDelete && (
@@ -1473,7 +1587,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               />
                             )}
                           </th>
-                          <th className="p-3.5">Source</th>
+                          <th className="p-3.5">{isMeta ? "Channel" : "Source"}</th>
                           <th className="p-3.5">Timestamp</th>
                           <th className="p-3.5">Client & Business</th>
                           <th className="p-3.5">WhatsApp / Phone</th>

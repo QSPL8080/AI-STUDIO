@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.ind_leads (
     requirement TEXT,
     additional TEXT,
     status VARCHAR(32) DEFAULT 'New',
-    project_status VARCHAR(32) DEFAULT 'New',
+    project_status VARCHAR(32) DEFAULT 'Not Started',
     channel VARCHAR(32),
     campaign VARCHAR(255),
     ad_set VARCHAR(255),

@@ -93,7 +93,8 @@ function mapLead(r: any) {
     businessType: (r.industry || "") as string,
     location: (r.location || "") as string,
     leadStatus: (r.status || "New") as string,
-    projectStatus: (r.project_status || "New") as string,
+    // New leads start as "Not Started" (older rows saved "New").
+    projectStatus: (!r.project_status || r.project_status === "New" ? "Not Started" : r.project_status) as string,
     notes,
     channel: (r.channel || "") as string,
     campaign: (r.campaign || "") as string,
@@ -489,7 +490,7 @@ export async function unlockOrders(token: string, pin: string) {
 // Leads
 // ---------------------------------------------------------------------------
 const LEAD_STATUS_LIST = ["New", "Contacted", "In Progress", "Hold", "Closed"];
-const PROJECT_STATUS_LIST = ["New", "In Progress", "Proj Active", "On Hold", "Delivered", "Cancelled"];
+const PROJECT_STATUS_LIST = ["Not Started", "In Progress", "Proj Active", "On Hold", "Delivered", "Cancelled"];
 
 export async function createLead(
   token: string,
@@ -523,7 +524,7 @@ export async function createLead(
   if (!t(data.phone)) throw new Error("WhatsApp / phone number is required.");
   const source = isMeta ? "Meta Ads" : !data.source || data.source === "Manual" ? "Manual Entry" : t(data.source, 64);
   const leadStatus = LEAD_STATUS_LIST.includes(String(data.leadStatus)) ? String(data.leadStatus) : "New";
-  const projectStatus = PROJECT_STATUS_LIST.includes(String(data.projectStatus)) ? String(data.projectStatus) : "New";
+  const projectStatus = PROJECT_STATUS_LIST.includes(String(data.projectStatus)) ? String(data.projectStatus) : "Not Started";
   const extras = [
     t(data.website) ? `Website: ${t(data.website)}` : "",
     t(data.quantity) ? `Video quantity: ${t(data.quantity)}` : "",
@@ -608,7 +609,7 @@ export async function createLead(
 }
 
 const LEAD_STATUSES = ["New", "Contacted", "In Progress", "Hold", "Closed"];
-const PROJECT_STATUSES = ["New", "In Progress", "Proj Active", "On Hold", "Delivered", "Cancelled"];
+const PROJECT_STATUSES = ["Not Started", "In Progress", "Proj Active", "On Hold", "Delivered", "Cancelled"];
 
 export async function updateLead(token: string, id: string, patch: { leadStatus?: string; projectStatus?: string }) {
   const ctx = await requireSession(token);
@@ -637,8 +638,8 @@ export async function updateLead(token: string, id: string, patch: { leadStatus?
   await dbUpdateWithOptional(LEADS_TABLE, byId(id), update, extra);
   const changes: string[] = [];
   if (update.status && update.status !== row.status) changes.push(`Lead status ${row.status || "New"} → ${update.status}`);
-  if (update.project_status && update.project_status !== (row.project_status || "New"))
-    changes.push(`Project status ${row.project_status || "New"} → ${update.project_status}`);
+  if (update.project_status && update.project_status !== (row.project_status || "Not Started"))
+    changes.push(`Project status ${!row.project_status || row.project_status === "New" ? "Not Started" : row.project_status} → ${update.project_status}`);
   if (changes.length) {
     await logActivity({
       title: "Lead updated",

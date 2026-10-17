@@ -15,6 +15,7 @@ export interface Lead {
   additional?: string;
   created_at: string;
   status: "New" | "Contacted" | "In Progress" | "Closed";
+  project_status?: string;
 }
 
 let pgPool: any = null;
@@ -192,6 +193,7 @@ export async function saveLead(data: {
     requirement: data.requirement || undefined,
     additional: data.additional || undefined,
     status,
+    project_status: "Not Started",
     created_at: now,
   };
 
@@ -213,6 +215,7 @@ export async function saveLead(data: {
           requirement: record.requirement || null,
           additional: record.additional || null,
           status: record.status,
+          project_status: record.project_status,
           created_at: record.created_at,
         }),
       });
@@ -230,8 +233,8 @@ export async function saveLead(data: {
   const pool = await getPool();
   if (pool) {
     const res = await pool.query(
-      `INSERT INTO ${LEADS_TABLE} (id, source, name, phone, email, video_type, business, location, industry, requirement, additional, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+      `INSERT INTO ${LEADS_TABLE} (id, source, name, phone, email, video_type, business, location, industry, requirement, additional, status, project_status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'Not Started', NOW())
        RETURNING *`,
       [
         id,
