@@ -9,71 +9,71 @@ export const samples = [
     format: "AI UGC",
     industry: "Dental & Healthcare",
     description: "Creator-style AI UGC video showcasing dental services and solutions to common teeth problems.",
-    videoUrl: "/media/ugc-sample.mp4",
+    videoUrl: "/media/sample-1.mp4",
   },
   {
     format: "AI Avatar",
     industry: "Hospitality & Food",
     description: "AI avatar presenter reel highlighting a hotel's diverse food menu and dining varieties.",
-    videoUrl: "/media/avatar-sample.mp4",
+    videoUrl: "/media/sample-2.mp4",
   },
   {
     format: "Hyper-Realistic",
     industry: "Footwear & Sportswear",
     description: "Cinematic hyper-realistic product ad for a running shoe, with dynamic action shots and studio hero frames.",
-    videoUrl: "/media/hyper-realistic-sample-v2.mp4",
+    videoUrl: "/media/sample-3.mp4",
   },
   {
     format: "AI Cartoon",
     industry: "Food & Confectionery",
     description:
       "Engaging animated brand storytelling reel with custom characters for Chitale Kesar Modak.",
-    videoUrl: "/media/cartoon-sample.mp4",
+    videoUrl: "/media/sample-4.mp4",
   },
   {
     format: "Digital Twin",
     industry: "Founder Branding",
     description: "Hinglish talking-head brand reel created from an approved digital twin of the presenter.",
-    videoUrl: "/media/digital-twin-sample.mp4",
+    videoUrl: "/media/sample-5.mp4",
   },
 ];
 
 export const portfolioItems = [
   {
-    industry: "Entertainment & Kids Brands",
+    industry: "Luxury Homes & Stone",
     description:
-      "Cute 3D animated owl characters enjoy a movie night with popcorn: playful character storytelling made for brand ads.",
-    videoUrl: "/media/cartoon-portfolio.mp4",
+      "AI presenter for Bharat Stone showcases green marble pillars and carved staircase railings crafted for luxury homes.",
+    videoUrl: "/media/portfolio-1.mp4",
   },
   {
     industry: "Food & Beverage",
     description:
       "Hyper-realistic energy drink commercial for LEVL, moving from everyday fatigue to a gym refuel, with dynamic 3D can product shots.",
-    videoUrl: "/media/ugc-portfolio.mp4",
+    videoUrl: "/media/portfolio-2.mp4",
   },
   {
     industry: "Interior Design & Architecture",
     description:
       "Hinglish AI avatar presenter pitching 360° marketing and Google Ads to help interior designers win ₹10–25 Lakh+ projects.",
-    videoUrl: "/media/avatar-portfolio.mp4",
+    videoUrl: "/media/portfolio-3.mp4",
   },
   {
     industry: "Jewellery & Bridal",
     description:
       "Hyper-realistic bridal jewellery ad for Arihant, featuring a gold kundan necklace, maang tikka and nath on an AI model.",
-    videoUrl: "/media/jewellery-portfolio.mp4",
+    videoUrl: "/media/portfolio-4.mp4",
+  },
+  {
+    industry: "Kitchen & Home Brands",
+    description:
+      "3D animated chef unboxes a Caraway cookware set and cooks a perfect steak dinner: character storytelling made for product ads.",
+    videoUrl: "/media/portfolio-5.mp4",
   },
   {
     industry: "Digital Twin",
     description:
       "Hinglish talking-head brand reel created from an approved digital twin, no camera or studio needed.",
-    videoUrl: "/media/digital-twin-sample.mp4",
-  },
-  {
-    industry: "AI Video Production",
-    description:
-      "AI presenter explains our AI video service in Marathi: AI UGC videos, scripting to editing, delivered in 48 hours.",
-    videoUrl: "/media/portfolio-6.mp4",
+    videoUrl: "/media/portfolio-6.mp4?v=2",
   },
 ];
 

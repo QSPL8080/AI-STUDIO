@@ -99,7 +99,7 @@ function SectionPhotoBg({ name }: { name: keyof typeof SECTION_PHOTOS | string; 
 
 /** First-frame image for a /media/<name>.mp4 video, shown instantly while the video loads. */
 const posterOf = (url?: string) =>
-  url ? url.replace(/^\/media\//, "/videos/posters/").replace(/\.mp4$/, ".jpg") : undefined;
+  url ? url.replace(/^\/media\//, "/videos/posters/").replace(/\.mp4(\?|$)/, ".jpg$1") : undefined;
 import { INDIA_PACKS, TWIN_SETUP, formatInr } from "@/lib/india-pricing";
 
 export function Header() {
@@ -598,8 +598,8 @@ export function Hero() {
                   el.playsInline = true;
                 }
               }}
-              src="/media/hero-video-v3.mp4"
-              poster="/videos/posters/hero-video-v3.jpg"
+              src="/media/hero-video.mp4"
+              poster="/videos/posters/hero-video.jpg"
               autoPlay
               loop
               muted={isMuted}
@@ -744,8 +744,8 @@ export function Hero() {
                     el.playsInline = true;
                   }
                 }}
-                src="/media/hero-video-v3.mp4"
-                poster="/videos/posters/hero-video-v3.jpg"
+                src="/media/hero-video.mp4"
+                poster="/videos/posters/hero-video.jpg"
                 autoPlay
                 loop
                 muted={isMuted}

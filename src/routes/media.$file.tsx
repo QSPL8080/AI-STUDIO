@@ -56,7 +56,7 @@ function findVideoDir(): Promise<string | null> {
 }
 
 async function serve(request: Request, file: string, headOnly: boolean) {
-  // Only plain file names like "page-1.mp4" — no folders, no "..".
+  // Only plain file names like "jbl-speaker-ad.mp4" — no folders, no "..".
   const m = /^([A-Za-z0-9][A-Za-z0-9_-]{0,80})\.(mp4|webm|jpg|jpeg|webp)$/.exec(file || "");
   if (!m) return new Response("Not found", { status: 404 });
   const dir = await findVideoDir();
