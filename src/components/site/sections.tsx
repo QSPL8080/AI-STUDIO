@@ -598,8 +598,8 @@ export function Hero() {
                   el.playsInline = true;
                 }
               }}
-              src="/media/hero-showcase-v2.mp4"
-              poster="/videos/posters/hero-showcase-v2.jpg"
+              src="/media/hero-video-v3.mp4"
+              poster="/videos/posters/hero-video-v3.jpg"
               autoPlay
               loop
               muted={isMuted}
@@ -744,8 +744,8 @@ export function Hero() {
                     el.playsInline = true;
                   }
                 }}
-                src="/media/hero-showcase-v2.mp4"
-                poster="/videos/posters/hero-showcase-v2.jpg"
+                src="/media/hero-video-v3.mp4"
+                poster="/videos/posters/hero-video-v3.jpg"
                 autoPlay
                 loop
                 muted={isMuted}
