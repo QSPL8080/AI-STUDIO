@@ -37,6 +37,10 @@ export interface InvoiceData {
   /** Still to be paid after this payment. */
   balanceDue?: number | undefined;
   parentOrderNumber?: string | undefined;
+  discountPercent?: number | undefined;
+  discountAmount?: number | undefined;
+  couponCode?: string | undefined;
+  originalAmount?: number | undefined;
 }
 
 const SITE = "quickuppaistudio.in";
@@ -186,8 +190,8 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
         y += 19;
       }
       pair("Billing Address:", (data.billingAddress || "India").replace(/[\r\n]+/g, ", ").trim(), M, y, { bold: false, color: C.ink });
-      const tight = plan !== "full"; // advance / balance receipts have extra rows: tighten spacing
-      y += tight ? 24 : 28;
+      const tight = plan !== "full" || Boolean(data.discountPercent); // advance / balance / discounted receipts have extra rows: tighten spacing
+      y += tight ? 22 : 28;
 
       // ── Payment details: one table (item, subtotal, tax, total) ──
       section("PAYMENT DETAILS", y);
@@ -203,21 +207,28 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       const paidTotal = data.paidTotal ?? data.amount;
       const headH = 32;
       const rowH = 46;
-      const sumH = tight ? 27 : 30;
-      const totH = 40;
-      const sumRows: [string, string][] =
-        plan === "advance"
-          ? [
-              ["Order Total", money(orderTotal)],
-              ["Amount Paid (50% Advance)", money(data.amount)],
-            ]
-          : plan === "balance"
-            ? [
-                ["Order Total", money(orderTotal)],
-                ["Paid Earlier (50% Advance)", money(data.paidBefore ?? 0)],
-                ["Amount Paid Now (Balance)", money(data.amount)],
-              ]
-            : [["Subtotal", money(sub)]];
+      const sumH = tight ? 26 : 30;
+      const totH = 38;
+      const sumRows: [string, string][] = [];
+      if (data.originalAmount && data.discountPercent) {
+        sumRows.push(["Original Price", money(data.originalAmount)]);
+      }
+      if (data.discountPercent && data.discountPercent > 0) {
+        sumRows.push([
+          `Offer Discount (${data.discountPercent}% OFF${data.couponCode ? ` · ${data.couponCode}` : ""})`,
+          `-${money(data.discountAmount || 0)}`,
+        ]);
+      }
+      if (plan === "advance") {
+        sumRows.push(["Order Total (Discounted)", money(orderTotal)]);
+        sumRows.push(["Amount Paid (50% Advance)", money(data.amount)]);
+      } else if (plan === "balance") {
+        sumRows.push(["Order Total", money(orderTotal)]);
+        sumRows.push(["Paid Earlier (50% Advance)", money(data.paidBefore ?? 0)]);
+        sumRows.push(["Amount Paid Now (Balance)", money(data.amount)]);
+      } else {
+        sumRows.push(["Subtotal", money(sub)]);
+      }
       if (data.tax !== undefined) sumRows.push(["Tax", money(data.tax)]);
       // Last (highlighted) row: what is still due for an advance, otherwise the total paid.
       const lastRow = partly
@@ -252,24 +263,38 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       const item = data.packageDescription ? `${data.serviceName} – ${data.packageDescription}` : data.serviceName;
       doc.font("B").fontSize(12).fillColor(C.ink).text(item, c1, y + 16, { width: c2 - c1 - 10 });
       doc.font("R").fontSize(12).fillColor(C.ink).text(String(data.qty || 1), c2, y + 16, { width: c2w, align: "center" });
-      doc.font("B").fontSize(12).fillColor(C.ink).text(money(orderTotal), c3, y + 16, { width: c3w, align: "right" });
+      doc.font("B").fontSize(12).fillColor(C.ink).text(money(data.originalAmount || orderTotal), c3, y + 16, { width: c3w, align: "right" });
       y += rowH;
 
       // Subtotal / tax rows (label sits under the Qty column, value under Amount)
       const labelX = c1;
       const labelW = c3 - 40 - c1;
       for (const [k, v] of sumRows) {
+        const isOffer = k.includes("Offer Discount");
         doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.line).stroke();
-        doc.font("R").fontSize(11).fillColor(C.muted).text(`${k}:`, labelX, y + 9, { width: labelW, align: "right" });
-        doc.font("B").fontSize(11).fillColor(C.ink).text(v, c3, y + 9, { width: c3w, align: "right" });
+        doc.font(isOffer ? "B" : "R").fontSize(11).fillColor(isOffer ? "#dc2626" : C.muted).text(`${k}:`, labelX, y + 8, { width: labelW, align: "right" });
+        doc.font("B").fontSize(11).fillColor(isOffer ? "#dc2626" : C.ink).text(v, c3, y + 8, { width: c3w, align: "right" });
         y += sumH;
       }
 
       // Total row
       doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(lastRow.line).stroke();
-      doc.font("B").fontSize(13).fillColor(lastRow.color).text(lastRow.label, labelX, y + 13, { width: labelW, align: "right" });
-      doc.font("B").fontSize(13).fillColor(lastRow.color).text(lastRow.value, c3 - 30, y + 13, { width: c3w + 30, align: "right" });
-      y += totH + (tight ? 22 : 28);
+      doc.font("B").fontSize(13).fillColor(lastRow.color).text(lastRow.label, labelX, y + 12, { width: labelW, align: "right" });
+      doc.font("B").fontSize(13).fillColor(lastRow.color).text(lastRow.value, c3 - 30, y + 12, { width: c3w + 30, align: "right" });
+      y += totH + 12;
+
+      // Special Offer Remark Callout
+      if (data.discountPercent && data.discountPercent > 0) {
+        doc.roundedRect(M, y, CW, 24, 4).fillAndStroke("#fef2f2", "#fca5a5");
+        doc.font("B").fontSize(9.5).fillColor("#dc2626").text(
+          `★ SPECIAL OFFER REMARK: ${data.discountPercent}% DISCOUNT APPLIED (-${money(data.discountAmount || 0)})${data.couponCode ? ` · CODE: ${data.couponCode}` : ""}`,
+          M + 12,
+          y + 7,
+        );
+        y += 32;
+      } else {
+        y += 12;
+      }
 
       // ── Payment information card ─────────────────────────────────
       const cardH = 108;

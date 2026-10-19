@@ -420,13 +420,29 @@ export async function sync(token: string, ordersPin?: string) {
       limit: 60,
     });
     orderEvents = ev.map(mapActivity);
-    orderRows = (await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } })).filter(isRealPayment);
+    orderRows = (await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } })).filter(
+      (r) => {
+        if (paymentSummary(r).plan === "balance") return false;
+        if (ctx.isSuperAdmin) {
+          // Super Admin sees completed, refunded, pending, and failed checkout attempts
+          return (
+            r.payment_status === "COMPLETED" ||
+            r.payment_status === "REFUNDED" ||
+            r.payment_status === "PENDING" ||
+            r.payment_status === "FAILED" ||
+            r.payment_status === "CANCELLED"
+          );
+        }
+        // Non-super-admins only see completed and refunded orders
+        return r.payment_status === "COMPLETED" || r.payment_status === "REFUNDED";
+      },
+    );
     ordersCount = orderRows.length;
     if (ordersPin && ordersPin === paymentsPin()) orders = orderRows.map(mapOrder);
   }
 
   let coupons: CrmCoupon[] = [];
-  if (ctx.perms.coupons || ctx.isSuperAdmin) {
+  if (ctx.isSuperAdmin) {
     try {
       const couponRows = await dbSelect(COUPONS_TABLE, { order: { col: "created_at", desc: true } });
       coupons = couponRows.map(mapCoupon);
@@ -1024,8 +1040,8 @@ export async function testAlertEmail(token: string) {
 /** Retrieves all coupons for CRM display. */
 export async function getCoupons(token: string) {
   const ctx = await requireSession(token);
-  if (!ctx.isSuperAdmin && !ctx.perms.coupons) {
-    throw new CrmAuthError("FORBIDDEN", "You do not have permission to view coupons.");
+  if (!ctx.isSuperAdmin) {
+    throw new CrmAuthError("FORBIDDEN", "Only Super Admin can view coupons.");
   }
   const rows = await dbSelect(COUPONS_TABLE, { order: { col: "created_at", desc: true } });
   return { ok: true as const, coupons: rows.map(mapCoupon) };
@@ -1034,8 +1050,8 @@ export async function getCoupons(token: string) {
 /** Generates a single-use unique coupon code (e.g. 10%, 20%, 25%, or custom). */
 export async function createCoupon(token: string, input: { discountPercent: number; customCode?: string }) {
   const ctx = await requireSession(token);
-  if (!ctx.isSuperAdmin && !ctx.perms.coupons) {
-    throw new CrmAuthError("FORBIDDEN", "You do not have permission to generate coupons.");
+  if (!ctx.isSuperAdmin) {
+    throw new CrmAuthError("FORBIDDEN", "Only Super Admin can generate coupons.");
   }
   const pct = Math.round(Number(input.discountPercent));
   if (isNaN(pct) || pct <= 0 || pct > 100) {
@@ -1090,8 +1106,8 @@ export async function createCoupon(token: string, input: { discountPercent: numb
 /** Deletes a coupon code from the CRM. */
 export async function deleteCoupon(token: string, id: string) {
   const ctx = await requireSession(token);
-  if (!ctx.isSuperAdmin && !ctx.perms.coupons) {
-    throw new CrmAuthError("FORBIDDEN", "You do not have permission to delete coupons.");
+  if (!ctx.isSuperAdmin) {
+    throw new CrmAuthError("FORBIDDEN", "Only Super Admin can delete coupons.");
   }
   const rows = await dbSelect(COUPONS_TABLE, { filters: [{ col: "id", op: "eq", value: id }] });
   const coupon = rows[0];
@@ -1182,8 +1198,8 @@ export interface DirectOrderInput {
  */
 export async function createDirectOrder(token: string, input: DirectOrderInput) {
   const ctx = await requireSession(token);
-  if (!ctx.isSuperAdmin && !ctx.perms.orders) {
-    throw new CrmAuthError("FORBIDDEN", "You do not have permission to create orders.");
+  if (!ctx.isSuperAdmin) {
+    throw new CrmAuthError("FORBIDDEN", "Only Super Admin can create on-call direct orders.");
   }
 
   const { createIndiaOrder, payOrderPath } = await import("./checkout-server");

@@ -129,6 +129,10 @@ function orderView(o: any) {
     paidAt: paidAt ? new Date(paidAt).toISOString() : null,
     receiptEmail: (d.receiptEmail as "sent" | "failed" | undefined) || null,
     failureReason: o.payment_status === "FAILED" ? String(d.payu?.error_Message || "") : "",
+    couponCode: String(d.couponCode || d.coupon?.code || ""),
+    discountPercent: Number(d.discountPercent || d.coupon?.discountPercent || 0),
+    discountAmount: Number(d.discountAmount || d.coupon?.discountAmount || 0),
+    originalAmount: d.originalAmount ? Number(d.originalAmount) : null,
     ...(() => {
       const ps = paymentSummary(o);
       return {
@@ -192,6 +196,10 @@ export async function buildReceiptPdf(o: any) {
     paidTotal: v.paidTotal,
     balanceDue: v.balanceDue,
     parentOrderNumber: v.parentOrderId || undefined,
+    discountPercent: v.discountPercent || undefined,
+    discountAmount: v.discountAmount || undefined,
+    couponCode: v.couponCode || undefined,
+    originalAmount: v.originalAmount || undefined,
   });
 }
 
@@ -244,6 +252,10 @@ async function sendReceipt(orderId: string) {
     balanceDue: v.balanceDue > 0 ? `${formatInr(v.balanceDue)} INR` : undefined,
     payBalanceUrl: v.payBalanceUrl ? `${siteUrl()}${v.payBalanceUrl}` : undefined,
     parentOrderNumber: v.parentOrderId || undefined,
+    discountPercent: v.discountPercent || undefined,
+    discountAmount: v.discountAmount > 0 ? `${formatInr(v.discountAmount)} INR` : undefined,
+    couponCode: v.couponCode || undefined,
+    originalAmount: v.originalAmount ? `${formatInr(v.originalAmount)} INR` : undefined,
     receipt,
   });
   await dbUpdate(ORDERS_TABLE, [{ col: "id", op: "eq", value: orderId }], {

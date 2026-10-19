@@ -167,6 +167,24 @@ function OrderCard({ order, token }: { order: OrderView; token: string }) {
             ) : null}
           </p>
         )}
+
+        {/* Red Offer Remark Banner */}
+        {order.discountPercent && order.discountPercent > 0 ? (
+          <div className="mx-auto mt-5 max-w-md rounded-2xl border-2 border-dashed border-red-500/80 bg-red-500/10 p-3.5 text-center shadow-[0_0_25px_rgba(239,68,68,0.15)]">
+            <span className="inline-block rounded-full bg-red-600 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-white shadow-sm">
+              Special Offer Applied
+            </span>
+            <div className="mt-2 text-base font-extrabold text-red-400">
+              {order.discountPercent}% DISCOUNT OFFER REMARK
+              {order.discountAmount ? ` · Saved ${formatInr(order.discountAmount)}` : ""}
+            </div>
+            {order.couponCode && (
+              <div className="mt-1 font-mono text-xs font-semibold text-red-300">
+                Coupon Code: <span className="underline decoration-red-400/60">{order.couponCode}</span>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* Payment details */}
@@ -177,6 +195,19 @@ function OrderCard({ order, token }: { order: OrderView; token: string }) {
           <DetailRow label="Service" value={order.service} />
           <DetailRow label="Package" value={order.pack} />
           {order.delivery && <DetailRow label="Delivery" value={order.delivery} />}
+          {order.discountPercent && order.discountPercent > 0 ? (
+            <>
+              {order.originalAmount && (
+                <DetailRow label="Original Price" value={formatInr(order.originalAmount)} />
+              )}
+              <DetailRow
+                label="Special Offer Discount"
+                value={`-${formatInr(order.discountAmount)} (${order.discountPercent}% OFF)${order.couponCode ? ` · ${order.couponCode}` : ""}`}
+                tone="red"
+                strong
+              />
+            </>
+          ) : null}
           {order.plan !== "full" && <DetailRow label="Order Total" value={formatInr(order.orderTotal)} />}
           {order.plan === "balance" && <DetailRow label="Paid Earlier (50% Advance)" value={formatInr(order.paidBefore)} />}
           <DetailRow
@@ -322,22 +353,26 @@ function DetailRow({
   value,
   mono,
   strong,
+  tone,
 }: {
   label: string;
   value: string;
   mono?: boolean;
   strong?: boolean;
+  tone?: "red" | "green";
 }) {
   return (
     <div className="flex items-start justify-between gap-4 py-3">
       <span className="shrink-0 text-sm text-white/50">{label}</span>
       <span
         className={`min-w-0 break-all text-right ${
-          mono
-            ? "font-mono text-[13px] text-white/85"
-            : strong
-              ? "text-base font-bold text-white"
-              : "text-sm font-medium text-white/85"
+          tone === "red"
+            ? "font-bold text-red-400"
+            : mono
+              ? "font-mono text-[13px] text-white/85"
+              : strong
+                ? "text-base font-bold text-white"
+                : "text-sm font-medium text-white/85"
         }`}
       >
         {value}

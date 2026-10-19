@@ -119,20 +119,34 @@ function renderPaymentConfirmationEmail(o: {
   balanceDue?: string | undefined;
   payBalanceUrl?: string | undefined;
   parentOrderNumber?: string | undefined;
+  discountPercent?: number | undefined;
+  discountAmount?: string | undefined;
+  couponCode?: string | undefined;
+  originalAmount?: string | undefined;
 }) {
   const e = escapeHtml;
   const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
   const mono = "SFMono-Regular,Menlo,Consolas,'Courier New',monospace";
-  const row = (k: string, v: string, opts: { strong?: boolean; mono?: boolean; last?: boolean } = {}) => `
+  const row = (k: string, v: string, opts: { strong?: boolean; mono?: boolean; last?: boolean; color?: string } = {}) => `
           <tr>
             <td style="padding:12px 0;${opts.last ? "" : "border-bottom:1px solid #eef0f4;"}font-family:${font};font-size:13px;color:#6b7280;width:46%;vertical-align:top">${e(k)}</td>
-            <td align="right" style="padding:12px 0;${opts.last ? "" : "border-bottom:1px solid #eef0f4;"}font-family:${opts.mono ? mono : font};font-size:${opts.strong ? "16px" : "14px"};font-weight:${opts.strong ? "800" : "600"};color:${opts.strong ? "#111827" : "#1f2937"};vertical-align:top;${opts.mono ? "word-break:break-all" : "overflow-wrap:break-word"}">${e(v)}</td>
+            <td align="right" style="padding:12px 0;${opts.last ? "" : "border-bottom:1px solid #eef0f4;"}font-family:${opts.mono ? mono : font};font-size:${opts.strong ? "16px" : "14px"};font-weight:${opts.strong ? "800" : "600"};color:${opts.color || (opts.strong ? "#111827" : "#1f2937")};vertical-align:top;${opts.mono ? "word-break:break-all" : "overflow-wrap:break-word"}">${e(v)}</td>
           </tr>`;
-  const details: [string, string, { strong?: boolean; mono?: boolean }?][] = [
+  const details: [string, string, { strong?: boolean; mono?: boolean; color?: string }?][] = [
     ["Order / Invoice No.", o.orderNumber, { mono: true }],
     ["Service", o.service],
     ["Package", o.pack],
     ...(o.delivery ? ([["Delivery", o.delivery]] as [string, string][]) : []),
+    ...(o.originalAmount ? ([["Original Order Total", o.originalAmount]] as [string, string][]) : []),
+    ...(o.discountPercent && o.discountPercent > 0
+      ? ([
+          [
+            "Special Offer Discount",
+            `-${o.discountAmount || ""} (${o.discountPercent}% OFF)${o.couponCode ? ` · ${o.couponCode}` : ""}`,
+            { color: "#dc2626" },
+          ],
+        ] as [string, string, { strong?: boolean; mono?: boolean; color?: string }][])
+      : []),
     ...((o.plan === "advance"
       ? [
           ["Order Total", o.orderTotal || o.amount],
@@ -146,7 +160,7 @@ function renderPaymentConfirmationEmail(o: {
             ["Amount Paid Now (Balance)", o.amount, { strong: true }],
             ["Balance Due", "Nil (Fully Paid)"],
           ]
-        : [["Amount Paid", o.amount, { strong: true }]]) as [string, string, { strong?: boolean; mono?: boolean }?][]),
+        : [["Amount Paid", o.amount, { strong: true }]]) as [string, string, { strong?: boolean; mono?: boolean; color?: string }?][]),
     ["Payment Type", o.planLabel || "Full Payment"],
     ["Payment Date", o.paymentDate],
     ["Payment Time", o.paymentTime],
@@ -212,6 +226,30 @@ function renderPaymentConfirmationEmail(o: {
       <div style="margin-top:6px;font-size:14px;color:#374151">Status: <strong style="color:#15803d">${o.plan === "balance" ? "FULLY PAID" : "PAID"} &#10003;</strong></div>`
       }
     </td></tr>
+
+    ${
+      o.discountPercent && o.discountPercent > 0
+        ? `<!-- Discount Offer Remark (Red) -->
+    <tr><td style="padding:16px 36px 0;font-family:${font}">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fef2f2;border:1.5px dashed #ef4444;border-radius:10px">
+        <tr><td style="padding:14px 18px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="vertical-align:top">
+                <span style="display:inline-block;padding:3px 9px;border-radius:4px;background:#dc2626;color:#ffffff;font-size:11px;font-weight:900;letter-spacing:0.8px;text-transform:uppercase">Special Offer Applied</span>
+                <div style="margin-top:6px;font-size:15px;font-weight:800;color:#991b1b">
+                  ${e(o.discountPercent)}% DISCOUNT OFFER REMARK
+                  ${o.discountAmount ? `<span style="font-weight:700;color:#dc2626"> (Saved ${e(o.discountAmount)})</span>` : ""}
+                </div>
+                ${o.couponCode ? `<div style="margin-top:4px;font-size:12px;font-family:${mono};color:#7f1d1d">Coupon Code: <strong>${e(o.couponCode)}</strong></div>` : ""}
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>`
+        : ""
+    }
 
     <!-- Order details -->
     <tr><td style="padding:26px 36px 4px">
@@ -622,6 +660,10 @@ export async function sendPaymentReceiptEmail(o: {
   balanceDue?: string | undefined;
   payBalanceUrl?: string | undefined;
   parentOrderNumber?: string | undefined;
+  discountPercent?: number | undefined;
+  discountAmount?: string | undefined;
+  couponCode?: string | undefined;
+  originalAmount?: string | undefined;
   receipt?: MailAttachment | undefined;
 }): Promise<{ success: boolean; via?: string; errors: string[] }> {
   const firstName = o.name.trim().split(/\s+/)[0] || "there";

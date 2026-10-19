@@ -725,7 +725,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     if (perms.dashboard) list.push({ id: "dashboard", label: "Dashboard", icon: LayoutGrid, count: null });
     if (perms.leads) list.push({ id: "leads", label: "Leads Management", icon: Users, count: websiteLeads.length });
     if (perms.meta) list.push({ id: "meta", label: "Meta Leads", icon: Layers, count: metaLeads.length });
-    if (perms.coupons) list.push({ id: "coupons", label: "Coupon Generator", icon: Tag, count: coupons.filter((c) => c.active).length });
+    if (isSuperAdmin && perms.coupons) list.push({ id: "coupons", label: "Coupon Generator", icon: Tag, count: coupons.filter((c) => c.active).length });
     if (perms.orders) list.push({ id: "orders", label: "Orders & Payments", icon: Package, count: ordersCount });
     if (isSuperAdmin) {
       list.push(
@@ -1262,8 +1262,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const orderTab = (o: OrderItem) =>
     isPartlyPaid(o)
       ? "BALANCE"
-      : o.paymentStatus === "PENDING"
-        ? "PENDING"
+      : o.paymentStatus === "PENDING" || o.paymentStatus === "FAILED" || o.paymentStatus === "CANCELLED"
+        ? "PENDING_FAILED"
         : o.paymentStatus === "REFUNDED"
           ? "REFUNDED"
           : "COMPLETED";
@@ -1988,7 +1988,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         })}
 
         {/* ---------------- COUPONS ---------------- */}
-        {activeTab === "coupons" && perms.coupons && (
+        {activeTab === "coupons" && isSuperAdmin && perms.coupons && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader
               icon={<Tag className="w-5 h-5 text-purple-600" />}
@@ -2309,13 +2309,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader icon={<Package className="w-5 h-5 text-purple-600" />} title="Orders & Payments" badge={`${orders.length} orders`} subtitle="Website checkout orders recorded in the database.">
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openOnCallModal(10)}
-                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[13px] font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-                >
-                  <Phone className="w-4 h-4" /> Create On-Call Order
-                </button>
+                {isSuperAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => openOnCallModal(10)}
+                    className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[13px] font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    <Phone className="w-4 h-4" /> Create On-Call Order
+                  </button>
+                )}
                 {canExport && (
                   <button
                     onClick={() =>
@@ -2357,7 +2359,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 { id: "All", label: "All" },
                 { id: "COMPLETED", label: "Fully Paid" },
                 { id: "BALANCE", label: "Balance Pending" },
-                { id: "PENDING", label: "Awaiting Payment" },
+                ...(isSuperAdmin ? [{ id: "PENDING_FAILED", label: "Pending & Failed" }] : []),
                 { id: "REFUNDED", label: "Refunded" },
               ].map((f) => {
                 const n = f.id === "All" ? orders.length : orders.filter((o) => orderTab(o) === f.id).length;
@@ -2397,13 +2399,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         ? "No orders match your search"
                         : ordersStatus === "BALANCE"
                           ? "No orders with a balance pending"
-                          : ordersStatus === "PENDING"
-                            ? "No orders awaiting payment"
+                          : ordersStatus === "PENDING_FAILED"
+                            ? "No pending or failed orders"
                             : ordersStatus === "COMPLETED"
                               ? "No fully paid orders"
                               : "No refunded orders"
                   }
-                  text="Only real payments appear here. Unfinished checkouts are not listed."
+                  text={isSuperAdmin ? "Orders and checkout attempts are tracked here." : "Only real payments appear here. Unfinished checkouts are not listed."}
                 />
               ) : (
                 <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
@@ -3537,7 +3539,75 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 label="Balance due"
                 value={selectedOrder.paymentPlan === "balance" ? "— (balance payment)" : selectedOrder.balanceDue > 0 ? fmtMoney(selectedOrder.balanceDue, selectedOrder.currency) : "Nil"}
               />
+              {selectedOrder.discountPercent && selectedOrder.discountPercent > 0 ? (
+                <>
+                  <Info
+                    label="Discount applied"
+                    value={`${selectedOrder.discountPercent}% OFF${selectedOrder.couponCode ? ` (Code: ${selectedOrder.couponCode})` : ""}`}
+                  />
+                  {selectedOrder.discountAmount ? (
+                    <Info
+                      label="Discount amount saved"
+                      value={`-₹${selectedOrder.discountAmount.toLocaleString("en-IN")}`}
+                    />
+                  ) : null}
+                  {selectedOrder.originalAmount ? (
+                    <Info
+                      label="Original order total"
+                      value={fmtMoney(selectedOrder.originalAmount, selectedOrder.currency)}
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <Info label="Discount" value="None (0%)" />
+              )}
               {selectedOrder.parentOrderId && <Info label="Balance for order" value={selectedOrder.parentOrderId} />}
+              {selectedOrder.paymentStatus === "PENDING" && selectedOrder.payOrderUrl && (
+                <div className="sm:col-span-2 rounded-md border border-purple-200 bg-purple-50 p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-bold uppercase tracking-wider text-purple-700">Direct Order Payment Link</div>
+                    <span className="text-[11px] px-2 py-0.5 rounded font-semibold bg-amber-100 text-amber-800">Awaiting Client Payment</span>
+                  </div>
+                  <div className="mt-1 text-[12px] font-mono text-slate-700 break-all">{selectedOrder.payOrderUrl}</div>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard
+                          ?.writeText(selectedOrder.payOrderUrl)
+                          .then(() => toast("Payment link copied to clipboard!"))
+                          .catch(() => toast("Could not copy link", "error"));
+                      }}
+                      className="h-8 px-3 rounded-md border border-purple-300 bg-white text-[13px] font-semibold text-purple-700 hover:bg-purple-100 inline-flex items-center gap-1.5"
+                    >
+                      <Copy className="w-3.5 h-3.5" /> Copy link
+                    </button>
+                    {selectedOrder.customerPhone && (
+                      <a
+                        href={`https://wa.me/${(() => {
+                          const d = selectedOrder.customerPhone.replace(/[^\d]/g, "");
+                          return d.length === 10 ? `91${d}` : d;
+                        })()}?text=${encodeURIComponent(
+                          `Hello ${selectedOrder.customerName.split(" ")[0]}, thank you for speaking with Quickupp AI Studio! Here is your secure payment link for ${selectedOrder.itemName}${selectedOrder.discountPercent ? ` with ${selectedOrder.discountPercent}% discount` : ""}: ${selectedOrder.payOrderUrl}`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-8 px-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-600 text-[13px] font-semibold text-white hover:bg-emerald-700"
+                      >
+                        <Share2 className="w-3.5 h-3.5" /> Send on WhatsApp
+                      </a>
+                    )}
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => handleMarkOrderPaid(selectedOrder)}
+                        disabled={busy === `mark-paid-${selectedOrder.id}`}
+                        className="h-8 px-3 rounded-md bg-emerald-700 hover:bg-emerald-800 text-[13px] font-semibold text-white inline-flex items-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Mark Order as Paid (UPI / NEFT)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
               {selectedOrder.payBalanceUrl && (
                 <div className="sm:col-span-2 rounded-md border border-orange-200 bg-orange-50 p-3">
                   <div className="text-xs font-semibold uppercase tracking-wider text-orange-700">Balance payment link</div>
@@ -3560,7 +3630,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                           const d = selectedOrder.customerPhone.replace(/[^\d]/g, "");
                           return d.length === 10 ? `91${d}` : d;
                         })()}?text=${encodeURIComponent(
-                          `Hello ${selectedOrder.customerName.split(" ")[0]}, thank you for your order ${selectedOrder.id} with Quickupp AI Studio. The remaining balance of ${fmtMoney(selectedOrder.balanceDue, selectedOrder.currency)} can be paid securely here: ${selectedOrder.payBalanceUrl}`,
+                          `Hello ${selectedOrder.customerName.split(" ")[0]}, thank you for your order ${selectedOrder.id} with Quickupp AI Studio. The remaining balance of ${fmtMoney(selectedOrder.balanceDue, selectedOrder.currency)} can be paid securely here: ${selectedOrder.payBalanceUrl}`
                         )}`}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -3595,6 +3665,399 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </div>
             )}
           </div>
+        </Modal>
+      )}
+
+      {/* ---------------- ON-CALL CLIENT ORDER MODAL ---------------- */}
+      {showOnCallModal && (
+        <Modal
+          size="xl"
+          onClose={() => setShowOnCallModal(false)}
+          title={onCallCreatedOrder ? "Order Created Successfully" : "Create Client Order (On Call)"}
+          subtitle={
+            onCallCreatedOrder
+              ? `Order ${onCallCreatedOrder.orderId} generated with ${onCallCreatedOrder.discountPercent}% discount.`
+              : "Generate an order with an agreed discount on the spot. Customer does not need to fill any website forms."
+          }
+          icon={onCallCreatedOrder ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Phone className="w-5 h-5 text-purple-600" />}
+        >
+          {onCallCreatedOrder ? (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/70 text-emerald-950">
+                <div className="flex items-center gap-2.5 font-bold text-emerald-900 text-base">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  Order #{onCallCreatedOrder.orderId} Created!
+                </div>
+                <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div>
+                    <span className="text-emerald-700">Client:</span>
+                    <div className="font-semibold text-slate-900 truncate">{onCallForm.clientName}</div>
+                  </div>
+                  <div>
+                    <span className="text-emerald-700">Package:</span>
+                    <div className="font-semibold text-slate-900 truncate">{onCallCreatedOrder.itemName}</div>
+                  </div>
+                  <div>
+                    <span className="text-emerald-700">Amount:</span>
+                    <div className="font-bold text-emerald-800 font-mono">₹{onCallCreatedOrder.amount.toLocaleString("en-IN")}</div>
+                  </div>
+                  <div>
+                    <span className="text-emerald-700">Discount:</span>
+                    <div className="font-bold text-purple-700">{onCallCreatedOrder.discountPercent}% OFF</div>
+                  </div>
+                </div>
+              </div>
+
+              {onCallForm.paidOnCall ? (
+                <div className="p-3.5 rounded-lg border border-emerald-300 bg-emerald-100 text-emerald-900 text-xs font-medium flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+                  Payment confirmed! This order has been saved as <strong>PAID</strong> and appears in your Fully Paid orders.
+                </div>
+              ) : (
+                <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-purple-900">Direct Payment Link</span>
+                    <span className="text-[11px] font-semibold text-purple-700 bg-white px-2 py-0.5 rounded-full border border-purple-200">
+                      Pre-loaded & Ready to Pay
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-white border border-purple-200 font-mono text-xs text-slate-800 break-all select-all">
+                    {onCallCreatedOrder.payOrderUrl}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(onCallCreatedOrder.payOrderUrl);
+                        setCopiedPayUrl(true);
+                        toast("Payment link copied to clipboard!", "success");
+                        setTimeout(() => setCopiedPayUrl(false), 3000);
+                      }}
+                      className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                    >
+                      {copiedPayUrl ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {copiedPayUrl ? "Link Copied!" : "Copy Payment Link"}
+                    </button>
+
+                    {onCallForm.clientPhone && (
+                      <a
+                        href={`https://wa.me/${(() => {
+                          const d = onCallForm.clientPhone.replace(/[^\d]/g, "");
+                          return d.length === 10 ? `91${d}` : d;
+                        })()}?text=${encodeURIComponent(
+                          `Hello ${onCallForm.clientName.split(" ")[0]}! Here is your direct payment link from Quickupp AI Studio:\n\n📦 *Package*: ${onCallCreatedOrder.itemName}\n🎟 *Discount*: ${onCallCreatedOrder.discountPercent}% OFF applied\n💰 *Amount to pay*: ₹${onCallCreatedOrder.amount.toLocaleString("en-IN")}\n\n👉 *Pay securely here* (UPI / Card / NetBanking / EMI):\n${onCallCreatedOrder.payOrderUrl}\n\nNo forms required. Once paid, our production team will get started on your videos immediately!`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition-all"
+                      >
+                        <Share2 className="w-4 h-4" /> Share on WhatsApp
+                      </a>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 italic">
+                    Tip: The customer can open this link on their mobile or laptop and will see their details and discount already filled in, taking them straight to PayU without any form filling.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowOnCallModal(false);
+                    setOnCallCreatedOrder(null);
+                    setActiveTab("orders");
+                    setOrdersStatus("All");
+                  }}
+                  className="h-9 px-4 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
+                >
+                  Done & View in Orders Table
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleCreateDirectOrder} className="space-y-4">
+              {/* Client Information */}
+              <div>
+                <div className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-purple-600" /> Client Details (On Call)
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      value={onCallForm.clientName}
+                      onChange={(e) => setOnCallForm({ ...onCallForm, clientName: e.target.value })}
+                      placeholder="e.g. Rahul Sharma"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="email"
+                      value={onCallForm.clientEmail}
+                      onChange={(e) => setOnCallForm({ ...onCallForm, clientEmail: e.target.value })}
+                      placeholder="e.g. rahul@brand.com"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Phone / WhatsApp Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="tel"
+                      value={onCallForm.clientPhone}
+                      onChange={(e) => setOnCallForm({ ...onCallForm, clientPhone: e.target.value })}
+                      placeholder="e.g. +91 9876543210"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Company / Brand Name
+                    </label>
+                    <input
+                      type="text"
+                      value={onCallForm.clientCompany}
+                      onChange={(e) => setOnCallForm({ ...onCallForm, clientCompany: e.target.value })}
+                      placeholder="e.g. Acme Media"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Service & Package Selection */}
+              <div className="pt-2 border-t border-slate-200">
+                <div className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-purple-600" /> Package & Service
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Service</label>
+                    <select
+                      value={onCallForm.serviceId}
+                      onChange={(e) =>
+                        setOnCallForm({
+                          ...onCallForm,
+                          serviceId: e.target.value,
+                          qty: e.target.value === TWIN_SETUP_ID ? 1 : onCallForm.qty,
+                        })
+                      }
+                      className={inputCls}
+                    >
+                      {INDIA_SERVICES.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                      <option value={TWIN_SETUP_ID}>AI Digital Twin Setup (One-Time ₹15,000)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Quantity / Reels</label>
+                    <select
+                      disabled={onCallForm.serviceId === TWIN_SETUP_ID}
+                      value={onCallForm.qty}
+                      onChange={(e) => setOnCallForm({ ...onCallForm, qty: Number(e.target.value) })}
+                      className={`${inputCls} disabled:opacity-50`}
+                    >
+                      {INDIA_PACKS.map((p) => (
+                        <option key={p.qty} value={p.qty}>
+                          {p.label} — {p.deliveryShort}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Payment Plan</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setOnCallForm({ ...onCallForm, paymentPlan: "full" })}
+                      className={`h-9 px-3 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
+                        onCallForm.paymentPlan === "full"
+                          ? "bg-purple-50 border-purple-500 text-purple-900 ring-1 ring-purple-400"
+                          : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      Full Payment (100%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOnCallForm({ ...onCallForm, paymentPlan: "advance" })}
+                      className={`h-9 px-3 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
+                        onCallForm.paymentPlan === "advance"
+                          ? "bg-purple-50 border-purple-500 text-purple-900 ring-1 ring-purple-400"
+                          : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      50% Advance + 50% on Delivery
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Discount Selector */}
+              <div className="pt-2 border-t border-slate-200">
+                <div className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Percent className="w-3.5 h-3.5 text-purple-600" /> Apply Discount (% Code)
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
+                      Discount Percentage Preset:
+                    </label>
+                    <div className="flex gap-1.5">
+                      {[0, 10, 20, 25].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => setOnCallForm({ ...onCallForm, discountPercent: pct, customDiscount: "" })}
+                          className={`flex-1 h-9 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                            onCallForm.customDiscount === "" && onCallForm.discountPercent === pct
+                              ? "bg-purple-600 text-white shadow-sm ring-2 ring-purple-600/30"
+                              : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {pct === 0 ? "0%" : `${pct}%`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">Custom %</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={onCallForm.customDiscount}
+                        onChange={(e) => setOnCallForm({ ...onCallForm, customDiscount: e.target.value })}
+                        placeholder="Custom %"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">Code (optional)</label>
+                      <input
+                        type="text"
+                        value={onCallForm.customCode}
+                        onChange={(e) => setOnCallForm({ ...onCallForm, customCode: e.target.value.toUpperCase() })}
+                        placeholder="Auto"
+                        className={`${inputCls} uppercase font-mono text-xs`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Paid on Call Checkbox */}
+              <div className="pt-2 border-t border-slate-200">
+                <label className="flex items-start gap-2.5 p-3 rounded-lg border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={onCallForm.paidOnCall}
+                    onChange={(e) => setOnCallForm({ ...onCallForm, paidOnCall: e.target.checked })}
+                    className="mt-0.5 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-emerald-950">
+                      Payment already received on call (UPI / Bank Transfer / Cash)
+                    </span>
+                    <p className="text-[11px] text-emerald-800 mt-0.5">
+                      Check this if the client has already transferred payment on call. The order will be immediately saved as <strong>PAID (COMPLETED)</strong>.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Admin Call Notes (optional)
+                </label>
+                <input
+                  type="text"
+                  value={onCallForm.notes}
+                  onChange={(e) => setOnCallForm({ ...onCallForm, notes: e.target.value })}
+                  placeholder="e.g. Agreed 20% discount on call, delivery promised in 5 days"
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Live Price Summary */}
+              <div className="p-3.5 rounded-xl border border-purple-200 bg-purple-50/50 space-y-1.5">
+                <div className="flex justify-between items-center text-xs text-slate-600">
+                  <span>Package Base Price:</span>
+                  <span className="font-semibold text-slate-900">{formatInr(onCallPricing.basePrice)}</span>
+                </div>
+                {onCallPricing.pct > 0 && (
+                  <div className="flex justify-between items-center text-xs text-emerald-700 font-medium">
+                    <span>Discount ({onCallPricing.pct}% OFF):</span>
+                    <span>-₹{onCallPricing.discountAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-sm font-bold text-slate-900 pt-1 border-t border-purple-200">
+                  <span>Order Total:</span>
+                  <span className="text-purple-700 font-mono">{formatInr(onCallPricing.finalTotal)}</span>
+                </div>
+                {onCallForm.paymentPlan === "advance" && (
+                  <div className="flex justify-between items-center text-xs text-slate-700 pt-1">
+                    <span>Pay Now (50% Advance):</span>
+                    <span className="font-bold text-emerald-700 font-mono">{formatInr(onCallPricing.payNow)} (Balance later: {formatInr(onCallPricing.balance)})</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOnCallModal(false)}
+                  className="h-9 px-4 rounded-md border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={onCallBusy}
+                  className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-60 cursor-pointer"
+                >
+                  {onCallBusy ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" /> Creating Order...
+                    </>
+                  ) : onCallForm.paidOnCall ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" /> Create & Mark as Paid
+                    </>
+                  ) : (
+                    <>
+                      <Phone className="w-4 h-4" /> Create Order & Generate Pay Link
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
         </Modal>
       )}
 

@@ -14,6 +14,7 @@ import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiPayBalanceRouteImport } from './routes/api.pay-balance'
+import { Route as ApiPayOrderRouteImport } from './routes/api.pay-order'
 import { Route as ApiReceiptRouteImport } from './routes/api.receipt'
 import { Route as CrmIndexRouteImport } from './routes/crm.index'
 import { Route as CrmLoginRouteImport } from './routes/crm.login'
@@ -44,6 +45,11 @@ const TermsRoute = TermsRouteImport.update({
 const ApiPayBalanceRoute = ApiPayBalanceRouteImport.update({
   id: '/api/pay-balance',
   path: '/api/pay-balance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPayOrderRoute = ApiPayOrderRouteImport.update({
+  id: '/api/pay-order',
+  path: '/api/pay-order',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReceiptRoute = ApiReceiptRouteImport.update({
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
   '/api/pay-balance': typeof ApiPayBalanceRoute
+  '/api/pay-order': typeof ApiPayOrderRoute
   '/api/receipt': typeof ApiReceiptRoute
   '/crm/login': typeof CrmLoginRoute
   '/media/$file': typeof MediaFileRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
   '/api/pay-balance': typeof ApiPayBalanceRoute
+  '/api/pay-order': typeof ApiPayOrderRoute
   '/api/receipt': typeof ApiReceiptRoute
   '/crm/login': typeof CrmLoginRoute
   '/media/$file': typeof MediaFileRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
   '/api/pay-balance': typeof ApiPayBalanceRoute
+  '/api/pay-order': typeof ApiPayOrderRoute
   '/api/receipt': typeof ApiReceiptRoute
   '/crm/login': typeof CrmLoginRoute
   '/media/$file': typeof MediaFileRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/terms'
     | '/api/pay-balance'
+    | '/api/pay-order'
     | '/api/receipt'
     | '/crm/login'
     | '/media/$file'
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/terms'
     | '/api/pay-balance'
+    | '/api/pay-order'
     | '/api/receipt'
     | '/crm/login'
     | '/media/$file'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/terms'
     | '/api/pay-balance'
+    | '/api/pay-order'
     | '/api/receipt'
     | '/crm/login'
     | '/media/$file'
@@ -165,6 +177,7 @@ export interface RootRouteChildren {
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   TermsRoute: typeof TermsRoute
   ApiPayBalanceRoute: typeof ApiPayBalanceRoute
+  ApiPayOrderRoute: typeof ApiPayOrderRoute
   ApiReceiptRoute: typeof ApiReceiptRoute
   CrmLoginRoute: typeof CrmLoginRoute
   MediaFileRoute: typeof MediaFileRoute
@@ -208,6 +221,13 @@ declare module '@tanstack/react-router' {
       path: '/api/pay-balance'
       fullPath: '/api/pay-balance'
       preLoaderRoute: typeof ApiPayBalanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pay-order': {
+      id: '/api/pay-order'
+      path: '/api/pay-order'
+      fullPath: '/api/pay-order'
+      preLoaderRoute: typeof ApiPayOrderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/receipt': {
@@ -261,6 +281,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   TermsRoute: TermsRoute,
   ApiPayBalanceRoute: ApiPayBalanceRoute,
+  ApiPayOrderRoute: ApiPayOrderRoute,
   ApiReceiptRoute: ApiReceiptRoute,
   CrmLoginRoute: CrmLoginRoute,
   MediaFileRoute: MediaFileRoute,
