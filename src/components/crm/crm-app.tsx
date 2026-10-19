@@ -24,7 +24,9 @@ import {
   RotateCcw,
   Search,
   Settings,
+  Share2,
   Shield,
+  Tag,
   Trash2,
   TrendingUp,
   User,
@@ -35,6 +37,9 @@ import {
   Volume2,
   VolumeX,
   X,
+  Check,
+  Copy,
+  Percent,
   Filter,
 } from "lucide-react";
 import { CrmUser, clearStoredCrmUser, setStoredCrmUser } from "@/lib/crm-auth";
@@ -43,6 +48,11 @@ import {
   crmClearLeadsFn,
   crmCreateLeadFn,
   crmCreateUserFn,
+  crmCreateCouponFn,
+  crmDeleteCouponFn,
+  crmGetCouponsFn,
+  crmCreateDirectOrderFn,
+  crmMarkOrderPaidFn,
   crmDeleteActivityFn,
   crmDeleteLeadFn,
   crmDeleteLeadsFn,
@@ -67,6 +77,7 @@ import {
   crmUnlockOrdersFn,
   crmUpdateLeadFn,
 } from "@/lib/crm-actions";
+import { INDIA_SERVICES, INDIA_PACKS, quoteItem, formatInr, TWIN_SETUP_ID } from "@/lib/india-pricing";
 import {
   DEFAULT_CONFIG,
   DEFAULT_MATRIX,
@@ -320,7 +331,7 @@ const inputCls =
 const filterCtl =
   "h-9 shrink-0 rounded-md border border-slate-200 bg-white px-2.5 text-[13px] text-slate-900 focus:outline-none focus:border-purple-500 [color-scheme:light]";
 
-type TabId = "dashboard" | "leads" | "meta" | "orders" | "activity" | "users" | "settings" | "recycle-bin";
+type TabId = "dashboard" | "leads" | "meta" | "coupons" | "orders" | "activity" | "users" | "settings" | "recycle-bin";
 type Toast = { id: number; kind: "success" | "error" | "info"; text: string };
 
 // ---------------------------------------------------------------------------
@@ -339,6 +350,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [config, setConfig] = useState<CrmConfig>(DEFAULT_CONFIG);
   const [leads, setLeads] = useState<LeadItem[]>([]);
   const [recycleBin, setRecycleBin] = useState<LeadItem[]>([]);
+  const [coupons, setCoupons] = useState<any[]>([]);
   const [orders, setOrders] = useState<OrderItem[] | null>(null);
   const [ordersCount, setOrdersCount] = useState(0);
   const [users, setUsers] = useState<UserItem[]>([]);
@@ -346,6 +358,35 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [orderEvents, setOrderEvents] = useState<ActivityItem[]>([]);
   const [counts, setCounts] = useState<RecordCounts | null>(null);
   const [serverMatrix, setServerMatrix] = useState<PermissionMatrix>(DEFAULT_MATRIX);
+
+  // Coupon Generator state
+  const [couponPreset, setCouponPreset] = useState<number>(10);
+  const [customDiscount, setCustomDiscount] = useState<string>("");
+  const [customCodeInput, setCustomCodeInput] = useState<string>("");
+  const [isCreatingCoupon, setIsCreatingCoupon] = useState<boolean>(false);
+  const [couponFilter, setCouponFilter] = useState<"all" | "active" | "used">("all");
+  const [couponSearch, setCouponSearch] = useState<string>("");
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // On-Call Client Order Modal state
+  const [showOnCallModal, setShowOnCallModal] = useState(false);
+  const [onCallForm, setOnCallForm] = useState({
+    clientName: "",
+    clientEmail: "",
+    clientPhone: "",
+    clientCompany: "",
+    serviceId: "ai-ugc",
+    qty: 1,
+    paymentPlan: "full" as "full" | "advance",
+    discountPercent: 10,
+    customDiscount: "",
+    customCode: "",
+    paidOnCall: false,
+    notes: "",
+  });
+  const [onCallBusy, setOnCallBusy] = useState(false);
+  const [onCallCreatedOrder, setOnCallCreatedOrder] = useState<any>(null);
+  const [copiedPayUrl, setCopiedPayUrl] = useState(false);
 
   // UI state
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
@@ -479,6 +520,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       if (!configDirtyRef.current) setConfigDraft(r.config);
       setLeads([...r.leads].sort((a: LeadItem, b: LeadItem) => String(b.createdAt).localeCompare(String(a.createdAt))));
       setRecycleBin(r.recycleBin);
+      if (r.coupons) setCoupons(r.coupons);
       setOrdersCount(r.ordersCount);
       if (r.orders && ordersPinRef.current) setOrders(r.orders); // ignore late results after the tab re-locked
       else if (!r.perms.orders) {
@@ -683,6 +725,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     if (perms.dashboard) list.push({ id: "dashboard", label: "Dashboard", icon: LayoutGrid, count: null });
     if (perms.leads) list.push({ id: "leads", label: "Leads Management", icon: Users, count: websiteLeads.length });
     if (perms.meta) list.push({ id: "meta", label: "Meta Leads", icon: Layers, count: metaLeads.length });
+    if (perms.coupons) list.push({ id: "coupons", label: "Coupon Generator", icon: Tag, count: coupons.filter((c) => c.active).length });
     if (perms.orders) list.push({ id: "orders", label: "Orders & Payments", icon: Package, count: ordersCount });
     if (isSuperAdmin) {
       list.push(
@@ -693,7 +736,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     }
     if (perms.recycle_bin) list.push({ id: "recycle-bin", label: "Recycle Bin", icon: Trash2, count: recycleBin.length });
     return list;
-  }, [perms, isSuperAdmin, websiteLeads.length, metaLeads.length, ordersCount, users.length, recycleBin.length]);
+  }, [perms, isSuperAdmin, websiteLeads.length, metaLeads.length, coupons, ordersCount, users.length, recycleBin.length]);
 
   useEffect(() => setSelectedIds([]), [activeTab]);
 
@@ -959,6 +1002,217 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     doSync();
   };
 
+  // -------------------------------------------------------------------------
+  // Coupon Generator handlers
+  // -------------------------------------------------------------------------
+  const handleCreateCoupon = async () => {
+    const pct = customDiscount ? Number(customDiscount) : couponPreset;
+    if (isNaN(pct) || pct <= 0 || pct > 100) {
+      toast("Discount must be between 1% and 100%", "error");
+      return;
+    }
+    setIsCreatingCoupon(true);
+    try {
+      const res: any = await crmCreateCouponFn({
+        data: {
+          token: tok(),
+          discountPercent: pct,
+          customCode: customCodeInput.trim() || undefined,
+        },
+      });
+      if (res?.ok) {
+        toast(`Single-use coupon ${res.coupon.code} (${res.coupon.discountPercent}% OFF) generated!`, "success");
+        setCoupons((prev) => [res.coupon, ...prev.filter((c) => c.id !== res.coupon.id)]);
+        setCustomCodeInput("");
+        setCustomDiscount("");
+        doSync();
+      } else {
+        toast(res?.error || "Could not generate coupon", "error");
+      }
+    } catch {
+      toast("Network error while generating coupon", "error");
+    } finally {
+      setIsCreatingCoupon(false);
+    }
+  };
+
+  const handleDeleteCoupon = async (coupon: any) => {
+    if (!window.confirm(`Delete coupon "${coupon.code}"?\n\nThis code will no longer be valid for checkout.`)) return;
+    try {
+      const res: any = await crmDeleteCouponFn({
+        data: { token: tok(), id: coupon.id },
+      });
+      if (res?.ok) {
+        toast(`Coupon ${coupon.code} deleted`, "info");
+        setCoupons((prev) => prev.filter((c) => c.id !== coupon.id));
+        doSync();
+      } else {
+        toast(res?.error || "Could not delete coupon", "error");
+      }
+    } catch {
+      toast("Network error while deleting coupon", "error");
+    }
+  };
+
+  const copyCouponCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    toast(`Copied "${code}" to clipboard!`, "success");
+    setTimeout(() => setCopiedCode(null), 2500);
+  };
+
+  const shareCouponWhatsApp = (coupon: any) => {
+    const text = `Hello! Here is your exclusive Quickupp AI Studio discount code:\n\n🎟 *${coupon.code}* (${coupon.discountPercent}% OFF)\n\nThis is a single-use coupon code. Enter this code during checkout on our website to apply your discount:\nhttps://quickuppaistudio.in\n\nLet us know if you have any questions!`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
+  const filteredCoupons = useMemo(() => {
+    return coupons.filter((c) => {
+      if (couponFilter === "active" && !c.active) return false;
+      if (couponFilter === "used" && c.active) return false;
+      if (couponSearch) {
+        const q = couponSearch.toLowerCase();
+        const matchCode = String(c.code || "").toLowerCase().includes(q);
+        const matchEmail = String(c.usedByEmail || "").toLowerCase().includes(q);
+        const matchOrder = String(c.orderId || "").toLowerCase().includes(q);
+        return matchCode || matchEmail || matchOrder;
+      }
+      return true;
+    });
+  }, [coupons, couponFilter, couponSearch]);
+
+  // -------------------------------------------------------------------------
+  // On-Call Direct Order handlers
+  // -------------------------------------------------------------------------
+  const openOnCallModal = (presetDiscount = 10) => {
+    setOnCallCreatedOrder(null);
+    setCopiedPayUrl(false);
+    setOnCallForm({
+      clientName: "",
+      clientEmail: "",
+      clientPhone: "",
+      clientCompany: "",
+      serviceId: "ai-ugc",
+      qty: 1,
+      paymentPlan: "full",
+      discountPercent: presetDiscount,
+      customDiscount: "",
+      customCode: "",
+      paidOnCall: false,
+      notes: "",
+    });
+    setShowOnCallModal(true);
+  };
+
+  const onCallPricing = useMemo(() => {
+    const sId = onCallForm.serviceId;
+    const qty = Number(onCallForm.qty) || 1;
+    const quoted = quoteItem(sId, qty);
+    const basePrice = quoted.amount;
+    const pct =
+      onCallForm.customDiscount !== ""
+        ? Math.max(0, Math.min(100, Number(onCallForm.customDiscount) || 0))
+        : onCallForm.discountPercent;
+    const discountAmount = Math.round((basePrice * pct) / 100);
+    const finalTotal = Math.max(0, basePrice - discountAmount);
+    const split = splitPayment(finalTotal, onCallForm.paymentPlan);
+    return {
+      quoted,
+      basePrice,
+      pct,
+      discountAmount,
+      finalTotal,
+      payNow: split.payNow,
+      balance: split.balance,
+    };
+  }, [
+    onCallForm.serviceId,
+    onCallForm.qty,
+    onCallForm.customDiscount,
+    onCallForm.discountPercent,
+    onCallForm.paymentPlan,
+  ]);
+
+  const handleCreateDirectOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onCallForm.clientName.trim() || !onCallForm.clientEmail.trim() || !onCallForm.clientPhone.trim()) {
+      toast("Please enter the client's name, email, and phone number.", "error");
+      return;
+    }
+    const pct =
+      onCallForm.customDiscount !== ""
+        ? Math.max(0, Math.min(100, Number(onCallForm.customDiscount) || 0))
+        : onCallForm.discountPercent;
+
+    setOnCallBusy(true);
+    try {
+      const res: any = await crmCreateDirectOrderFn({
+        data: {
+          token: tok(),
+          order: {
+            clientName: onCallForm.clientName.trim(),
+            clientEmail: onCallForm.clientEmail.trim(),
+            clientPhone: onCallForm.clientPhone.trim(),
+            clientCompany: onCallForm.clientCompany.trim() || undefined,
+            serviceId: onCallForm.serviceId,
+            qty: Number(onCallForm.qty) || 1,
+            paymentPlan: onCallForm.paymentPlan,
+            discountPercent: pct,
+            customCouponCode: onCallForm.customCode.trim() || undefined,
+            paidOnCall: onCallForm.paidOnCall,
+            notes: onCallForm.notes.trim() || undefined,
+          },
+        },
+      });
+      if (res?.ok) {
+        setOnCallCreatedOrder(res);
+        toast(`Order ${res.orderId} created successfully with ${pct}% discount!`, "success");
+        doSync();
+      } else {
+        toast(res?.error || "Failed to create direct order", "error");
+      }
+    } catch (err: any) {
+      toast(err?.message || "Failed to create direct order", "error");
+    } finally {
+      setOnCallBusy(false);
+    }
+  };
+
+  const handleMarkOrderPaid = async (o: OrderItem) => {
+    if (
+      !window.confirm(
+        `Mark order ${o.paypalOrderId} (${o.customerName}) as PAID?\n\nAmount: ${fmtMoney(o.amount, o.currency)}\n\nUse this if payment was collected directly via UPI / NEFT on call.`
+      )
+    )
+      return;
+    setBusy(`mark-paid-${o.id}`);
+    try {
+      const r: any = await call(
+        crmMarkOrderPaidFn({
+          data: {
+            token: tok(),
+            orderId: o.id,
+            notes: `Marked paid manually by admin on call (${me?.email || "Admin"})`,
+          },
+        })
+      );
+      if (r?.ok) {
+        toast(`Order ${o.paypalOrderId} marked as COMPLETED.`);
+        if (selectedOrder && selectedOrder.id === o.id) {
+          setSelectedOrder({
+            ...selectedOrder,
+            paymentStatus: "COMPLETED",
+            paidTotal: selectedOrder.orderTotal,
+            balanceDue: 0,
+          });
+        }
+        doSync();
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const handleSaveConfig = async () => {
     setBusy("config");
     const r = await call(crmSaveConfigFn({ data: { token: tok(), config: configDraft } }));
@@ -1005,7 +1259,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const shownMeta = applyLeadFilter(metaLeads, metaSearch, metaFilter);
   // 50% advance paid, balance still due ("Balance Pending").
   const isPartlyPaid = (o: OrderItem) => o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED" && o.balanceDue > 0;
-  const orderTab = (o: OrderItem) => (isPartlyPaid(o) ? "BALANCE" : o.paymentStatus === "REFUNDED" ? "REFUNDED" : "COMPLETED");
+  const orderTab = (o: OrderItem) =>
+    isPartlyPaid(o)
+      ? "BALANCE"
+      : o.paymentStatus === "PENDING"
+        ? "PENDING"
+        : o.paymentStatus === "REFUNDED"
+          ? "REFUNDED"
+          : "COMPLETED";
   const shownOrders = (orders || []).filter((o) => {
     const s = ordersSearch.trim().toLowerCase();
     const statusOk = ordersStatus === "All" || orderTab(o) === ordersStatus;
@@ -1726,23 +1987,349 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           );
         })}
 
+        {/* ---------------- COUPONS ---------------- */}
+        {activeTab === "coupons" && perms.coupons && (
+          <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
+            <PageHeader
+              icon={<Tag className="w-5 h-5 text-purple-600" />}
+              title="Coupon Generator"
+              badge={`${coupons.filter((c) => c.active).length} Active`}
+              subtitle="Generate single-use unique discount codes (10%, 20%, 25%, etc.) to share with clients. Each code expires immediately once used at checkout."
+            >
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openOnCallModal(couponPreset)}
+                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[13px] font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  <Phone className="w-4 h-4" /> Create Order on Call
+                </button>
+                {canExport && (
+                  <button
+                    onClick={() =>
+                      downloadCsv("quickupp_coupons.csv", [
+                        ["Coupon Code", "Discount (%)", "Status", "Max Uses", "Times Used", "Redeemed By", "Order ID", "Redeemed At (IST)", "Created By", "Created At (IST)"],
+                        ...coupons.map((c) => [
+                          c.code,
+                          `${c.discountPercent}%`,
+                          c.active ? "Active" : "Redeemed / Expired",
+                          c.maxUses,
+                          c.timesUsed,
+                          c.usedByEmail || "-",
+                          c.orderId || "-",
+                          c.usedAt ? fmtIst(c.usedAt) : "-",
+                          c.createdBy || "-",
+                          fmtIst(c.createdAt),
+                        ]),
+                      ])
+                    }
+                    className={btnGhost}
+                  >
+                    <Download className="w-4 h-4" /> Export CSV
+                  </button>
+                )}
+              </div>
+            </PageHeader>
+
+            {/* Generator Card */}
+            <div className={`${card} p-5 shadow-sm border-purple-200/60 bg-gradient-to-r from-purple-50/40 via-white to-pink-50/30`}>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold">
+                      %
+                    </span>
+                    Generate Single-Use Discount Coupon
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Select a discount percentage or enter a custom amount. The generated code is unique and will strictly expire after a single checkout order.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                    Strictly Single-Use Guarantee
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 items-end">
+                {/* Preset Discounts */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Discount Percentage:
+                  </label>
+                  <div className="flex gap-1.5">
+                    {[10, 20, 25].map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => {
+                          setCouponPreset(pct);
+                          setCustomDiscount("");
+                        }}
+                        className={`flex-1 h-9 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                          !customDiscount && couponPreset === pct
+                            ? "bg-purple-600 text-white shadow-sm ring-2 ring-purple-600/30"
+                            : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {pct}% OFF
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Percentage */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Or Custom Discount (%):
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={customDiscount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val || (Number(val) >= 1 && Number(val) <= 100)) {
+                          setCustomDiscount(val);
+                        }
+                      }}
+                      placeholder="e.g. 15, 30, 50"
+                      className={inputCls}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                      %
+                    </span>
+                  </div>
+                </div>
+
+                {/* Optional Custom Code Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Custom Code (Optional):
+                  </label>
+                  <input
+                    type="text"
+                    value={customCodeInput}
+                    onChange={(e) => setCustomCodeInput(e.target.value.toUpperCase())}
+                    placeholder="Auto-generated if empty"
+                    className={`${inputCls} uppercase font-mono text-xs`}
+                  />
+                </div>
+
+                {/* Generate Button */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleCreateCoupon}
+                    disabled={isCreatingCoupon}
+                    className="w-full inline-flex items-center justify-center gap-2 h-9 px-4 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[13px] font-semibold shadow-sm transition-all active:scale-[0.98] disabled:opacity-60 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {isCreatingCoupon ? "Generating..." : `Generate ${customDiscount ? `${customDiscount}%` : `${couponPreset}%`} Code`}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200 self-start">
+                {(
+                  [
+                    { id: "all", label: "All Coupons", count: coupons.length },
+                    { id: "active", label: "Active Single-Use", count: coupons.filter((c) => c.active).length },
+                    { id: "used", label: "Redeemed / Expired", count: coupons.filter((c) => !c.active).length },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setCouponFilter(tab.id)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                      couponFilter === tab.id
+                        ? "bg-white text-slate-900 shadow-sm font-semibold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    {tab.label} ({tab.count})
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative min-w-[240px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={couponSearch}
+                  onChange={(e) => setCouponSearch(e.target.value)}
+                  placeholder="Search code, email, or order..."
+                  className={`${inputCls} pl-9`}
+                />
+                {couponSearch && (
+                  <button
+                    onClick={() => setCouponSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Coupons Table */}
+            <div className={`${card} flex-1 overflow-hidden flex flex-col shadow-sm`}>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-left border-collapse text-[13px]">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                      <th className="p-3.5">Coupon Code</th>
+                      <th className="p-3.5">Discount</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5">Redeemed By</th>
+                      <th className="p-3.5">Order ID</th>
+                      <th className="p-3.5">Created Date</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredCoupons.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-12 text-center text-slate-400">
+                          <Tag className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                          <div className="font-medium text-slate-600">No coupons found</div>
+                          <div className="text-xs text-slate-400 mt-1">
+                            {couponSearch ? "Try clearing your search query." : "Generate a 10%, 20%, or 25% single-use code above."}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredCoupons.map((coupon) => (
+                        <tr key={coupon.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3.5 font-mono font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <span className="tracking-wide text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200/60 font-mono">
+                                {coupon.code}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => copyCouponCode(coupon.code)}
+                                title="Copy code"
+                                className="text-slate-400 hover:text-purple-600 transition-colors p-1 rounded hover:bg-purple-50 cursor-pointer"
+                              >
+                                {copiedCode === coupon.code ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-purple-100 text-purple-700 border border-purple-200">
+                              {coupon.discountPercent}% OFF
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            {coupon.active ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                Active (Single-Use)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                <X className="w-3 h-3 text-slate-400" />
+                                Redeemed & Expired
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-slate-600">
+                            {coupon.usedByEmail ? (
+                              <span className="font-medium text-slate-900">{coupon.usedByEmail}</span>
+                            ) : (
+                              <span className="text-slate-400 italic">Not redeemed yet</span>
+                            )}
+                          </td>
+                          <td className="p-3.5 font-mono text-xs text-slate-600">
+                            {coupon.orderId || <span className="text-slate-400">—</span>}
+                          </td>
+                          <td className="p-3.5 text-slate-500 font-mono text-xs whitespace-nowrap">
+                            {fmtIst(coupon.createdAt)}
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5">
+                              {coupon.active && (
+                                <button
+                                  type="button"
+                                  onClick={() => shareCouponWhatsApp(coupon)}
+                                  className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                                  title="Share code via WhatsApp with client"
+                                >
+                                  <Share2 className="w-3.5 h-3.5" />
+                                  <span>WhatsApp</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => copyCouponCode(coupon.code)}
+                                className={btnGhost}
+                                style={{ height: "32px", padding: "0 8px" }}
+                                title="Copy code to clipboard"
+                              >
+                                {copiedCode === coupon.code ? "Copied" : "Copy"}
+                              </button>
+                              {isSuperAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCoupon(coupon)}
+                                  className={btnDanger}
+                                  style={{ height: "32px", padding: "0 8px" }}
+                                  title="Delete coupon"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ---------------- ORDERS ---------------- */}
         {activeTab === "orders" && perms.orders && orders && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader icon={<Package className="w-5 h-5 text-purple-600" />} title="Orders & Payments" badge={`${orders.length} orders`} subtitle="Website checkout orders recorded in the database.">
-              {canExport && (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() =>
-                    downloadCsv("quickupp_orders.csv", [
-                      ["Order ID", "Transaction ID", "Payment ref", "Customer", "Email", "Phone", "Company", "Item", "Payment type", "Order total", "Amount (this payment)", "Paid so far", "Balance due", "Currency", "Status", "Created (IST)"],
-                      ...shownOrders.map((o) => [o.id, o.paypalOrderId, o.captureId, o.customerName, o.customerEmail, o.customerPhone, o.customerCompany, o.itemName, o.planLabel, o.orderTotal, o.amount, o.paidTotal, o.balanceDue, o.currency, o.paymentStatus, fmtIst(o.createdAt)]),
-                    ])
-                  }
-                  className={btnGhost}
+                  type="button"
+                  onClick={() => openOnCallModal(10)}
+                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[13px] font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  <Download className="w-4 h-4" /> Export CSV
+                  <Phone className="w-4 h-4" /> Create On-Call Order
                 </button>
-              )}
+                {canExport && (
+                  <button
+                    onClick={() =>
+                      downloadCsv("quickupp_orders.csv", [
+                        ["Order ID", "Transaction ID", "Payment ref", "Customer", "Email", "Phone", "Company", "Item", "Payment type", "Order total", "Discount %", "Discount Saved", "Coupon Code", "Amount (this payment)", "Paid so far", "Balance due", "Currency", "Status", "Created (IST)"],
+                        ...shownOrders.map((o) => [o.id, o.paypalOrderId, o.captureId, o.customerName, o.customerEmail, o.customerPhone, o.customerCompany, o.itemName, o.planLabel, o.orderTotal, `${o.discountPercent || 0}%`, o.discountAmount ? `₹${o.discountAmount}` : "-", o.couponCode || "-", o.amount, o.paidTotal, o.balanceDue, o.currency, o.paymentStatus, fmtIst(o.createdAt)]),
+                      ])
+                    }
+                    className={btnGhost}
+                  >
+                    <Download className="w-4 h-4" /> Export CSV
+                  </button>
+                )}
+              </div>
             </PageHeader>
 
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
@@ -1770,6 +2357,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 { id: "All", label: "All" },
                 { id: "COMPLETED", label: "Fully Paid" },
                 { id: "BALANCE", label: "Balance Pending" },
+                { id: "PENDING", label: "Awaiting Payment" },
                 { id: "REFUNDED", label: "Refunded" },
               ].map((f) => {
                 const n = f.id === "All" ? orders.length : orders.filter((o) => orderTab(o) === f.id).length;
@@ -1809,9 +2397,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         ? "No orders match your search"
                         : ordersStatus === "BALANCE"
                           ? "No orders with a balance pending"
-                          : ordersStatus === "COMPLETED"
-                            ? "No fully paid orders"
-                            : "No refunded orders"
+                          : ordersStatus === "PENDING"
+                            ? "No orders awaiting payment"
+                            : ordersStatus === "COMPLETED"
+                              ? "No fully paid orders"
+                              : "No refunded orders"
                   }
                   text="Only real payments appear here. Unfinished checkouts are not listed."
                 />
@@ -1828,6 +2418,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <th className="p-3.5">Customer</th>
                         <th className="p-3.5">Package / Item</th>
                         <th className="p-3.5">Amount</th>
+                        <th className="p-3.5">Discounted</th>
                         <th className="p-3.5">Status</th>
                         <th className="p-3.5">Transaction ID</th>
                         <th className="p-3.5">Date</th>
@@ -1874,6 +2465,28 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                             )}
                           </td>
                           <td className="p-3.5">
+                            {o.discountPercent && o.discountPercent > 0 ? (
+                              <div className="flex flex-col items-start gap-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  <Percent className="w-3 h-3" />
+                                  {o.discountPercent}% OFF
+                                </span>
+                                {o.discountAmount ? (
+                                  <span className="text-[11px] font-semibold text-emerald-700">
+                                    -₹{o.discountAmount.toLocaleString("en-IN")} saved
+                                  </span>
+                                ) : null}
+                                {o.couponCode ? (
+                                  <span className="text-[10px] font-mono font-medium text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                                    {o.couponCode}
+                                  </span>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-400">No discount (0%)</span>
+                            )}
+                          </td>
+                          <td className="p-3.5">
                             <span className={`px-2 py-0.5 rounded-md border text-[11px] font-semibold ${isPartlyPaid(o) ? "bg-orange-50 text-orange-700 border-orange-300" : ORDER_STATUS_STYLE[o.paymentStatus] || ORDER_STATUS_STYLE["REFUNDED"]}`}>
                               {isPartlyPaid(o) ? "PARTIALLY PAID" : o.paymentStatus === "COMPLETED" ? "PAID" : o.paymentStatus}
                             </span>
@@ -1882,6 +2495,46 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                           <td className="p-3.5 text-slate-600 font-mono whitespace-nowrap">{fmtIst(o.createdAt)}</td>
                           <td className="p-3.5">
                             <div className="flex items-center justify-end gap-1.5">
+                              {o.paymentStatus === "PENDING" && o.payOrderUrl && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(o.payOrderUrl);
+                                      toast("Payment link copied to clipboard!");
+                                    }}
+                                    className="h-8 px-2.5 rounded-md border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold inline-flex items-center gap-1"
+                                    title="Copy payment link"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" /> Link
+                                  </button>
+                                  {o.customerPhone && (
+                                    <a
+                                      href={`https://wa.me/${(() => {
+                                        const d = o.customerPhone.replace(/[^\d]/g, "");
+                                        return d.length === 10 ? `91${d}` : d;
+                                      })()}?text=${encodeURIComponent(
+                                        `Hello ${o.customerName.split(" ")[0]}, here is your secure payment link for ${o.itemName} (${fmtMoney(o.amount, o.currency)}): ${o.payOrderUrl}`
+                                      )}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="h-8 px-2.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1"
+                                      title="Share payment link on WhatsApp"
+                                    >
+                                      <Share2 className="w-3.5 h-3.5" /> WhatsApp
+                                    </a>
+                                  )}
+                                  {isSuperAdmin && (
+                                    <button
+                                      onClick={() => handleMarkOrderPaid(o)}
+                                      disabled={busy === `mark-paid-${o.id}`}
+                                      className="h-8 px-2.5 rounded-md border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1"
+                                      title="Client paid on call via UPI/NEFT"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Mark Paid
+                                    </button>
+                                  )}
+                                </>
+                              )}
                               <button onClick={() => setSelectedOrder(o)} className="h-8 px-2.5 rounded-md border border-slate-200 hover:bg-slate-100 text-slate-700 text-[13px]">
                                 Details
                               </button>

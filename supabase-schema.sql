@@ -99,12 +99,31 @@ CREATE TABLE IF NOT EXISTS public.crm_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. SECURITY: RLS on, no public policies -> only the India server (secret key) can access.
+-- 6. INDIA COUPONS (Single-use unique discount codes: 10%, 20%, 25%, etc.)
+CREATE TABLE IF NOT EXISTS public.ind_coupons (
+    id VARCHAR(64) PRIMARY KEY,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    discount_percent INTEGER NOT NULL,
+    max_uses INTEGER NOT NULL DEFAULT 1,
+    times_used INTEGER NOT NULL DEFAULT 0,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    used_by_email VARCHAR(255),
+    used_at TIMESTAMP WITH TIME ZONE,
+    order_id VARCHAR(64),
+    created_by VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_ind_coupons_code ON public.ind_coupons (code);
+CREATE INDEX IF NOT EXISTS idx_ind_coupons_active ON public.ind_coupons (active);
+
+-- 7. SECURITY: RLS on, no public policies -> only the India server (secret key) can access.
 ALTER TABLE public.ind_leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ind_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ind_coupons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_activity_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_settings ENABLE ROW LEVEL SECURITY;
 
--- 7. Make the Supabase REST API see the new tables immediately
+-- 8. Make the Supabase REST API see the new tables immediately
 NOTIFY pgrst, 'reload schema';
+

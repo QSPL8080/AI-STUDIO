@@ -3,3 +3,5 @@
 // India data lives in separate ind_* tables.
 export const LEADS_TABLE = "ind_leads";
 export const ORDERS_TABLE = "ind_orders";
+export const COUPONS_TABLE = "ind_coupons";
+

@@ -8,6 +8,7 @@ export type PermKey =
   | "leads"
   | "dashboard"
   | "meta"
+  | "coupons"
   | "delete_leads"
   | "recycle_bin"
   | "orders"
@@ -31,6 +32,7 @@ export const PERMISSION_ROWS: PermRowDef[] = [
   { key: "leads", module: "Website Leads Management & Status Updating", location: "Leads Management tab", locked: "always" },
   { key: "dashboard", module: "Dashboard & Real-Time Performance Analytics", location: "Dashboard tab", locked: false },
   { key: "meta", module: "Meta Ads Leads Management & Notes", location: "Meta Leads tab", locked: false },
+  { key: "coupons", module: "Coupon Generator & Single-Use Discount Codes", location: "Coupon Generator tab", locked: false },
   { key: "delete_leads", module: "Delete Leads (move to Recycle Bin)", location: "Delete buttons on lead tables — soft delete only", locked: false },
   { key: "recycle_bin", module: "Recycle Bin (view & restore leads)", location: "Recycle Bin tab", locked: false },
   { key: "orders", module: "Orders & Payments", location: "Orders tab (still needs the security PIN)", locked: false },
@@ -45,6 +47,7 @@ export const DEFAULT_MATRIX: PermissionMatrix = {
   leads: { ADMIN: true, LEADS_MANAGER: true },
   dashboard: { ADMIN: true, LEADS_MANAGER: false },
   meta: { ADMIN: true, LEADS_MANAGER: true },
+  coupons: { ADMIN: true, LEADS_MANAGER: false },
   delete_leads: { ADMIN: true, LEADS_MANAGER: true },
   recycle_bin: { ADMIN: true, LEADS_MANAGER: false },
   orders: { ADMIN: true, LEADS_MANAGER: false },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronDown, Clock, Lock, X } from "lucide-react";
-import { createIndiaOrderFn } from "@/lib/checkout-actions";
+import { Check, ChevronDown, Clock, Lock, Tag, X } from "lucide-react";
+import { createIndiaOrderFn, validateCouponFn } from "@/lib/checkout-actions";
 import {
   INDIA_PACKS,
   INDIA_SERVICES,
@@ -94,15 +94,30 @@ export function IndiaCheckoutModal() {
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
   const [plan, setPlan] = useState<PaymentPlan>("full");
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountPercent: number;
+  } | null>(null);
+
   const quote = useMemo(
     () => quoteItem(isSetup ? TWIN_SETUP_ID : serviceId, qty),
     [isSetup, serviceId, qty],
   );
+
+  const discountAmount = appliedCoupon
+    ? Math.round((quote.amount * appliedCoupon.discountPercent) / 100)
+    : 0;
+  const discountedTotal = Math.max(0, quote.amount - discountAmount);
+
   const reelService = INDIA_SERVICES.find((x) => x.id === serviceId) || INDIA_SERVICES[0]!;
-  const advanceSplit = useMemo(() => splitPayment(quote.amount, "advance"), [quote.amount]);
+  const advanceSplit = useMemo(() => splitPayment(discountedTotal, "advance"), [discountedTotal]);
   const canAdvance = advanceSplit.plan === "advance";
   const effectivePlan: PaymentPlan = canAdvance ? plan : "full";
-  const payNow = effectivePlan === "advance" ? advanceSplit.payNow : quote.amount;
+  const payNow = effectivePlan === "advance" ? advanceSplit.payNow : discountedTotal;
 
   const close = useCallback(() => {
     if (step === "redirecting") return;
@@ -122,11 +137,47 @@ export function IndiaCheckoutModal() {
       setServerError("");
       setErrors({});
       setPlaced(null);
+      setCouponCode("");
+      setCouponError("");
+      setAppliedCoupon(null);
       setOpen(true);
     };
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
+
+  const applyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) {
+      setCouponError("Please enter a coupon code.");
+      return;
+    }
+    setCouponLoading(true);
+    setCouponError("");
+    try {
+      const res: any = await validateCouponFn({ data: { code } });
+      if (res?.valid) {
+        setAppliedCoupon({
+          code: res.code,
+          discountPercent: res.discountPercent,
+        });
+        setCouponError("");
+      } else {
+        setCouponError(res?.error || "Invalid or expired coupon code.");
+        setAppliedCoupon(null);
+      }
+    } catch {
+      setCouponError("Could not validate coupon. Please try again.");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError("");
+  };
 
   // Page behind stays still; Escape closes; the quote popup stays away while this is open.
   useEffect(() => {
@@ -175,6 +226,7 @@ export function IndiaCheckoutModal() {
           phone: form.phone,
           company: form.company,
           paymentPlan: effectivePlan,
+          couponCode: appliedCoupon ? appliedCoupon.code : undefined,
         },
       });
       if (!r?.ok) {
@@ -290,14 +342,30 @@ export function IndiaCheckoutModal() {
                     )}
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="inline-block whitespace-nowrap bg-gradient-to-r from-[#a78bfa] via-[#e879f9] to-[#f472b6] bg-clip-text text-[22px] font-extrabold leading-none tracking-tight text-transparent sm:text-[30px]">
-                      {formatInr(quote.amount)} INR
-                    </div>
-                    <div className="mt-1.5 text-[9px] font-semibold uppercase leading-snug tracking-wider text-white/40 sm:text-[10px]">
-                      <span className="block sm:inline">One-time payment</span>
-                      <span className="hidden sm:inline"> • </span>
-                      <span className="block sm:inline">No subscription</span>
-                    </div>
+                    {appliedCoupon ? (
+                      <>
+                        <div className="text-xs text-white/40 line-through">
+                          {formatInr(quote.amount)} INR
+                        </div>
+                        <div className="inline-block whitespace-nowrap bg-gradient-to-r from-[#34d399] via-[#10b981] to-[#059669] bg-clip-text text-[22px] font-extrabold leading-none tracking-tight text-transparent sm:text-[30px]">
+                          {formatInr(discountedTotal)} INR
+                        </div>
+                        <div className="mt-1 text-[11px] font-bold text-emerald-400">
+                          {appliedCoupon.discountPercent}% OFF applied
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="inline-block whitespace-nowrap bg-gradient-to-r from-[#a78bfa] via-[#e879f9] to-[#f472b6] bg-clip-text text-[22px] font-extrabold leading-none tracking-tight text-transparent sm:text-[30px]">
+                          {formatInr(quote.amount)} INR
+                        </div>
+                        <div className="mt-1.5 text-[9px] font-semibold uppercase leading-snug tracking-wider text-white/40 sm:text-[10px]">
+                          <span className="block sm:inline">One-time payment</span>
+                          <span className="hidden sm:inline"> • </span>
+                          <span className="block sm:inline">No subscription</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -356,6 +424,79 @@ export function IndiaCheckoutModal() {
                 )}
               </div>
 
+              {/* Coupon Code Section */}
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-3.5">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-white/70">
+                    <Tag className="h-3.5 w-3.5 text-[#c084fc]" />
+                    <span>Have a Coupon Code?</span>
+                  </div>
+                  {appliedCoupon && (
+                    <span className="text-xs font-bold text-emerald-400">
+                      Savings: {formatInr(discountAmount)}
+                    </span>
+                  )}
+                </div>
+
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+                        <Check className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0 text-left">
+                        <div className="font-mono text-sm font-bold text-emerald-300">
+                          {appliedCoupon.code}
+                        </div>
+                        <div className="text-[11px] text-emerald-400/80">
+                          {appliedCoupon.discountPercent}% single-use discount applied
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeCoupon}
+                      className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium text-white/60 hover:bg-white/10 hover:text-white"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex gap-2">
+                      <input
+                        value={couponCode}
+                        onChange={(e) => {
+                          setCouponCode(e.target.value.toUpperCase());
+                          if (couponError) setCouponError("");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            applyCoupon();
+                          }
+                        }}
+                        placeholder="e.g. QAS10-XXXX"
+                        className="flex-1 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 font-mono text-sm uppercase text-white placeholder:font-sans placeholder:normal-case placeholder:text-white/35 focus:border-[#a832e6] focus:outline-none focus:ring-2 focus:ring-[#a832e6]/25"
+                      />
+                      <button
+                        type="button"
+                        onClick={applyCoupon}
+                        disabled={couponLoading || !couponCode.trim()}
+                        className="shrink-0 rounded-full bg-white/10 px-5 py-2 text-xs font-semibold text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40 cursor-pointer"
+                      >
+                        {couponLoading ? "Checking..." : "Apply"}
+                      </button>
+                    </div>
+                    {couponError && (
+                      <p className="mt-1.5 px-2 text-xs text-rose-400">
+                        {couponError}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Payment option: pay in full, or 50% now and the balance later */}
               {canAdvance && (
                 <>
@@ -368,7 +509,7 @@ export function IndiaCheckoutModal() {
                         {
                           id: "full" as PaymentPlan,
                           title: "Pay in Full",
-                          amount: quote.amount,
+                          amount: discountedTotal,
                           note: "Pay the full amount now",
                         },
                         {

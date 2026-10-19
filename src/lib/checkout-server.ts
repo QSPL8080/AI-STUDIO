@@ -72,6 +72,10 @@ export function orderPopupPath(txnid: string) {
 export function payBalancePath(txnid: string) {
   return `/api/pay-balance?${new URLSearchParams({ txn: txnid, t: signTxn(txnid) }).toString()}`;
 }
+/** Signed link that lets an on-call / direct customer pay for their order directly via PayU. */
+export function payOrderPath(txnid: string) {
+  return `/api/pay-order?${new URLSearchParams({ txn: txnid, t: signTxn(txnid) }).toString()}`;
+}
 export function receiptPath(txnid: string) {
   return `/api/receipt?${new URLSearchParams({ txn: txnid, t: signTxn(txnid) }).toString()}`;
 }
@@ -321,6 +325,8 @@ export interface CheckoutInput {
   notes?: string;
   /** "full" (default) or "advance" (pay 50% now, the balance later). */
   paymentPlan?: PaymentPlan;
+  /** Optional single-use coupon discount code */
+  couponCode?: string;
 }
 
 const clean = (v: unknown, max: number) =>
@@ -348,7 +354,25 @@ export async function createIndiaOrder(input: CheckoutInput) {
   const phone = phoneDigits.length === 10 ? `+91 ${phoneDigits}` : `+${phoneDigits}`;
 
   const q = quoteItem(input.serviceId, input.qty);
-  const split = splitPayment(q.amount, input.paymentPlan === "advance" ? "advance" : "full");
+  let orderAmount = q.amount;
+  let couponApplied: { code: string; discountPercent: number; discountAmount: number } | null = null;
+
+  if (input.couponCode) {
+    const { validateCouponCode } = await import("./crm-server");
+    const v = await validateCouponCode(input.couponCode);
+    if (!v.valid) {
+      return { ok: false as const, error: v.error };
+    }
+    const discountAmount = Math.round((orderAmount * v.discountPercent) / 100);
+    orderAmount = Math.max(0, orderAmount - discountAmount);
+    couponApplied = {
+      code: v.code,
+      discountPercent: v.discountPercent,
+      discountAmount,
+    };
+  }
+
+  const split = splitPayment(orderAmount, input.paymentPlan === "advance" ? "advance" : "full");
   const advance = split.plan === "advance";
   const payu = getPayUConfig();
   const makeNumber = await nextOrderNumber();
@@ -377,8 +401,10 @@ export async function createIndiaOrder(input: CheckoutInput) {
       perReel: q.perReel,
       notes,
       paymentPlan: split.plan,
-      orderTotal: q.amount,
+      originalAmount: q.amount,
+      orderTotal: orderAmount,
       balanceAfterPayment: split.balance,
+      coupon: couponApplied,
     }),
     created_at: now,
     updated_at: now,
@@ -394,11 +420,24 @@ export async function createIndiaOrder(input: CheckoutInput) {
     }
   }
 
+  if (couponApplied) {
+    try {
+      const { redeemCoupon } = await import("./crm-server");
+      await redeemCoupon(couponApplied.code, email, orderId);
+    } catch (e) {
+      console.error("Could not mark coupon as redeemed:", e);
+    }
+  }
+
+  const couponNote = couponApplied
+    ? ` (Coupon ${couponApplied.code}: ${couponApplied.discountPercent}% OFF, saved ${formatInr(couponApplied.discountAmount)})`
+    : "";
+
   await logActivity({
     title: "New website order",
     category: "ORDERS",
     actorEmail: email,
-    description: `${name} ordered ${q.itemName} for ${formatInr(q.amount)}${advance ? ` (paying 50% advance ${formatInr(split.payNow)} now, balance ${formatInr(split.balance)} later)` : ""} (order ${orderId}, txn ${txnid}). ${payu ? "Sent to PayU for payment." : "Payment gateway not connected yet: send the customer a payment link."}`,
+    description: `${name} ordered ${q.itemName} for ${formatInr(orderAmount)}${couponNote}${advance ? ` (paying 50% advance ${formatInr(split.payNow)} now, balance ${formatInr(split.balance)} later)` : ""} (order ${orderId}, txn ${txnid}). ${payu ? "Sent to PayU for payment." : "Payment gateway not connected yet: send the customer a payment link."}`,
   });
 
   // The team email (qsaistudio@gmail.com) is sent only once the payment succeeds: see sendTeamOrderEmail.
@@ -408,15 +447,15 @@ export async function createIndiaOrder(input: CheckoutInput) {
     amount: split.payNow.toFixed(2),
     // Shown in the PayU dashboard, so the team can tell advances from full payments.
     productinfo: (advance
-      ? `${q.itemName} | 50% Advance of INR ${q.amount}`
-      : `${q.itemName} | Full Payment`
+      ? `${q.itemName}${couponApplied ? ` (${couponApplied.code})` : ""} | 50% Advance of INR ${orderAmount}`
+      : `${q.itemName}${couponApplied ? ` (${couponApplied.code})` : ""} | Full Payment`
     ).slice(0, 100),
     firstname: name.split(" ")[0]!.slice(0, 60),
     email,
     phone: phoneDigits.slice(-10),
     udf1: orderId,
     udf2: advance ? "ADVANCE_50" : "FULL",
-    udf3: String(q.amount),
+    udf3: String(orderAmount),
     udf4: String(split.balance),
   });
 
@@ -426,7 +465,7 @@ export async function createIndiaOrder(input: CheckoutInput) {
     txnid,
     itemName: q.itemName,
     amount: split.payNow,
-    orderTotal: q.amount,
+    orderTotal: orderAmount,
     balance: split.balance,
     payment: form, // null until PayU is configured
   };
@@ -763,3 +802,38 @@ export async function createBalancePayment(txnid: string, token: string) {
   });
   return { ok: true as const, form };
 }
+
+/**
+ * Creates PayU payment form for a direct / on-call order that is awaiting payment.
+ */
+export async function createOrderPayment(txnid: string, token: string) {
+  if (!validTxnToken(txnid, token)) return { ok: false as const, error: "This payment link is invalid or expired." };
+  const order: any = await findByTxn(txnid);
+  if (!order) return { ok: false as const, error: "We couldn't find this order." };
+  if (order.payment_status === "COMPLETED") {
+    return { ok: false as const, error: "This order is already paid. Thank you!", paid: true as const, orderId: order.id, txnid };
+  }
+  const payu = getPayUConfig();
+  if (!payu) {
+    return { ok: false as const, error: "Online payment gateway is not configured yet.", noGateway: true as const, order };
+  }
+  const d = parseDetails(order);
+  const isAdvance = d.paymentPlan === "advance";
+  const form = buildPayUForm({
+    txnid: order.paypal_order_id,
+    amount: Number(order.amount).toFixed(2),
+    productinfo: (isAdvance
+      ? `${order.item_name} | 50% Advance`
+      : `${order.item_name} | Full Payment`
+    ).slice(0, 100),
+    firstname: String(order.customer_name).split(" ")[0]!.slice(0, 60),
+    email: order.customer_email,
+    phone: String(order.customer_phone || "").replace(/[^\d]/g, "").slice(-10),
+    udf1: order.id,
+    udf2: isAdvance ? "ADVANCE_50" : "FULL",
+    udf3: String(d.orderTotal || order.amount),
+    udf4: String(d.balanceAfterPayment || 0),
+  });
+  return { ok: true as const, form, order };
+}
+

@@ -31,3 +31,19 @@ export const getConfirmationFn = createServerFn({ method: "POST" })
       };
     }
   });
+
+export const validateCouponFn = createServerFn({ method: "POST" })
+  .validator((d: { code: string }) => d)
+  .handler(async ({ data }) => {
+    try {
+      const s = await import("./crm-server");
+      return await s.validateCouponCode(String(data.code || ""));
+    } catch (e: any) {
+      console.error("Coupon validation failed", e);
+      return {
+        valid: false as const,
+        error: "Could not validate coupon. Please try again.",
+      };
+    }
+  });
+

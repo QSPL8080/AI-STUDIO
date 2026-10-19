@@ -229,3 +229,40 @@ export const crmMarkNotificationsFn = createServerFn({ method: "POST" })
     const s = await srv();
     return s.guard(() => s.markNotifications(data.token, { ...(data.all ? { all: true } : {}), ...(data.clear ? { clear: true } : {}), ...(data.ids ? { ids: data.ids } : {}), ...(data.alerted ? { alerted: String(data.alerted) } : {}) }));
   });
+
+export const crmGetCouponsFn = createServerFn({ method: "POST" })
+  .validator((d: Tok) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.getCoupons(data.token));
+  });
+
+export const crmCreateCouponFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { discountPercent: number; customCode?: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.createCoupon(data.token, { discountPercent: data.discountPercent, customCode: data.customCode }));
+  });
+
+export const crmDeleteCouponFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { id: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.deleteCoupon(data.token, data.id));
+  });
+
+export const crmCreateDirectOrderFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { order: any }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.createDirectOrder(data.token, data.order));
+  });
+
+export const crmMarkOrderPaidFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { orderId: string; notes?: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.markOrderPaid(data.token, data.orderId, data.notes));
+  });
+
+

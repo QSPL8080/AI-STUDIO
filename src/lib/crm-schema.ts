@@ -51,4 +51,20 @@ export const CRM_SCHEMA_SQL = `
     value TEXT NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS ind_coupons (
+    id VARCHAR(64) PRIMARY KEY,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    discount_percent INTEGER NOT NULL,
+    max_uses INTEGER NOT NULL DEFAULT 1,
+    times_used INTEGER NOT NULL DEFAULT 0,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    used_by_email VARCHAR(255),
+    used_at TIMESTAMP WITH TIME ZONE,
+    order_id VARCHAR(64),
+    created_by VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_ind_coupons_code ON ind_coupons (code);
+  CREATE INDEX IF NOT EXISTS idx_ind_coupons_active ON ind_coupons (active);
 `;

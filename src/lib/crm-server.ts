@@ -4,7 +4,7 @@
 //   • Admin / Leads Manager can only SOFT delete leads (moved to Recycle Bin).
 //   • Activity History, User Management and CRM Settings are Super Admin only.
 import { paymentSummary } from "./payment-plan";
-import { payBalancePath } from "./checkout-server";
+import { payBalancePath, payOrderPath } from "./checkout-server";
 import { siteUrl } from "./payu";
 import {
   dbDelete,
@@ -19,7 +19,7 @@ import {
   getSetting,
   type Filter,
 } from "./crm-db";
-import { LEADS_TABLE, ORDERS_TABLE } from "./db-tables";
+import { LEADS_TABLE, ORDERS_TABLE, COUPONS_TABLE } from "./db-tables";
 import { getSupabaseConfig } from "./db";
 import { renderBrandedEmail } from "./email";
 import {
@@ -117,12 +117,33 @@ export type CrmLead = ReturnType<typeof mapLead>;
 
 /** Only real payments (money received, or refunded) are shown in the CRM. Unfinished /
  *  abandoned / failed checkout attempts stay in the database and Activity History only. */
-// Balance payments are not listed separately: they update their 50% advance order's row.
+// Orders: completed, refunded, and pending orders (including on-call / coupon checkouts) appear in CRM.
 const isRealPayment = (r: any) =>
-  (r.payment_status === "COMPLETED" || r.payment_status === "REFUNDED") && paymentSummary(r).plan !== "balance";
+  (r.payment_status === "COMPLETED" || r.payment_status === "REFUNDED" || r.payment_status === "PENDING") &&
+  paymentSummary(r).plan !== "balance";
 
 function mapOrder(r: any) {
   const ps = paymentSummary(r);
+  let d: any = {};
+  try {
+    d = JSON.parse(r.raw_details || "{}");
+  } catch {
+    /* ignore */
+  }
+  const coupon = d.coupon || null;
+  const discountPercent = coupon?.discountPercent
+    ? Number(coupon.discountPercent)
+    : d.discountPercent
+      ? Number(d.discountPercent)
+      : 0;
+  const discountAmount = coupon?.discountAmount
+    ? Number(coupon.discountAmount)
+    : d.discountAmount
+      ? Number(d.discountAmount)
+      : 0;
+  const couponCode = coupon?.code || d.couponCode || "";
+  const source = d.source || "website";
+
   return {
     paymentPlan: ps.plan,
     planLabel: ps.planLabel,
@@ -131,23 +152,16 @@ function mapOrder(r: any) {
     balanceDue: ps.paidTotal > 0 ? ps.balanceDue : 0,
     parentOrderId: ps.parentOrderId,
     balanceOrderId: ps.balanceOrderId,
-    /** Customer's secure "pay remaining balance" link (paid 50% advance orders with a balance left). */
-    ...(() => {
-      let d: any = {};
-      try {
-        d = JSON.parse(r.raw_details || "{}");
-      } catch {
-        /* ignore */
-      }
-      return {
-        balanceTxn: String(d.balanceTxn || ""),
-        balancePayuId: String(d.balancePayuId || ""),
-        balancePaidAt: d.balancePaidAt ? new Date(d.balancePaidAt).toISOString() : "",
-      };
-    })(),
+    balanceTxn: String(d.balanceTxn || ""),
+    balancePayuId: String(d.balancePayuId || ""),
+    balancePaidAt: d.balancePaidAt ? new Date(d.balancePaidAt).toISOString() : "",
     payBalanceUrl:
       ps.plan === "advance" && r.payment_status === "COMPLETED" && ps.balanceDue > 0
         ? `${siteUrl()}${payBalancePath(String(r.paypal_order_id))}`
+        : "",
+    payOrderUrl:
+      r.payment_status === "PENDING"
+        ? `${siteUrl()}${payOrderPath(String(r.paypal_order_id))}`
         : "",
     id: r.id as string,
     paypalOrderId: r.paypal_order_id as string,
@@ -159,12 +173,58 @@ function mapOrder(r: any) {
     itemType: r.item_type as string,
     itemName: r.item_name as string,
     amount: typeof r.amount === "string" ? parseFloat(r.amount) : Number(r.amount || 0),
-    currency: (r.currency || "USD") as string,
+    currency: (r.currency || "INR") as string,
     paymentStatus: (r.payment_status || "PENDING") as string,
     createdAt: r.created_at ? new Date(r.created_at).toISOString() : "",
+    couponCode,
+    discountPercent,
+    discountAmount,
+    originalAmount: d.originalAmount ? Number(d.originalAmount) : null,
+    source,
   };
 }
 export type CrmOrder = ReturnType<typeof mapOrder>;
+
+export interface CrmCoupon {
+  id: string;
+  code: string;
+  discountPercent: number;
+  maxUses: number;
+  timesUsed: number;
+  active: boolean;
+  usedByEmail: string | null;
+  usedAt: string | null;
+  orderId: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export function mapCoupon(r: any): CrmCoupon {
+  const timesUsed = Number(r.times_used ?? 0);
+  const maxUses = Number(r.max_uses ?? 1);
+  return {
+    id: String(r.id),
+    code: String(r.code),
+    discountPercent: Number(r.discount_percent),
+    maxUses,
+    timesUsed,
+    active: Boolean(r.active) && timesUsed < maxUses,
+    usedByEmail: r.used_by_email || null,
+    usedAt: r.used_at ? new Date(r.used_at).toISOString() : null,
+    orderId: r.order_id || null,
+    createdBy: r.created_by || null,
+    createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+  };
+}
+
+export function generateCouponCode(discountPercent: number): string {
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  let random = "";
+  for (let i = 0; i < 4; i++) {
+    random += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `QAS${discountPercent}-${random}`;
+}
 
 function mapActivity(r: any) {
   return {
@@ -365,6 +425,16 @@ export async function sync(token: string, ordersPin?: string) {
     if (ordersPin && ordersPin === paymentsPin()) orders = orderRows.map(mapOrder);
   }
 
+  let coupons: CrmCoupon[] = [];
+  if (ctx.perms.coupons || ctx.isSuperAdmin) {
+    try {
+      const couponRows = await dbSelect(COUPONS_TABLE, { order: { col: "created_at", desc: true } });
+      coupons = couponRows.map(mapCoupon);
+    } catch (e) {
+      console.error("Could not fetch coupons:", e);
+    }
+  }
+
   let users = null;
   let activity = null;
   let counts = null;
@@ -386,6 +456,8 @@ export async function sync(token: string, ordersPin?: string) {
       websiteLeads: allLeadRows.filter((r) => !r.deleted_at && !isMetaRow(r)).length,
       metaLeads: allLeadRows.filter((r) => !r.deleted_at && isMetaRow(r)).length,
       recycleBin: allLeadRows.filter((r) => r.deleted_at).length,
+      totalCoupons: coupons.length,
+      activeCoupons: coupons.filter((c) => c.active).length,
       totalOrders: orderRows.length,
       // "Pending" = paid 50% advance with a balance still due.
       pendingOrders: orderRows.filter((o) => o.payment_status === "COMPLETED" && paymentSummary(o).plan === "advance" && paymentSummary(o).balanceDue > 0).length,
@@ -416,6 +488,7 @@ export async function sync(token: string, ordersPin?: string) {
     activity,
     counts,
     matrix,
+    coupons,
   };
 }
 
@@ -943,3 +1016,303 @@ export async function testAlertEmail(token: string) {
   });
   return { ok: true as const, success: r.success, via: r.via || "", errors: r.errors, to: config.alertEmail };
 }
+
+// ---------------------------------------------------------------------------
+// Coupons (Single-Use Unique Discount Codes)
+// ---------------------------------------------------------------------------
+
+/** Retrieves all coupons for CRM display. */
+export async function getCoupons(token: string) {
+  const ctx = await requireSession(token);
+  if (!ctx.isSuperAdmin && !ctx.perms.coupons) {
+    throw new CrmAuthError("FORBIDDEN", "You do not have permission to view coupons.");
+  }
+  const rows = await dbSelect(COUPONS_TABLE, { order: { col: "created_at", desc: true } });
+  return { ok: true as const, coupons: rows.map(mapCoupon) };
+}
+
+/** Generates a single-use unique coupon code (e.g. 10%, 20%, 25%, or custom). */
+export async function createCoupon(token: string, input: { discountPercent: number; customCode?: string }) {
+  const ctx = await requireSession(token);
+  if (!ctx.isSuperAdmin && !ctx.perms.coupons) {
+    throw new CrmAuthError("FORBIDDEN", "You do not have permission to generate coupons.");
+  }
+  const pct = Math.round(Number(input.discountPercent));
+  if (isNaN(pct) || pct <= 0 || pct > 100) {
+    throw new Error("Discount percentage must be between 1 and 100.");
+  }
+
+  let code = (input.customCode ? String(input.customCode).trim().toUpperCase() : "").replace(/[^A-Z0-9-]/g, "");
+  if (!code) {
+    for (let i = 0; i < 5; i++) {
+      const candidate = generateCouponCode(pct);
+      const existing = await dbSelect(COUPONS_TABLE, { filters: [{ col: "code", op: "eq", value: candidate }] });
+      if (!existing.length) {
+        code = candidate;
+        break;
+      }
+    }
+    if (!code) code = `QAS${pct}-${Date.now().toString(36).toUpperCase()}`;
+  } else {
+    const existing = await dbSelect(COUPONS_TABLE, { filters: [{ col: "code", op: "eq", value: code }] });
+    if (existing.length) {
+      throw new Error(`Coupon code "${code}" already exists.`);
+    }
+  }
+
+  const id = newId("cpn");
+  const now = new Date().toISOString();
+  const row = {
+    id,
+    code,
+    discount_percent: pct,
+    max_uses: 1, // Strictly single-use
+    times_used: 0,
+    active: true,
+    used_by_email: null,
+    used_at: null,
+    order_id: null,
+    created_by: ctx.user.email,
+    created_at: now,
+  };
+
+  await dbInsert(COUPONS_TABLE, row);
+  await logActivity({
+    title: "Coupon created",
+    category: "SETTINGS",
+    actorEmail: ctx.user.email,
+    description: `Single-use coupon ${code} (${pct}% OFF) generated by ${ctx.user.email}.`,
+  });
+
+  return { ok: true as const, coupon: mapCoupon(row) };
+}
+
+/** Deletes a coupon code from the CRM. */
+export async function deleteCoupon(token: string, id: string) {
+  const ctx = await requireSession(token);
+  if (!ctx.isSuperAdmin && !ctx.perms.coupons) {
+    throw new CrmAuthError("FORBIDDEN", "You do not have permission to delete coupons.");
+  }
+  const rows = await dbSelect(COUPONS_TABLE, { filters: [{ col: "id", op: "eq", value: id }] });
+  const coupon = rows[0];
+  if (!coupon) throw new Error("Coupon not found.");
+
+  await dbDelete(COUPONS_TABLE, [{ col: "id", op: "eq", value: id }]);
+  await logActivity({
+    title: "Coupon deleted",
+    category: "SETTINGS",
+    actorEmail: ctx.user.email,
+    description: `Coupon ${coupon.code} deleted by ${ctx.user.email}.`,
+  });
+
+  return { ok: true as const };
+}
+
+/** Validates whether a coupon is valid and active for checkout. */
+export async function validateCouponCode(code: string) {
+  const cleaned = String(code || "").trim().toUpperCase();
+  if (!cleaned) return { valid: false as const, error: "Please enter a coupon code." };
+
+  const rows = await dbSelect(COUPONS_TABLE, { filters: [{ col: "code", op: "eq", value: cleaned }] });
+  const coupon = rows[0];
+  if (!coupon) {
+    return { valid: false as const, error: "Invalid coupon code." };
+  }
+  if (!coupon.active || Number(coupon.times_used || 0) >= Number(coupon.max_uses || 1)) {
+    return { valid: false as const, error: "This coupon code has already been used and is expired." };
+  }
+
+  return {
+    valid: true as const,
+    code: String(coupon.code),
+    discountPercent: Number(coupon.discount_percent),
+  };
+}
+
+/** Marks a single-use coupon as redeemed upon order placement. */
+export async function redeemCoupon(code: string, email: string, orderId: string) {
+  const cleaned = String(code || "").trim().toUpperCase();
+  if (!cleaned) return null;
+
+  const rows = await dbSelect(COUPONS_TABLE, { filters: [{ col: "code", op: "eq", value: cleaned }] });
+  const coupon = rows[0];
+  if (!coupon || !coupon.active || Number(coupon.times_used || 0) >= Number(coupon.max_uses || 1)) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  await dbUpdate(COUPONS_TABLE, [{ col: "id", op: "eq", value: coupon.id }], {
+    times_used: Number(coupon.times_used || 0) + 1,
+    active: false, // Immediately expire after single use
+    used_by_email: email,
+    used_at: now,
+    order_id: orderId,
+  });
+
+  await logActivity({
+    title: "Coupon redeemed",
+    category: "ORDERS",
+    actorEmail: email,
+    description: `Single-use coupon ${coupon.code} (${coupon.discount_percent}% OFF) redeemed by ${email} on order ${orderId}.`,
+  });
+
+  return {
+    code: String(coupon.code),
+    discountPercent: Number(coupon.discount_percent),
+  };
+}
+
+export interface DirectOrderInput {
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  clientCompany?: string;
+  serviceId: string;
+  qty: number;
+  paymentPlan?: "full" | "advance";
+  discountPercent?: number;
+  customCouponCode?: string;
+  paidOnCall?: boolean;
+  notes?: string;
+}
+
+/**
+ * Super Admin / Admin creates an order directly for a customer on a call.
+ * Generates/redeems the single-use coupon, links to the customer, and produces a direct payment link.
+ */
+export async function createDirectOrder(token: string, input: DirectOrderInput) {
+  const ctx = await requireSession(token);
+  if (!ctx.isSuperAdmin && !ctx.perms.orders) {
+    throw new CrmAuthError("FORBIDDEN", "You do not have permission to create orders.");
+  }
+
+  const { createIndiaOrder, payOrderPath } = await import("./checkout-server");
+
+  const pct = Math.max(0, Math.min(100, Math.round(Number(input.discountPercent || 0))));
+  let couponCode = input.customCouponCode ? input.customCouponCode.trim().toUpperCase() : "";
+
+  // If discount percentage is requested, pre-generate single-use coupon so createIndiaOrder can redeem it
+  if (pct > 0) {
+    if (!couponCode) {
+      couponCode = generateCouponCode(pct);
+    }
+    const existing = await dbSelect(COUPONS_TABLE, { filters: [{ col: "code", op: "eq", value: couponCode }] });
+    if (!existing.length) {
+      await dbInsert(COUPONS_TABLE, {
+        id: newId("cpn"),
+        code: couponCode,
+        discount_percent: pct,
+        max_uses: 1,
+        times_used: 0,
+        active: true,
+        created_by: ctx.user.email,
+        created_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  const res = await createIndiaOrder({
+    serviceId: input.serviceId,
+    qty: input.qty,
+    name: input.clientName,
+    email: input.clientEmail,
+    phone: input.clientPhone,
+    company: input.clientCompany,
+    paymentPlan: input.paymentPlan || "full",
+    notes: input.notes ? `[Created on call by ${ctx.user.email}] ${input.notes}` : `[Created on call by ${ctx.user.email}]`,
+    couponCode: pct > 0 ? couponCode : undefined,
+  });
+
+  if (!res.ok) {
+    throw new Error(res.error);
+  }
+
+  const payUrl = `${siteUrl()}${payOrderPath(res.txnid)}`;
+
+  // If marked paid on call immediately
+  if (input.paidOnCall) {
+    const rows = await dbSelect(ORDERS_TABLE, { filters: [{ col: "id", op: "eq", value: res.orderId }] });
+    const order = rows[0];
+    if (order) {
+      let d: any = {};
+      try {
+        d = JSON.parse(order.raw_details || "{}");
+      } catch {}
+      const now = new Date().toISOString();
+      await dbUpdate(ORDERS_TABLE, [{ col: "id", op: "eq", value: res.orderId }], {
+        payment_status: "COMPLETED",
+        paypal_status: "PAID_ON_CALL",
+        raw_details: JSON.stringify({
+          ...d,
+          paidAt: now,
+          source: "on_call",
+          paidOnCall: true,
+          createdBy: ctx.user.email,
+        }),
+        updated_at: now,
+      });
+      await logActivity({
+        title: "Order paid on call",
+        category: "ORDERS",
+        actorEmail: ctx.user.email,
+        description: `Order ${res.orderId} (${input.clientName}) confirmed paid on call by ${ctx.user.email}.`,
+      });
+    }
+  }
+
+  return {
+    ok: true as const,
+    orderId: res.orderId,
+    txnid: res.txnid,
+    itemName: res.itemName,
+    amount: res.amount,
+    orderTotal: res.orderTotal,
+    balance: res.balance,
+    payOrderUrl: payUrl,
+    couponCode: pct > 0 ? couponCode : null,
+    discountPercent: pct,
+  };
+}
+
+/**
+ * Super Admin manually marks an awaiting payment order as COMPLETED (e.g. client paid via direct transfer).
+ */
+export async function markOrderPaid(token: string, orderId: string, notes?: string) {
+  const ctx = await requireSession(token);
+  if (!ctx.isSuperAdmin && !ctx.perms.orders) {
+    throw new CrmAuthError("FORBIDDEN", "You do not have permission to update orders.");
+  }
+  const rows = await dbSelect(ORDERS_TABLE, { filters: [{ col: "id", op: "eq", value: orderId }] });
+  const o = rows[0];
+  if (!o) throw new Error("Order not found.");
+  if (o.payment_status === "COMPLETED") return { ok: true as const, message: "Order is already completed." };
+
+  let d: any = {};
+  try {
+    d = JSON.parse(o.raw_details || "{}");
+  } catch {}
+
+  const now = new Date().toISOString();
+  await dbUpdate(ORDERS_TABLE, [{ col: "id", op: "eq", value: orderId }], {
+    payment_status: "COMPLETED",
+    paypal_status: "MANUALLY_MARKED_PAID",
+    raw_details: JSON.stringify({
+      ...d,
+      paidAt: now,
+      manuallyMarkedPaidBy: ctx.user.email,
+      manualPaymentNotes: notes || "Payment confirmed by admin",
+    }),
+    updated_at: now,
+  });
+
+  await logActivity({
+    title: "Order marked as paid",
+    category: "ORDERS",
+    actorEmail: ctx.user.email,
+    description: `Order ${orderId} (${o.customer_name}) was manually marked as PAID by ${ctx.user.email}.`,
+  });
+
+  return { ok: true as const };
+}
+
+
