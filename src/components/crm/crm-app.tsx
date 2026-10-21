@@ -1997,13 +1997,6 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               subtitle="Generate single-use unique discount codes (10%, 20%, 25%, etc.) to share with clients. Each code expires immediately once used at checkout."
             >
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openOnCallModal(couponPreset)}
-                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[13px] font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-                >
-                  <Phone className="w-4 h-4" /> Create Order on Call
-                </button>
                 {canExport && (
                   <button
                     onClick={() =>
