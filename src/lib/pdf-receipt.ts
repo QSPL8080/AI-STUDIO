@@ -178,45 +178,82 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.line).stroke();
       y += 24;
 
-      // ── Bill to ───────────────────────────────────────────────────
-      section("BILL TO", y);
-      y += 22;
-      pair("Customer Name:", data.customerName, M, y);
-      y += 19;
-      pair("Email:", data.customerEmail, M, y, { bold: false, link: `mailto:${data.customerEmail}` });
-      y += 19;
-      if (data.customerCompany?.trim()) {
-        pair("Company:", data.customerCompany.trim(), M, y);
-        y += 19;
-      }
-      pair("Billing Address:", (data.billingAddress || "India").replace(/[\r\n]+/g, ", ").trim(), M, y, { bold: false, color: C.ink });
-      const tight = plan !== "full" || Boolean(data.discountPercent); // advance / balance / discounted receipts have extra rows: tighten spacing
-      y += tight ? 22 : 28;
+      // ── Bill to & Payment Info (2-column layout to prevent any overlapping) ──
+      const colW = (CW - 24) / 2;
+      const leftColX = M;
+      const rightColX = M + colW + 24;
 
-      // ── Payment details: one table (item, subtotal, tax, total) ──
+      section("BILL TO", y);
+      doc.font("B").fontSize(12).fillColor(C.brandDark).text("PAYMENT INFORMATION", rightColX, y, { characterSpacing: 0.4 });
+      y += 18;
+
+      let leftY = y;
+      pair("Customer Name:", data.customerName, leftColX, leftY);
+      leftY += 16;
+      pair("Email:", data.customerEmail, leftColX, leftY, { bold: false, link: `mailto:${data.customerEmail}` });
+      leftY += 16;
+      if (data.customerCompany?.trim()) {
+        pair("Company:", data.customerCompany.trim(), leftColX, leftY);
+        leftY += 16;
+      }
+      pair("Billing Address:", (data.billingAddress || "India").replace(/[\r\n]+/g, ", ").trim(), leftColX, leftY, { bold: false, color: C.ink });
+      leftY += 16;
+
+      let rightY = y;
+      const paymentTime =
+        data.paymentTime ||
+        new Date()
+          .toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true })
+          .toUpperCase() + " IST";
+      pair("Payment Method:", data.paymentMethod || "PayU / UPI", rightColX, rightY, { size: 10.5 });
+      rightY += 16;
+      pair("Transaction ID:", data.transactionId, rightColX, rightY, { size: 10.5 });
+      rightY += 16;
+      pair("Payment Date:", data.paymentDate || issueDate, rightColX, rightY, { size: 10.5 });
+      rightY += 16;
+      const statusText = partly ? "PARTIALLY PAID" : "PAID";
+      pair("Payment Status:", statusText, rightColX, rightY, { size: 10.5, color: partly ? "#b45309" : C.green });
+      if (!partly) {
+        const tickX =
+          rightColX +
+          doc.font("R").fontSize(10.5).widthOfString("Payment Status: ") +
+          doc.font("B").fontSize(10.5).widthOfString(statusText) +
+          5;
+        drawTick(doc, tickX, rightY + 2);
+      }
+      rightY += 16;
+      pair("Payment Type:", data.planLabel || (partly ? "50% Advance" : "Full Payment"), rightColX, rightY, { size: 10.5 });
+      rightY += 16;
+
+      y = Math.max(leftY, rightY) + 16;
+      doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.line).stroke();
+      y += 18;
+
+      // ── Payment details: one table (item, subtotal, discount, total) ──
       section("PAYMENT DETAILS", y);
-      y += 22;
-      const c1 = M + 16;
-      const c2 = M + 330;
-      const c2w = 60;
+      y += 18;
+      const c1 = M + 14;
+      const c2 = M + 310;
+      const c2w = 50;
       const c3w = 130;
-      const c3 = R - 16 - c3w;
+      const c3 = R - 14 - c3w;
       const orderTotal = data.orderTotal ?? data.subtotal ?? data.amount;
       const sub = data.subtotal ?? orderTotal;
       const tot = data.total ?? data.amount;
       const paidTotal = data.paidTotal ?? data.amount;
-      const headH = 32;
-      const rowH = 46;
-      const sumH = tight ? 26 : 30;
-      const totH = 38;
-      const sumRows: [string, string][] = [];
+      const headH = 28;
+      const rowH = 38;
+      const sumH = 26;
+      const totH = 34;
+      const sumRows: [string, string, { isOffer?: boolean }?][] = [];
       if (data.originalAmount && data.discountPercent) {
         sumRows.push(["Original Price", money(data.originalAmount)]);
       }
       if (data.discountPercent && data.discountPercent > 0) {
         sumRows.push([
-          `Offer Discount (${data.discountPercent}% OFF${data.couponCode ? ` · ${data.couponCode}` : ""})`,
+          `Special Offer Discount (${data.discountPercent}% OFF)`,
           `-${money(data.discountAmount || 0)}`,
+          { isOffer: true },
         ]);
       }
       if (plan === "advance") {
@@ -230,11 +267,12 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
         sumRows.push(["Subtotal", money(sub)]);
       }
       if (data.tax !== undefined) sumRows.push(["Tax", money(data.tax)]);
-      // Last (highlighted) row: what is still due for an advance, otherwise the total paid.
+
+      // Last (highlighted) row
       const lastRow = partly
         ? { label: "Balance Due:", value: `${money(balanceDue)} ${currency}`, bg: "#fffbeb", line: "#fde68a", color: "#b45309" }
         : {
-            label: plan === "balance" ? "Total Paid (Fully Paid):" : "Total:",
+            label: plan === "balance" ? "Total Paid (Fully Paid):" : "Total Paid:",
             value: `${money(plan === "balance" ? paidTotal : tot)} ${currency}`,
             bg: C.brandSoft,
             line: C.brandLine,
@@ -252,124 +290,91 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
       doc.roundedRect(M, tableTop, CW, tableH, 8).lineWidth(1).strokeColor(C.line).stroke();
 
       // Header
-      doc.font("B").fontSize(10.5).fillColor(C.muted);
-      doc.text("Description", c1, y + 11);
-      doc.text("Qty", c2, y + 11, { width: c2w, align: "center" });
-      doc.text("Amount", c3, y + 11, { width: c3w, align: "right" });
+      doc.font("B").fontSize(10).fillColor(C.muted);
+      doc.text("Description", c1, y + 9);
+      doc.text("Qty", c2, y + 9, { width: c2w, align: "center" });
+      doc.text("Amount", c3, y + 9, { width: c3w, align: "right" });
       y += headH;
       doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.line).stroke();
 
       // Item
       const item = data.packageDescription ? `${data.serviceName} – ${data.packageDescription}` : data.serviceName;
-      doc.font("B").fontSize(12).fillColor(C.ink).text(item, c1, y + 16, { width: c2 - c1 - 10 });
-      doc.font("R").fontSize(12).fillColor(C.ink).text(String(data.qty || 1), c2, y + 16, { width: c2w, align: "center" });
-      doc.font("B").fontSize(12).fillColor(C.ink).text(money(data.originalAmount || orderTotal), c3, y + 16, { width: c3w, align: "right" });
+      doc.font("B").fontSize(11).fillColor(C.ink).text(item, c1, y + 13, { width: c2 - c1 - 10 });
+      doc.font("R").fontSize(11).fillColor(C.ink).text(String(data.qty || 1), c2, y + 13, { width: c2w, align: "center" });
+      doc.font("B").fontSize(11).fillColor(C.ink).text(money(data.originalAmount || orderTotal), c3, y + 13, { width: c3w, align: "right" });
       y += rowH;
 
-      // Subtotal / tax rows (label sits under the Qty column, value under Amount)
+      // Subtotal / discount / advance rows
       const labelX = c1;
-      const labelW = c3 - 40 - c1;
-      for (const [k, v] of sumRows) {
-        const isOffer = k.includes("Offer Discount");
+      const labelW = c3 - 30 - c1;
+      for (const [k, v, opts] of sumRows) {
         doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(C.line).stroke();
-        doc.font(isOffer ? "B" : "R").fontSize(11).fillColor(isOffer ? "#dc2626" : C.muted).text(`${k}:`, labelX, y + 8, { width: labelW, align: "right" });
-        doc.font("B").fontSize(11).fillColor(isOffer ? "#dc2626" : C.ink).text(v, c3, y + 8, { width: c3w, align: "right" });
+        if (opts?.isOffer) {
+          // Highlight full-width special offer row in emerald green matching modal and email
+          doc.save();
+          doc.rect(M + 1, y, CW - 2, sumH).fill("#ecfdf5");
+          doc.restore();
+          doc.font("B").fontSize(10.5).fillColor("#065f46").text(k, labelX, y + 7, { width: labelW, align: "left" });
+          doc.font("B").fontSize(10.5).fillColor("#059669").text(v, c3, y + 7, { width: c3w, align: "right" });
+        } else {
+          doc.font("R").fontSize(10.5).fillColor(C.muted).text(`${k}:`, labelX, y + 7, { width: labelW, align: "right" });
+          doc.font("B").fontSize(10.5).fillColor(C.ink).text(v, c3, y + 7, { width: c3w, align: "right" });
+        }
         y += sumH;
       }
 
       // Total row
       doc.moveTo(M, y).lineTo(R, y).lineWidth(1).strokeColor(lastRow.line).stroke();
-      doc.font("B").fontSize(13).fillColor(lastRow.color).text(lastRow.label, labelX, y + 12, { width: labelW, align: "right" });
-      doc.font("B").fontSize(13).fillColor(lastRow.color).text(lastRow.value, c3 - 30, y + 12, { width: c3w + 30, align: "right" });
-      y += totH + 12;
+      doc.font("B").fontSize(12).fillColor(lastRow.color).text(lastRow.label, labelX, y + 10, { width: labelW, align: "right" });
+      doc.font("B").fontSize(12).fillColor(lastRow.color).text(lastRow.value, c3 - 30, y + 10, { width: c3w + 30, align: "right" });
+      y += totH + 20;
 
-      // Special Offer Remark Callout
-      if (data.discountPercent && data.discountPercent > 0) {
-        doc.roundedRect(M, y, CW, 24, 4).fillAndStroke("#fef2f2", "#fca5a5");
-        doc.font("B").fontSize(9.5).fillColor("#dc2626").text(
-          `★ SPECIAL OFFER REMARK: ${data.discountPercent}% DISCOUNT APPLIED (-${money(data.discountAmount || 0)})${data.couponCode ? ` · CODE: ${data.couponCode}` : ""}`,
-          M + 12,
-          y + 7,
-        );
-        y += 32;
-      } else {
-        y += 12;
-      }
+      // ── Thank You & Support Info (2-column layout, never overlaps) ──
+      const infoBoxY = y;
+      const infoBoxW = (CW - 16) / 2;
 
-      // ── Payment information card ─────────────────────────────────
-      const cardH = 108;
-      doc.roundedRect(M, y, CW, cardH, 10).fillAndStroke(C.panel, C.line);
-      doc.font("B").fontSize(12).fillColor(C.body).text("PAYMENT INFORMATION", M + 20, y + 18, { characterSpacing: 0.4 });
-      const ix = M + 20;
-      const jx = M + CW / 2 + 10;
-      let cy = y + 44;
-      const paymentTime =
-        data.paymentTime ||
-        new Date()
-          .toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true })
-          .toUpperCase() + " IST";
-      pair("Payment Method:", data.paymentMethod || "PayU", ix, cy, { size: 10.5 });
-      pair("Payment Date:", data.paymentDate || issueDate, jx, cy, { size: 10.5 });
-      cy += 20;
-      pair("Transaction ID:", data.transactionId, ix, cy, { size: 10.5 });
-      pair("Payment Time:", paymentTime, jx, cy, { size: 10.5 });
-      cy += 20;
-      const statusText = partly ? "PARTIALLY PAID" : "PAID";
-      pair("Payment Status:", statusText, ix, cy, { size: 10.5, color: partly ? "#b45309" : C.green });
-      if (!partly) {
-        const tickX =
-          ix +
-          doc.font("R").fontSize(10.5).widthOfString("Payment Status: ") +
-          doc.font("B").fontSize(10.5).widthOfString(statusText) +
-          5;
-        drawTick(doc, tickX, cy + 2);
-      }
-      pair("Payment Type:", data.planLabel || "Full Payment", jx, cy, { size: 10.5 });
-      y += cardH + (tight ? 18 : 28);
-
-      // ── Thank you ─────────────────────────────────────────────────
-      doc.font("B").fontSize(15).fillColor(C.ink).text("THANK YOU FOR YOUR PURCHASE", M, y);
-      y += tight ? 22 : 24;
-      doc.font("R").fontSize(11).fillColor(C.body).text("Your payment has been successfully received.", M, y);
-      y += tight ? 16 : 17;
+      // Left: Thank You & Order Status
+      doc.roundedRect(M, infoBoxY, infoBoxW, 96, 8).fillAndStroke("#f8fafc", C.line);
+      doc.font("B").fontSize(11).fillColor(C.ink).text("THANK YOU FOR YOUR PURCHASE", M + 14, infoBoxY + 12);
+      doc.font("R").fontSize(9.5).fillColor(C.body).text("Your payment has been successfully received.", M + 14, infoBoxY + 28);
       if (plan !== "balance") {
-        doc.font("R").fontSize(11).fillColor(C.body).text("Your order is now being processed by the Quickupp AI Studio team.", M, y);
-        y += tight ? 16 : 17;
+        doc.font("R").fontSize(9.5).fillColor(C.body).text("Your order is now being processed by our creative team.", M + 14, infoBoxY + 42, { width: infoBoxW - 28 });
       }
       if (partly) {
-        doc.font("B").fontSize(11).fillColor("#b45309").text(
-          `Balance due: ${money(balanceDue)} ${currency}. You can pay it anytime using the link in your payment email.`,
-          M,
-          y,
-          { width: CW },
+        doc.font("B").fontSize(9).fillColor("#b45309").text(
+          `Balance due: ${money(balanceDue)} ${currency}. Pay anytime via email link.`,
+          M + 14,
+          infoBoxY + 62,
+          { width: infoBoxW - 28 },
         );
       } else if (plan === "balance") {
-        doc.font("B").fontSize(11).fillColor(C.green).text(
-          `Your order${data.parentOrderNumber ? ` ${data.parentOrderNumber}` : ""} is now fully paid. Thank you!`,
-          M,
-          y,
-          { width: CW },
+        doc.font("B").fontSize(9.5).fillColor(C.green).text(
+          `Order${data.parentOrderNumber ? ` ${data.parentOrderNumber}` : ""} is now fully paid. Thank you!`,
+          M + 14,
+          infoBoxY + 62,
+          { width: infoBoxW - 28 },
         );
       } else {
-        doc.font("R").fontSize(11).fillColor(C.body).text(
+        doc.font("R").fontSize(9).fillColor(C.muted).text(
           "Please keep your receipt number handy when communicating with our team.",
-          M,
-          y,
+          M + 14,
+          infoBoxY + 62,
+          { width: infoBoxW - 28 },
         );
       }
 
-      // ── Footer (anchored to the bottom of the page) ──────────────
-      const fy = H - 132;
-      doc.moveTo(M, fy).lineTo(R, fy).lineWidth(1).strokeColor(C.line).stroke();
-      let f = fy + 18;
-      doc.font("B").fontSize(10.5).fillColor(C.body).text("For questions regarding your order or payment:", M, f);
-      f += 18;
-      doc.font("B").fontSize(12).fillColor(C.brandDark).text("Quickupp AI Studio", M, f);
-      f += 18;
-      pair("Email:", SUPPORT_EMAIL, M, f, { size: 10.5, bold: false, link: `mailto:${SUPPORT_EMAIL}` });
-      f += 16;
-      pair("Website:", SITE, M, f, { size: 10.5, bold: false, link: SITE_URL });
+      // Right: Need Help / Contact
+      const rightBoxX = M + infoBoxW + 16;
+      doc.roundedRect(rightBoxX, infoBoxY, infoBoxW, 96, 8).fillAndStroke(C.brandSoft, C.brandLine);
+      doc.font("B").fontSize(11).fillColor(C.brandDark).text("NEED ASSISTANCE?", rightBoxX + 14, infoBoxY + 12);
+      doc.font("B").fontSize(10).fillColor(C.ink).text("Quickupp AI Studio", rightBoxX + 14, infoBoxY + 28);
+      pair("Email:", SUPPORT_EMAIL, rightBoxX + 14, infoBoxY + 44, { size: 9.5, bold: false, link: `mailto:${SUPPORT_EMAIL}` });
+      pair("Website:", SITE, rightBoxX + 14, infoBoxY + 59, { size: 9.5, bold: false, link: SITE_URL });
+      doc.font("R").fontSize(8.5).fillColor(C.muted).text("Support: Mon – Sat, 9:00 AM – 7:00 PM IST", rightBoxX + 14, infoBoxY + 74);
 
+      // ── Footer (anchored safely at page bottom with 0 risk of overlap) ──
+      const fy = H - 46;
+      doc.moveTo(M, fy).lineTo(R, fy).lineWidth(1).strokeColor(C.line).stroke();
       doc
         .font("R")
         .fontSize(8)
@@ -377,7 +382,7 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
         .text(
           `This document serves as your official payment receipt for the transaction described above. Operated by ${COMPANY}.`,
           M,
-          H - 32,
+          fy + 12,
           { width: CW, align: "center" },
         );
       doc.rect(0, H - 8, W, 8).fill(grad);

@@ -141,9 +141,9 @@ function renderPaymentConfirmationEmail(o: {
     ...(o.discountPercent && o.discountPercent > 0
       ? ([
           [
-            "Special Offer Discount",
-            `-${o.discountAmount || ""} (${o.discountPercent}% OFF)`,
-            { color: "#dc2626" },
+            `Special Offer Discount (${o.discountPercent}% OFF)`,
+            `-${o.discountAmount || ""}`,
+            { color: "#059669", strong: true },
           ],
         ] as [string, string, { strong?: boolean; mono?: boolean; color?: string }][])
       : []),
@@ -229,18 +229,18 @@ function renderPaymentConfirmationEmail(o: {
 
     ${
       o.discountPercent && o.discountPercent > 0
-        ? `<!-- Discount Offer Remark (Red) -->
+        ? `<!-- Full-width Special Offer Highlight (matching modal & PDF) -->
     <tr><td style="padding:16px 36px 0;font-family:${font}">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fef2f2;border:1.5px dashed #ef4444;border-radius:10px">
-        <tr><td style="padding:14px 18px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px">
+        <tr><td style="padding:11px 18px">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
-              <td style="vertical-align:top">
-                <span style="display:inline-block;padding:3px 9px;border-radius:4px;background:#dc2626;color:#ffffff;font-size:11px;font-weight:900;letter-spacing:0.8px;text-transform:uppercase">Special Offer Applied</span>
-                <div style="margin-top:6px;font-size:15px;font-weight:800;color:#991b1b">
-                  ${e(o.discountPercent)}% DISCOUNT APPLIED
-                  ${o.discountAmount ? `<span style="font-weight:700;color:#dc2626"> (Saved ${e(o.discountAmount)})</span>` : ""}
-                </div>
+              <td style="color:#065f46;font-family:${font};font-size:13px;font-weight:700">
+                <span style="display:inline-block;padding:2px 7px;border-radius:4px;background:#10b981;color:#ffffff;font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;margin-right:8px">Special Offer</span>
+                Special Offer Discount (${e(o.discountPercent)}% OFF)
+              </td>
+              <td align="right" style="color:#059669;font-family:${font};font-size:14px;font-weight:800">
+                -${e(o.discountAmount || "")}
               </td>
             </tr>
           </table>

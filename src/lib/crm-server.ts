@@ -700,7 +700,28 @@ export async function createLead(
 const LEAD_STATUSES = ["New", "Contacted", "In Progress", "Hold", "Closed"];
 const PROJECT_STATUSES = ["Not Started", "In Progress", "Proj Active", "On Hold", "Delivered", "Cancelled"];
 
-export async function updateLead(token: string, id: string, patch: { leadStatus?: string; projectStatus?: string }) {
+export type UpdateLeadPatch = {
+  leadStatus?: string;
+  projectStatus?: string;
+  clientName?: string;
+  business?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  industry?: string;
+  location?: string;
+  videoScope?: string;
+  quantity?: string;
+  deliveryDate?: string;
+  notes?: string;
+  source?: string;
+  channel?: string;
+  campaign?: string;
+  adSet?: string;
+  formName?: string;
+};
+
+export async function updateLead(token: string, id: string, patch: UpdateLeadPatch) {
   const ctx = await requireSession(token);
   const row = await getLeadRow(id);
   assertLeadAccess(ctx, row);
@@ -708,6 +729,65 @@ export async function updateLead(token: string, id: string, patch: { leadStatus?
   const update: Record<string, unknown> = {};
   const extra: Record<string, unknown> = { handled_by: ctx.user.name };
   const now = new Date().toISOString();
+  const t = (v: unknown, max = 255) => String(v ?? "").trim().slice(0, max);
+
+  if (patch.clientName !== undefined && t(patch.clientName)) {
+    update.name = t(patch.clientName);
+  }
+  if (patch.business !== undefined && t(patch.business)) {
+    update.business = t(patch.business);
+  }
+  if (patch.phone !== undefined && t(patch.phone)) {
+    update.phone = t(patch.phone, 64);
+  }
+  if (patch.email !== undefined) {
+    update.email = t(patch.email) || null;
+  }
+  if (patch.videoScope !== undefined) {
+    update.video_type = t(patch.videoScope, 128) || "AI Video";
+  }
+  if (patch.industry !== undefined) {
+    update.industry = t(patch.industry, 128) || null;
+  }
+  if (patch.location !== undefined) {
+    update.location = t(patch.location) || null;
+  }
+  if (patch.notes !== undefined) {
+    update.requirement = t(patch.notes, 4000) || null;
+  }
+  if (patch.source !== undefined && t(patch.source)) {
+    update.source = t(patch.source);
+  }
+  if (patch.channel !== undefined) {
+    update.channel = t(patch.channel);
+  }
+  if (patch.campaign !== undefined) {
+    update.campaign = t(patch.campaign) || null;
+  }
+  if (patch.adSet !== undefined) {
+    update.ad_set = t(patch.adSet) || null;
+  }
+  if (patch.formName !== undefined) {
+    update.form_name = t(patch.formName) || null;
+  }
+
+  // Handle website, quantity, deliveryTarget inside `additional`
+  if (patch.website !== undefined || patch.quantity !== undefined || patch.deliveryDate !== undefined) {
+    const { extra: existingExtra, rest } = splitAdditional(row.additional || "");
+    const finalWebsite = patch.website !== undefined ? t(patch.website) : existingExtra.website;
+    const finalQty = patch.quantity !== undefined ? t(patch.quantity) : existingExtra.quantity;
+    const finalDelivery = patch.deliveryDate !== undefined ? t(patch.deliveryDate) : existingExtra.deliveryTarget;
+
+    const extras = [
+      finalWebsite ? `Website: ${finalWebsite}` : "",
+      finalQty ? `Video quantity: ${finalQty}` : "",
+      /^\d{4}-\d{2}-\d{2}$/.test(finalDelivery) ? `Delivery target: ${finalDelivery}` : (finalDelivery ? `Delivery target: ${finalDelivery}` : ""),
+    ].filter(Boolean);
+
+    const allAdditional = [rest, ...extras].filter(Boolean).join("\n");
+    update.additional = allAdditional || null;
+  }
+
   if (patch.leadStatus && LEAD_STATUSES.includes(patch.leadStatus)) {
     update.status = patch.leadStatus;
     if (patch.leadStatus === "Closed" && row.status !== "Closed") {
@@ -729,15 +809,20 @@ export async function updateLead(token: string, id: string, patch: { leadStatus?
   if (update.status && update.status !== row.status) changes.push(`Lead status ${row.status || "New"} → ${update.status}`);
   if (update.project_status && update.project_status !== (row.project_status || "Not Started"))
     changes.push(`Project status ${!row.project_status || row.project_status === "New" ? "Not Started" : row.project_status} → ${update.project_status}`);
-  if (changes.length) {
-    await logActivity({
-      title: "Lead updated",
-      category: "LEADS",
-      actorEmail: ctx.user.email,
-      description: `${row.name}: ${changes.join(", ")} (by ${ctx.user.name})`,
-      leadId: id,
-    });
-  }
+  if (update.name && update.name !== row.name) changes.push(`Client name updated`);
+  if (update.phone && update.phone !== row.phone) changes.push(`Phone updated`);
+  if (update.email !== undefined && update.email !== row.email) changes.push(`Email updated`);
+  if (update.business && update.business !== row.business) changes.push(`Company updated`);
+  if (update.video_type && update.video_type !== row.video_type) changes.push(`Video scope updated`);
+  if (update.requirement && update.requirement !== row.requirement) changes.push(`Notes updated`);
+
+  await logActivity({
+    title: "Lead updated",
+    category: "LEADS",
+    actorEmail: ctx.user.email,
+    description: `${update.name || row.name}: ${changes.length ? changes.join(", ") : "Details updated"} (by ${ctx.user.name})`,
+    leadId: id,
+  });
   return { ok: true as const };
 }
 

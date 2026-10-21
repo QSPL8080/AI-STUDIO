@@ -41,6 +41,7 @@ import {
   Copy,
   Percent,
   Filter,
+  Pencil,
 } from "lucide-react";
 import { CrmUser, clearStoredCrmUser, setStoredCrmUser } from "@/lib/crm-auth";
 import {
@@ -429,6 +430,31 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const openAddLead = (source: string) => {
     setLeadForm(blankLeadForm(source));
     setShowAddLeadModal(true);
+  };
+  const [editingLead, setEditingLead] = useState<LeadItem | null>(null);
+  const [editLeadForm, setEditLeadForm] = useState(() => blankLeadForm("Website"));
+  const openEditLead = (l: LeadItem) => {
+    setEditingLead(l);
+    setEditLeadForm({
+      source: l.source || "Website",
+      clientName: l.clientName || "",
+      business: l.companyName || "",
+      website: l.website || "",
+      phone: l.phone || "",
+      email: l.email || "",
+      industry: l.businessType || "",
+      location: l.location || "",
+      videoScope: l.videoScope || "AI Video",
+      quantity: l.videoQuantity || "1 Video",
+      leadStatus: l.leadStatus || "New",
+      projectStatus: l.projectStatus || "Not Started",
+      deliveryDate: l.deliveryTarget || "",
+      notes: l.notes || "",
+      channel: l.channel || "Facebook",
+      campaign: l.campaign || "",
+      adSet: l.adSet || "",
+      formName: l.formName || "",
+    });
   };
   const [newUserForm, setNewUserForm] = useState({ name: "", email: "", password: "", role: "ADMIN" as ManagedRole });
   const [showNewUserPw, setShowNewUserPw] = useState(false);
@@ -826,6 +852,31 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     crmMarkNotificationsFn({ data: { token: tok(), ids: [r.lead.id] } }).catch(() => null);
     toast(isMetaLead ? "Meta lead saved to database." : "Lead saved to database.");
     setShowAddLeadModal(false);
+    doSync();
+  };
+
+  const handleSaveEditLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLead) return;
+    const f = editLeadForm;
+    if (!f.clientName.trim() || !f.business.trim() || !f.phone.trim()) {
+      toast("Client name, company / brand and WhatsApp / phone are required.", "error");
+      return;
+    }
+    setBusy("edit-lead");
+    const r = await call(
+      crmUpdateLeadFn({
+        data: {
+          token: tok(),
+          id: editingLead.id,
+          ...f,
+        },
+      })
+    );
+    setBusy(null);
+    if (!r) return;
+    toast("Lead details updated successfully.");
+    setEditingLead(null);
     doSync();
   };
 
@@ -1967,6 +2018,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 <div className="flex items-center justify-end gap-1">
                                   <button onClick={() => setSelectedLead(l)} className="p-1.5 rounded hover:bg-slate-200 text-slate-600 hover:text-slate-900" title="View details">
                                     <Eye className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => openEditLead(l)}
+                                    className="p-1.5 rounded hover:bg-purple-100 text-purple-600 hover:text-purple-900"
+                                    title="Edit lead"
+                                  >
+                                    <Pencil className="w-4 h-4" />
                                   </button>
                                   {canDelete && (
                                     <button
@@ -3282,6 +3340,126 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         </Modal>
       )}
 
+      {editingLead && (
+        <Modal
+          onClose={() => setEditingLead(null)}
+          title={`Edit Lead — ${editingLead.clientName}`}
+          subtitle="Update client information, project requirements, and statuses."
+          icon={<Pencil className="w-5 h-5 text-purple-600" />}
+          size="xl"
+        >
+          <form onSubmit={handleSaveEditLead} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <Field label="Lead Source *">
+                <select value={editLeadForm.source} onChange={(e) => setEditLeadForm({ ...editLeadForm, source: e.target.value })} className={inputCls}>
+                  {LEAD_SOURCE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Client Full Name *">
+                <input required value={editLeadForm.clientName} onChange={(e) => setEditLeadForm({ ...editLeadForm, clientName: e.target.value })} placeholder="e.g. Rahul Sharma" className={inputCls} />
+              </Field>
+              <Field label="Company / Brand Name *">
+                <input required value={editLeadForm.business} onChange={(e) => setEditLeadForm({ ...editLeadForm, business: e.target.value })} placeholder="e.g. Sharma Foods" className={inputCls} />
+              </Field>
+              <Field label="Website">
+                <input value={editLeadForm.website} onChange={(e) => setEditLeadForm({ ...editLeadForm, website: e.target.value })} placeholder="https://brand.in" className={inputCls} />
+              </Field>
+              <Field label="WhatsApp / Phone *">
+                <input required value={editLeadForm.phone} onChange={(e) => setEditLeadForm({ ...editLeadForm, phone: e.target.value })} placeholder="+91 98765 43210" inputMode="tel" className={inputCls} />
+              </Field>
+              <Field label="Email Address">
+                <input type="email" value={editLeadForm.email} onChange={(e) => setEditLeadForm({ ...editLeadForm, email: e.target.value })} placeholder="client@company.com" className={inputCls} />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <Field label="Industry">
+                <select value={editLeadForm.industry} onChange={(e) => setEditLeadForm({ ...editLeadForm, industry: e.target.value })} className={inputCls}>
+                  <option value="">Select industry</option>
+                  {LEAD_INDUSTRIES.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Location / City">
+                <input value={editLeadForm.location} onChange={(e) => setEditLeadForm({ ...editLeadForm, location: e.target.value })} placeholder="e.g. Pune, Maharashtra" className={inputCls} />
+              </Field>
+              <Field label="Video Type / Need *">
+                <select value={editLeadForm.videoScope} onChange={(e) => setEditLeadForm({ ...editLeadForm, videoScope: e.target.value })} className={inputCls}>
+                  {LEAD_VIDEO_TYPES.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Video Quantity / Monthly Volume">
+                <select value={editLeadForm.quantity} onChange={(e) => setEditLeadForm({ ...editLeadForm, quantity: e.target.value })} className={inputCls}>
+                  {LEAD_QUANTITIES.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+
+            {(editLeadForm.source === "Meta Ads" || editingLead.kind === "meta") && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 rounded-md border border-purple-200 bg-purple-500/[0.04] p-3">
+                <Field label="Channel">
+                  <select value={editLeadForm.channel} onChange={(e) => setEditLeadForm({ ...editLeadForm, channel: e.target.value })} className={inputCls}>
+                    <option>Facebook</option>
+                    <option>Instagram</option>
+                  </select>
+                </Field>
+                <Field label="Campaign">
+                  <input value={editLeadForm.campaign} onChange={(e) => setEditLeadForm({ ...editLeadForm, campaign: e.target.value })} placeholder="Campaign name" className={inputCls} />
+                </Field>
+                <Field label="Ad Set">
+                  <input value={editLeadForm.adSet} onChange={(e) => setEditLeadForm({ ...editLeadForm, adSet: e.target.value })} placeholder="Ad set" className={inputCls} />
+                </Field>
+                <Field label="Form Name">
+                  <input value={editLeadForm.formName} onChange={(e) => setEditLeadForm({ ...editLeadForm, formName: e.target.value })} placeholder="Lead form" className={inputCls} />
+                </Field>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <Field label="Lead Status">
+                <select value={editLeadForm.leadStatus} onChange={(e) => setEditLeadForm({ ...editLeadForm, leadStatus: e.target.value })} className={inputCls}>
+                  {LEAD_STATUSES.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Project Status">
+                <select value={editLeadForm.projectStatus} onChange={(e) => setEditLeadForm({ ...editLeadForm, projectStatus: e.target.value })} className={inputCls}>
+                  {PROJECT_STATUSES.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Delivery Target Date">
+                <input type="date" value={editLeadForm.deliveryDate} onChange={(e) => setEditLeadForm({ ...editLeadForm, deliveryDate: e.target.value })} className={`${inputCls} [color-scheme:light]`} />
+              </Field>
+            </div>
+
+            <Field label="Internal Notes & Scope">
+              <textarea
+                rows={3}
+                value={editLeadForm.notes}
+                onChange={(e) => setEditLeadForm({ ...editLeadForm, notes: e.target.value })}
+                placeholder="Add specific requirements, deadlines, or client preferences..."
+                className="w-full px-3 py-2 rounded-md border border-slate-200 bg-white text-[13px] text-slate-900 placeholder-slate-400 resize-y focus:outline-none focus:border-purple-500"
+              />
+            </Field>
+            <div className="border-t border-slate-200 pt-4">
+              <ModalActions onCancel={() => setEditingLead(null)} submitLabel={busy === "edit-lead" ? "Saving Changes..." : "Save Changes"} disabled={busy === "edit-lead"} />
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {showCreateUserModal && (
         <Modal onClose={() => setShowCreateUserModal(false)} title="Create User" subtitle="Admins and Leads Managers sign in with this email and password." icon={<UserPlus className="w-5 h-5" />}>
           <form onSubmit={handleCreateUser} className="space-y-3.5">
@@ -3367,6 +3545,19 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     <a href={`mailto:${l.email}`} className={btnGhost} title="Email">
                       <Mail className="w-4 h-4" /> <span className="hidden sm:inline">Email</span>
                     </a>
+                  )}
+                  {editable && (
+                    <button
+                      onClick={() => {
+                        const target = l;
+                        setSelectedLead(null);
+                        openEditLead(target);
+                      }}
+                      className={btnGhost}
+                      title="Edit lead"
+                    >
+                      <Pencil className="w-4 h-4" /> <span className="hidden sm:inline">Edit</span>
+                    </button>
                   )}
                   <button onClick={() => setSelectedLead(null)} className={iconBtn} title="Close">
                     <X className="w-4 h-4" />

@@ -67,13 +67,11 @@ export const crmCreateLeadFn = createServerFn({ method: "POST" })
   });
 
 export const crmUpdateLeadFn = createServerFn({ method: "POST" })
-  .validator((d: Tok & { id: string; leadStatus?: string; projectStatus?: string }) => d)
+  .validator((d: Tok & { id: string } & Record<string, any>) => d)
   .handler(async ({ data }) => {
     const s = await srv();
-    const patch: { leadStatus?: string; projectStatus?: string } = {};
-    if (data.leadStatus) patch.leadStatus = data.leadStatus;
-    if (data.projectStatus) patch.projectStatus = data.projectStatus;
-    return s.guard(() => s.updateLead(data.token, data.id, patch));
+    const { token, id, ...patch } = data;
+    return s.guard(() => s.updateLead(token, id, patch));
   });
 
 export const crmDeleteLeadFn = createServerFn({ method: "POST" })
