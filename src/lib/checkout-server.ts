@@ -133,6 +133,7 @@ function orderView(o: any) {
     discountPercent: Number(d.discountPercent || d.coupon?.discountPercent || 0),
     discountAmount: Number(d.discountAmount || d.coupon?.discountAmount || 0),
     originalAmount: d.originalAmount ? Number(d.originalAmount) : null,
+    receiptUrl: receiptPath(String(o.paypal_order_id)),
     ...(() => {
       const ps = paymentSummary(o);
       return {

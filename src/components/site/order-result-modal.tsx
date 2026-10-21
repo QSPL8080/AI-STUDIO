@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Check, Clock, Lock, Sparkles, X } from "lucide-react";
+import { AlertCircle, Check, Clock, Download, Lock, Sparkles, X } from "lucide-react";
 import { getConfirmationFn } from "@/lib/checkout-actions";
 import { formatInr } from "@/lib/india-pricing";
 import type { OrderView } from "@/lib/checkout-server";
@@ -153,9 +153,40 @@ export function OrderResultModal() {
               </p>
             </div>
 
+            {/* Red Special Offer Banner */}
+            {order.discountPercent && order.discountPercent > 0 ? (
+              <div className="mx-auto mt-4 max-w-sm rounded-2xl border-2 border-dashed border-red-500/80 bg-red-500/10 p-3 text-center shadow-[0_0_25px_rgba(239,68,68,0.2)]">
+                <span className="inline-block rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-sm">
+                  Special Offer Applied
+                </span>
+                <div className="mt-1.5 text-sm font-extrabold text-red-400">
+                  {order.discountPercent}% DISCOUNT APPLIED
+                  {order.discountAmount ? ` · Saved ${formatInr(order.discountAmount)}` : ""}
+                </div>
+                {order.couponCode && (
+                  <div className="mt-0.5 font-mono text-xs font-semibold text-red-300">
+                    Coupon Code: <span className="underline decoration-red-400/60">{order.couponCode}</span>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
             {/* Details */}
             <div className="mt-5 divide-y divide-white/[0.07] rounded-2xl border border-white/10 bg-white/[0.03] px-4">
               <Row label="Service / Package:" value={`${order.service} · ${order.pack}`} bold />
+              {order.discountPercent && order.discountPercent > 0 ? (
+                <>
+                  {order.originalAmount && (
+                    <Row label="Original Price:" value={`${formatInr(order.originalAmount)} INR`} />
+                  )}
+                  <Row
+                    label="Special Offer Discount:"
+                    value={`-${formatInr(order.discountAmount)} (${order.discountPercent}% OFF)${order.couponCode ? ` · ${order.couponCode}` : ""}`}
+                    warn
+                    bold
+                  />
+                </>
+              ) : null}
               {order.plan !== "full" && (
                 <Row label="Order Total:" value={`${formatInr(order.orderTotal)} INR`} />
               )}
@@ -216,6 +247,18 @@ export function OrderResultModal() {
             )}
             {failed && order.failureReason && (
               <p className="mt-3 text-center text-xs text-white/45">Reason: {order.failureReason}</p>
+            )}
+
+            {paid && order.receiptUrl && (
+              <a
+                href={order.receiptUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[#a832e6]/50 bg-gradient-to-r from-[#4f46e5]/40 via-[#a832e6]/40 to-[#e11d74]/40 px-5 text-sm font-bold text-white shadow-lg shadow-purple-900/30 transition-all hover:scale-[1.02] hover:border-[#a832e6]"
+              >
+                <Download className="h-4 w-4 text-[#d8a8ff]" />
+                Download Payment Receipt (PDF)
+              </a>
             )}
 
             {failed ? (
