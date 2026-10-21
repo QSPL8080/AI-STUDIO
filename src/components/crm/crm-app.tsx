@@ -1054,7 +1054,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     }
   };
 
-  const copyCouponCode = (code: string) => {
+  const copyCouponCode = (code: string, active = true) => {
+    if (!active) {
+      toast("This coupon is already redeemed and expired", "info");
+      return;
+    }
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
     toast(`Copied "${code}" to clipboard!`, "success");
@@ -2204,21 +2208,29 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <tr key={coupon.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="p-3.5 font-mono font-bold text-slate-900">
                             <div className="flex items-center gap-2">
-                              <span className="tracking-wide text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200/60 font-mono">
+                              <span
+                                className={`tracking-wide px-2 py-0.5 rounded border font-mono ${
+                                  coupon.active
+                                    ? "text-purple-700 bg-purple-50 border-purple-200/60"
+                                    : "text-slate-400 bg-slate-100 border-slate-200 line-through select-none"
+                                }`}
+                              >
                                 {coupon.code}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => copyCouponCode(coupon.code)}
-                                title="Copy code"
-                                className="text-slate-400 hover:text-purple-600 transition-colors p-1 rounded hover:bg-purple-50 cursor-pointer"
-                              >
-                                {copiedCode === coupon.code ? (
-                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                ) : (
-                                  <Copy className="w-3.5 h-3.5" />
-                                )}
-                              </button>
+                              {coupon.active && (
+                                <button
+                                  type="button"
+                                  onClick={() => copyCouponCode(coupon.code, coupon.active)}
+                                  title="Copy code"
+                                  className="text-slate-400 hover:text-purple-600 transition-colors p-1 rounded hover:bg-purple-50 cursor-pointer"
+                                >
+                                  {copiedCode === coupon.code ? (
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              )}
                             </div>
                           </td>
                           <td className="p-3.5">
@@ -2255,25 +2267,27 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                           <td className="p-3.5 text-right whitespace-nowrap">
                             <div className="inline-flex items-center gap-1.5">
                               {coupon.active && (
-                                <button
-                                  type="button"
-                                  onClick={() => shareCouponWhatsApp(coupon)}
-                                  className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                                  title="Share code via WhatsApp with client"
-                                >
-                                  <Share2 className="w-3.5 h-3.5" />
-                                  <span>WhatsApp</span>
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => shareCouponWhatsApp(coupon)}
+                                    className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                                    title="Share code via WhatsApp with client"
+                                  >
+                                    <Share2 className="w-3.5 h-3.5" />
+                                    <span>WhatsApp</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyCouponCode(coupon.code, coupon.active)}
+                                    className={btnGhost}
+                                    style={{ height: "32px", padding: "0 8px" }}
+                                    title="Copy code to clipboard"
+                                  >
+                                    {copiedCode === coupon.code ? "Copied" : "Copy"}
+                                  </button>
+                                </>
                               )}
-                              <button
-                                type="button"
-                                onClick={() => copyCouponCode(coupon.code)}
-                                className={btnGhost}
-                                style={{ height: "32px", padding: "0 8px" }}
-                                title="Copy code to clipboard"
-                              >
-                                {copiedCode === coupon.code ? "Copied" : "Copy"}
-                              </button>
                               {isSuperAdmin && (
                                 <button
                                   type="button"
