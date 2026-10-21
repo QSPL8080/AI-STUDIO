@@ -1998,7 +1998,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               icon={<Tag className="w-5 h-5 text-purple-600" />}
               title="Coupon Generator"
               badge={`${coupons.filter((c) => c.active).length} Active`}
-              subtitle="Generate single-use unique discount codes (10%, 20%, 25%, etc.) to share with clients. Each code expires immediately once used at checkout."
+              subtitle="Generate single-use unique discount codes (10%, 15%, 20%, etc.) to share with clients. Each code expires immediately once used at checkout."
             >
               <div className="flex items-center gap-2">
                 {canExport && (
@@ -2057,7 +2057,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     Discount Percentage:
                   </label>
                   <div className="flex gap-1.5">
-                    {[10, 20, 25].map((pct) => (
+                    {[10, 15, 20].map((pct) => (
                       <button
                         key={pct}
                         type="button"
@@ -2094,7 +2094,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                           setCustomDiscount(val);
                         }
                       }}
-                      placeholder="e.g. 15, 30, 50"
+                      placeholder="e.g. 25, 30, 50"
                       className={inputCls}
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -2199,7 +2199,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                           <Tag className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                           <div className="font-medium text-slate-600">No coupons found</div>
                           <div className="text-xs text-slate-400 mt-1">
-                            {couponSearch ? "Try clearing your search query." : "Generate a 10%, 20%, or 25% single-use code above."}
+                            {couponSearch ? "Try clearing your search query." : "Generate a 10%, 15%, or 20% single-use code above."}
                           </div>
                         </td>
                       </tr>
@@ -3932,7 +3932,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       Discount Percentage Preset:
                     </label>
                     <div className="flex gap-1.5">
-                      {[0, 10, 20, 25].map((pct) => (
+                      {[0, 10, 15, 20].map((pct) => (
                         <button
                           key={pct}
                           type="button"
