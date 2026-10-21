@@ -387,16 +387,29 @@ async function sendViaSmtp(mail: { to: string; subject: string; html: string; te
   for (const acc of accounts) {
     for (const port of [465, 587]) {
       try {
-        const transporter = nodemailer.createTransport({
-          host: acc.host,
-          port,
-          secure: port === 465,
-          requireTLS: port === 587,
-          auth: { user: acc.user, pass: acc.pass },
-          connectionTimeout: 10000,
-          greetingTimeout: 10000,
-          socketTimeout: 15000,
-        });
+        const isGmail = acc.host.includes("gmail") || acc.user.includes("@gmail.com");
+        const transporter = nodemailer.createTransport(
+          isGmail && port === 465
+            ? {
+                service: "gmail",
+                auth: { user: acc.user, pass: acc.pass },
+                connectionTimeout: 10000,
+                greetingTimeout: 10000,
+                socketTimeout: 15000,
+                tls: { rejectUnauthorized: false },
+              }
+            : {
+                host: acc.host,
+                port,
+                secure: port === 465,
+                requireTLS: port === 587,
+                auth: { user: acc.user, pass: acc.pass },
+                connectionTimeout: 10000,
+                greetingTimeout: 10000,
+                socketTimeout: 15000,
+                tls: { rejectUnauthorized: false },
+              },
+        );
         await transporter.sendMail({
           from: `"${mail.fromName}" <${acc.user}>`,
           to: mail.to,

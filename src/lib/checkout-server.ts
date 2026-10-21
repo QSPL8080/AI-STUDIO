@@ -644,12 +644,19 @@ async function applyPayUResult(order: any, r: PayUTxnStatus) {
       console.error("Could not update the advance order after the balance payment", e);
     }
   }
-  if (status === "COMPLETED")
-    // One after the other: both save a flag on the same order row.
-    void (async () => {
-      await sendReceipt(order.id).catch((e) => console.error("Receipt email failed", e));
-      await sendTeamOrderEmail(order.id).catch((e) => console.error("Order email failed", e));
-    })();
+  if (status === "COMPLETED") {
+    // Await sequentially: both update flags in raw_details on the same order row
+    try {
+      await sendReceipt(order.id);
+    } catch (e) {
+      console.error("Receipt email failed", e);
+    }
+    try {
+      await sendTeamOrderEmail(order.id);
+    } catch (e) {
+      console.error("Order email failed", e);
+    }
+  }
   return status;
 }
 
