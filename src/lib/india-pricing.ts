@@ -15,7 +15,7 @@ export interface IndiaService {
 }
 
 export const INDIA_SERVICES: IndiaService[] = [
-  { id: "ai-ugc", name: "AI UGC Video", prices: { 1: 10, 5: 8999, 10: 16999, 15: 23999 } },
+  { id: "ai-ugc", name: "AI UGC Video", prices: { 1: 2, 5: 8999, 10: 16999, 15: 23999 } },
   {
     id: "ai-cartoon",
     name: "AI Cartoon Animation",
