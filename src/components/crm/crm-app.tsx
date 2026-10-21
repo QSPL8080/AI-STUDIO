@@ -1473,7 +1473,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-3 py-4">
             {(
               [
-                { title: "Workspace", ids: ["dashboard", "leads", "meta", "orders"] },
+                { title: "Workspace", ids: ["dashboard", "leads", "meta", "coupons", "orders"] },
                 { title: "Administration", ids: ["activity", "users", "settings"] },
                 { title: "Data", ids: ["recycle-bin"] },
               ] as { title: string; ids: TabId[] }[]
