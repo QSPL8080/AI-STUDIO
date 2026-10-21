@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Check, Clock, Download, Lock, Sparkles, X } from "lucide-react";
+import { AlertCircle, Check, Clock, Lock, Sparkles, X } from "lucide-react";
 import { getConfirmationFn } from "@/lib/checkout-actions";
 import { formatInr } from "@/lib/india-pricing";
 import type { OrderView } from "@/lib/checkout-server";
@@ -247,18 +247,6 @@ export function OrderResultModal() {
             )}
             {failed && order.failureReason && (
               <p className="mt-3 text-center text-xs text-white/45">Reason: {order.failureReason}</p>
-            )}
-
-            {paid && order.receiptUrl && (
-              <a
-                href={order.receiptUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[#a832e6]/50 bg-gradient-to-r from-[#4f46e5]/40 via-[#a832e6]/40 to-[#e11d74]/40 px-5 text-sm font-bold text-white shadow-lg shadow-purple-900/30 transition-all hover:scale-[1.02] hover:border-[#a832e6]"
-              >
-                <Download className="h-4 w-4 text-[#d8a8ff]" />
-                Download Payment Receipt (PDF)
-              </a>
             )}
 
             {failed ? (
