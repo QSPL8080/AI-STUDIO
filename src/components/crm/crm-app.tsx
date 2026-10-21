@@ -302,6 +302,7 @@ const blankLeadForm = (source: string) => ({
   quantity: "1 Video",
   leadStatus: "New",
   projectStatus: "Not Started",
+  closedBy: "",
   deliveryDate: "",
   notes: "",
   channel: "Facebook",
@@ -448,6 +449,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       quantity: l.videoQuantity || "1 Video",
       leadStatus: l.leadStatus || "New",
       projectStatus: l.projectStatus || "Not Started",
+      closedBy: l.closedBy || (l.leadStatus === "Closed" ? (user?.name || "Admin") : ""),
       deliveryDate: l.deliveryTarget || "",
       notes: l.notes || "",
       channel: l.channel || "Facebook",
@@ -544,7 +546,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       if (r.notif) setNotif(r.notif);
       setConfig(r.config);
       if (!configDirtyRef.current) setConfigDraft(r.config);
-      setLeads([...r.leads].sort((a: LeadItem, b: LeadItem) => String(b.createdAt).localeCompare(String(a.createdAt))));
+      const sortedLeads = [...r.leads].sort((a: LeadItem, b: LeadItem) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      setLeads(sortedLeads);
+      setSelectedLead((prev) => (prev ? (sortedLeads.find((x) => x.id === prev.id) || prev) : null));
       setRecycleBin(r.recycleBin);
       if (r.coupons) setCoupons(r.coupons);
       setOrdersCount(r.ordersCount);
@@ -864,12 +868,42 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       return;
     }
     setBusy("edit-lead");
+    const currentUserName = user?.name || "Admin";
+    const finalClosedBy = f.leadStatus === "Closed" ? (f.closedBy?.trim() || editingLead.closedBy || currentUserName) : "";
+    const nowIso = new Date().toISOString();
+    const optimisticLead: Partial<LeadItem> = {
+      clientName: f.clientName,
+      companyName: f.business,
+      phone: f.phone,
+      email: f.email,
+      website: f.website,
+      businessType: f.industry,
+      location: f.location,
+      videoScope: f.videoScope,
+      videoQuantity: f.quantity,
+      leadStatus: f.leadStatus,
+      projectStatus: f.projectStatus,
+      deliveryTarget: f.deliveryDate,
+      notes: f.notes,
+      source: f.source,
+      channel: f.channel,
+      campaign: f.campaign,
+      adSet: f.adSet,
+      formName: f.formName,
+      closedBy: finalClosedBy,
+      closedAt: f.leadStatus === "Closed" ? (editingLead.closedAt || nowIso) : null,
+      deliveredAt: f.projectStatus === "Delivered" ? (editingLead.deliveredAt || nowIso) : null,
+    };
+    setLeads((prev) => prev.map((l) => (l.id === editingLead.id ? { ...l, ...optimisticLead } : l)));
+    setSelectedLead((prev) => (prev && prev.id === editingLead.id ? { ...prev, ...optimisticLead } : null));
+
     const r = await call(
       crmUpdateLeadFn({
         data: {
           token: tok(),
           id: editingLead.id,
           ...f,
+          closedBy: finalClosedBy,
         },
       })
     );
@@ -881,9 +915,35 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   };
 
   const handleLeadField = async (lead: LeadItem, field: "leadStatus" | "projectStatus", value: string) => {
-    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, [field]: value } : l)));
-    const r = await call(crmUpdateLeadFn({ data: { token: tok(), id: lead.id, [field]: value } }));
-    if (!r) doSync();
+    const nowIso = new Date().toISOString();
+    const currentUserName = user?.name || "Admin";
+    const updates: Partial<LeadItem> = { [field]: value };
+    let closedByParam: string | undefined = undefined;
+
+    if (field === "leadStatus") {
+      if (value === "Closed") {
+        updates.closedBy = lead.closedBy || currentUserName;
+        updates.closedAt = lead.closedAt || nowIso;
+        closedByParam = updates.closedBy;
+      } else {
+        updates.closedBy = "";
+        updates.closedAt = null;
+      }
+    }
+    if (field === "projectStatus") {
+      if (value === "Delivered") {
+        updates.deliveredAt = lead.deliveredAt || nowIso;
+      } else {
+        updates.deliveredAt = null;
+      }
+    }
+
+    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, ...updates } : l)));
+    if (selectedLead && selectedLead.id === lead.id) {
+      setSelectedLead((prev) => (prev ? { ...prev, ...updates } : null));
+    }
+    await call(crmUpdateLeadFn({ data: { token: tok(), id: lead.id, [field]: value, closedBy: closedByParam } }));
+    doSync();
   };
 
   const handleDeleteLead = async (lead: LeadItem) => {
@@ -1996,7 +2056,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                     <option key={st}>{st}</option>
                                   ))}
                                 </select>
-                                {l.leadStatus === "Closed" && l.closedBy && <div className="text-[11px] text-slate-500 mt-1">by {l.closedBy}</div>}
+                                {l.leadStatus === "Closed" && (
+                                  <div className="text-[11px] text-slate-500 mt-1 font-medium">
+                                    by {l.closedBy || l.handledBy || "Admin"}
+                                  </div>
+                                )}
                               </td>
                               <td className="p-3.5">
                                 <select
@@ -2008,6 +2072,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                     <option key={st}>{st}</option>
                                   ))}
                                 </select>
+                                {l.projectStatus === "Delivered" && (
+                                  <div className="text-[11px] text-emerald-600 font-medium mt-1">
+                                    {l.deliveredAt ? fmtIstDate(l.deliveredAt) : "Delivered"}
+                                  </div>
+                                )}
                               </td>
                               <td className="p-3.5 max-w-[240px]">
                                 <div className="text-slate-600 line-clamp-2 break-words" title={l.notes}>
@@ -3600,7 +3669,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Closed</div>
                   <div className="h-9 flex items-center text-sm font-medium text-slate-900 truncate">
-                    {l.leadStatus === "Closed" && l.closedAt ? `${fmtIst(l.closedAt)}${l.closedBy ? ` · ${l.closedBy}` : ""}` : "Not closed"}
+                    {l.leadStatus === "Closed"
+                      ? `${l.closedBy || l.handledBy || "Admin"}${l.closedAt ? ` · ${fmtIst(l.closedAt)}` : ""}`
+                      : "Not closed"}
                   </div>
                 </div>
               </div>
@@ -3654,7 +3725,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     <DetailRow label="Source" value={sourceLabel} />
                     <DetailRow label="Received" value={`${fmtIst(l.createdAt)} IST`} />
                     <DetailRow label="Lead status" value={<StatusPill text={l.leadStatus} />} />
-                    <DetailRow label="Closed by" value={l.leadStatus === "Closed" && l.closedBy ? l.closedBy : "Not closed"} />
+                    <DetailRow label="Closed by" value={l.leadStatus === "Closed" ? (l.closedBy || l.handledBy || "Admin") : "Not closed"} />
                     <DetailRow label="Handled by" value={l.handledBy || "Not assigned yet"} />
                     {l.kind === "meta" ? (
                       <>
@@ -3675,7 +3746,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       label="Delivery target"
                       value={l.deliveryTarget ? fmtIstDate(`${l.deliveryTarget}T12:00:00+05:30`) : "Not set"}
                     />
-                    <MiniStat label="Delivered on" value={l.deliveredAt ? fmtIst(l.deliveredAt) : "Not delivered yet"} />
+                    <MiniStat
+                      label="Delivered on"
+                      value={l.projectStatus === "Delivered" ? (l.deliveredAt ? fmtIst(l.deliveredAt) : "Delivered") : "Not delivered yet"}
+                    />
                   </div>
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Project details / campaign goals</div>

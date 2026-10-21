@@ -63,12 +63,19 @@ export function isMetaRow(r: any) {
 }
 
 /** Extra manual-entry fields are kept as "Label: value" lines in `additional` (no schema change needed). */
-const EXTRA_FIELDS = { website: "Website", quantity: "Video quantity", deliveryTarget: "Delivery target" } as const;
+const EXTRA_FIELDS = {
+  website: "Website",
+  quantity: "Video quantity",
+  deliveryTarget: "Delivery target",
+  closedBy: "Closed by",
+  closedAt: "Closed at",
+  deliveredAt: "Delivered on",
+} as const;
 function splitAdditional(additional: string) {
-  const extra = { website: "", quantity: "", deliveryTarget: "" };
+  const extra = { website: "", quantity: "", deliveryTarget: "", closedBy: "", closedAt: "", deliveredAt: "" };
   const rest: string[] = [];
   for (const line of String(additional || "").split("\n")) {
-    const m = /^(Website|Video quantity|Delivery target): (.*)$/.exec(line.trim());
+    const m = /^(Website|Video quantity|Delivery target|Closed by|Closed at|Delivered on): (.*)$/.exec(line.trim());
     if (m) {
       const key = (Object.keys(EXTRA_FIELDS) as (keyof typeof EXTRA_FIELDS)[]).find((k) => EXTRA_FIELDS[k] === m[1])!;
       extra[key] = m[2]!.trim();
@@ -80,6 +87,17 @@ function splitAdditional(additional: string) {
 function mapLead(r: any) {
   const { extra, rest } = splitAdditional(r.additional || "");
   const notes = [r.requirement, rest].filter(Boolean).join(" | ");
+  const isClosed = r.status === "Closed";
+  const isDelivered = r.project_status === "Delivered";
+
+  const closedBy = isClosed ? ((r.closed_by || extra.closedBy || r.handled_by || "Admin") as string) : "";
+  const closedAt = isClosed
+    ? (r.closed_at ? new Date(r.closed_at).toISOString() : (extra.closedAt || (r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString())))
+    : null;
+  const deliveredAt = isDelivered
+    ? (r.delivered_at ? new Date(r.delivered_at).toISOString() : (extra.deliveredAt || (r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString())))
+    : null;
+
   return {
     id: r.id as string,
     kind: (isMetaRow(r) ? "meta" : "website") as "meta" | "website",
@@ -106,9 +124,9 @@ function mapLead(r: any) {
     videoQuantity: extra.quantity,
     deliveryTarget: extra.deliveryTarget,
     handledBy: (r.handled_by || "") as string,
-    closedBy: (r.closed_by || "") as string,
-    closedAt: r.closed_at ? new Date(r.closed_at).toISOString() : null,
-    deliveredAt: r.delivered_at ? new Date(r.delivered_at).toISOString() : null,
+    closedBy,
+    closedAt,
+    deliveredAt,
     deletedAt: r.deleted_at ? new Date(r.deleted_at).toISOString() : null,
     deletedBy: (r.deleted_by || null) as string | null,
   };
@@ -614,10 +632,16 @@ export async function createLead(
   const source = isMeta ? "Meta Ads" : !data.source || data.source === "Manual" ? "Manual Entry" : t(data.source, 64);
   const leadStatus = LEAD_STATUS_LIST.includes(String(data.leadStatus)) ? String(data.leadStatus) : "New";
   const projectStatus = PROJECT_STATUS_LIST.includes(String(data.projectStatus)) ? String(data.projectStatus) : "Not Started";
+  const now = new Date().toISOString();
+  const isClosed = leadStatus === "Closed";
+  const isDelivered = projectStatus === "Delivered";
   const extras = [
     t(data.website) ? `Website: ${t(data.website)}` : "",
     t(data.quantity) ? `Video quantity: ${t(data.quantity)}` : "",
     /^\d{4}-\d{2}-\d{2}$/.test(t(data.deliveryDate)) ? `Delivery target: ${t(data.deliveryDate)}` : "",
+    isClosed ? `Closed by: ${ctx.user.name}` : "",
+    isClosed ? `Closed at: ${now}` : "",
+    isDelivered ? `Delivered on: ${now}` : "",
   ].filter(Boolean);
   const row = await dbInsertWithOptional(LEADS_TABLE, {
     id: newId("lead"),
@@ -637,8 +661,13 @@ export async function createLead(
     campaign: isMeta ? t(data.campaign) || null : null,
     ad_set: isMeta ? t(data.adSet) || null : null,
     form_name: isMeta ? t(data.formName) || null : null,
-    created_at: new Date().toISOString(),
-  }, { handled_by: ctx.user.name });
+    created_at: now,
+  }, {
+    handled_by: ctx.user.name,
+    closed_by: isClosed ? ctx.user.name : null,
+    closed_at: isClosed ? now : null,
+    delivered_at: isDelivered ? now : null,
+  });
   // New-lead WhatsApp alert (same as website form leads) → +91 80556 79162, in the background.
   {
     const leadId = String((row as any).id);
@@ -703,6 +732,7 @@ const PROJECT_STATUSES = ["Not Started", "In Progress", "Proj Active", "On Hold"
 export type UpdateLeadPatch = {
   leadStatus?: string;
   projectStatus?: string;
+  closedBy?: string;
   clientName?: string;
   business?: string;
   phone?: string;
@@ -771,38 +801,52 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
     update.form_name = t(patch.formName) || null;
   }
 
-  // Handle website, quantity, deliveryTarget inside `additional`
-  if (patch.website !== undefined || patch.quantity !== undefined || patch.deliveryDate !== undefined) {
-    const { extra: existingExtra, rest } = splitAdditional(row.additional || "");
-    const finalWebsite = patch.website !== undefined ? t(patch.website) : existingExtra.website;
-    const finalQty = patch.quantity !== undefined ? t(patch.quantity) : existingExtra.quantity;
-    const finalDelivery = patch.deliveryDate !== undefined ? t(patch.deliveryDate) : existingExtra.deliveryTarget;
-
-    const extras = [
-      finalWebsite ? `Website: ${finalWebsite}` : "",
-      finalQty ? `Video quantity: ${finalQty}` : "",
-      /^\d{4}-\d{2}-\d{2}$/.test(finalDelivery) ? `Delivery target: ${finalDelivery}` : (finalDelivery ? `Delivery target: ${finalDelivery}` : ""),
-    ].filter(Boolean);
-
-    const allAdditional = [rest, ...extras].filter(Boolean).join("\n");
-    update.additional = allAdditional || null;
-  }
+  const effectiveLeadStatus = patch.leadStatus && LEAD_STATUSES.includes(patch.leadStatus) ? patch.leadStatus : (row.status || "New");
+  const effectiveProjectStatus = patch.projectStatus && PROJECT_STATUSES.includes(patch.projectStatus) ? patch.projectStatus : (row.project_status || "Not Started");
 
   if (patch.leadStatus && LEAD_STATUSES.includes(patch.leadStatus)) {
     update.status = patch.leadStatus;
-    if (patch.leadStatus === "Closed" && row.status !== "Closed") {
-      extra.closed_by = ctx.user.name;
-      extra.closed_at = now;
-    } else if (patch.leadStatus !== "Closed") {
-      extra.closed_by = null;
-      extra.closed_at = null;
-    }
   }
   if (patch.projectStatus && PROJECT_STATUSES.includes(patch.projectStatus)) {
     update.project_status = patch.projectStatus;
-    if (patch.projectStatus === "Delivered" && row.project_status !== "Delivered") extra.delivered_at = now;
-    else if (patch.projectStatus !== "Delivered") extra.delivered_at = null;
   }
+
+  // Set closed_by & closed_at whenever Closed
+  if (effectiveLeadStatus === "Closed") {
+    const finalClosedBy = patch.closedBy?.trim() || row.closed_by || ctx.user.name;
+    const finalClosedAt = row.closed_at || now;
+    extra.closed_by = finalClosedBy;
+    extra.closed_at = finalClosedAt;
+  } else if (patch.leadStatus && patch.leadStatus !== "Closed") {
+    extra.closed_by = null;
+    extra.closed_at = null;
+  }
+
+  // Set delivered_at whenever Delivered
+  if (effectiveProjectStatus === "Delivered") {
+    const finalDeliveredAt = row.delivered_at || now;
+    extra.delivered_at = finalDeliveredAt;
+  } else if (patch.projectStatus && patch.projectStatus !== "Delivered") {
+    extra.delivered_at = null;
+  }
+
+  // Handle website, quantity, deliveryTarget, and backup fields inside `additional`
+  const { extra: existingExtra, rest } = splitAdditional(row.additional || "");
+  const finalWebsite = patch.website !== undefined ? t(patch.website) : existingExtra.website;
+  const finalQty = patch.quantity !== undefined ? t(patch.quantity) : existingExtra.quantity;
+  const finalDelivery = patch.deliveryDate !== undefined ? t(patch.deliveryDate) : existingExtra.deliveryTarget;
+
+  const extras = [
+    finalWebsite ? `Website: ${finalWebsite}` : "",
+    finalQty ? `Video quantity: ${finalQty}` : "",
+    finalDelivery ? `Delivery target: ${finalDelivery}` : "",
+    effectiveLeadStatus === "Closed" ? `Closed by: ${extra.closed_by || ctx.user.name}` : "",
+    effectiveLeadStatus === "Closed" ? `Closed at: ${extra.closed_at || now}` : "",
+    effectiveProjectStatus === "Delivered" ? `Delivered on: ${extra.delivered_at || now}` : "",
+  ].filter(Boolean);
+
+  const allAdditional = [rest, ...extras].filter(Boolean).join("\n");
+  update.additional = allAdditional || null;
   if (!Object.keys(update).length) throw new Error("Nothing to update.");
   await dbUpdateWithOptional(LEADS_TABLE, byId(id), update, extra);
   const changes: string[] = [];
