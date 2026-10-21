@@ -90,7 +90,7 @@ export async function getPool() {
       !cleanConnectionString.includes("localhost");
 
     if (cleanConnectionString.includes("?sslmode=")) {
-      cleanConnectionString = cleanConnectionString.split("?sslmode=")[0];
+      cleanConnectionString = cleanConnectionString.split("?sslmode=")[0] || cleanConnectionString;
     } else if (cleanConnectionString.includes("&sslmode=")) {
       cleanConnectionString = cleanConnectionString.replace(/&sslmode=[^&]+/, "");
     }

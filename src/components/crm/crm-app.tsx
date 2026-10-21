@@ -77,7 +77,7 @@ import {
   crmUnlockOrdersFn,
   crmUpdateLeadFn,
 } from "@/lib/crm-actions";
-import { INDIA_SERVICES, INDIA_PACKS, quoteItem, formatInr, TWIN_SETUP_ID } from "@/lib/india-pricing";
+import { INDIA_SERVICES, INDIA_PACKS, quoteItem, formatInr, TWIN_SETUP_ID, splitPayment } from "@/lib/india-pricing";
 import {
   DEFAULT_CONFIG,
   DEFAULT_MATRIX,

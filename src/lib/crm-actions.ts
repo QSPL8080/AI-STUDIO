@@ -238,7 +238,7 @@ export const crmGetCouponsFn = createServerFn({ method: "POST" })
   });
 
 export const crmCreateCouponFn = createServerFn({ method: "POST" })
-  .validator((d: Tok & { discountPercent: number; customCode?: string }) => d)
+  .validator((d: Tok & { discountPercent: number; customCode?: string | undefined }) => d)
   .handler(async ({ data }) => {
     const s = await srv();
     return s.guard(() => s.createCoupon(data.token, { discountPercent: data.discountPercent, customCode: data.customCode }));

@@ -333,12 +333,12 @@ export interface CheckoutInput {
   name: string;
   email: string;
   phone: string;
-  company?: string;
-  notes?: string;
+  company?: string | undefined;
+  notes?: string | undefined;
   /** "full" (default) or "advance" (pay 50% now, the balance later). */
-  paymentPlan?: PaymentPlan;
+  paymentPlan?: PaymentPlan | undefined;
   /** Optional single-use coupon discount code */
-  couponCode?: string;
+  couponCode?: string | undefined;
 }
 
 const clean = (v: unknown, max: number) =>
