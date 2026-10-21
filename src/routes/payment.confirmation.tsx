@@ -290,12 +290,6 @@ function OrderCard({ order, token }: { order: OrderView; token: string }) {
             <p className="mt-2 text-xs leading-relaxed text-white/50">
               Please check your inbox, and your spam/junk folder if you don't see it shortly.
             </p>
-            <a
-              href={`/api/receipt?${new URLSearchParams({ txn: order.txnid, t: token }).toString()}`}
-              className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-5 text-sm font-semibold text-white transition-colors hover:bg-white/[0.1]"
-            >
-              ⤓ Download Receipt (PDF)
-            </a>
           </div>
         </div>
       )}

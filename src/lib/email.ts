@@ -350,20 +350,38 @@ interface SmtpAccount {
   pass: string;
 }
 
+function isHostingerAccount(a: SmtpAccount): boolean {
+  return (
+    a.label === "Hostinger SMTP" ||
+    a.host.toLowerCase().includes("hostinger") ||
+    a.user.toLowerCase().includes("quickuppaistudio.in")
+  );
+}
+
 /** SMTP accounts tried in order. Nothing is hard-coded: the passwords live only in the
  *  Hostinger environment variables.
- *   1. SMTP_HOST / SMTP_USER / SMTP_PASS          (Gmail: qsaistudio@gmail.com + app password)
- *   2. HOSTINGER_SMTP_USER / HOSTINGER_SMTP_PASS  (Hostinger mailbox, e.g. info@quickuppaistudio.in) */
+ *   - Hostinger mailbox: info@quickuppaistudio.in via smtp.hostinger.com (Primary)
+ *   - Gmail fallback: qsaistudio@gmail.com (Backup) */
 function smtpAccounts(): { accounts: SmtpAccount[]; missing: string[] } {
   const accounts: SmtpAccount[] = [];
   const missing: string[] = [];
   const user = (process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || "").trim();
   const pass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
-  if (user && pass) accounts.push({ label: "SMTP", host: (process.env.SMTP_HOST || "smtp.gmail.com").trim(), user, pass });
-  else missing.push("SMTP_USER / SMTP_PASS are not set in the Hostinger environment variables");
+  if (user && pass) {
+    const host = (process.env.SMTP_HOST || "smtp.gmail.com").trim();
+    const isH = host.toLowerCase().includes("hostinger") || user.toLowerCase().includes("quickuppaistudio.in");
+    accounts.push({ label: isH ? "Hostinger SMTP" : "SMTP", host, user, pass });
+  } else {
+    missing.push("SMTP_USER / SMTP_PASS are not set in the Hostinger environment variables");
+  }
   const hUser = (process.env.HOSTINGER_SMTP_USER || "").trim();
   const hPass = (process.env.HOSTINGER_SMTP_PASS || "").trim();
-  if (hUser && hPass) accounts.push({ label: "Hostinger SMTP", host: (process.env.HOSTINGER_SMTP_HOST || "smtp.hostinger.com").trim(), user: hUser, pass: hPass });
+  if (hUser && hPass) {
+    const hHost = (process.env.HOSTINGER_SMTP_HOST || "smtp.hostinger.com").trim();
+    if (!accounts.some((a) => a.user.toLowerCase() === hUser.toLowerCase())) {
+      accounts.push({ label: "Hostinger SMTP", host: hHost, user: hUser, pass: hPass });
+    }
+  }
   return { accounts, missing };
 }
 
@@ -378,11 +396,12 @@ export interface MailAttachment {
 
 async function sendViaSmtp(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; fromName: string; attachments?: MailAttachment[] | undefined; preferWebsiteMailbox?: boolean }) {
   const { accounts: all, missing } = smtpAccounts();
-  // Customer emails go out from the website mailbox (info@quickuppaistudio.in) when it is set up;
-  // Gmail stays as the backup.
-  const accounts = mail.preferWebsiteMailbox
-    ? [...all.filter((a) => a.label === "Hostinger SMTP"), ...all.filter((a) => a.label !== "Hostinger SMTP")]
-    : all;
+  // Always prioritize the official domain mailbox (info@quickuppaistudio.in via Hostinger SMTP)
+  // so emails are sent reliably without personal Gmail security checkpoints.
+  const accounts = [
+    ...all.filter(isHostingerAccount),
+    ...all.filter((a) => !isHostingerAccount(a)),
+  ];
   const errors: string[] = [...missing];
   for (const acc of accounts) {
     for (const port of [465, 587]) {
