@@ -142,7 +142,7 @@ function renderPaymentConfirmationEmail(o: {
       ? ([
           [
             "Special Offer Discount",
-            `-${o.discountAmount || ""} (${o.discountPercent}% OFF)${o.couponCode ? ` · ${o.couponCode}` : ""}`,
+            `-${o.discountAmount || ""} (${o.discountPercent}% OFF)`,
             { color: "#dc2626" },
           ],
         ] as [string, string, { strong?: boolean; mono?: boolean; color?: string }][])
@@ -203,9 +203,9 @@ function renderPaymentConfirmationEmail(o: {
     <tr><td style="height:5px;line-height:5px;font-size:0;background-color:#a832e6;background-image:linear-gradient(90deg,#4f46e5,#a832e6,#e11d74)">&nbsp;</td></tr>
 
     <!-- Logo -->
-    <tr><td align="center" bgcolor="#0d091a" style="padding:26px 32px;background:#0d091a">
+    <tr><td align="center" bgcolor="#ffffff" style="padding:24px 32px;background:#ffffff;background-color:#ffffff;border-bottom:1px solid #f1f0f7">
       <a href="${e(SITE_URL)}" target="_blank" style="text-decoration:none">
-        <img src="${e(o.logoSrc)}" alt="Quickupp AI Studio" width="220" style="display:block;width:220px;max-width:72%;height:auto;border:0;outline:none;font-family:${font};font-size:20px;font-weight:800;color:#ffffff">
+        <img src="${e(o.logoSrc)}" alt="Quickupp AI Studio" width="220" style="display:block;width:220px;max-width:72%;height:auto;border:0;outline:none;font-family:${font};font-size:20px;font-weight:800;color:#111827">
       </a>
     </td></tr>
 
@@ -238,10 +238,9 @@ function renderPaymentConfirmationEmail(o: {
               <td style="vertical-align:top">
                 <span style="display:inline-block;padding:3px 9px;border-radius:4px;background:#dc2626;color:#ffffff;font-size:11px;font-weight:900;letter-spacing:0.8px;text-transform:uppercase">Special Offer Applied</span>
                 <div style="margin-top:6px;font-size:15px;font-weight:800;color:#991b1b">
-                  ${e(o.discountPercent)}% DISCOUNT OFFER REMARK
+                  ${e(o.discountPercent)}% DISCOUNT APPLIED
                   ${o.discountAmount ? `<span style="font-weight:700;color:#dc2626"> (Saved ${e(o.discountAmount)})</span>` : ""}
                 </div>
-                ${o.couponCode ? `<div style="margin-top:4px;font-size:12px;font-family:${mono};color:#7f1d1d">Coupon Code: <strong>${e(o.couponCode)}</strong></div>` : ""}
               </td>
             </tr>
           </table>
@@ -708,10 +707,10 @@ export async function sendPaymentReceiptEmail(o: {
   // Logo embedded inside the email (shows even when the email app blocks web images).
   let logo: MailAttachment | undefined;
   try {
-    const { getCompanyLogoWhiteBuffer } = await import("./receipt-assets");
+    const { getCompanyLogoDarkBuffer } = await import("./receipt-assets");
     logo = {
       filename: "quickupp-ai-studio-logo.png",
-      content: getCompanyLogoWhiteBuffer(),
+      content: getCompanyLogoDarkBuffer(),
       contentType: "image/png",
       cid: EMAIL_LOGO_CID,
     };

@@ -168,23 +168,6 @@ function OrderCard({ order, token }: { order: OrderView; token: string }) {
           </p>
         )}
 
-        {/* Red Offer Remark Banner */}
-        {order.discountPercent && order.discountPercent > 0 ? (
-          <div className="mx-auto mt-5 max-w-md rounded-2xl border-2 border-dashed border-red-500/80 bg-red-500/10 p-3.5 text-center shadow-[0_0_25px_rgba(239,68,68,0.15)]">
-            <span className="inline-block rounded-full bg-red-600 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-white shadow-sm">
-              Special Offer Applied
-            </span>
-            <div className="mt-2 text-base font-extrabold text-red-400">
-              {order.discountPercent}% DISCOUNT OFFER REMARK
-              {order.discountAmount ? ` · Saved ${formatInr(order.discountAmount)}` : ""}
-            </div>
-            {order.couponCode && (
-              <div className="mt-1 font-mono text-xs font-semibold text-red-300">
-                Coupon Code: <span className="underline decoration-red-400/60">{order.couponCode}</span>
-              </div>
-            )}
-          </div>
-        ) : null}
       </div>
 
       {/* Payment details */}
@@ -200,12 +183,21 @@ function OrderCard({ order, token }: { order: OrderView; token: string }) {
               {order.originalAmount && (
                 <DetailRow label="Original Price" value={formatInr(order.originalAmount)} />
               )}
-              <DetailRow
-                label="Special Offer Discount"
-                value={`-${formatInr(order.discountAmount)} (${order.discountPercent}% OFF)${order.couponCode ? ` · ${order.couponCode}` : ""}`}
-                tone="red"
-                strong
-              />
+              <div className="py-2.5">
+                <div className="flex items-center justify-between rounded-xl bg-red-500/10 border border-red-500/25 px-4 py-2.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                      Special Offer
+                    </span>
+                    <span className="font-semibold text-red-200">
+                      Discount ({order.discountPercent}% OFF)
+                    </span>
+                  </div>
+                  <span className="font-bold text-red-400">
+                    -{formatInr(order.discountAmount)} INR
+                  </span>
+                </div>
+              </div>
             </>
           ) : null}
           {order.plan !== "full" && <DetailRow label="Order Total" value={formatInr(order.orderTotal)} />}
