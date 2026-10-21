@@ -137,7 +137,8 @@ function renderPaymentConfirmationEmail(o: {
     ["Service", o.service],
     ["Package", o.pack],
     ...(o.delivery ? ([["Delivery", o.delivery]] as [string, string][]) : []),
-    ...(o.originalAmount ? ([["Original Order Total", o.originalAmount]] as [string, string][]) : []),
+    // Original price only matters when a discount was applied.
+    ...(o.originalAmount && o.discountPercent && o.discountPercent > 0 ? ([["Original Order Total", o.originalAmount]] as [string, string][]) : []),
     ...(o.discountPercent && o.discountPercent > 0
       ? ([
           [

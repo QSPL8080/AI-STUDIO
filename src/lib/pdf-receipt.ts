@@ -331,46 +331,36 @@ export async function generateInvoicePdfBuffer(data: InvoiceData): Promise<Buffe
 
       // ── Thank You & Support Info (2-column layout, never overlaps) ──
       const infoBoxY = y;
-      const infoBoxW = (CW - 16) / 2;
 
-      // Left: Thank You & Order Status
-      doc.roundedRect(M, infoBoxY, infoBoxW, 96, 8).fillAndStroke("#f8fafc", C.line);
-      doc.font("B").fontSize(11).fillColor(C.ink).text("THANK YOU FOR YOUR PURCHASE", M + 14, infoBoxY + 12);
-      doc.font("R").fontSize(9.5).fillColor(C.body).text("Your payment has been successfully received.", M + 14, infoBoxY + 28);
-      if (plan !== "balance") {
-        doc.font("R").fontSize(9.5).fillColor(C.body).text("Your order is now being processed by our creative team.", M + 14, infoBoxY + 42, { width: infoBoxW - 28 });
-      }
+      // Plain text on the page (no card boxes), with a thin line above.
+      doc.moveTo(M, infoBoxY).lineTo(R, infoBoxY).lineWidth(1).strokeColor(C.line).stroke();
+
+      // Row 1: Thank You & Order Status (full width)
+      doc.font("B").fontSize(11).fillColor(C.ink).text("THANK YOU FOR YOUR PURCHASE", M, infoBoxY + 16);
+      // Each line starts below the previous one (wrapped lines never overlap).
+      const tw = CW;
+      let ty = infoBoxY + 33;
+      const line = (font: "R" | "B", size: number, color: string, text: string, gap = 4) => {
+        doc.font(font).fontSize(size).fillColor(color).text(text, M, ty, { width: tw, lineGap: 1 });
+        ty = doc.y + gap;
+      };
+      line("R", 9.5, C.body, "Your payment has been successfully received.");
+      if (plan !== "balance") line("R", 9.5, C.body, "Your order is now being processed by our creative team.");
       if (partly) {
-        doc.font("B").fontSize(9).fillColor("#b45309").text(
-          `Balance due: ${money(balanceDue)} ${currency}. Pay anytime via email link.`,
-          M + 14,
-          infoBoxY + 62,
-          { width: infoBoxW - 28 },
-        );
+        line("B", 9, "#b45309", `Balance due: ${money(balanceDue)} ${currency}. Pay anytime via the link in your email.`);
       } else if (plan === "balance") {
-        doc.font("B").fontSize(9.5).fillColor(C.green).text(
-          `Order${data.parentOrderNumber ? ` ${data.parentOrderNumber}` : ""} is now fully paid. Thank you!`,
-          M + 14,
-          infoBoxY + 62,
-          { width: infoBoxW - 28 },
-        );
+        line("B", 9.5, C.green, `Order${data.parentOrderNumber ? ` ${data.parentOrderNumber}` : ""} is now fully paid. Thank you!`);
       } else {
-        doc.font("R").fontSize(9).fillColor(C.muted).text(
-          "Please keep your receipt number handy when communicating with our team.",
-          M + 14,
-          infoBoxY + 62,
-          { width: infoBoxW - 28 },
-        );
+        line("R", 9, C.muted, "Please keep your receipt number handy when communicating with our team.");
       }
 
-      // Right: Need Help / Contact
-      const rightBoxX = M + infoBoxW + 16;
-      doc.roundedRect(rightBoxX, infoBoxY, infoBoxW, 96, 8).fillAndStroke(C.brandSoft, C.brandLine);
-      doc.font("B").fontSize(11).fillColor(C.brandDark).text("NEED ASSISTANCE?", rightBoxX + 14, infoBoxY + 12);
-      doc.font("B").fontSize(10).fillColor(C.ink).text("Quickupp AI Studio", rightBoxX + 14, infoBoxY + 28);
-      pair("Email:", SUPPORT_EMAIL, rightBoxX + 14, infoBoxY + 44, { size: 9.5, bold: false, link: `mailto:${SUPPORT_EMAIL}` });
-      pair("Website:", SITE, rightBoxX + 14, infoBoxY + 59, { size: 9.5, bold: false, link: SITE_URL });
-      doc.font("R").fontSize(8.5).fillColor(C.muted).text("Support: Mon – Sat, 9:00 AM – 7:00 PM IST", rightBoxX + 14, infoBoxY + 74);
+      // Row 2: Need Help / Contact (below the thank-you note)
+      const helpY = ty + 14;
+      doc.font("B").fontSize(11).fillColor(C.brandDark).text("NEED ASSISTANCE?", M, helpY);
+      doc.font("B").fontSize(10).fillColor(C.ink).text("Quickupp AI Studio", M, helpY + 17);
+      pair("Email:", SUPPORT_EMAIL, M, helpY + 33, { size: 9.5, bold: false, link: `mailto:${SUPPORT_EMAIL}` });
+      pair("Website:", SITE, M, helpY + 48, { size: 9.5, bold: false, link: SITE_URL });
+      doc.font("R").fontSize(8.5).fillColor(C.muted).text("Support: Mon – Sat, 9:00 AM – 7:00 PM IST", M, helpY + 63);
 
       // ── Footer (anchored safely at page bottom with 0 risk of overlap) ──
       const fy = H - 46;

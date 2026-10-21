@@ -70,12 +70,13 @@ const EXTRA_FIELDS = {
   closedBy: "Closed by",
   closedAt: "Closed at",
   deliveredAt: "Delivered on",
+  deliveredBy: "Delivered by",
 } as const;
 function splitAdditional(additional: string) {
-  const extra = { website: "", quantity: "", deliveryTarget: "", closedBy: "", closedAt: "", deliveredAt: "" };
+  const extra = { website: "", quantity: "", deliveryTarget: "", closedBy: "", closedAt: "", deliveredAt: "", deliveredBy: "" };
   const rest: string[] = [];
   for (const line of String(additional || "").split("\n")) {
-    const m = /^(Website|Video quantity|Delivery target|Closed by|Closed at|Delivered on): (.*)$/.exec(line.trim());
+    const m = /^(Website|Video quantity|Delivery target|Closed by|Closed at|Delivered on|Delivered by): (.*)$/.exec(line.trim());
     if (m) {
       const key = (Object.keys(EXTRA_FIELDS) as (keyof typeof EXTRA_FIELDS)[]).find((k) => EXTRA_FIELDS[k] === m[1])!;
       extra[key] = m[2]!.trim();
@@ -97,6 +98,7 @@ function mapLead(r: any) {
   const deliveredAt = isDelivered
     ? (r.delivered_at ? new Date(r.delivered_at).toISOString() : (extra.deliveredAt || (r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString())))
     : null;
+  const deliveredBy = isDelivered ? ((extra.deliveredBy || r.handled_by || "Admin") as string) : "";
 
   return {
     id: r.id as string,
@@ -127,6 +129,7 @@ function mapLead(r: any) {
     closedBy,
     closedAt,
     deliveredAt,
+    deliveredBy,
     deletedAt: r.deleted_at ? new Date(r.deleted_at).toISOString() : null,
     deletedBy: (r.deleted_by || null) as string | null,
   };
@@ -642,6 +645,7 @@ export async function createLead(
     isClosed ? `Closed by: ${ctx.user.name}` : "",
     isClosed ? `Closed at: ${now}` : "",
     isDelivered ? `Delivered on: ${now}` : "",
+    isDelivered ? `Delivered by: ${ctx.user.name}` : "",
   ].filter(Boolean);
   const row = await dbInsertWithOptional(LEADS_TABLE, {
     id: newId("lead"),
@@ -811,10 +815,15 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
     update.project_status = patch.projectStatus;
   }
 
-  // Set closed_by & closed_at whenever Closed
+  const { extra: existingExtra, rest } = splitAdditional(row.additional || "");
+  const wasClosed = row.status === "Closed";
+  const wasDelivered = row.project_status === "Delivered";
+
+  // Closed: remember WHO closed it and when. The person who changes the status to Closed is
+  // recorded (website, manual and Meta leads alike); an already closed lead keeps its closer.
   if (effectiveLeadStatus === "Closed") {
-    const finalClosedBy = patch.closedBy?.trim() || row.closed_by || ctx.user.name;
-    const finalClosedAt = row.closed_at || now;
+    const finalClosedBy = wasClosed ? patch.closedBy?.trim() || row.closed_by || existingExtra.closedBy || ctx.user.name : ctx.user.name;
+    const finalClosedAt = (wasClosed && (row.closed_at || existingExtra.closedAt)) || now;
     extra.closed_by = finalClosedBy;
     extra.closed_at = finalClosedAt;
   } else if (patch.leadStatus && patch.leadStatus !== "Closed") {
@@ -822,16 +831,17 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
     extra.closed_at = null;
   }
 
-  // Set delivered_at whenever Delivered
+  // Delivered: remember WHO marked it delivered and when.
+  let finalDeliveredBy = "";
   if (effectiveProjectStatus === "Delivered") {
-    const finalDeliveredAt = row.delivered_at || now;
+    const finalDeliveredAt = (wasDelivered && (row.delivered_at || existingExtra.deliveredAt)) || now;
+    finalDeliveredBy = (wasDelivered && existingExtra.deliveredBy) || ctx.user.name;
     extra.delivered_at = finalDeliveredAt;
   } else if (patch.projectStatus && patch.projectStatus !== "Delivered") {
     extra.delivered_at = null;
   }
 
   // Handle website, quantity, deliveryTarget, and backup fields inside `additional`
-  const { extra: existingExtra, rest } = splitAdditional(row.additional || "");
   const finalWebsite = patch.website !== undefined ? t(patch.website) : existingExtra.website;
   const finalQty = patch.quantity !== undefined ? t(patch.quantity) : existingExtra.quantity;
   const finalDelivery = patch.deliveryDate !== undefined ? t(patch.deliveryDate) : existingExtra.deliveryTarget;
@@ -843,6 +853,7 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
     effectiveLeadStatus === "Closed" ? `Closed by: ${extra.closed_by || ctx.user.name}` : "",
     effectiveLeadStatus === "Closed" ? `Closed at: ${extra.closed_at || now}` : "",
     effectiveProjectStatus === "Delivered" ? `Delivered on: ${extra.delivered_at || now}` : "",
+    effectiveProjectStatus === "Delivered" ? `Delivered by: ${finalDeliveredBy || ctx.user.name}` : "",
   ].filter(Boolean);
 
   const allAdditional = [rest, ...extras].filter(Boolean).join("\n");
@@ -850,9 +861,12 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
   if (!Object.keys(update).length) throw new Error("Nothing to update.");
   await dbUpdateWithOptional(LEADS_TABLE, byId(id), update, extra);
   const changes: string[] = [];
-  if (update.status && update.status !== row.status) changes.push(`Lead status ${row.status || "New"} → ${update.status}`);
+  if (update.status && update.status !== row.status)
+    changes.push(`Lead status ${row.status || "New"} → ${update.status}${update.status === "Closed" ? ` (closed by ${extra.closed_by})` : ""}`);
   if (update.project_status && update.project_status !== (row.project_status || "Not Started"))
-    changes.push(`Project status ${!row.project_status || row.project_status === "New" ? "Not Started" : row.project_status} → ${update.project_status}`);
+    changes.push(
+      `Project status ${!row.project_status || row.project_status === "New" ? "Not Started" : row.project_status} → ${update.project_status}${update.project_status === "Delivered" ? ` (delivered by ${finalDeliveredBy})` : ""}`,
+    );
   if (update.name && update.name !== row.name) changes.push(`Client name updated`);
   if (update.phone && update.phone !== row.phone) changes.push(`Phone updated`);
   if (update.email !== undefined && update.email !== row.email) changes.push(`Email updated`);

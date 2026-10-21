@@ -203,16 +203,16 @@ export function OrderResultModal() {
                         <Row label="Original Price:" value={`${formatInr(order.originalAmount)} INR`} />
                       )}
                       <div className="py-2">
-                        <div className="flex items-center justify-between rounded-xl bg-red-500/10 border border-red-500/25 px-3 py-2 text-xs">
+                        <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 border border-emerald-400/30 px-3 py-2 text-xs">
                           <div className="flex items-center gap-2">
-                            <span className="rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+                            <span className="rounded bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
                               Special Offer
                             </span>
-                            <span className="font-semibold text-red-200">
+                            <span className="font-semibold text-emerald-200">
                               Discount ({order.discountPercent}% OFF)
                             </span>
                           </div>
-                          <span className="font-bold text-red-400">
+                          <span className="font-bold text-emerald-300">
                             -{formatInr(order.discountAmount)} INR
                           </span>
                         </div>

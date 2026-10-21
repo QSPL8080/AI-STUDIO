@@ -311,6 +311,11 @@ const blankLeadForm = (source: string) => ({
   formName: "",
 });
 
+// Status dropdown colours: Closed / Delivered are green, the rest blue (lead) / amber (project).
+const GREEN_STATUS = "bg-emerald-50 border-emerald-400 text-emerald-700";
+const leadStatusCls = (s: string) => (s === "Closed" ? GREEN_STATUS : "bg-blue-50 border-blue-300 text-blue-700");
+const projectStatusCls = (s: string) => (s === "Delivered" ? GREEN_STATUS : "bg-amber-50 border-amber-300 text-amber-700");
+
 const ORDER_STATUS_STYLE: Record<string, string> = {
   COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-300",
   PENDING: "bg-amber-50 text-amber-700 border-amber-300",
@@ -449,7 +454,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       quantity: l.videoQuantity || "1 Video",
       leadStatus: l.leadStatus || "New",
       projectStatus: l.projectStatus || "Not Started",
-      closedBy: l.closedBy || (l.leadStatus === "Closed" ? (user?.name || "Admin") : ""),
+      closedBy: l.closedBy || (l.leadStatus === "Closed" ? (me.name || "Admin") : ""),
       deliveryDate: l.deliveryTarget || "",
       notes: l.notes || "",
       channel: l.channel || "Facebook",
@@ -868,7 +873,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       return;
     }
     setBusy("edit-lead");
-    const currentUserName = user?.name || "Admin";
+    const currentUserName = me.name || "Admin";
     const finalClosedBy = f.leadStatus === "Closed" ? (f.closedBy?.trim() || editingLead.closedBy || currentUserName) : "";
     const nowIso = new Date().toISOString();
     const optimisticLead: Partial<LeadItem> = {
@@ -916,14 +921,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
   const handleLeadField = async (lead: LeadItem, field: "leadStatus" | "projectStatus", value: string) => {
     const nowIso = new Date().toISOString();
-    const currentUserName = user?.name || "Admin";
+    const currentUserName = me.name || "Admin";
     const updates: Partial<LeadItem> = { [field]: value };
     let closedByParam: string | undefined = undefined;
 
     if (field === "leadStatus") {
       if (value === "Closed") {
-        updates.closedBy = lead.closedBy || currentUserName;
-        updates.closedAt = lead.closedAt || nowIso;
+        // The person closing it now is recorded (the server does the same).
+        updates.closedBy = lead.leadStatus === "Closed" ? lead.closedBy || currentUserName : currentUserName;
+        updates.closedAt = lead.leadStatus === "Closed" ? lead.closedAt || nowIso : nowIso;
         closedByParam = updates.closedBy;
       } else {
         updates.closedBy = "";
@@ -932,9 +938,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     }
     if (field === "projectStatus") {
       if (value === "Delivered") {
-        updates.deliveredAt = lead.deliveredAt || nowIso;
+        updates.deliveredAt = lead.projectStatus === "Delivered" ? lead.deliveredAt || nowIso : nowIso;
+        updates.deliveredBy = lead.projectStatus === "Delivered" ? lead.deliveredBy || currentUserName : currentUserName;
       } else {
         updates.deliveredAt = null;
+        updates.deliveredBy = "";
       }
     }
 
@@ -2050,15 +2058,16 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 <select
                                   value={l.leadStatus}
                                   onChange={(e) => handleLeadField(l, "leadStatus", e.target.value)}
-                                  className="h-8 px-2 rounded-md bg-blue-50 border border-blue-300 text-blue-700 text-[13px] font-semibold focus:outline-none cursor-pointer"
+                                  className={`h-8 px-2 rounded-md border text-[13px] font-semibold focus:outline-none cursor-pointer ${leadStatusCls(l.leadStatus)}`}
                                 >
                                   {LEAD_STATUSES.map((st) => (
                                     <option key={st}>{st}</option>
                                   ))}
                                 </select>
                                 {l.leadStatus === "Closed" && (
-                                  <div className="text-[11px] text-slate-500 mt-1 font-medium">
-                                    by {l.closedBy || l.handledBy || "Admin"}
+                                  <div className="text-[11px] text-emerald-700 mt-1 font-medium leading-tight">
+                                    Closed by {l.closedBy || l.handledBy || "Admin"}
+                                    {l.closedAt && <div className="text-slate-500 font-normal">{fmtIstDate(l.closedAt)}</div>}
                                   </div>
                                 )}
                               </td>
@@ -2066,15 +2075,16 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 <select
                                   value={l.projectStatus}
                                   onChange={(e) => handleLeadField(l, "projectStatus", e.target.value)}
-                                  className="h-8 px-2 rounded-md bg-amber-50 border border-amber-300 text-amber-700 text-[13px] font-semibold focus:outline-none cursor-pointer"
+                                  className={`h-8 px-2 rounded-md border text-[13px] font-semibold focus:outline-none cursor-pointer ${projectStatusCls(l.projectStatus)}`}
                                 >
                                   {PROJECT_STATUSES.map((st) => (
                                     <option key={st}>{st}</option>
                                   ))}
                                 </select>
                                 {l.projectStatus === "Delivered" && (
-                                  <div className="text-[11px] text-emerald-600 font-medium mt-1">
-                                    {l.deliveredAt ? fmtIstDate(l.deliveredAt) : "Delivered"}
+                                  <div className="text-[11px] text-emerald-700 font-medium mt-1 leading-tight">
+                                    Delivered by {l.deliveredBy || l.handledBy || "Admin"}
+                                    {l.deliveredAt && <div className="text-slate-500 font-normal">{fmtIstDate(l.deliveredAt)}</div>}
                                   </div>
                                 )}
                               </td>
@@ -3642,7 +3652,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     value={l.leadStatus}
                     disabled={!editable}
                     onChange={(e) => handleLeadField(l, "leadStatus", e.target.value)}
-                    className="w-full h-9 px-2.5 rounded-md bg-blue-50 border border-blue-300 text-blue-700 text-[13px] font-semibold focus:outline-none disabled:opacity-60"
+                    className={`w-full h-9 px-2.5 rounded-md border text-[13px] font-semibold focus:outline-none disabled:opacity-60 ${leadStatusCls(l.leadStatus)}`}
                   >
                     {LEAD_STATUSES.map((st) => (
                       <option key={st}>{st}</option>
@@ -3655,7 +3665,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     value={l.projectStatus}
                     disabled={!editable}
                     onChange={(e) => handleLeadField(l, "projectStatus", e.target.value)}
-                    className="w-full h-9 px-2.5 rounded-md bg-amber-50 border border-amber-300 text-amber-700 text-[13px] font-semibold focus:outline-none disabled:opacity-60"
+                    className={`w-full h-9 px-2.5 rounded-md border text-[13px] font-semibold focus:outline-none disabled:opacity-60 ${projectStatusCls(l.projectStatus)}`}
                   >
                     {PROJECT_STATUSES.map((st) => (
                       <option key={st}>{st}</option>
@@ -3725,7 +3735,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     <DetailRow label="Source" value={sourceLabel} />
                     <DetailRow label="Received" value={`${fmtIst(l.createdAt)} IST`} />
                     <DetailRow label="Lead status" value={<StatusPill text={l.leadStatus} />} />
-                    <DetailRow label="Closed by" value={l.leadStatus === "Closed" ? (l.closedBy || l.handledBy || "Admin") : "Not closed"} />
+                    <DetailRow
+                      label="Closed by"
+                      value={l.leadStatus === "Closed" ? `${l.closedBy || l.handledBy || "Admin"}${l.closedAt ? ` · ${fmtIst(l.closedAt)}` : ""}` : "Not closed"}
+                    />
+                    <DetailRow
+                      label="Delivered by"
+                      value={l.projectStatus === "Delivered" ? `${l.deliveredBy || l.handledBy || "Admin"}${l.deliveredAt ? ` · ${fmtIst(l.deliveredAt)}` : ""}` : "Not delivered yet"}
+                    />
                     <DetailRow label="Handled by" value={l.handledBy || "Not assigned yet"} />
                     {l.kind === "meta" ? (
                       <>
@@ -3738,7 +3755,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   </DetailCard>
                 </div>
 
-                <DetailCard icon={<Video className="w-4 h-4" />} title="Project & Creative Requirement" right={<StatusPill text={l.projectStatus} tone="amber" />}>
+                <DetailCard icon={<Video className="w-4 h-4" />} title="Project & Creative Requirement" right={<StatusPill text={l.projectStatus} tone={l.projectStatus === "Delivered" ? "emerald" : "amber"} />}>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-slate-50 border border-slate-100">
                     <MiniStat label="Requirement / format" value={l.videoScope} />
                     <MiniStat label="Video quantity" value={l.videoQuantity || "—"} />
@@ -3748,7 +3765,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     />
                     <MiniStat
                       label="Delivered on"
-                      value={l.projectStatus === "Delivered" ? (l.deliveredAt ? fmtIst(l.deliveredAt) : "Delivered") : "Not delivered yet"}
+                      value={
+                        l.projectStatus === "Delivered"
+                          ? `${l.deliveredAt ? fmtIst(l.deliveredAt) : "Delivered"} · by ${l.deliveredBy || l.handledBy || "Admin"}`
+                          : "Not delivered yet"
+                      }
                     />
                   </div>
                   <div>
@@ -4539,9 +4560,13 @@ function SourceBadge({ lead }: { lead: LeadItem }) {
   return <span className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-md text-xs font-semibold border ${tone}`}>{label}</span>;
 }
 
-function StatusPill({ text, tone = "blue" }: { text: string; tone?: "blue" | "amber" | "slate" }) {
+function StatusPill({ text, tone }: { text: string; tone?: "blue" | "amber" | "slate" | "emerald" }) {
+  // Closed / Delivered always show green.
+  if (!tone || text === "Closed" || text === "Delivered") tone = text === "Closed" || text === "Delivered" ? "emerald" : tone || "blue";
   const c =
-    tone === "amber"
+    tone === "emerald"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+      : tone === "amber"
       ? "bg-amber-50 text-amber-700 border-amber-200"
       : tone === "slate"
         ? "bg-slate-100 text-slate-700 border-slate-200"
