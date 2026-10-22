@@ -1021,6 +1021,101 @@ export async function createUser(token: string, data: { name: string; email: str
   return { ok: true as const, user: publicUser(row) };
 }
 
+export async function updateUser(
+  token: string,
+  data: {
+    userId: string;
+    name: string;
+    email: string;
+    role?: CrmRole;
+    password?: string;
+    status?: "ACTIVE" | "INACTIVE";
+  },
+) {
+  const ctx = await requireSession(token);
+  const target = await findUserById(data.userId);
+  if (!target) throw new Error("User not found.");
+
+  const isSelf = target.id === ctx.user.id;
+  if (!isSelf && !ctx.isSuperAdmin) {
+    throw new Error("Only the Super Admin can edit other users' profiles.");
+  }
+
+  const name = (data.name || "").trim();
+  const email = normalizeEmail(data.email);
+  if (!name) throw new Error("Name is required.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid email address.");
+
+  if (email !== normalizeEmail(target.email)) {
+    const existing = await findUserByEmail(email);
+    if (existing && existing.id !== target.id) {
+      throw new Error("Another user already exists with this email address.");
+    }
+  }
+
+  const patch: Record<string, unknown> = {
+    name,
+    email,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (data.role && data.role !== target.role) {
+    if (!ctx.isSuperAdmin) throw new Error("Only the Super Admin can change user roles.");
+    if (target.is_protected && target.role === "SUPER_ADMIN" && data.role !== "SUPER_ADMIN") {
+      throw new Error("The Super Admin role cannot be changed.");
+    }
+    if (data.role !== "ADMIN" && data.role !== "LEADS_MANAGER" && data.role !== "SUPER_ADMIN") {
+      throw new Error("Invalid role specified.");
+    }
+    patch.role = data.role;
+  }
+
+  if (data.status && data.status !== target.status) {
+    if (!ctx.isSuperAdmin) throw new Error("Only the Super Admin can change user status.");
+    if ((target.is_protected || target.role === "SUPER_ADMIN") && data.status !== "ACTIVE") {
+      throw new Error("The Super Admin account cannot be deactivated.");
+    }
+    if (data.status !== "ACTIVE" && data.status !== "INACTIVE") {
+      throw new Error("Invalid status specified.");
+    }
+    patch.status = data.status;
+  }
+
+  let passwordChanged = false;
+  if (data.password && data.password.trim()) {
+    const pwErr = validatePasswordStrength(data.password.trim());
+    if (pwErr) throw new Error(pwErr);
+    patch.password_hash = hashPassword(data.password.trim());
+    patch.token_version = Number(target.token_version || 1) + 1;
+    patch.failed_attempts = 0;
+    patch.locked_until = null;
+    passwordChanged = true;
+  }
+
+  await dbUpdate("crm_users", byId(target.id), patch);
+
+  const updatedTarget = (await findUserById(target.id))!;
+  let newToken: string | undefined = undefined;
+  if (isSelf && passwordChanged) {
+    newToken = signToken(updatedTarget);
+  }
+
+  await logActivity({
+    title: isSelf ? "Profile updated" : "User profile updated",
+    category: "USER_ACTIVITY",
+    actorEmail: ctx.user.email,
+    description: isSelf
+      ? `Updated own profile (${name}, ${email})${passwordChanged ? " and changed password" : ""}.`
+      : `Super Admin updated ${target.name}'s profile (${name}, ${email}, ${ROLE_LABEL[(patch.role as CrmRole) || target.role]})${passwordChanged ? " and reset their password" : ""}.`,
+  });
+
+  return {
+    ok: true as const,
+    user: publicUser(updatedTarget),
+    newToken,
+  };
+}
+
 export async function setUserStatus(token: string, userId: string, status: "ACTIVE" | "INACTIVE") {
   const ctx = await requireSuperAdmin(token);
   const target = await findUserById(userId);

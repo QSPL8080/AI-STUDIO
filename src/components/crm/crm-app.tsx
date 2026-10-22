@@ -74,6 +74,7 @@ import {
   crmSaveConfigFn,
   crmSaveMatrixFn,
   crmSetUserStatusFn,
+  crmUpdateUserFn,
   crmSyncFn,
   crmUnlockOrdersFn,
   crmUpdateLeadFn,
@@ -87,6 +88,7 @@ import {
   PERMISSION_ROWS,
   ROLE_LABEL,
   type CrmConfig,
+  type CrmRole,
   type ManagedRole,
   type PermSet,
   type PermissionMatrix,
@@ -465,6 +467,27 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   };
   const [newUserForm, setNewUserForm] = useState({ name: "", email: "", password: "", role: "ADMIN" as ManagedRole });
   const [showNewUserPw, setShowNewUserPw] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
+  const [editUserForm, setEditUserForm] = useState<{
+    name: string;
+    email: string;
+    role: CrmRole;
+    status: "ACTIVE" | "INACTIVE";
+    password: string;
+  }>({ name: "", email: "", role: "ADMIN", status: "ACTIVE", password: "" });
+  const [showEditUserPw, setShowEditUserPw] = useState(false);
+
+  const openEditUser = (u: UserItem) => {
+    setEditingUser(u);
+    setEditUserForm({
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      status: u.status,
+      password: "",
+    });
+    setShowEditUserPw(false);
+  };
 
   // Settings drafts
   const [configDraft, setConfigDraft] = useState<CrmConfig>(DEFAULT_CONFIG);
@@ -1042,6 +1065,50 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     doSync();
   };
 
+  const handleSaveEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    const f = editUserForm;
+    if (!f.name.trim() || !f.email.trim()) {
+      toast("Name and email are required.", "error");
+      return;
+    }
+    if (f.password && f.password.length < 6) {
+      toast("Password must be at least 6 characters.", "error");
+      return;
+    }
+    setBusy("edit-user");
+    const r = await call(
+      crmUpdateUserFn({
+        data: {
+          token: tok(),
+          userId: editingUser.id,
+          name: f.name.trim(),
+          email: f.email.trim(),
+          role: f.role,
+          status: f.status,
+          password: f.password.trim() || undefined,
+        },
+      }),
+    );
+    setBusy(null);
+    if (!r) return;
+    toast(`${r.user.name}'s profile updated successfully.`);
+    if (r.newToken) {
+      tokenRef.current = r.newToken;
+      const updatedMe = { ...me, name: r.user.name, email: r.user.email, role: r.user.role, token: r.newToken };
+      setMe(updatedMe);
+      setStoredCrmUser(updatedMe, false);
+    } else if (r.user.id === me.id) {
+      const updatedMe = { ...me, name: r.user.name, email: r.user.email, role: r.user.role };
+      setMe(updatedMe);
+      setStoredCrmUser(updatedMe, false);
+    }
+    setUsers((prev) => prev.map((u) => (u.id === r.user.id ? r.user : u)));
+    setEditingUser(null);
+    doSync();
+  };
+
   const [emailTest, setEmailTest] = useState<{ success: boolean; via: string; errors: string[]; to: string } | null>(null);
   const handleTestAlertEmail = async () => {
     setBusy("test-email");
@@ -1541,13 +1608,34 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </div>
 
               <div className="flex items-center gap-2.5 pl-2 sm:pl-3 sm:ml-1 border-l border-slate-200">
-                <div className="hidden sm:flex w-9 h-9 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 items-center justify-center text-sm font-bold text-white">
-                  {(me.name || me.email).charAt(0).toUpperCase()}
-                </div>
-                <div className="hidden xl:flex flex-col leading-tight">
-                  <span className="text-[13px] font-semibold text-slate-900">{me.name}</span>
-                  <span className="text-xs text-slate-600">{me.email}</span>
-                </div>
+                <button
+                  onClick={() => {
+                    const userObj = users.find((u) => u.id === me.id) || {
+                      id: me.id,
+                      name: me.name,
+                      email: me.email,
+                      role: me.role,
+                      status: "ACTIVE" as const,
+                      isProtected: me.role === "SUPER_ADMIN",
+                      createdAt: new Date().toISOString(),
+                      lastLoginAt: new Date().toISOString(),
+                      lockedUntil: null,
+                    };
+                    openEditUser(userObj);
+                  }}
+                  className="flex items-center gap-2 group text-left rounded-md p-1 hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Click to edit profile"
+                >
+                  <div className="hidden sm:flex w-9 h-9 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 items-center justify-center text-sm font-bold text-white group-hover:ring-2 group-hover:ring-purple-400">
+                    {(me.name || me.email).charAt(0).toUpperCase()}
+                  </div>
+                  <div className="hidden xl:flex flex-col leading-tight">
+                    <span className="text-[13px] font-semibold text-slate-900 group-hover:text-purple-700 flex items-center gap-1">
+                      {me.name} <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-purple-600" />
+                    </span>
+                    <span className="text-xs text-slate-600">{me.email}</span>
+                  </div>
+                </button>
                 <button
                   onClick={handleLogout}
                   className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-red-200 text-red-600 hover:bg-red-500/10 transition-colors"
@@ -1659,14 +1747,37 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   <div className="text-xs text-slate-500 truncate">{me.email}</div>
                 </div>
               </div>
-              <div className="mt-3 flex items-center justify-between gap-2">
+              <div className="mt-3 flex items-center justify-between gap-1.5">
                 <span className={`inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-md border ${roleBadge(me.role)}`}>{ROLE_LABEL[me.role]}</span>
-                <button
-                  onClick={handleLogout}
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-red-200 bg-white text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  <LogOut className="w-3.5 h-3.5" /> Sign out
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => {
+                      const userObj = users.find((u) => u.id === me.id) || {
+                        id: me.id,
+                        name: me.name,
+                        email: me.email,
+                        role: me.role,
+                        status: "ACTIVE" as const,
+                        isProtected: me.role === "SUPER_ADMIN",
+                        createdAt: new Date().toISOString(),
+                        lastLoginAt: new Date().toISOString(),
+                        lockedUntil: null,
+                      };
+                      openEditUser(userObj);
+                    }}
+                    className="inline-flex items-center gap-1 h-8 px-2 rounded-md border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                    title="Edit your profile"
+                  >
+                    <Pencil className="w-3 h-3" /> Edit
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="inline-flex items-center gap-1 h-8 px-2 rounded-md border border-red-200 bg-white text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                    title="Sign out"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2864,6 +2975,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 <Lock className="w-3.5 h-3.5" /> Unlock
                               </button>
                             )}
+                            <button
+                              onClick={() => openEditUser(u)}
+                              className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 font-medium transition-colors"
+                              title={u.role === "ADMIN" ? "Edit Admin Profile" : "Edit User Profile"}
+                            >
+                              <Pencil className="w-3.5 h-3.5" /> Edit
+                            </button>
                             {u.isProtected || u.role === "SUPER_ADMIN" ? (
                               <span className="inline-flex items-center gap-1 text-slate-500 text-xs px-2">
                                 <Lock className="w-3 h-3" /> Protected
@@ -3570,6 +3688,113 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </select>
             </Field>
             <ModalActions onCancel={() => setShowCreateUserModal(false)} submitLabel={busy === "create-user" ? "Creating..." : "Create User"} disabled={busy === "create-user"} />
+          </form>
+        </Modal>
+      )}
+
+      {editingUser && (
+        <Modal
+          onClose={() => setEditingUser(null)}
+          title={
+            editingUser.role === "SUPER_ADMIN"
+              ? "Edit Super Admin Profile"
+              : editingUser.role === "ADMIN"
+              ? "Edit Admin Profile"
+              : "Edit User Profile"
+          }
+          subtitle={`Update profile information, role, status or reset password for ${editingUser.name}.`}
+          icon={<Pencil className="w-5 h-5 text-purple-600" />}
+        >
+          <form onSubmit={handleSaveEditUser} className="space-y-3.5">
+            <Field label="Full name">
+              <input
+                required
+                value={editUserForm.name}
+                onChange={(e) => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                placeholder="e.g. Test Admin"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Email">
+              <input
+                type="email"
+                required
+                value={editUserForm.email}
+                onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                placeholder="admin@aistudio.in"
+                className={inputCls}
+              />
+            </Field>
+            <Field
+              label="Role"
+              hint={
+                editingUser.isProtected || editingUser.role === "SUPER_ADMIN"
+                  ? "Super Admin account role is protected and cannot be changed."
+                  : undefined
+              }
+            >
+              {editingUser.isProtected || editingUser.role === "SUPER_ADMIN" ? (
+                <div className="h-10 px-3 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-sm flex items-center font-semibold">
+                  Super Admin (Protected)
+                </div>
+              ) : (
+                <select
+                  value={editUserForm.role}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value as CrmRole })}
+                  className={inputCls}
+                >
+                  <option value="ADMIN">Admin</option>
+                  <option value="LEADS_MANAGER">Leads Manager</option>
+                </select>
+              )}
+            </Field>
+            <Field
+              label="Account status"
+              hint={
+                editingUser.isProtected || editingUser.role === "SUPER_ADMIN"
+                  ? "Super Admin account cannot be deactivated."
+                  : undefined
+              }
+            >
+              {editingUser.isProtected || editingUser.role === "SUPER_ADMIN" ? (
+                <div className="h-10 px-3 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center font-semibold">
+                  Active (Protected)
+                </div>
+              ) : (
+                <select
+                  value={editUserForm.status}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, status: e.target.value as "ACTIVE" | "INACTIVE" })}
+                  className={inputCls}
+                >
+                  <option value="ACTIVE">Active (Can sign in)</option>
+                  <option value="INACTIVE">Deactivated (Blocked from sign-in)</option>
+                </select>
+              )}
+            </Field>
+            <Field label="New Password (optional)" hint="Leave blank to keep existing password. Enter at least 6 characters to reset.">
+              <div className="relative">
+                <input
+                  type={showEditUserPw ? "text" : "password"}
+                  minLength={6}
+                  value={editUserForm.password}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, password: e.target.value })}
+                  placeholder="Leave blank to keep existing password"
+                  className={`${inputCls} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditUserPw(!showEditUserPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-900"
+                >
+                  {showEditUserPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </Field>
+            <ModalActions
+              onCancel={() => setEditingUser(null)}
+              submitLabel={busy === "edit-user" ? "Saving..." : "Save Changes"}
+              disabled={busy === "edit-user"}
+            />
           </form>
         </Modal>
       )}

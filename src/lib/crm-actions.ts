@@ -137,6 +137,24 @@ export const crmCreateUserFn = createServerFn({ method: "POST" })
     return s.guard(() => s.createUser(data.token, data));
   });
 
+export const crmUpdateUserFn = createServerFn({ method: "POST" })
+  .validator(
+    (
+      d: Tok & {
+        userId: string;
+        name: string;
+        email: string;
+        role?: CrmRole;
+        status?: "ACTIVE" | "INACTIVE";
+        password?: string;
+      },
+    ) => d,
+  )
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.updateUser(data.token, data));
+  });
+
 export const crmSetUserStatusFn = createServerFn({ method: "POST" })
   .validator((d: Tok & { userId: string; status: "ACTIVE" | "INACTIVE" }) => d)
   .handler(async ({ data }) => {
