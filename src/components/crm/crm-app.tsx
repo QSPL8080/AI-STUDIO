@@ -239,14 +239,15 @@ function istDay(value?: string | null) {
   const d = new Date(value);
   return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
-function applyLeadFilter(list: LeadItem[], q: string, f: LeadFilter) {
+function applyLeadFilter(list: LeadItem[], q: string, f: LeadFilter, resolveName?: (name?: string | null, id?: string | null) => string) {
   const s = q.trim().toLowerCase();
   return list.filter((l) => {
     if (f.source !== "All" && leadSourceFilter(l) !== f.source) return false;
     if (f.leadStatus !== "All" && l.leadStatus !== f.leadStatus) return false;
     if (f.projectStatus !== "All" && l.projectStatus !== f.projectStatus) return false;
     if (f.videoType !== "All" && leadVideoFilter(l) !== f.videoType) return false;
-    if (f.closedBy !== "All" && (l.leadStatus !== "Closed" || l.closedBy !== f.closedBy)) return false;
+    const effectiveClosedBy = resolveName ? resolveName(l.closedBy, l.closedById) : l.closedBy;
+    if (f.closedBy !== "All" && (l.leadStatus !== "Closed" || effectiveClosedBy !== f.closedBy)) return false;
     if (f.from || f.to) {
       const raw = f.dateField === "closed" ? l.closedAt : f.dateField === "delivery" ? l.deliveredAt || l.deliveryTarget : l.createdAt;
       const day = istDay(raw);
@@ -368,6 +369,30 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [orderEvents, setOrderEvents] = useState<ActivityItem[]>([]);
   const [counts, setCounts] = useState<RecordCounts | null>(null);
   const [serverMatrix, setServerMatrix] = useState<PermissionMatrix>(DEFAULT_MATRIX);
+
+  const resolveUser = (nameOrId?: string | null, id?: string | null): string => {
+    const cleanId = (id || "").trim();
+    if (cleanId) {
+      const match = users.find((u) => u.id === cleanId) || (me.id === cleanId ? me : null);
+      if (match?.name) return match.name;
+    }
+    const clean = String(nameOrId || "").trim();
+    if (!clean) return "";
+    const matchById = users.find((u) => u.id === clean) || (me.id === clean ? me : null);
+    if (matchById?.name) return matchById.name;
+    const matchByEmail = users.find((u) => u.email.toLowerCase() === clean.toLowerCase()) || (me.email.toLowerCase() === clean.toLowerCase() ? me : null);
+    if (matchByEmail?.name) return matchByEmail.name;
+    const matchByName = users.find((u) => u.name.toLowerCase() === clean.toLowerCase()) || (me.name.toLowerCase() === clean.toLowerCase() ? me : null);
+    if (matchByName?.name) return matchByName.name;
+
+    // Legacy fallback: if clean is "Test Admin", alias to active admin
+    if (clean.toLowerCase() === "test admin") {
+      const admin = users.find((u) => u.email === "test@aistudio.in" || u.role === "ADMIN") || (me.role === "ADMIN" ? me : null);
+      if (admin?.name && admin.name.toLowerCase() !== "test admin") return admin.name;
+    }
+
+    return clean;
+  };
 
   // Coupon Generator state
   const [couponPreset, setCouponPreset] = useState<number>(10);
@@ -1110,6 +1135,21 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       setStoredCrmUser(updatedMe, false);
     }
     setUsers((prev) => prev.map((u) => (u.id === r.user.id ? r.user : u)));
+    setLeads((prev) =>
+      prev.map((l) => ({
+        ...l,
+        handledBy: l.handledById === r.user.id || (editingUser && l.handledBy.toLowerCase() === editingUser.name.toLowerCase()) ? r.user.name : l.handledBy,
+        closedBy: l.closedById === r.user.id || (editingUser && l.closedBy.toLowerCase() === editingUser.name.toLowerCase()) ? r.user.name : l.closedBy,
+      }))
+    );
+    setSelectedLead((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        handledBy: prev.handledById === r.user.id || (editingUser && prev.handledBy.toLowerCase() === editingUser.name.toLowerCase()) ? r.user.name : prev.handledBy,
+        closedBy: prev.closedById === r.user.id || (editingUser && prev.closedBy.toLowerCase() === editingUser.name.toLowerCase()) ? r.user.name : prev.closedBy,
+      };
+    });
     setEditingUser(null);
     doSync();
   };
@@ -1450,8 +1490,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     return acc;
   }, {});
 
-  const shownWebsite = applyLeadFilter(websiteLeads, leadsSearch, leadsFilter);
-  const shownMeta = applyLeadFilter(metaLeads, metaSearch, metaFilter);
+  const shownWebsite = applyLeadFilter(websiteLeads, leadsSearch, leadsFilter, resolveUser);
+  const shownMeta = applyLeadFilter(metaLeads, metaSearch, metaFilter, resolveUser);
   // 50% advance paid, balance still due ("Balance Pending").
   const isPartlyPaid = (o: OrderItem) => o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED" && o.balanceDue > 0;
   const orderTab = (o: OrderItem) =>
@@ -1939,8 +1979,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           const filter = isMeta ? metaFilter : leadsFilter;
           const setFilter = isMeta ? setMetaFilter : setLeadsFilter;
           const draft = isMeta ? metaDraft : leadsDraft;
-          const setDraft = isMeta ? setMetaDraft : setLeadsDraft;
-          const closers = Array.from(new Set([...all.map((l) => l.closedBy).filter(Boolean), ...users.map((u) => u.name).filter(Boolean)])).sort();
+          const closers = Array.from(
+            new Set([
+              ...all.map((l) => resolveUser(l.closedBy, l.closedById)).filter(Boolean),
+              ...users.map((u) => u.name).filter(Boolean),
+              me.name,
+            ].filter(Boolean)),
+          ).sort();
           const filterSelect = (label: string, key: keyof LeadFilter, allLabel: string, options: string[], width = "w-40") => (
             <label className="flex w-full items-center gap-1.5 sm:w-auto">
               <span className="w-24 shrink-0 text-[12px] text-slate-500 whitespace-nowrap sm:w-auto">{label}:</span>
@@ -2182,7 +2227,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 </select>
                                 {l.leadStatus === "Closed" && (
                                   <div className="text-[11px] text-emerald-700 mt-1 font-medium leading-tight">
-                                    Closed by {l.closedBy || l.handledBy || "Admin"}
+                                    Closed by {resolveUser(l.closedBy, l.closedById) || resolveUser(l.handledBy, l.handledById) || "Admin"}
                                     {l.closedAt && <div className="text-slate-500 font-normal">{fmtIstDate(l.closedAt)}</div>}
                                   </div>
                                 )}
@@ -2199,7 +2244,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 </select>
                                 {l.projectStatus === "Delivered" && (
                                   <div className="text-[11px] text-emerald-700 font-medium mt-1 leading-tight">
-                                    Delivered by {l.deliveredBy || l.handledBy || "Admin"}
+                                    Delivered by {resolveUser(l.deliveredBy, l.deliveredById) || resolveUser(l.handledBy, l.handledById) || "Admin"}
                                     {l.deliveredAt && <div className="text-slate-500 font-normal">{fmtIstDate(l.deliveredAt)}</div>}
                                   </div>
                                 )}
@@ -3939,13 +3984,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Handled by</div>
-                  <div className="h-9 flex items-center text-sm font-medium text-slate-900 truncate">{l.handledBy || "Not assigned yet"}</div>
+                  <div className="h-9 flex items-center text-sm font-medium text-slate-900 truncate">
+                    {resolveUser(l.handledBy, l.handledById) || "Not assigned yet"}
+                  </div>
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Closed</div>
                   <div className="h-9 flex items-center text-sm font-medium text-slate-900 truncate">
                     {l.leadStatus === "Closed"
-                      ? `${l.closedBy || l.handledBy || "Admin"}${l.closedAt ? ` · ${fmtIst(l.closedAt)}` : ""}`
+                      ? `${resolveUser(l.closedBy, l.closedById) || resolveUser(l.handledBy, l.handledById) || "Admin"}${l.closedAt ? ` · ${fmtIst(l.closedAt)}` : ""}`
                       : "Not closed"}
                   </div>
                 </div>
@@ -4002,13 +4049,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     <DetailRow label="Lead status" value={<StatusPill text={l.leadStatus} />} />
                     <DetailRow
                       label="Closed by"
-                      value={l.leadStatus === "Closed" ? `${l.closedBy || l.handledBy || "Admin"}${l.closedAt ? ` · ${fmtIst(l.closedAt)}` : ""}` : "Not closed"}
+                      value={l.leadStatus === "Closed" ? `${resolveUser(l.closedBy, l.closedById) || resolveUser(l.handledBy, l.handledById) || "Admin"}${l.closedAt ? ` · ${fmtIst(l.closedAt)}` : ""}` : "Not closed"}
                     />
                     <DetailRow
                       label="Delivered by"
-                      value={l.projectStatus === "Delivered" ? `${l.deliveredBy || l.handledBy || "Admin"}${l.deliveredAt ? ` · ${fmtIst(l.deliveredAt)}` : ""}` : "Not delivered yet"}
+                      value={l.projectStatus === "Delivered" ? `${resolveUser(l.deliveredBy, l.deliveredById) || resolveUser(l.handledBy, l.handledById) || "Admin"}${l.deliveredAt ? ` · ${fmtIst(l.deliveredAt)}` : ""}` : "Not delivered yet"}
                     />
-                    <DetailRow label="Handled by" value={l.handledBy || "Not assigned yet"} />
+                    <DetailRow label="Handled by" value={resolveUser(l.handledBy, l.handledById) || "Not assigned yet"} />
                     {l.kind === "meta" ? (
                       <>
                         <DetailRow label="Campaign" value={l.campaign || "—"} />
@@ -4032,7 +4079,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       label="Delivered on"
                       value={
                         l.projectStatus === "Delivered"
-                          ? `${l.deliveredAt ? fmtIst(l.deliveredAt) : "Delivered"} · by ${l.deliveredBy || l.handledBy || "Admin"}`
+                          ? `${l.deliveredAt ? fmtIst(l.deliveredAt) : "Delivered"} · by ${resolveUser(l.deliveredBy, l.deliveredById) || resolveUser(l.handledBy, l.handledById) || "Admin"}`
                           : "Not delivered yet"
                       }
                     />

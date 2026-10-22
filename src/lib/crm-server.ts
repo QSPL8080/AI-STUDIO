@@ -202,6 +202,7 @@ function mapLead(r: any, userResolver?: UserResolver) {
     closedAt,
     deliveredAt,
     deliveredBy,
+    deliveredById: (extra.deliveredById || null) as string | null,
     deletedAt: r.deleted_at ? new Date(r.deleted_at).toISOString() : null,
     deletedBy,
   };
