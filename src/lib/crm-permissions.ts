@@ -24,15 +24,16 @@ export interface PermRowDef {
   key: PermKey;
   module: string;
   location: string;
-  /** locked rows cannot be changed from the Permissions Matrix */
-  locked: "always" | "super_admin_only" | false;
+  /** locked rows cannot be changed from the Permissions Matrix.
+   *  "admin_always": Admin always has it; Leads Manager can be switched on or off. */
+  locked: "always" | "super_admin_only" | "admin_always" | false;
 }
 
 export const PERMISSION_ROWS: PermRowDef[] = [
   { key: "leads", module: "Website Leads Management & Status Updating", location: "Leads Management tab", locked: "always" },
   { key: "dashboard", module: "Dashboard & Real-Time Performance Analytics", location: "Dashboard tab", locked: false },
   { key: "meta", module: "Meta Ads Leads Management & Notes", location: "Meta Leads tab", locked: false },
-  { key: "coupons", module: "Coupon Generator & Single-Use Discount Codes", location: "Coupon Generator tab (Super Admin only)", locked: "super_admin_only" },
+  { key: "coupons", module: "Coupon Generator & Single-Use Discount Codes", location: "Coupon Generator tab (Super Admin & Admin)", locked: "admin_always" },
   { key: "delete_leads", module: "Delete Leads (move to Recycle Bin)", location: "Delete buttons on lead tables — soft delete only", locked: false },
   { key: "recycle_bin", module: "Recycle Bin (view & restore leads)", location: "Recycle Bin tab", locked: false },
   { key: "orders", module: "Orders & Payments", location: "Orders tab (still needs the security PIN)", locked: false },
@@ -47,7 +48,7 @@ export const DEFAULT_MATRIX: PermissionMatrix = {
   leads: { ADMIN: true, LEADS_MANAGER: true },
   dashboard: { ADMIN: true, LEADS_MANAGER: false },
   meta: { ADMIN: true, LEADS_MANAGER: true },
-  coupons: { ADMIN: false, LEADS_MANAGER: false },
+  coupons: { ADMIN: true, LEADS_MANAGER: false },
   delete_leads: { ADMIN: true, LEADS_MANAGER: true },
   recycle_bin: { ADMIN: true, LEADS_MANAGER: false },
   orders: { ADMIN: true, LEADS_MANAGER: false },
@@ -69,6 +70,11 @@ export function normalizeMatrix(input: unknown): PermissionMatrix {
     }
     if (row.locked === "super_admin_only") {
       out[row.key] = { ADMIN: false, LEADS_MANAGER: false };
+      continue;
+    }
+    if (row.locked === "admin_always") {
+      const lm = src[row.key]?.LEADS_MANAGER;
+      out[row.key] = { ADMIN: true, LEADS_MANAGER: typeof lm === "boolean" ? lm : out[row.key].LEADS_MANAGER };
       continue;
     }
     const v = src[row.key];

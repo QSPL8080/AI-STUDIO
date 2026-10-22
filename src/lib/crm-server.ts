@@ -68,15 +68,27 @@ const EXTRA_FIELDS = {
   quantity: "Video quantity",
   deliveryTarget: "Delivery target",
   closedBy: "Closed by",
+  closedById: "Closed by ID",
   closedAt: "Closed at",
   deliveredAt: "Delivered on",
   deliveredBy: "Delivered by",
+  deliveredById: "Delivered by ID",
 } as const;
 function splitAdditional(additional: string) {
-  const extra = { website: "", quantity: "", deliveryTarget: "", closedBy: "", closedAt: "", deliveredAt: "", deliveredBy: "" };
+  const extra: Record<string, string> = {
+    website: "",
+    quantity: "",
+    deliveryTarget: "",
+    closedBy: "",
+    closedById: "",
+    closedAt: "",
+    deliveredAt: "",
+    deliveredBy: "",
+    deliveredById: "",
+  };
   const rest: string[] = [];
   for (const line of String(additional || "").split("\n")) {
-    const m = /^(Website|Video quantity|Delivery target|Closed by|Closed at|Delivered on|Delivered by): (.*)$/.exec(line.trim());
+    const m = /^(Website|Video quantity|Delivery target|Closed by ID|Closed by|Closed at|Delivered on|Delivered by ID|Delivered by): (.*)$/.exec(line.trim());
     if (m) {
       const key = (Object.keys(EXTRA_FIELDS) as (keyof typeof EXTRA_FIELDS)[]).find((k) => EXTRA_FIELDS[k] === m[1])!;
       extra[key] = m[2]!.trim();
@@ -85,20 +97,68 @@ function splitAdditional(additional: string) {
   return { extra, rest: rest.join("\n") };
 }
 
-function mapLead(r: any) {
+export type UserResolver = (val?: string | null) => string;
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export async function getDynamicUserResolver(): Promise<UserResolver> {
+  let userRows: CrmUserRow[] = [];
+  try {
+    userRows = await dbSelect<CrmUserRow>("crm_users", { order: { col: "created_at", desc: false } });
+  } catch (e) {
+    console.warn("Could not load crm_users for dynamic user resolver:", e);
+  }
+
+  const byId = new Map<string, string>();
+  const byEmail = new Map<string, string>();
+  const byLowerName = new Map<string, string>();
+
+  for (const u of userRows) {
+    if (u.id && u.name) byId.set(u.id, u.name);
+    if (u.email && u.name) byEmail.set(normalizeEmail(u.email), u.name);
+    if (u.name) byLowerName.set(u.name.toLowerCase().trim(), u.name);
+  }
+
+  return (val?: string | null): string => {
+    if (!val) return "";
+    const clean = String(val).trim();
+    if (!clean) return "";
+    if (byId.has(clean)) return byId.get(clean)!;
+    const norm = clean.toLowerCase();
+    if (byEmail.has(norm)) return byEmail.get(norm)!;
+    if (byLowerName.has(norm)) return byLowerName.get(norm)!;
+    return clean;
+  };
+}
+
+function mapLead(r: any, userResolver?: UserResolver) {
   const { extra, rest } = splitAdditional(r.additional || "");
   const notes = [r.requirement, rest].filter(Boolean).join(" | ");
   const isClosed = r.status === "Closed";
   const isDelivered = r.project_status === "Delivered";
 
-  const closedBy = isClosed ? ((r.closed_by || extra.closedBy || r.handled_by || "Admin") as string) : "";
+  const rawClosedBy = (r.closed_by || extra.closedBy || (isClosed ? r.handled_by || "Admin" : "")) as string;
+  const rawDeliveredBy = (extra.deliveredBy || (isDelivered ? r.handled_by || "Admin" : "")) as string;
+  const rawHandledBy = (r.handled_by || "") as string;
+  const rawDeletedBy = (r.deleted_by || null) as string | null;
+
+  const closedBy = isClosed
+    ? (userResolver ? userResolver(r.closed_by_id || extra.closedById || rawClosedBy) : rawClosedBy)
+    : "";
+  const deliveredBy = isDelivered
+    ? (userResolver ? userResolver(extra.deliveredById || rawDeliveredBy) : rawDeliveredBy)
+    : "";
+  const handledBy = userResolver ? userResolver(r.handled_by_id || rawHandledBy) : rawHandledBy;
+  const deletedBy = rawDeletedBy ? (userResolver ? userResolver(rawDeletedBy) : rawDeletedBy) : null;
+
   const closedAt = isClosed
     ? (r.closed_at ? new Date(r.closed_at).toISOString() : (extra.closedAt || (r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString())))
     : null;
   const deliveredAt = isDelivered
     ? (r.delivered_at ? new Date(r.delivered_at).toISOString() : (extra.deliveredAt || (r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString())))
     : null;
-  const deliveredBy = isDelivered ? ((extra.deliveredBy || r.handled_by || "Admin") as string) : "";
 
   return {
     id: r.id as string,
@@ -125,13 +185,15 @@ function mapLead(r: any) {
     website: extra.website,
     videoQuantity: extra.quantity,
     deliveryTarget: extra.deliveryTarget,
-    handledBy: (r.handled_by || "") as string,
+    handledBy,
+    handledById: (r.handled_by_id || null) as string | null,
     closedBy,
+    closedById: (r.closed_by_id || extra.closedById || null) as string | null,
     closedAt,
     deliveredAt,
     deliveredBy,
     deletedAt: r.deleted_at ? new Date(r.deleted_at).toISOString() : null,
-    deletedBy: (r.deleted_by || null) as string | null,
+    deletedBy,
   };
 }
 export type CrmLead = ReturnType<typeof mapLead>;
@@ -247,12 +309,14 @@ export function generateCouponCode(discountPercent: number): string {
   return `QAS${discountPercent}-${random}`;
 }
 
-function mapActivity(r: any) {
+function mapActivity(r: any, userResolver?: UserResolver) {
+  const actorName = userResolver && r.actor_email ? userResolver(r.actor_email) : "";
   return {
     id: r.id as string,
     title: r.title as string,
     category: r.category as string,
     actorEmail: (r.actor_email || "") as string,
+    actorName: actorName && actorName !== r.actor_email ? actorName : "",
     description: (r.description || "") as string,
     createdAt: r.created_at ? new Date(r.created_at).toISOString() : "",
   };
@@ -417,14 +481,15 @@ export async function logout(token: string) {
 export async function sync(token: string, ordersPin?: string) {
   const ctx = await requireSession(token);
   const config = await loadConfig();
+  const userResolver = await getDynamicUserResolver();
 
   const allLeadRows = await dbSelect(LEADS_TABLE, { order: { col: "created_at", desc: true } });
   const visible = allLeadRows.filter((r) => (isMetaRow(r) ? ctx.perms.meta : ctx.perms.leads));
-  const leads = visible.filter((r) => !r.deleted_at).map(mapLead);
+  const leads = visible.filter((r) => !r.deleted_at).map((r) => mapLead(r, userResolver));
   const recycleBin = ctx.perms.recycle_bin
     ? visible
         .filter((r) => r.deleted_at)
-        .map(mapLead)
+        .map((r) => mapLead(r, userResolver))
         .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)))
     : [];
 
@@ -440,7 +505,7 @@ export async function sync(token: string, ordersPin?: string) {
       order: { col: "created_at", desc: true },
       limit: 60,
     });
-    orderEvents = ev.map(mapActivity);
+    orderEvents = ev.map((r) => mapActivity(r, userResolver));
     orderRows = (await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } })).filter(
       (r) => {
         if (paymentSummary(r).plan === "balance") return false;
@@ -463,7 +528,7 @@ export async function sync(token: string, ordersPin?: string) {
   }
 
   let coupons: CrmCoupon[] = [];
-  if (ctx.isSuperAdmin) {
+  if (ctx.perms.coupons) {
     try {
       const couponRows = await dbSelect(COUPONS_TABLE, { order: { col: "created_at", desc: true } });
       coupons = couponRows.map(mapCoupon);
@@ -480,7 +545,7 @@ export async function sync(token: string, ordersPin?: string) {
     const userRows = await dbSelect<CrmUserRow>("crm_users", { order: { col: "created_at", desc: false } });
     users = userRows.map(publicUser);
     const actRows = await dbSelect("crm_activity_logs", { order: { col: "created_at", desc: true } });
-    activity = actRows.slice(0, 500).map(mapActivity);
+    activity = actRows.slice(0, 500).map((r) => mapActivity(r, userResolver));
     matrix = ctx.matrix;
     const completed = orderRows.filter((o) => o.payment_status === "COMPLETED");
     const revenueByCurrency: Record<string, number> = {};
@@ -643,9 +708,11 @@ export async function createLead(
     t(data.quantity) ? `Video quantity: ${t(data.quantity)}` : "",
     /^\d{4}-\d{2}-\d{2}$/.test(t(data.deliveryDate)) ? `Delivery target: ${t(data.deliveryDate)}` : "",
     isClosed ? `Closed by: ${ctx.user.name}` : "",
+    isClosed ? `Closed by ID: ${ctx.user.id}` : "",
     isClosed ? `Closed at: ${now}` : "",
     isDelivered ? `Delivered on: ${now}` : "",
     isDelivered ? `Delivered by: ${ctx.user.name}` : "",
+    isDelivered ? `Delivered by ID: ${ctx.user.id}` : "",
   ].filter(Boolean);
   const row = await dbInsertWithOptional(LEADS_TABLE, {
     id: newId("lead"),
@@ -668,7 +735,9 @@ export async function createLead(
     created_at: now,
   }, {
     handled_by: ctx.user.name,
+    handled_by_id: ctx.user.id,
     closed_by: isClosed ? ctx.user.name : null,
+    closed_by_id: isClosed ? ctx.user.id : null,
     closed_at: isClosed ? now : null,
     delivered_at: isDelivered ? now : null,
   });
@@ -761,7 +830,10 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
   assertLeadAccess(ctx, row);
   if (row.deleted_at) throw new Error("Restore this lead from the Recycle Bin before editing it.");
   const update: Record<string, unknown> = {};
-  const extra: Record<string, unknown> = { handled_by: ctx.user.name };
+  const extra: Record<string, unknown> = {
+    handled_by: ctx.user.name,
+    handled_by_id: ctx.user.id,
+  };
   const now = new Date().toISOString();
   const t = (v: unknown, max = 255) => String(v ?? "").trim().slice(0, max);
 
@@ -823,19 +895,26 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
   // recorded (website, manual and Meta leads alike); an already closed lead keeps its closer.
   if (effectiveLeadStatus === "Closed") {
     const finalClosedBy = wasClosed ? patch.closedBy?.trim() || row.closed_by || existingExtra.closedBy || ctx.user.name : ctx.user.name;
+    const finalClosedById = wasClosed
+      ? (patch.closedBy?.trim() === ctx.user.name ? ctx.user.id : (row.closed_by_id || existingExtra.closedById || ctx.user.id))
+      : ctx.user.id;
     const finalClosedAt = (wasClosed && (row.closed_at || existingExtra.closedAt)) || now;
     extra.closed_by = finalClosedBy;
+    extra.closed_by_id = finalClosedById;
     extra.closed_at = finalClosedAt;
   } else if (patch.leadStatus && patch.leadStatus !== "Closed") {
     extra.closed_by = null;
+    extra.closed_by_id = null;
     extra.closed_at = null;
   }
 
   // Delivered: remember WHO marked it delivered and when.
   let finalDeliveredBy = "";
+  let finalDeliveredById = "";
   if (effectiveProjectStatus === "Delivered") {
     const finalDeliveredAt = (wasDelivered && (row.delivered_at || existingExtra.deliveredAt)) || now;
     finalDeliveredBy = (wasDelivered && existingExtra.deliveredBy) || ctx.user.name;
+    finalDeliveredById = (wasDelivered && existingExtra.deliveredById) || ctx.user.id;
     extra.delivered_at = finalDeliveredAt;
   } else if (patch.projectStatus && patch.projectStatus !== "Delivered") {
     extra.delivered_at = null;
@@ -851,9 +930,11 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
     finalQty ? `Video quantity: ${finalQty}` : "",
     finalDelivery ? `Delivery target: ${finalDelivery}` : "",
     effectiveLeadStatus === "Closed" ? `Closed by: ${extra.closed_by || ctx.user.name}` : "",
+    effectiveLeadStatus === "Closed" ? `Closed by ID: ${extra.closed_by_id || ctx.user.id}` : "",
     effectiveLeadStatus === "Closed" ? `Closed at: ${extra.closed_at || now}` : "",
     effectiveProjectStatus === "Delivered" ? `Delivered on: ${extra.delivered_at || now}` : "",
     effectiveProjectStatus === "Delivered" ? `Delivered by: ${finalDeliveredBy || ctx.user.name}` : "",
+    effectiveProjectStatus === "Delivered" ? `Delivered by ID: ${finalDeliveredById || ctx.user.id}` : "",
   ].filter(Boolean);
 
   const allAdditional = [rest, ...extras].filter(Boolean).join("\n");
@@ -895,7 +976,8 @@ export async function leadHistory(token: string, id: string) {
   } catch {
     rows = []; // lead_id column not added yet
   }
-  return { ok: true as const, history: rows.map(mapActivity) };
+  const userResolver = await getDynamicUserResolver();
+  return { ok: true as const, history: rows.map((r) => mapActivity(r, userResolver)) };
 }
 
 /** Super Admin → permanent delete. Admin / Leads Manager → soft delete to Recycle Bin. */
@@ -1021,6 +1103,206 @@ export async function createUser(token: string, data: { name: string; email: str
   return { ok: true as const, user: publicUser(row) };
 }
 
+/**
+ * Cascades user name/email changes across the entire database:
+ * - ind_leads: handled_by, handled_by_id, closed_by, closed_by_id, deleted_by, and inside additional
+ * - ind_coupons: created_by
+ * - crm_activity_logs: actor_email, and descriptions referencing "(by Old Name)"
+ */
+async function cascadeUserUpdates(
+  oldUser: CrmUserRow,
+  updated: { id: string; name: string; email: string },
+) {
+  const oldName = (oldUser.name || "").trim();
+  const newName = (updated.name || "").trim();
+  const oldEmail = normalizeEmail(oldUser.email);
+  const newEmail = normalizeEmail(updated.email);
+
+  const nameChanged = Boolean(oldName && newName && oldName !== newName);
+  const emailChanged = Boolean(oldEmail && newEmail && oldEmail !== newEmail);
+
+  if (!nameChanged && !emailChanged) return;
+
+  // 1. Leads table
+  try {
+    if (nameChanged) {
+      // By user ID if columns exist
+      try {
+        await dbUpdateWithOptional(
+          LEADS_TABLE,
+          [{ col: "handled_by_id", op: "eq", value: updated.id }],
+          { handled_by: newName },
+          {},
+        );
+      } catch {
+        // handled_by_id not supported
+      }
+      try {
+        await dbUpdateWithOptional(
+          LEADS_TABLE,
+          [{ col: "closed_by_id", op: "eq", value: updated.id }],
+          { closed_by: newName },
+          {},
+        );
+      } catch {
+        // closed_by_id not supported
+      }
+
+      // By text match on old name
+      try {
+        await dbUpdateWithOptional(
+          LEADS_TABLE,
+          [{ col: "handled_by", op: "eq", value: oldName }],
+          { handled_by: newName },
+          { handled_by_id: updated.id },
+        );
+      } catch (e) {
+        console.warn("Could not cascade handled_by by oldName:", e);
+      }
+
+      try {
+        await dbUpdateWithOptional(
+          LEADS_TABLE,
+          [{ col: "closed_by", op: "eq", value: oldName }],
+          { closed_by: newName },
+          { closed_by_id: updated.id },
+        );
+      } catch (e) {
+        console.warn("Could not cascade closed_by by oldName:", e);
+      }
+    }
+
+    if (emailChanged) {
+      try {
+        await dbUpdate(
+          LEADS_TABLE,
+          [{ col: "deleted_by", op: "eq", value: oldEmail }],
+          { deleted_by: newEmail },
+        );
+      } catch (e) {
+        console.warn("Could not cascade deleted_by by email:", e);
+      }
+    }
+
+    if (nameChanged) {
+      try {
+        await dbUpdate(
+          LEADS_TABLE,
+          [{ col: "deleted_by", op: "eq", value: oldName }],
+          { deleted_by: newName },
+        );
+      } catch (e) {
+        console.warn("Could not cascade deleted_by by name:", e);
+      }
+    }
+
+    // Cascade inside the `additional` text field
+    if (nameChanged) {
+      try {
+        const leadsWithAdditional = await dbSelect<{ id: string; additional?: string | null }>(LEADS_TABLE, {
+          filters: [{ col: "additional", op: "not_null" }],
+        });
+        const closedPattern = new RegExp(`^Closed by: ${escapeRegex(oldName)}$`, "m");
+        const closedIdPattern = new RegExp(`^Closed by ID:.*$`, "m");
+        const deliveredPattern = new RegExp(`^Delivered by: ${escapeRegex(oldName)}$`, "m");
+        const deliveredIdPattern = new RegExp(`^Delivered by ID:.*$`, "m");
+        const handledPattern = new RegExp(`^Handled by: ${escapeRegex(oldName)}$`, "m");
+        const addedPattern = new RegExp(`^Added by:? ${escapeRegex(oldName)}$`, "m");
+        const genericByPattern = new RegExp(`\\bby ${escapeRegex(oldName)}\\b`, "g");
+
+        for (const lead of leadsWithAdditional) {
+          if (!lead.additional || !lead.additional.includes(oldName)) continue;
+          let text = lead.additional;
+          if (closedPattern.test(text)) {
+            text = text.replace(closedPattern, `Closed by: ${newName}`);
+            if (!closedIdPattern.test(text)) {
+              text += `\nClosed by ID: ${updated.id}`;
+            }
+          }
+          if (deliveredPattern.test(text)) {
+            text = text.replace(deliveredPattern, `Delivered by: ${newName}`);
+            if (!deliveredIdPattern.test(text)) {
+              text += `\nDelivered by ID: ${updated.id}`;
+            }
+          }
+          if (handledPattern.test(text)) {
+            text = text.replace(handledPattern, `Handled by: ${newName}`);
+          }
+          if (addedPattern.test(text)) {
+            text = text.replace(addedPattern, `Added by ${newName}`);
+          }
+          text = text.replace(genericByPattern, `by ${newName}`);
+
+          if (text !== lead.additional) {
+            await dbUpdate(LEADS_TABLE, byId(lead.id), { additional: text });
+          }
+        }
+      } catch (e) {
+        console.warn("Could not cascade additional text in leads:", e);
+      }
+    }
+  } catch (e) {
+    console.warn("Error cascading updates to leads:", e);
+  }
+
+  // 2. Coupons table
+  try {
+    if (nameChanged) {
+      await dbUpdate(
+        COUPONS_TABLE,
+        [{ col: "created_by", op: "eq", value: oldName }],
+        { created_by: newName },
+      );
+    }
+    if (emailChanged) {
+      await dbUpdate(
+        COUPONS_TABLE,
+        [{ col: "created_by", op: "eq", value: oldEmail }],
+        { created_by: newEmail },
+      );
+    }
+  } catch (e) {
+    console.warn("Could not cascade coupons created_by:", e);
+  }
+
+  // 3. Activity logs table
+  try {
+    if (emailChanged) {
+      await dbUpdate(
+        "crm_activity_logs",
+        [{ col: "actor_email", op: "eq", value: oldEmail }],
+        { actor_email: newEmail },
+      );
+    }
+    if (nameChanged) {
+      try {
+        const recentLogs = await dbSelect<{ id: string; description?: string | null }>("crm_activity_logs", {
+          order: { col: "created_at", desc: true },
+          limit: 500,
+        });
+        const byOldName1 = new RegExp(`\\(by ${escapeRegex(oldName)}\\)`, "g");
+        const byOldName2 = new RegExp(`by ${escapeRegex(oldName)}\\.`, "g");
+        const byOldName3 = new RegExp(`by ${escapeRegex(oldName)}\\b`, "g");
+
+        for (const log of recentLogs) {
+          if (!log.description || !log.description.includes(oldName)) continue;
+          let desc = log.description
+            .replace(byOldName1, `(by ${newName})`)
+            .replace(byOldName2, `by ${newName}.`)
+            .replace(byOldName3, `by ${newName}`);
+          if (desc !== log.description) {
+            await dbUpdate("crm_activity_logs", byId(log.id), { description: desc });
+          }
+        }
+      } catch (e) {
+        console.warn("Could not cascade activity descriptions:", e);
+      }
+    }
+  } catch (e) {
+    console.warn("Could not cascade activity logs:", e);
+  }
+}
+
 export async function updateUser(
   token: string,
   data: {
@@ -1093,6 +1375,7 @@ export async function updateUser(
   }
 
   await dbUpdate("crm_users", byId(target.id), patch);
+  await cascadeUserUpdates(target, { id: target.id, name, email });
 
   const updatedTarget = (await findUserById(target.id))!;
   let newToken: string | undefined = undefined;
@@ -1277,20 +1560,15 @@ export async function testAlertEmail(token: string) {
 
 /** Retrieves all coupons for CRM display. */
 export async function getCoupons(token: string) {
-  const ctx = await requireSession(token);
-  if (!ctx.isSuperAdmin) {
-    throw new CrmAuthError("FORBIDDEN", "Only Super Admin can view coupons.");
-  }
+  // Super Admin and Admin (and Leads Manager when allowed in CRM Settings).
+  await requireSession(token, "coupons");
   const rows = await dbSelect(COUPONS_TABLE, { order: { col: "created_at", desc: true } });
   return { ok: true as const, coupons: rows.map(mapCoupon) };
 }
 
 /** Generates a single-use unique coupon code (e.g. 10%, 20%, 25%, or custom). */
 export async function createCoupon(token: string, input: { discountPercent: number; customCode?: string }) {
-  const ctx = await requireSession(token);
-  if (!ctx.isSuperAdmin) {
-    throw new CrmAuthError("FORBIDDEN", "Only Super Admin can generate coupons.");
-  }
+  const ctx = await requireSession(token, "coupons");
   const pct = Math.round(Number(input.discountPercent));
   if (isNaN(pct) || pct <= 0 || pct > 100) {
     throw new Error("Discount percentage must be between 1 and 100.");
@@ -1343,10 +1621,7 @@ export async function createCoupon(token: string, input: { discountPercent: numb
 
 /** Deletes a coupon code from the CRM. */
 export async function deleteCoupon(token: string, id: string) {
-  const ctx = await requireSession(token);
-  if (!ctx.isSuperAdmin) {
-    throw new CrmAuthError("FORBIDDEN", "Only Super Admin can delete coupons.");
-  }
+  const ctx = await requireSession(token, "coupons");
   const rows = await dbSelect(COUPONS_TABLE, { filters: [{ col: "id", op: "eq", value: id }] });
   const coupon = rows[0];
   if (!coupon) throw new Error("Coupon not found.");

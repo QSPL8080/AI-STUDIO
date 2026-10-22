@@ -783,7 +783,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     if (perms.dashboard) list.push({ id: "dashboard", label: "Dashboard", icon: LayoutGrid, count: null });
     if (perms.leads) list.push({ id: "leads", label: "Leads Management", icon: Users, count: websiteLeads.length });
     if (perms.meta) list.push({ id: "meta", label: "Meta Leads", icon: Layers, count: metaLeads.length });
-    if (isSuperAdmin && perms.coupons) list.push({ id: "coupons", label: "Coupon Generator", icon: Tag, count: coupons.filter((c) => c.active).length });
+    if (perms.coupons) list.push({ id: "coupons", label: "Coupon Generator", icon: Tag, count: coupons.filter((c) => c.active).length });
     if (perms.orders) list.push({ id: "orders", label: "Orders & Payments", icon: Package, count: ordersCount });
     if (isSuperAdmin) {
       list.push(
@@ -1787,7 +1787,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       <main className="flex-1 min-h-0 min-w-0 w-full px-3 sm:px-5 lg:px-6 2xl:px-10 py-4 sm:py-5 lg:overflow-y-auto">
         {/* ---------------- DASHBOARD ---------------- */}
         {activeTab === "dashboard" && perms.dashboard && (
-          <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
+          <div className="flex flex-col gap-4 xl:h-full xl:min-h-0">
             <PageHeader
               icon={<LayoutGrid className="w-5 h-5 text-purple-600" />}
               title="Executive CRM Dashboard"
@@ -1805,7 +1805,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               )}
             </PageHeader>
 
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
               <Kpi label="Total Leads" value={leads.length} sub="All sources" icon={<Users className="w-4 h-4 text-blue-600" />} />
               <Kpi
                 label="Revenue"
@@ -1828,13 +1828,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 icon={<CheckCircle2 className="w-4 h-4 text-purple-600" />}
                 valueClass="text-purple-600"
               />
-              <Kpi className="col-span-2 lg:col-span-1" label="Closed Leads" value={closedCount} sub={`${conversion}% conversion`} icon={<CheckCircle2 className="w-4 h-4 text-teal-600" />} valueClass="text-teal-600" />
+              <Kpi className="col-span-2 md:col-span-1" label="Closed Leads" value={closedCount} sub={`${conversion}% conversion`} icon={<CheckCircle2 className="w-4 h-4 text-teal-600" />} valueClass="text-teal-600" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 lg:flex-1 lg:min-h-0">
-              <div className={`${card} p-5 flex flex-col lg:min-h-0 lg:col-span-5 xl:col-span-6`}>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 xl:flex-1 xl:min-h-0">
+              <div className={`${card} p-5 flex flex-col xl:min-h-0 lg:col-span-12 xl:col-span-6`}>
                 <CardTitle icon={<Layers className="w-4 h-4 text-blue-600" />} title="Latest inbound leads" badge={leads.length} />
-                <div className="pt-4 space-y-2.5 overflow-y-auto max-h-[60vh] lg:max-h-none lg:flex-1 lg:min-h-0 pr-1">
+                <div className="pt-4 space-y-2.5 overflow-y-auto max-h-[60vh] xl:max-h-none xl:flex-1 xl:min-h-0 pr-1">
                   {latestLeads.length ? (
                     latestLeads.map((l) => (
                       <button
@@ -1866,9 +1866,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 </div>
               </div>
 
-              <div className={`${card} p-5 flex flex-col lg:min-h-0 lg:col-span-3`}>
+              <div className={`${card} p-5 flex flex-col xl:min-h-0 lg:col-span-6 xl:col-span-3`}>
                 <CardTitle icon={<Clock className="w-4 h-4 text-purple-600" />} title="Lead pipeline by status" />
-                <div className="pt-4 space-y-3 overflow-y-auto lg:flex-1 lg:min-h-0">
+                <div className="pt-4 space-y-3 overflow-y-auto xl:flex-1 xl:min-h-0">
                   {LEAD_STATUSES.map((s) => {
                     const n = countBy(leads, "leadStatus", s);
                     const pct = leads.length ? Math.round((n / leads.length) * 100) : 0;
@@ -1888,9 +1888,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   })}
                 </div>
               </div>
-              <div className={`${card} p-5 flex flex-col lg:min-h-0 lg:col-span-4 xl:col-span-3`}>
+              <div className={`${card} p-5 flex flex-col xl:min-h-0 lg:col-span-6 xl:col-span-3`}>
                 <CardTitle icon={<Globe className="w-4 h-4 text-cyan-600" />} title="Source-wise lead reporting" right={<span className="text-[13px] text-slate-600">{leads.length} total</span>} />
-                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3 pt-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto content-start">
+                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3 pt-4 xl:flex-1 xl:min-h-0 xl:overflow-y-auto content-start">
                   {[
                     { label: "Website Inbound", n: websiteInbound, icon: <Globe className="w-4 h-4" />, tint: "bg-blue-500/10 text-blue-600", tab: "leads" as TabId, show: perms.leads },
                     { label: "Manual Entry", n: manualCount, icon: <Users className="w-4 h-4" />, tint: "bg-amber-500/10 text-amber-600", tab: "leads" as TabId, show: perms.leads },
@@ -1937,9 +1937,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           const setDraft = isMeta ? setMetaDraft : setLeadsDraft;
           const closers = Array.from(new Set([...all.map((l) => l.closedBy).filter(Boolean), ...users.map((u) => u.name).filter(Boolean)])).sort();
           const filterSelect = (label: string, key: keyof LeadFilter, allLabel: string, options: string[], width = "w-40") => (
-            <label className="flex items-center gap-1.5">
-              <span className="text-[12px] text-slate-500 whitespace-nowrap">{label}:</span>
-              <select value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} className={`${filterCtl} ${width}`}>
+            <label className="flex w-full items-center gap-1.5 sm:w-auto">
+              <span className="w-24 shrink-0 text-[12px] text-slate-500 whitespace-nowrap sm:w-auto">{label}:</span>
+              <select value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} className={`${filterCtl} min-w-0 flex-1 sm:flex-none ${width}`}>
                 <option value="All">{allLabel}</option>
                 {options.map((o) => (
                   <option key={o} value={o}>
@@ -2010,7 +2010,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     />
                   </div>
                   <div className="flex gap-2 sm:ml-auto">
-                    <button onClick={() => setFilter(draft)} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold">
+                    <button onClick={() => setFilter(draft)} className="inline-flex flex-1 items-center justify-center gap-1.5 h-9 px-4 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold sm:flex-none">
                       <Filter className="w-4 h-4" /> Apply Filter
                     </button>
                     <button
@@ -2019,7 +2019,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         setDraft(blankLeadFilter());
                         setFilter(blankLeadFilter());
                       }}
-                      className={btnGhost}
+                      className={`${btnGhost} flex-1 sm:flex-none`}
                     >
                       <RotateCcw className="w-4 h-4" /> Clear Filter
                     </button>
@@ -2033,19 +2033,19 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   {filterSelect("Project Status", "projectStatus", "All Project Statuses", PROJECT_STATUSES, "w-44")}
                   {filterSelect("Video Type", "videoType", "All Video Types", [...VIDEO_TYPE_FILTERS.map((v) => v.label), "Other"], "w-40")}
                   {filterSelect("Closed By", "closedBy", "All Admins", closers, "w-40")}
-                  <div className="flex items-center gap-2">
+                  <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                     <select
                       value={draft.dateField}
                       onChange={(e) => setDraft({ ...draft, dateField: e.target.value as LeadFilter["dateField"] })}
-                      className={`${filterCtl} w-36`}
+                      className={`${filterCtl} w-full sm:w-36`}
                     >
                       <option value="created">Created Date</option>
                       <option value="closed">Closed Date</option>
                       <option value="delivery">Delivery Date</option>
                     </select>
-                    <input type="date" value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} className={`${filterCtl} w-40`} />
+                    <input type="date" value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} className={`${filterCtl} min-w-0 flex-1 sm:w-40 sm:flex-none`} />
                     <span className="text-[12px] text-slate-500">to</span>
-                    <input type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => setDraft({ ...draft, to: e.target.value })} className={`${filterCtl} w-40`} />
+                    <input type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => setDraft({ ...draft, to: e.target.value })} className={`${filterCtl} min-w-0 flex-1 sm:w-40 sm:flex-none`} />
                   </div>
                   {(isFilterActive(filter) || search) && (
                     <span className="text-[12px] font-medium text-blue-600">
@@ -2240,7 +2240,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         })}
 
         {/* ---------------- COUPONS ---------------- */}
-        {activeTab === "coupons" && isSuperAdmin && perms.coupons && (
+        {activeTab === "coupons" && perms.coupons && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
             <PageHeader
               icon={<Tag className="w-5 h-5 text-purple-600" />}
@@ -2536,7 +2536,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                   </button>
                                 </>
                               )}
-                              {isSuperAdmin && (
+                              {perms.coupons && (
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteCoupon(coupon)}
@@ -2885,7 +2885,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-semibold text-slate-900 text-[13px]">{a.title}</span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">{a.category}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono">{a.actorEmail}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono">
+                            {a.actorName ? `${a.actorName} (${a.actorEmail})` : a.actorEmail}
+                          </span>
                         </div>
                         <div className="text-[13px] text-slate-600 mt-1">{a.description}</div>
                       </div>
@@ -3139,19 +3141,21 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                             <div className="text-[11px] text-slate-500">{row.location}</div>
                           </td>
                           <td className="p-3 text-emerald-600 font-semibold">
-                            {row.key === "delete_leads" ? "Permanent delete" : row.locked === "always" ? "Always allowed" : "Allowed"}
+                            {row.key === "delete_leads" ? "Permanent delete" : row.locked === "always" || row.locked === "admin_always" ? "Always allowed" : "Allowed"}
                           </td>
                           {(["ADMIN", "LEADS_MANAGER"] as ManagedRole[]).map((role) => {
                             const allowed = matrixDraft[row.key][role];
-                            if (row.locked) {
+                            // "admin_always": Admin is fixed on; Leads Manager stays switchable.
+                            const lockedHere = row.locked === "admin_always" ? (role === "ADMIN" ? "always" : false) : row.locked;
+                            if (lockedHere) {
                               return (
                                 <td key={role} className="p-3">
                                   <span
                                     className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold border ${
-                                      row.locked === "always" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
+                                      lockedHere === "always" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
                                     }`}
                                   >
-                                    <Lock className="w-3 h-3" /> {row.locked === "always" ? "Always allowed" : "Super Admin only"}
+                                    <Lock className="w-3 h-3" /> {lockedHere === "always" ? "Always allowed" : "Super Admin only"}
                                   </span>
                                 </td>
                               );

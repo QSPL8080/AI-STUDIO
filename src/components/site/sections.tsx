@@ -1382,16 +1382,16 @@ export function Samples() {
 
                       return (
                         <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5 backdrop-blur-sm">
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                             <p className="text-xs font-bold uppercase tracking-wider text-neon sm:text-sm">
                               ✦ What's Included in This Package:
                             </p>
-                            <span className="text-[11px] font-semibold text-muted-foreground">
+                            <span className="shrink-0 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                               {matchedDeliverable.items.length} Deliverables
                             </span>
                           </div>
 
-                          <ul className="mt-3.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs sm:text-sm text-foreground/85">
+                          <ul className="mt-3.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 text-xs sm:text-sm text-foreground/85">
                             {matchedDeliverable.items.map((point) => (
                               <li key={point} className="flex items-center gap-2.5">
                                 <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neon/20 text-[10px] font-extrabold text-neon shadow-[0_0_8px_rgba(200,80,255,0.4)]">
@@ -2105,13 +2105,14 @@ export function Pricing() {
         ref={tableRef}
         className="relative rounded-2xl border border-white/10 bg-[#0d091a]/95 p-1 shadow-2xl backdrop-blur-xl transition-all duration-300 hover:border-neon/40"
       >
-        <div className="overflow-x-auto md:overflow-x-visible">
+        {/* Scrolls sideways on phones / tablets; the service name stays pinned on the left. */}
+        <div className="overflow-x-auto overscroll-x-contain rounded-2xl lg:overflow-x-visible">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                <th className="px-5 py-4 sm:px-6">Service</th>
+                <th className="sticky left-0 z-10 bg-[#110c20] px-4 py-4 sm:px-5 lg:static lg:bg-transparent lg:px-6">Service</th>
                 {INDIA_PACKS.map((p, i) => (
-                  <th key={p.qty} className={`px-5 py-4 align-top sm:px-6 ${i === 0 ? "text-neon" : ""}`}>
+                  <th key={p.qty} className={`px-3 py-4 align-top sm:px-4 lg:px-6 ${i === 0 ? "text-neon" : ""}`}>
                     <span className="whitespace-nowrap">{p.label}</span>
                     <span className="mt-1 flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold normal-case tracking-normal text-white/60">
                       <Clock className="h-3 w-3 shrink-0 text-neon/80" />
@@ -2119,7 +2120,7 @@ export function Pricing() {
                     </span>
                   </th>
                 ))}
-                <th className="px-5 py-4 text-right sm:px-6">
+                <th className="px-3 py-4 text-right sm:px-4 lg:px-6">
                   <span className="sr-only">Buy</span>
                 </th>
               </tr>
@@ -2134,7 +2135,7 @@ export function Pricing() {
                     style={{ animationDelay: `${idx * 0.1}s` }}
                     className={`transition-all duration-300 hover:bg-white/[0.04] ${animationClass}`}
                   >
-                    <td className="px-5 py-4 font-bold text-white sm:px-6">
+                    <td className="sticky left-0 z-10 bg-[#0d091a] px-4 py-4 font-bold text-white shadow-[6px_0_12px_-8px_rgba(0,0,0,0.9)] sm:px-5 lg:static lg:bg-transparent lg:px-6 lg:shadow-none">
                       <div className="flex items-center gap-2">
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-neon/70" />
                         <span className="whitespace-nowrap">{row.service}</span>
@@ -2145,8 +2146,8 @@ export function Pricing() {
                         key={item.discounted + i}
                         className={
                           i === 0
-                            ? "px-5 py-3.5 font-extrabold text-neon tracking-wide whitespace-nowrap sm:px-6"
-                            : "px-5 py-3.5 whitespace-nowrap sm:px-6"
+                            ? "px-3 py-3.5 font-extrabold text-neon tracking-wide whitespace-nowrap sm:px-4 lg:px-6"
+                            : "px-3 py-3.5 whitespace-nowrap sm:px-4 lg:px-6"
                         }
                       >
                         <div className="flex flex-col items-start gap-1">
@@ -2177,7 +2178,7 @@ export function Pricing() {
                         </div>
                       </td>
                     ))}
-                    <td className="px-5 py-3.5 text-right sm:px-6">
+                    <td className="px-3 py-3.5 text-right sm:px-4 lg:px-6">
                       <BuyNowButton serviceId={row.serviceId} size="xs" />
                     </td>
                   </tr>
@@ -2187,6 +2188,9 @@ export function Pricing() {
           </table>
         </div>
       </div>
+      <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-white/45 lg:hidden">
+        Swipe the table sideways to see all packages <span aria-hidden="true">→</span>
+      </p>
       <div className="mx-auto mt-10 max-w-3xl text-center">
         <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
           Our AI video production packages are designed for businesses looking for individual
@@ -2973,10 +2977,11 @@ export function LeadFormSection() {
                 >
                   Approximate Budget
                 </label>
+                <div className="relative mt-1.5">
                 <select
                   id="contactBudget"
                   name="budget"
-                  className="mt-1.5 w-full rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground focus:border-neon focus:outline-none"
+                  className="w-full appearance-none rounded-lg border border-border bg-secondary/40 px-3.5 py-2.5 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer"
                 >
                   <option value="">Select budget</option>
                   <option value="₹2,000 - ₹5,000">₹2,000 - ₹5,000</option>
@@ -2985,6 +2990,8 @@ export function LeadFormSection() {
                   <option value="₹35,000 - ₹75,000">₹35,000 - ₹75,000</option>
                   <option value="₹75,000+">₹75,000+</option>
                 </select>
+                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
+                </div>
               </div>
             </div>
 
@@ -3420,7 +3427,7 @@ export function Footer() {
         </div>
 
         {/* Bottom Legal & Copyright Bar */}
-        <div className="flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-4 pb-2 text-center text-xs text-muted-foreground sm:flex-row">
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-4 pb-24 text-center text-xs text-muted-foreground sm:flex-row sm:pb-20 lg:pb-2">
           <p>{footerCopyright}</p>
           <div className="flex items-center gap-4">
             <a href="/privacy-policy" className="hover:text-neon transition-colors">

@@ -102,6 +102,8 @@ export async function getPool() {
       connectionTimeoutMillis: 10000,
       ssl: isRemoteDb ? { rejectUnauthorized: false } : undefined,
     });
+    // A dropped idle connection must not crash the whole server.
+    pgPool.on("error", (err: unknown) => console.error("PostgreSQL pool error (connection will be replaced):", err));
   }
   return pgPool;
 }

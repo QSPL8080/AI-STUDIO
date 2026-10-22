@@ -329,6 +329,14 @@
   color: #ffffff;
   backdrop-filter: blur(8px);
   transition: all 0.3s ease;
+  max-width: 100%;
+  /* Small phones: tighter so long labels stay on one line. */
+  @media (max-width: 430px) {
+    gap: 0.45rem;
+    padding: 0.38rem 0.85rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+  }
   &:hover {
     border-color: var(--neon);
     box-shadow:
