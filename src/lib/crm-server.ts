@@ -115,10 +115,20 @@ export async function getDynamicUserResolver(): Promise<UserResolver> {
   const byEmail = new Map<string, string>();
   const byLowerName = new Map<string, string>();
 
+  // Identify the admin user (seed admin test@aistudio.in or the first active ADMIN)
+  const adminUser =
+    userRows.find((u) => normalizeEmail(u.email) === "test@aistudio.in") ||
+    userRows.find((u) => u.role === "ADMIN");
+
   for (const u of userRows) {
     if (u.id && u.name) byId.set(u.id, u.name);
     if (u.email && u.name) byEmail.set(normalizeEmail(u.email), u.name);
     if (u.name) byLowerName.set(u.name.toLowerCase().trim(), u.name);
+  }
+
+  // Alias legacy placeholder / seed names to the real current admin:
+  if (adminUser && adminUser.name && adminUser.name.toLowerCase().trim() !== "test admin") {
+    byLowerName.set("test admin", adminUser.name);
   }
 
   return (val?: string | null): string => {
@@ -805,6 +815,7 @@ const PROJECT_STATUSES = ["Not Started", "In Progress", "Proj Active", "On Hold"
 export type UpdateLeadPatch = {
   leadStatus?: string;
   projectStatus?: string;
+  handledBy?: string;
   closedBy?: string;
   clientName?: string;
   business?: string;
@@ -829,10 +840,29 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
   const row = await getLeadRow(id);
   assertLeadAccess(ctx, row);
   if (row.deleted_at) throw new Error("Restore this lead from the Recycle Bin before editing it.");
+
+  let allUsers: CrmUserRow[] = [];
+  try {
+    allUsers = await dbSelect<CrmUserRow>("crm_users");
+  } catch {
+    // ignore
+  }
+  const findUserIdByName = (name?: string | null) => {
+    if (!name) return null;
+    const clean = name.trim().toLowerCase();
+    const found = allUsers.find((u) => u.name && u.name.trim().toLowerCase() === clean);
+    return found?.id || null;
+  };
+
+  const targetHandledBy = patch.handledBy !== undefined && patch.handledBy.trim()
+    ? patch.handledBy.trim()
+    : (row.handled_by || ctx.user.name);
+  const targetHandledById = findUserIdByName(targetHandledBy) || (targetHandledBy === ctx.user.name ? ctx.user.id : row.handled_by_id) || null;
+
   const update: Record<string, unknown> = {};
   const extra: Record<string, unknown> = {
-    handled_by: ctx.user.name,
-    handled_by_id: ctx.user.id,
+    handled_by: targetHandledBy,
+    handled_by_id: targetHandledById,
   };
   const now = new Date().toISOString();
   const t = (v: unknown, max = 255) => String(v ?? "").trim().slice(0, max);
@@ -894,10 +924,10 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
   // Closed: remember WHO closed it and when. The person who changes the status to Closed is
   // recorded (website, manual and Meta leads alike); an already closed lead keeps its closer.
   if (effectiveLeadStatus === "Closed") {
-    const finalClosedBy = wasClosed ? patch.closedBy?.trim() || row.closed_by || existingExtra.closedBy || ctx.user.name : ctx.user.name;
-    const finalClosedById = wasClosed
-      ? (patch.closedBy?.trim() === ctx.user.name ? ctx.user.id : (row.closed_by_id || existingExtra.closedById || ctx.user.id))
-      : ctx.user.id;
+    const finalClosedBy = patch.closedBy !== undefined && patch.closedBy.trim()
+      ? patch.closedBy.trim()
+      : (wasClosed ? (row.closed_by || existingExtra.closedBy || ctx.user.name) : ctx.user.name);
+    const finalClosedById = findUserIdByName(finalClosedBy) || (finalClosedBy === ctx.user.name ? ctx.user.id : (row.closed_by_id || existingExtra.closedById || ctx.user.id));
     const finalClosedAt = (wasClosed && (row.closed_at || existingExtra.closedAt)) || now;
     extra.closed_by = finalClosedBy;
     extra.closed_by_id = finalClosedById;

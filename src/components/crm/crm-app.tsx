@@ -304,6 +304,7 @@ const blankLeadForm = (source: string) => ({
   quantity: "1 Video",
   leadStatus: "New",
   projectStatus: "Not Started",
+  handledBy: "",
   closedBy: "",
   deliveryDate: "",
   notes: "",
@@ -456,6 +457,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       quantity: l.videoQuantity || "1 Video",
       leadStatus: l.leadStatus || "New",
       projectStatus: l.projectStatus || "Not Started",
+      handledBy: l.handledBy || me.name || "Admin",
       closedBy: l.closedBy || (l.leadStatus === "Closed" ? (me.name || "Admin") : ""),
       deliveryDate: l.deliveryTarget || "",
       notes: l.notes || "",
@@ -897,6 +899,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     }
     setBusy("edit-lead");
     const currentUserName = me.name || "Admin";
+    const finalHandledBy = f.handledBy?.trim() || editingLead.handledBy || currentUserName;
     const finalClosedBy = f.leadStatus === "Closed" ? (f.closedBy?.trim() || editingLead.closedBy || currentUserName) : "";
     const nowIso = new Date().toISOString();
     const optimisticLead: Partial<LeadItem> = {
@@ -918,6 +921,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       campaign: f.campaign,
       adSet: f.adSet,
       formName: f.formName,
+      handledBy: finalHandledBy,
       closedBy: finalClosedBy,
       closedAt: f.leadStatus === "Closed" ? (editingLead.closedAt || nowIso) : null,
       deliveredAt: f.projectStatus === "Delivered" ? (editingLead.deliveredAt || nowIso) : null,
@@ -931,6 +935,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           token: tok(),
           id: editingLead.id,
           ...f,
+          handledBy: finalHandledBy,
           closedBy: finalClosedBy,
         },
       })
@@ -3642,6 +3647,37 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </Field>
               <Field label="Delivery Target Date">
                 <input type="date" value={editLeadForm.deliveryDate} onChange={(e) => setEditLeadForm({ ...editLeadForm, deliveryDate: e.target.value })} className={`${inputCls} [color-scheme:light]`} />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <Field label="Handled By / Assigned To" hint="Select an admin or type a name">
+                <input
+                  list="handled-by-options"
+                  value={editLeadForm.handledBy}
+                  onChange={(e) => setEditLeadForm({ ...editLeadForm, handledBy: e.target.value })}
+                  placeholder={me.name || "Admin"}
+                  className={inputCls}
+                />
+                <datalist id="handled-by-options">
+                  {Array.from(new Set([...users.map((u) => u.name), me.name].filter(Boolean))).map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </Field>
+              <Field label="Closed By" hint={editLeadForm.leadStatus === "Closed" ? "Select who closed this lead" : "Optional / auto"}>
+                <input
+                  list="closed-by-options"
+                  value={editLeadForm.closedBy}
+                  onChange={(e) => setEditLeadForm({ ...editLeadForm, closedBy: e.target.value })}
+                  placeholder={editLeadForm.leadStatus === "Closed" ? (me.name || "Admin") : "Not closed"}
+                  className={inputCls}
+                />
+                <datalist id="closed-by-options">
+                  {Array.from(new Set([...users.map((u) => u.name), me.name].filter(Boolean))).map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
               </Field>
             </div>
 
