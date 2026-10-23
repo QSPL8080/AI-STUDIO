@@ -107,6 +107,21 @@ function paymentLines(status: string, deal: number, paid: number, payRecv = fals
     status !== "Not Paid" && balRecv ? "Balance received: yes" : "",
   ].filter(Boolean);
 }
+/** Money received / still due on a lead's recorded payment (same rules as the CRM screen). */
+function leadPaymentTotals(r: any) {
+  const { extra } = splitAdditional(r?.additional || "");
+  const deal = money(extra.dealAmount);
+  const paid = money(extra.amountPaid);
+  const pr = yes(extra.paymentReceived);
+  const br = yes(extra.balanceReceived);
+  const status = paymentStatusFor(String(extra.paymentStatus || ""), deal, paid, pr, br);
+  const received =
+    status === "Full Paid" ? (pr || br ? deal || paid : 0) : status === "Partially Paid" ? (pr ? paid : 0) + (br ? Math.max(0, deal - paid) : 0) : 0;
+  const counted = status === "Partially Paid" || status === "Full Paid";
+  const due = counted ? Math.max(0, deal - received) : 0;
+  return { received, due, counted };
+}
+
 /** Refuses payment details that don't add up (returns the message, or ""). */
 function paymentProblem(status: string, deal: number, paid: number) {
   if (status === "Partially Paid" || status === "Full Paid") {
@@ -625,6 +640,11 @@ export async function sync(token: string, ordersPin?: string) {
       const cur = o.currency || "USD";
       revenueByCurrency[cur] = (revenueByCurrency[cur] || 0) + paymentSummary(o).paidTotal;
     }
+    // Payments recorded on leads (manual entries) are added to the revenue as well.
+    // …and counted as orders (Partially Paid / Full Paid leads).
+    const leadPays = allLeadRows.filter((r) => !r.deleted_at).map(leadPaymentTotals).filter((x) => x.counted);
+    const leadRevenue = leadPays.reduce((t, x) => t + x.received, 0);
+    if (leadRevenue > 0) revenueByCurrency["INR"] = (revenueByCurrency["INR"] || 0) + leadRevenue;
     counts = {
       activeLeads: allLeadRows.filter((r) => !r.deleted_at).length,
       websiteLeads: allLeadRows.filter((r) => !r.deleted_at && !isMetaRow(r)).length,
@@ -632,10 +652,12 @@ export async function sync(token: string, ordersPin?: string) {
       recycleBin: allLeadRows.filter((r) => r.deleted_at).length,
       totalCoupons: coupons.length,
       activeCoupons: coupons.filter((c) => c.active).length,
-      totalOrders: orderRows.length,
+      totalOrders: orderRows.length + leadPays.length,
       // "Pending" = paid 50% advance with a balance still due.
-      pendingOrders: orderRows.filter((o) => o.payment_status === "COMPLETED" && paymentSummary(o).plan === "advance" && paymentSummary(o).balanceDue > 0).length,
-      completedOrders: completed.length,
+      pendingOrders:
+        orderRows.filter((o) => o.payment_status === "COMPLETED" && paymentSummary(o).plan === "advance" && paymentSummary(o).balanceDue > 0).length +
+        leadPays.filter((x) => x.due > 0).length,
+      completedOrders: completed.length + leadPays.length,
       failedOrders: orderRows.filter((o) => o.payment_status === "FAILED" || o.payment_status === "CANCELLED").length,
       revenueByCurrency,
       userAccounts: userRows.length,

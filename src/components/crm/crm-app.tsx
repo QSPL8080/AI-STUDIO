@@ -1629,10 +1629,36 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const manualCount = websiteLeads.filter((l) => l.source === "Manual Entry").length;
   const websiteInbound = websiteLeads.length - manualCount;
   const completedOrders = (orders || []).filter((o) => o.paymentStatus === "COMPLETED");
-  const revenueByCur = completedOrders.reduce<Record<string, number>>((acc, o) => {
-    acc[o.currency] = (acc[o.currency] || 0) + (o.paidTotal || o.amount);
-    return acc;
-  }, {});
+  // Payments recorded on leads (manual entry / edit): received amounts count as revenue,
+  // amounts still due count towards Balance Pending.
+  const leadPay = useMemo(
+    () =>
+      leads.reduce(
+        (t, l) => {
+          if (l.deletedAt || (l.paymentStatus !== "Partially Paid" && l.paymentStatus !== "Full Paid")) return t;
+          const r = leadReceived(l);
+          return {
+            received: t.received + r.received,
+            due: t.due + r.due,
+            count: t.count + 1,
+            full: t.full + (r.due <= 0 && r.received > 0 ? 1 : 0),
+            partial: t.partial + (r.due > 0 ? 1 : 0),
+          };
+        },
+        { received: 0, due: 0, count: 0, full: 0, partial: 0 },
+      ),
+    [leads],
+  );
+  const revenueByCur = completedOrders.reduce<Record<string, number>>(
+    (acc, o) => {
+      acc[o.currency] = (acc[o.currency] || 0) + (o.paidTotal || o.amount);
+      return acc;
+    },
+    leadPay.received > 0 ? { INR: leadPay.received } : {},
+  );
+  const ordersBalanceDue = (orders || [])
+    .filter((o) => o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED")
+    .reduce((t, o) => t + (o.balanceDue || 0), 0);
 
   const shownWebsite = applyLeadFilter(websiteLeads, leadsSearch, leadsFilter, resolveUser);
   const shownMeta = applyLeadFilter(metaLeads, metaSearch, metaFilter, resolveUser);
@@ -1999,7 +2025,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               <Kpi
                 label="Revenue"
                 value={orders ? revenueText(revenueByCur) : perms.orders ? "Locked" : "—"}
-                sub={orders ? `${completedOrders.length} paid orders` : perms.orders ? "Unlock in Orders tab" : "No access"}
+                sub={
+                  orders
+                    ? `${completedOrders.length + leadPay.count} paid orders${leadPay.count ? ` (incl. ${leadPay.count} from leads)` : ""}`
+                    : perms.orders
+                      ? "Unlock in Orders tab"
+                      : "No access"
+                }
                 icon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
                 valueClass="text-emerald-600"
               />
@@ -2802,16 +2834,40 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             </PageHeader>
 
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-              <Kpi label="Total Orders" value={orders.length} icon={<Package className="w-4 h-4 text-purple-600" />} />
+              <Kpi
+                label="Total Orders"
+                value={orders.length + leadPay.count}
+                {...(leadPay.count ? { sub: `incl. ${leadPay.count} from leads` } : {})}
+                icon={<Package className="w-4 h-4 text-purple-600" />}
+              />
               <Kpi
                 label="Balance Pending"
-                value={fmtMoney(orders.filter((o) => o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED").reduce((t, o) => t + (o.balanceDue || 0), 0), "INR")}
+                value={fmtMoney(ordersBalanceDue + leadPay.due, "INR")}
+                {...(leadPay.due > 0 ? { sub: `incl. ${fmtMoney(leadPay.due, "INR")} from leads` } : {})}
                 icon={<Clock className="w-4 h-4 text-orange-600" />}
                 valueClass="text-orange-600"
               />
-              <Kpi label="Revenue (paid)" value={revenueText(revenueByCur)} icon={<TrendingUp className="w-4 h-4 text-emerald-600" />} valueClass="text-emerald-600" />
-              <Kpi label="Fully Paid" value={completedOrders.filter((o) => !isPartlyPaid(o)).length} icon={<CheckCircle2 className="w-4 h-4 text-cyan-600" />} valueClass="text-cyan-600" />
-              <Kpi label="Partially Paid" value={orders.filter(isPartlyPaid).length} icon={<Clock className="w-4 h-4 text-amber-600" />} valueClass="text-amber-600" />
+              <Kpi
+                label="Revenue (paid)"
+                value={revenueText(revenueByCur)}
+                {...(leadPay.received > 0 ? { sub: `incl. ${fmtMoney(leadPay.received, "INR")} from leads` } : {})}
+                icon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
+                valueClass="text-emerald-600"
+              />
+              <Kpi
+                label="Fully Paid"
+                value={completedOrders.filter((o) => !isPartlyPaid(o)).length + leadPay.full}
+                {...(leadPay.full ? { sub: `incl. ${leadPay.full} from leads` } : {})}
+                icon={<CheckCircle2 className="w-4 h-4 text-cyan-600" />}
+                valueClass="text-cyan-600"
+              />
+              <Kpi
+                label="Partially Paid"
+                value={orders.filter(isPartlyPaid).length + leadPay.partial}
+                {...(leadPay.partial ? { sub: `incl. ${leadPay.partial} from leads` } : {})}
+                icon={<Clock className="w-4 h-4 text-amber-600" />}
+                valueClass="text-amber-600"
+              />
             </div>
 
             <div className={`${card} p-4 flex flex-col sm:flex-row gap-2`}>
@@ -3418,7 +3474,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     <RecordCard label="Active leads" value={counts.activeLeads} sub={`${counts.websiteLeads} website • ${counts.metaLeads} Meta`} />
                     <RecordCard label="Recycle Bin" value={counts.recycleBin} sub="Soft-deleted leads" />
                     <RecordCard label="Total orders" value={counts.totalOrders} sub={`${counts.completedOrders} paid • ${counts.pendingOrders} with balance pending`} />
-                    <RecordCard label="Total revenue" value={revenueText(counts.revenueByCurrency)} sub="Completed payments" valueClass="text-emerald-600" />
+                    <RecordCard label="Total revenue" value={revenueText(counts.revenueByCurrency)} sub="Paid orders + lead payments received" valueClass="text-emerald-600" />
                     <RecordCard label="User accounts" value={counts.userAccounts} sub={`${counts.activeUsers} active • ${counts.inactiveUsers} deactivated`} />
                     <RecordCard label="Activity logs" value={counts.activityLogs} sub="Audit history entries" />
                   </div>
