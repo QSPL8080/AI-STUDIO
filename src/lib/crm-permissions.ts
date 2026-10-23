@@ -149,7 +149,7 @@ export const DEFAULT_CONFIG: CrmConfig = {
 };
 
 export function normalizeConfig(input: unknown): CrmConfig {
-  const src = (input && typeof input === "object" ? input : {}) as Record<string, any>;
+  const src = (input && typeof input === "object" ? input : {}) as Partial<Record<keyof CrmConfig, any>>;
   const pick = <T,>(v: unknown, allowed: T[], fallback: T): T => (allowed.includes(v as T) ? (v as T) : fallback);
   return {
     crmTitle: typeof src.crmTitle === "string" && src.crmTitle.trim() ? src.crmTitle.trim().slice(0, 120) : DEFAULT_CONFIG.crmTitle,

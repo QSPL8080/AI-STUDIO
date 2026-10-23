@@ -149,7 +149,7 @@ export const crmUpdateUserFn = createServerFn({ method: "POST" })
         email: string;
         role?: CrmRole;
         status?: "ACTIVE" | "INACTIVE";
-        password?: string;
+        password?: string | undefined;
       },
     ) => d,
   )
@@ -327,4 +327,11 @@ export const crmDeleteLeadFileFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const s = await srv();
     return s.guard(() => s.deleteLeadFile(data.token, data.fileId));
+  });
+
+export const crmCancelLeadFileFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { fileId: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.cancelLeadFile(data.token, data.fileId));
   });

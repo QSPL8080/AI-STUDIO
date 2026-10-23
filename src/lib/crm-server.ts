@@ -98,7 +98,7 @@ function paymentStatusFor(status: string, deal: number, paid: number, payRecv = 
   return deal > 0 ? "Not Paid" : "";
 }
 function paymentLines(status: string, deal: number, paid: number, payRecv = false, balRecv = false) {
-  if (!status && !deal && !paid) return [];
+  if (!deal && !paid && (!status || status === "Not Paid")) return [];
   return [
     status ? `Payment status: ${status}` : "",
     deal ? `Deal amount: ${deal}` : "",
@@ -107,14 +107,26 @@ function paymentLines(status: string, deal: number, paid: number, payRecv = fals
     status !== "Not Paid" && balRecv ? "Balance received: yes" : "",
   ].filter(Boolean);
 }
+/** Refuses payment details that don't add up (returns the message, or ""). */
+function paymentProblem(status: string, deal: number, paid: number) {
+  if (status === "Partially Paid" || status === "Full Paid") {
+    if (!deal) return "Enter the total deal amount for the payment.";
+  }
+  if (status === "Partially Paid") {
+    if (!paid) return "Enter the amount paid for a Partially Paid lead.";
+    if (paid >= deal) return "Amount paid must be less than the total deal amount — choose Full Paid instead.";
+  }
+  return "";
+}
 /** Full Paid means the whole deal amount; Not Paid means nothing received. */
 function normalizePayment(status: string, deal: number, paid: number, payRecv: boolean, balRecv: boolean) {
   if (status === "Not Paid") return { status, deal, paid: 0, payRecv: false, balRecv: false };
   if (status === "Full Paid" && !balRecv && deal > 0) return { status, deal, paid: deal, payRecv, balRecv: false };
   return { status, deal, paid, payRecv, balRecv };
 }
-function splitAdditional(additional: string) {
-  const extra: Record<string, string> = {
+type ExtraFieldValues = Record<keyof typeof EXTRA_FIELDS, string>;
+function splitAdditional(additional: string): { extra: ExtraFieldValues; rest: string } {
+  const extra: ExtraFieldValues = {
     website: "",
     quantity: "",
     deliveryTarget: "",
@@ -396,7 +408,7 @@ function assertLeadAccess(ctx: SessionContext, row: any) {
 }
 
 function paymentsPin() {
-  return process.env.ADMIN_PAYMENT_PIN || process.env.CRM_PAYMENTS_PIN || "Admin@8080";
+  return process.env["ADMIN_PAYMENT_PIN"] || process.env["CRM_PAYMENTS_PIN"] || "Admin@8080";
 }
 
 // ---------------------------------------------------------------------------
@@ -441,7 +453,7 @@ export function buildFailedLoginEmail(user: CrmUserRow, f: FailureInfo, threshol
       : `${user.name} reached ${threshold} failed sign-in attempts and the account has been locked automatically.`,
     accent: "#b91c1c",
     rows,
-    buttons: [{ label: "Open User Management", href: `${(process.env.PUBLIC_SITE_URL || "https://quickuppaistudio.in").replace(/\/+$/, "")}/crm`, color: "#111827" }],
+    buttons: [{ label: "Open User Management", href: `${(process.env["PUBLIC_SITE_URL"] || "https://quickuppaistudio.in").replace(/\/+$/, "")}/crm`, color: "#111827" }],
     note: "If this was not you or your team, deactivate the account in User Management. The Super Admin can unlock a locked account at any time.",
   });
   const text = ["AI STUDIO INDIA CRM - Security Alert", "", ...rows.map(([k, v]) => `${k}: ${v}`)].join("\n");
@@ -768,6 +780,17 @@ export async function createLead(
   const now = new Date().toISOString();
   const isClosed = leadStatus === "Closed";
   const isDelivered = projectStatus === "Delivered";
+  // Payment: checked BEFORE anything is saved, so a bad entry never creates a half-saved lead.
+  const newPay = (() => {
+    const deal = money(data.dealAmount);
+    const paid = money(data.amountPaid);
+    const pr = yes(data.paymentReceived);
+    const br = yes(data.balanceReceived);
+    const st = paymentStatusFor(t(data.paymentStatus, 40), deal, paid, pr, br);
+    const problem = paymentProblem(st === "Full Paid" && br ? "Full Paid" : st, deal, st === "Full Paid" ? deal : paid);
+    if (problem) throw new Error(problem);
+    return normalizePayment(st, deal, paid, pr, br);
+  })();
   const extras = [
     t(data.website) ? `Website: ${t(data.website)}` : "",
     t(data.quantity) ? `Video quantity: ${t(data.quantity)}` : "",
@@ -778,14 +801,7 @@ export async function createLead(
     isDelivered ? `Delivered on: ${now}` : "",
     isDelivered ? `Delivered by: ${ctx.user.name}` : "",
     isDelivered ? `Delivered by ID: ${ctx.user.id}` : "",
-    ...(() => {
-      const deal = money(data.dealAmount);
-      const pr = yes(data.paymentReceived);
-      const br = yes(data.balanceReceived);
-      const st = paymentStatusFor(t(data.paymentStatus, 40), deal, money(data.amountPaid), pr, br);
-      const n = normalizePayment(st, deal, money(data.amountPaid), pr, br);
-      return paymentLines(n.status, n.deal, n.paid, n.payRecv, n.balRecv);
-    })(),
+    ...paymentLines(newPay.status, newPay.deal, newPay.paid, newPay.payRecv, newPay.balRecv),
   ].filter(Boolean);
   const row = await dbInsertWithOptional(LEADS_TABLE, {
     id: newId("lead"),
@@ -927,8 +943,36 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
     : (row.handled_by || ctx.user.name);
   const targetHandledById = findUserIdByName(targetHandledBy) || (targetHandledBy === ctx.user.name ? ctx.user.id : row.handled_by_id) || null;
 
-  const update: Record<string, unknown> = {};
-  const extra: Record<string, unknown> = {
+  // Columns this update may change (typed, so a misspelt column name is caught).
+  type LeadUpdate = {
+    name?: string;
+    business?: string;
+    phone?: string;
+    email?: string | null;
+    video_type?: string;
+    industry?: string | null;
+    location?: string | null;
+    requirement?: string | null;
+    source?: string;
+    channel?: string;
+    campaign?: string | null;
+    ad_set?: string | null;
+    form_name?: string | null;
+    status?: string;
+    project_status?: string;
+    additional?: string | null;
+  };
+  // Optional columns (added later; the update still works on older databases without them).
+  type LeadOptionalUpdate = {
+    handled_by?: string | null;
+    handled_by_id?: string | null;
+    closed_by?: string | null;
+    closed_by_id?: string | null;
+    closed_at?: string | null;
+    delivered_at?: string | null;
+  };
+  const update: LeadUpdate = {};
+  const extra: LeadOptionalUpdate = {
     handled_by: targetHandledBy,
     handled_by_id: targetHandledById,
   };
@@ -1028,6 +1072,12 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
     const pr = patch.paymentReceived !== undefined ? yes(patch.paymentReceived) : yes(existingExtra.paymentReceived);
     const br = patch.balanceReceived !== undefined ? yes(patch.balanceReceived) : yes(existingExtra.balanceReceived);
     const st = paymentStatusFor(patch.paymentStatus !== undefined ? t(patch.paymentStatus, 40) : String(existingExtra.paymentStatus || ""), deal, paid, pr, br);
+    // Only checked when the payment itself is being edited (older entries aren't blocked).
+    const touched = [patch.paymentStatus, patch.dealAmount, patch.amountPaid, patch.paymentReceived, patch.balanceReceived].some((v) => v !== undefined);
+    if (touched) {
+      const problem = paymentProblem(st, deal, st === "Full Paid" ? deal : paid);
+      if (problem) throw new Error(problem);
+    }
     return normalizePayment(st, deal, paid, pr, br);
   })();
   const finalDeal = pay.deal;
@@ -1445,9 +1495,9 @@ export async function updateUser(
     userId: string;
     name: string;
     email: string;
-    role?: CrmRole;
-    password?: string;
-    status?: "ACTIVE" | "INACTIVE";
+    role?: CrmRole | undefined;
+    password?: string | undefined;
+    status?: "ACTIVE" | "INACTIVE" | undefined;
   },
 ) {
   const ctx = await requireSession(token);
@@ -1471,7 +1521,17 @@ export async function updateUser(
     }
   }
 
-  const patch: Record<string, unknown> = {
+  const patch: {
+    name: string;
+    email: string;
+    updated_at: string;
+    role?: string;
+    status?: string;
+    password_hash?: string;
+    token_version?: number;
+    failed_attempts?: number;
+    locked_until?: string | null;
+  } = {
     name,
     email,
     updated_at: new Date().toISOString(),
@@ -1704,7 +1764,7 @@ export async function getCoupons(token: string) {
 }
 
 /** Generates a single-use unique coupon code (e.g. 10%, 20%, 25%, or custom). */
-export async function createCoupon(token: string, input: { discountPercent: number; customCode?: string }) {
+export async function createCoupon(token: string, input: { discountPercent: number; customCode?: string | undefined }) {
   const ctx = await requireSession(token, "coupons");
   const pct = Math.round(Number(input.discountPercent));
   if (isNaN(pct) || pct <= 0 || pct > 100) {
@@ -2038,10 +2098,38 @@ async function leadFileWithAccess(ctx: SessionContext, fileId: string) {
   return f;
 }
 
+/** Removes uploads for this lead that were started but never finished (over 1 hour old). */
+async function removeStaleUploads(leadId: string) {
+  try {
+    const cutoff = Date.now() - 60 * 60 * 1000;
+    const rows = await dbSelect(LEAD_FILES, { columns: ["id", "complete", "created_at"], filters: [{ col: "lead_id", op: "eq", value: leadId }] });
+    const stale = rows
+      .filter((r: any) => !(r.complete === true || r.complete === "true") && new Date(r.created_at).getTime() < cutoff)
+      .map((r: any) => String(r.id));
+    if (stale.length) {
+      await dbDelete(LEAD_FILE_CHUNKS, [{ col: "file_id", op: "in", value: stale }]);
+      await dbDelete(LEAD_FILES, [{ col: "id", op: "in", value: stale }]);
+    }
+  } catch (e) {
+    if (!isMissingFilesTable(e)) console.error("Could not clean up unfinished uploads", e);
+  }
+}
+
+/** Cancels an upload that failed part-way (its record and any pieces are removed). */
+export async function cancelLeadFile(token: string, fileId: string) {
+  const ctx = await requireSession(token);
+  const f = await leadFileWithAccess(ctx, fileId);
+  if (f.complete === true || f.complete === "true") return { ok: true as const };
+  await dbDelete(LEAD_FILE_CHUNKS, [{ col: "file_id", op: "eq", value: f.id }]);
+  await dbDelete(LEAD_FILES, byId(f.id));
+  return { ok: true as const };
+}
+
 /** Files attached to a lead (finished uploads only). */
 export async function listLeadFiles(token: string, leadId: string) {
   const ctx = await requireSession(token);
   assertLeadAccess(ctx, await getLeadRow(leadId));
+  await removeStaleUploads(leadId);
   try {
     const rows = await dbSelect(LEAD_FILES, {
       columns: ["id", "lead_id", "file_name", "mime_type", "size_bytes", "uploaded_by", "created_at", "complete"],

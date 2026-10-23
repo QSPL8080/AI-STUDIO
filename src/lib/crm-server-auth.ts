@@ -62,10 +62,15 @@ export function validatePasswordStrength(password: string): string | null {
 }
 
 function sessionSecret() {
-  const explicit = process.env.CRM_SESSION_SECRET;
+  const explicit = process.env["CRM_SESSION_SECRET"];
   if (explicit && explicit.length >= 16) return explicit;
   // Derived from the database secret so tokens can't be forged without server access.
-  const base = process.env.IND_SUPABASE_SERVICE_KEY || process.env.SUPABASE_API_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DATABASE_URL || "quickupp-local-dev";
+  const base =
+    process.env["IND_SUPABASE_SERVICE_KEY"] ||
+    process.env["SUPABASE_API_KEY"] ||
+    process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
+    process.env["DATABASE_URL"] ||
+    "quickupp-local-dev";
   return createHash("sha256").update(`quickupp-crm-session|${base}`).digest("hex");
 }
 
@@ -222,7 +227,7 @@ export async function bumpLoginFailure(user: CrmUserRow, threshold: number, firs
     lockMinutes = minutesList[Math.min(startIdx + lockNumber - 1, minutesList.length - 1)]!;
     lockedUntil = new Date(Date.now() + lockMinutes * 60 * 1000).toISOString();
   }
-  const patch: Record<string, unknown> = { failed_attempts: total };
+  const patch: { failed_attempts: number; locked_until?: string | null } = { failed_attempts: total };
   if (locked) patch.locked_until = lockedUntil;
   await dbUpdate("crm_users", [{ col: "id", op: "eq", value: user.id }], patch);
   return { total, attemptInRound, remaining, locked, lockNumber, lockMinutes, lockedUntil };

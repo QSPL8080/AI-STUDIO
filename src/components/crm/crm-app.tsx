@@ -58,6 +58,7 @@ import {
   crmFinishLeadFileFn,
   crmDownloadLeadFileFn,
   crmDeleteLeadFileFn,
+  crmCancelLeadFileFn,
   crmCreateUserFn,
   crmCreateCouponFn,
   crmDeleteCouponFn,
@@ -309,6 +310,18 @@ const PAYMENT_BADGE: Record<string, string> = {
   "Partially Paid": "bg-orange-50 text-orange-700 border-orange-300",
   "Full Paid": "bg-emerald-50 text-emerald-700 border-emerald-400",
 };
+/** Same checks as the server, so problems show before anything is sent. */
+function paymentFormProblem(f: { paymentStatus: string; dealAmount: string; amountPaid: string; balanceReceived: boolean }) {
+  const deal = Number(f.dealAmount) || 0;
+  const paid = Number(f.amountPaid) || 0;
+  if ((f.paymentStatus === "Partially Paid" || f.paymentStatus === "Full Paid") && !deal) return "Enter the total deal amount for the payment.";
+  if (f.paymentStatus === "Partially Paid") {
+    if (!paid) return "Enter the amount paid for a Partially Paid lead.";
+    if (paid >= deal) return "Amount paid must be less than the total deal amount — choose Full Paid instead.";
+  }
+  return "";
+}
+
 /** Money actually received on a lead, and what is still due. */
 function leadReceived(l: { paymentStatus?: string; dealAmount?: number; amountPaid?: number; paymentReceived?: boolean; balanceReceived?: boolean }) {
   const deal = l.dealAmount || 0;
@@ -350,19 +363,24 @@ async function uploadLeadFile(token: string, leadId: string, file: File, onProgr
     const chunks = Math.ceil(file.size / LEAD_FILE_CHUNK);
     const begin: any = await crmBeginLeadFileFn({ data: { token, leadId, name: file.name, size: file.size, chunks } });
     if (!begin?.ok) return begin?.error || "Upload failed.";
+    // If anything goes wrong part-way, the unfinished file is removed (nothing half-saved).
+    const fail = async (msg: string) => {
+      await crmCancelLeadFileFn({ data: { token, fileId: begin.fileId } }).catch(() => null);
+      return msg;
+    };
     const buf = new Uint8Array(await file.arrayBuffer());
     for (let i = 0; i < chunks; i++) {
       const data = bytesToBase64(buf.subarray(i * LEAD_FILE_CHUNK, (i + 1) * LEAD_FILE_CHUNK));
       let r: any = null;
       for (let attempt = 0; attempt < 3 && !r?.ok; attempt++) {
         r = await crmLeadFileChunkFn({ data: { token, fileId: begin.fileId, idx: i, data } }).catch(() => null);
-        if (r && r.ok === false) return r.error || "Upload failed.";
+        if (r && r.ok === false) return fail(r.error || "Upload failed.");
       }
-      if (!r?.ok) return "Upload interrupted. Please check your connection and try again.";
+      if (!r?.ok) return fail("Upload interrupted. Please check your connection and try again.");
       onProgress?.(Math.round(((i + 1) / chunks) * 100));
     }
-    const fin: any = await crmFinishLeadFileFn({ data: { token, fileId: begin.fileId } });
-    return fin?.ok ? "" : fin?.error || "Upload failed.";
+    const fin: any = await crmFinishLeadFileFn({ data: { token, fileId: begin.fileId } }).catch(() => null);
+    return fin?.ok ? "" : fail(fin?.error || "Upload failed.");
   } catch (e) {
     console.error(e);
     return "Upload failed. Please try again.";
@@ -991,6 +1009,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       toast("Client name, company / brand and WhatsApp / phone are required.", "error");
       return;
     }
+    const payErr = paymentFormProblem(f);
+    if (payErr) {
+      toast(payErr, "error");
+      return;
+    }
     const isMetaLead = f.source === "Meta Ads";
     setBusy("add-lead");
     const r = await call(crmCreateLeadFn({ data: { token: tok(), lead: { kind: isMetaLead ? "meta" : "website", ...f } } }));
@@ -1031,6 +1054,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     const f = editLeadForm;
     if (!f.clientName.trim() || !f.business.trim() || !f.phone.trim()) {
       toast("Client name, company / brand and WhatsApp / phone are required.", "error");
+      return;
+    }
+    const payErr = paymentFormProblem(f);
+    if (payErr) {
+      toast(payErr, "error");
       return;
     }
     setBusy("edit-lead");
@@ -5066,7 +5094,7 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint?: string | undefined; children: React.ReactNode }) {
   return (
     <div>
       <label className="block text-[13px] font-medium text-slate-700 mb-1.5">{label}</label>
