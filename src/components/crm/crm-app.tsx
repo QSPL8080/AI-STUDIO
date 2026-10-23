@@ -303,13 +303,26 @@ const LEAD_VIDEO_TYPES = [
 ];
 const LEAD_QUANTITIES = ["1 Video", "1 - 3 Videos", "5 Videos", "10 Videos", "15 Videos", "15 - 30 Videos / month", "30+ Videos / month", "Not decided"];
 // Payment recorded on a lead (manual entry / edit).
-const LEAD_PAYMENT_STATUSES = ["Not Paid", "Advance Paid (50%)", "Partially Paid", "Full Paid"];
+const LEAD_PAYMENT_STATUSES = ["Not Paid", "Partially Paid", "Full Paid"];
 const PAYMENT_BADGE: Record<string, string> = {
   "Not Paid": "bg-slate-100 text-slate-600 border-slate-300",
-  "Advance Paid (50%)": "bg-amber-50 text-amber-700 border-amber-300",
   "Partially Paid": "bg-orange-50 text-orange-700 border-orange-300",
   "Full Paid": "bg-emerald-50 text-emerald-700 border-emerald-400",
 };
+/** Money actually received on a lead, and what is still due. */
+function leadReceived(l: { paymentStatus?: string; dealAmount?: number; amountPaid?: number; paymentReceived?: boolean; balanceReceived?: boolean }) {
+  const deal = l.dealAmount || 0;
+  const paid = l.amountPaid || 0;
+  const got =
+    l.paymentStatus === "Full Paid"
+      ? l.paymentReceived || l.balanceReceived
+        ? deal || paid
+        : 0
+      : l.paymentStatus === "Partially Paid"
+        ? (l.paymentReceived ? paid : 0) + (l.balanceReceived ? Math.max(0, deal - paid) : 0)
+        : 0;
+  return { received: got, due: Math.max(0, deal - got) };
+}
 const inr = (n: number) => `₹${Math.round(n * 100) / 100 >= 0 ? (Math.round(n * 100) / 100).toLocaleString("en-IN") : "0"}`;
 
 // Lead attachments: PNG, JPG, PDF, DOC/DOCX, CSV up to 10 MB each (uploaded in 512 KB pieces).
@@ -380,6 +393,8 @@ const blankLeadForm = (source: string) => ({
   paymentStatus: "Not Paid",
   dealAmount: "",
   amountPaid: "",
+  paymentReceived: false,
+  balanceReceived: false,
 });
 
 // Status dropdown colours: Closed / Delivered are green, the rest blue (lead) / amber (project).
@@ -564,6 +579,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       paymentStatus: l.paymentStatus || "Not Paid",
       dealAmount: l.dealAmount ? String(l.dealAmount) : "",
       amountPaid: l.amountPaid ? String(l.amountPaid) : "",
+      paymentReceived: !!l.paymentReceived,
+      balanceReceived: !!l.balanceReceived,
     });
   };
   const [newUserForm, setNewUserForm] = useState({ name: "", email: "", password: "", role: "ADMIN" as ManagedRole });
@@ -1047,6 +1064,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       paymentStatus: f.paymentStatus,
       dealAmount: Number(f.dealAmount) || 0,
       amountPaid: Number(f.amountPaid) || 0,
+      paymentReceived: f.paymentReceived,
+      balanceReceived: f.balanceReceived,
     };
     setLeads((prev) => prev.map((l) => (l.id === editingLead.id ? { ...l, ...optimisticLead } : l)));
     setSelectedLead((prev) => (prev && prev.id === editingLead.id ? { ...prev, ...optimisticLead } : null));
@@ -1610,8 +1629,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const exportLeads = (kind: "website" | "meta") => {
     const list = kind === "meta" ? shownMeta : shownWebsite;
     downloadCsv(`quickupp_${kind}_leads.csv`, [
-      ["ID", "Source", "Channel", "Created (IST)", "Client", "Email", "Phone", "Business", "Video Scope", "Video Quantity", "Lead Status", "Project Status", "Payment Status", "Deal Amount (INR)", "Amount Paid (INR)", "Balance (INR)", "Campaign", "Ad Set", "Form", "Notes"],
-      ...list.map((l) => [l.id, l.source, l.channel, fmtIst(l.createdAt), l.clientName, l.email, l.phone, l.companyName, l.videoScope, l.videoQuantity || "", l.leadStatus, l.projectStatus, l.paymentStatus, l.dealAmount || "", l.amountPaid || "", l.dealAmount ? Math.max(0, l.dealAmount - l.amountPaid) : "", l.campaign, l.adSet, l.formName, l.notes]),
+      ["ID", "Source", "Channel", "Created (IST)", "Client", "Email", "Phone", "Business", "Video Scope", "Video Quantity", "Lead Status", "Project Status", "Payment Status", "Deal Amount (INR)", "Received (INR)", "Balance Due (INR)", "Campaign", "Ad Set", "Form", "Notes"],
+      ...list.map((l) => [l.id, l.source, l.channel, fmtIst(l.createdAt), l.clientName, l.email, l.phone, l.companyName, l.videoScope, l.videoQuantity || "", l.leadStatus, l.projectStatus, l.paymentStatus, l.dealAmount || "", leadReceived(l).received || "", l.dealAmount ? leadReceived(l).due : "", l.campaign, l.adSet, l.formName, l.notes]),
     ]);
   };
 
@@ -2346,15 +2365,23 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                     {l.deliveredAt && <div className="text-slate-500 font-normal">{fmtIstDate(l.deliveredAt)}</div>}
                                   </div>
                                 )}
-                                {l.paymentStatus && (l.paymentStatus !== "Not Paid" || l.dealAmount > 0) && (
-                                  <div
-                                    className={`mt-1.5 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${PAYMENT_BADGE[l.paymentStatus] || PAYMENT_BADGE["Not Paid"]}`}
-                                    title={l.dealAmount ? `${inr(l.amountPaid)} paid of ${inr(l.dealAmount)}` : undefined}
-                                  >
-                                    <Wallet className="h-3 w-3" /> {l.paymentStatus}
-                                    {l.amountPaid > 0 && <span className="font-normal">· {inr(l.amountPaid)}</span>}
-                                  </div>
-                                )}
+                                {l.paymentStatus && (l.paymentStatus !== "Not Paid" || l.dealAmount > 0) && (() => {
+                                  const pr = leadReceived(l);
+                                  const awaiting = l.paymentStatus === "Full Paid" && !pr.received;
+                                  return (
+                                    <div className="mt-1.5" title={l.dealAmount ? `${inr(pr.received)} received of ${inr(l.dealAmount)}${pr.due ? ` · ${inr(pr.due)} due` : ""}` : undefined}>
+                                      <span
+                                        className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${awaiting ? PAYMENT_BADGE["Partially Paid"] : PAYMENT_BADGE[l.paymentStatus] || PAYMENT_BADGE["Not Paid"]}`}
+                                      >
+                                        <Wallet className="h-3 w-3" /> {l.paymentStatus}
+                                      </span>
+                                      <div className="mt-0.5 whitespace-nowrap text-[11px] text-slate-500">
+                                        {awaiting ? "Not received yet" : `${inr(pr.received)} received`}
+                                        {!awaiting && pr.due > 0 && <span className="text-amber-700"> · {inr(pr.due)} due</span>}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                               </td>
                               <td className="p-3.5 max-w-[240px]">
                                 <div className="text-slate-600 line-clamp-2 break-words" title={l.notes}>
@@ -4192,8 +4219,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-emerald-50/60 border border-emerald-100">
                     <MiniStat label="Payment status" value={l.paymentStatus || "Not recorded"} />
                     <MiniStat label="Deal amount" value={l.dealAmount ? inr(l.dealAmount) : "—"} />
-                    <MiniStat label="Amount paid" value={l.amountPaid ? inr(l.amountPaid) : "₹0"} />
-                    <MiniStat label="Balance" value={l.dealAmount ? (l.dealAmount - l.amountPaid > 0 ? inr(l.dealAmount - l.amountPaid) : "Nil (fully paid)") : "—"} />
+                    <MiniStat label="Received" value={inr(leadReceived(l).received)} />
+                    <MiniStat label="Balance due" value={l.dealAmount ? (leadReceived(l).due > 0 ? inr(leadReceived(l).due) : "Nil (fully paid)") : "—"} />
                   </div>
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Project details / campaign goals</div>
@@ -5135,15 +5162,48 @@ function ComboField({ value, onChange, options, placeholder }: { value: string; 
   );
 }
 
-type PaymentForm = { paymentStatus: string; dealAmount: string; amountPaid: string };
-/** Payment status + deal amount + amount paid (balance worked out). Choosing a status fills
- *  the amount; typing an amount sets the matching status. */
+type PaymentForm = { paymentStatus: string; dealAmount: string; amountPaid: string; paymentReceived: boolean; balanceReceived: boolean };
+
+/** Green when the money is received; click again to undo. */
+function ReceivedButton({ on, onClick, disabled, title }: { on: boolean; onClick: () => void; disabled?: boolean; title?: string | undefined }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        on ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-500" : "border-slate-300 bg-white text-slate-700 hover:border-emerald-500 hover:text-emerald-700"
+      }`}
+    >
+      {on ? <CheckCircle2 className="h-4 w-4" /> : <Check className="h-4 w-4" />} {on ? "Received" : "Mark Received"}
+    </button>
+  );
+}
+
+/**
+ * Payment for a lead:
+ *  - Not Paid       → total deal amount only
+ *  - Full Paid      → total amount + Received button
+ *  - Partially Paid → total, amount paid + Received button, balance (auto) + Received button.
+ *    It turns into Full Paid only once the balance is marked Received.
+ */
 function PaymentFields<T extends PaymentForm>({ form, setForm }: { form: T; setForm: (f: T) => void }) {
+  const status = LEAD_PAYMENT_STATUSES.includes(form.paymentStatus) ? form.paymentStatus : form.paymentStatus ? "Partially Paid" : "Not Paid";
   const deal = Number(form.dealAmount) || 0;
   const paid = Number(form.amountPaid) || 0;
-  const statusFor = (d: number, p: number) =>
-    d > 0 && p >= d ? "Full Paid" : d > 0 && p === Math.ceil(d / 2) ? "Advance Paid (50%)" : p > 0 ? "Partially Paid" : "Not Paid";
   const balance = Math.max(0, deal - paid);
+  const set = (patch: Partial<PaymentForm>) => setForm({ ...form, ...patch });
+  const num = (v: string) => v.replace(/[^0-9.]/g, "");
+  const twoParts = status === "Full Paid" && form.balanceReceived;
+  const paidTooHigh = status === "Partially Paid" && deal > 0 && paid >= deal;
+
+  const chooseStatus = (st: string) => {
+    if (st === "Not Paid") set({ paymentStatus: st, amountPaid: "", paymentReceived: false, balanceReceived: false });
+    else if (st === "Full Paid") set({ paymentStatus: st, amountPaid: deal ? String(deal) : "", paymentReceived: false, balanceReceived: false });
+    else set({ paymentStatus: st, amountPaid: paid && paid < deal ? form.amountPaid : "", paymentReceived: false, balanceReceived: false });
+  };
+
   return (
     <div className="rounded-md border border-emerald-200 bg-emerald-500/[0.04] p-3">
       <div className="mb-2.5 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-emerald-700">
@@ -5151,47 +5211,71 @@ function PaymentFields<T extends PaymentForm>({ form, setForm }: { form: T; setF
       </div>
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
         <Field label="Payment Status">
-          <select
-            value={form.paymentStatus || "Not Paid"}
-            onChange={(e) => {
-              const st = e.target.value;
-              const auto =
-                deal > 0 ? (st === "Full Paid" ? deal : st === "Advance Paid (50%)" ? Math.ceil(deal / 2) : st === "Not Paid" ? 0 : paid) : paid;
-              setForm({ ...form, paymentStatus: st, amountPaid: auto ? String(auto) : "" });
-            }}
-            className={inputCls}
-          >
+          <select value={status} onChange={(e) => chooseStatus(e.target.value)} className={inputCls}>
             {LEAD_PAYMENT_STATUSES.map((o) => (
               <option key={o}>{o}</option>
             ))}
           </select>
         </Field>
-        <Field label="Total Deal Amount (₹)">
+        <Field label={status === "Full Paid" ? "Total Amount (₹)" : "Total Deal Amount (₹)"}>
           <input
             inputMode="decimal"
             value={form.dealAmount}
             onChange={(e) => {
-              const v = e.target.value.replace(/[^0-9.]/g, "");
-              const d = Number(v) || 0;
-              setForm({ ...form, dealAmount: v, paymentStatus: d > 0 || paid > 0 ? statusFor(d, paid) : form.paymentStatus });
+              const v = num(e.target.value);
+              set(status === "Full Paid" && !form.balanceReceived ? { dealAmount: v, amountPaid: v } : { dealAmount: v });
             }}
             placeholder="e.g. 8999"
             className={inputCls}
           />
         </Field>
-        <Field label="Amount Paid (₹)" {...(deal > 0 ? { hint: balance > 0 ? `Balance: ${inr(balance)}` : "Fully paid" } : {})}>
-          <input
-            inputMode="decimal"
-            value={form.amountPaid}
-            onChange={(e) => {
-              const v = e.target.value.replace(/[^0-9.]/g, "");
-              setForm({ ...form, amountPaid: v, paymentStatus: statusFor(deal, Number(v) || 0) });
-            }}
-            placeholder="e.g. 4500"
-            className={inputCls}
-          />
-        </Field>
+        {status === "Full Paid" && (
+          <Field label="Payment" {...(twoParts ? { hint: `Received in 2 parts: ${inr(paid)} + ${inr(balance)}` } : {})}>
+            <ReceivedButton
+              on={form.paymentReceived || form.balanceReceived}
+              disabled={!deal}
+              title={!deal ? "Enter the amount first" : undefined}
+              onClick={() =>
+                twoParts
+                  ? set({ paymentStatus: "Partially Paid", balanceReceived: false }) // undo the balance → back to Partially Paid
+                  : set({ paymentReceived: !form.paymentReceived })
+              }
+            />
+          </Field>
+        )}
       </div>
+
+      {status === "Partially Paid" && (
+        <div className="mt-3.5 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <Field label="Amount Paid (₹)" {...(paidTooHigh ? { hint: "Must be less than the total — choose Full Paid instead." } : {})}>
+            <div className="flex gap-2">
+              <input
+                inputMode="decimal"
+                value={form.amountPaid}
+                onChange={(e) => set({ amountPaid: num(e.target.value), paymentReceived: false, balanceReceived: false })}
+                placeholder="e.g. 4500"
+                className={inputCls}
+              />
+              <ReceivedButton
+                on={form.paymentReceived}
+                disabled={!paid || paidTooHigh}
+                title={!paid ? "Enter the amount paid first" : undefined}
+                onClick={() => set({ paymentReceived: !form.paymentReceived, balanceReceived: false })}
+              />
+            </div>
+          </Field>
+          <Field label="Balance (₹)" hint={form.paymentReceived ? "Mark Received when the balance is paid — the lead then becomes Full Paid." : "Mark the paid amount Received first."}>
+            <div className="flex gap-2">
+              <input value={deal ? String(balance) : ""} readOnly placeholder="Total − amount paid" className={`${inputCls} bg-slate-50 font-semibold text-amber-700`} />
+              <ReceivedButton
+                on={false}
+                disabled={!form.paymentReceived || !balance || paidTooHigh}
+                onClick={() => set({ paymentStatus: "Full Paid", balanceReceived: true })}
+              />
+            </div>
+          </Field>
+        </div>
+      )}
     </div>
   );
 }

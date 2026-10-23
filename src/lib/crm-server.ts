@@ -76,29 +76,42 @@ const EXTRA_FIELDS = {
   paymentStatus: "Payment status",
   dealAmount: "Deal amount",
   amountPaid: "Amount paid",
+  paymentReceived: "Payment received",
+  balanceReceived: "Balance received",
 } as const;
 
 /** Payment recorded on a lead (manual / Meta / website), kept in `additional`. */
-export const LEAD_PAYMENT_STATUSES = ["Not Paid", "Advance Paid (50%)", "Partially Paid", "Full Paid"] as const;
+export const LEAD_PAYMENT_STATUSES = ["Not Paid", "Partially Paid", "Full Paid"] as const;
 const money = (v: unknown) => {
   const n = Math.round(Number(String(v ?? "").replace(/[^0-9.]/g, "")) * 100) / 100;
   return Number.isFinite(n) && n > 0 ? Math.min(n, 1_000_000_000) : 0;
 };
-/** Status from the amounts when none was chosen (or the amounts say otherwise). */
-function paymentStatusFor(status: string, deal: number, paid: number) {
+const yes = (v: unknown) => v === true || /^(yes|true|1)$/i.test(String(v ?? "").trim());
+/** Payment status. "Partially Paid" only becomes "Full Paid" once BOTH the paid amount and the
+ *  balance are marked received. Without a chosen status it is worked out from the amounts. */
+function paymentStatusFor(status: string, deal: number, paid: number, payRecv = false, balRecv = false) {
+  if (/^advance/i.test(status)) status = "Partially Paid"; // older "Advance Paid (50%)" entries
+  if (status === "Partially Paid" && payRecv && balRecv) return "Full Paid";
   if ((LEAD_PAYMENT_STATUSES as readonly string[]).includes(status)) return status;
   if (deal > 0 && paid >= deal) return "Full Paid";
-  if (deal > 0 && paid === Math.ceil(deal / 2)) return "Advance Paid (50%)";
   if (paid > 0) return "Partially Paid";
   return deal > 0 ? "Not Paid" : "";
 }
-function paymentLines(status: string, deal: number, paid: number) {
+function paymentLines(status: string, deal: number, paid: number, payRecv = false, balRecv = false) {
   if (!status && !deal && !paid) return [];
   return [
     status ? `Payment status: ${status}` : "",
     deal ? `Deal amount: ${deal}` : "",
     paid ? `Amount paid: ${paid}` : "",
+    status !== "Not Paid" && payRecv ? "Payment received: yes" : "",
+    status !== "Not Paid" && balRecv ? "Balance received: yes" : "",
   ].filter(Boolean);
+}
+/** Full Paid means the whole deal amount; Not Paid means nothing received. */
+function normalizePayment(status: string, deal: number, paid: number, payRecv: boolean, balRecv: boolean) {
+  if (status === "Not Paid") return { status, deal, paid: 0, payRecv: false, balRecv: false };
+  if (status === "Full Paid" && !balRecv && deal > 0) return { status, deal, paid: deal, payRecv, balRecv: false };
+  return { status, deal, paid, payRecv, balRecv };
 }
 function splitAdditional(additional: string) {
   const extra: Record<string, string> = {
@@ -114,10 +127,12 @@ function splitAdditional(additional: string) {
     paymentStatus: "",
     dealAmount: "",
     amountPaid: "",
+    paymentReceived: "",
+    balanceReceived: "",
   };
   const rest: string[] = [];
   for (const line of String(additional || "").split("\n")) {
-    const m = /^(Website|Video quantity|Delivery target|Closed by ID|Closed by|Closed at|Delivered on|Delivered by ID|Delivered by|Payment status|Deal amount|Amount paid): (.*)$/.exec(line.trim());
+    const m = /^(Website|Video quantity|Delivery target|Closed by ID|Closed by|Closed at|Delivered on|Delivered by ID|Delivered by|Payment status|Deal amount|Amount paid|Payment received|Balance received): (.*)$/.exec(line.trim());
     if (m) {
       const key = (Object.keys(EXTRA_FIELDS) as (keyof typeof EXTRA_FIELDS)[]).find((k) => EXTRA_FIELDS[k] === m[1])!;
       extra[key] = m[2]!.trim();
@@ -224,9 +239,11 @@ function mapLead(r: any, userResolver?: UserResolver) {
     website: extra.website,
     videoQuantity: extra.quantity,
     deliveryTarget: extra.deliveryTarget,
-    paymentStatus: (extra.paymentStatus || "") as string,
+    paymentStatus: (/^advance/i.test(extra.paymentStatus || "") ? "Partially Paid" : extra.paymentStatus || "") as string,
     dealAmount: money(extra.dealAmount),
     amountPaid: money(extra.amountPaid),
+    paymentReceived: yes(extra.paymentReceived),
+    balanceReceived: yes(extra.balanceReceived),
     handledBy,
     handledById: (r.handled_by_id || null) as string | null,
     closedBy,
@@ -735,6 +752,8 @@ export async function createLead(
     paymentStatus?: string;
     dealAmount?: string | number;
     amountPaid?: string | number;
+    paymentReceived?: boolean | string;
+    balanceReceived?: boolean | string;
   },
 ) {
   const t = (v: unknown, max = 255) => String(v ?? "").trim().slice(0, max);
@@ -761,8 +780,11 @@ export async function createLead(
     isDelivered ? `Delivered by ID: ${ctx.user.id}` : "",
     ...(() => {
       const deal = money(data.dealAmount);
-      const paid = money(data.amountPaid);
-      return paymentLines(paymentStatusFor(t(data.paymentStatus, 40), deal, paid), deal, paid);
+      const pr = yes(data.paymentReceived);
+      const br = yes(data.balanceReceived);
+      const st = paymentStatusFor(t(data.paymentStatus, 40), deal, money(data.amountPaid), pr, br);
+      const n = normalizePayment(st, deal, money(data.amountPaid), pr, br);
+      return paymentLines(n.status, n.deal, n.paid, n.payRecv, n.balRecv);
     })(),
   ].filter(Boolean);
   const row = await dbInsertWithOptional(LEADS_TABLE, {
@@ -877,6 +899,8 @@ export type UpdateLeadPatch = {
   paymentStatus?: string;
   dealAmount?: string | number;
   amountPaid?: string | number;
+  paymentReceived?: boolean | string;
+  balanceReceived?: boolean | string;
 };
 
 export async function updateLead(token: string, id: string, patch: UpdateLeadPatch) {
@@ -998,13 +1022,17 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
   const finalWebsite = patch.website !== undefined ? t(patch.website) : existingExtra.website;
   const finalQty = patch.quantity !== undefined ? t(patch.quantity) : existingExtra.quantity;
   const finalDelivery = patch.deliveryDate !== undefined ? t(patch.deliveryDate) : existingExtra.deliveryTarget;
-  const finalDeal = patch.dealAmount !== undefined ? money(patch.dealAmount) : money(existingExtra.dealAmount);
-  const finalPaid = patch.amountPaid !== undefined ? money(patch.amountPaid) : money(existingExtra.amountPaid);
-  const finalPayStatus = paymentStatusFor(
-    patch.paymentStatus !== undefined ? t(patch.paymentStatus, 40) : String(existingExtra.paymentStatus || ""),
-    finalDeal,
-    finalPaid,
-  );
+  const pay = (() => {
+    const deal = patch.dealAmount !== undefined ? money(patch.dealAmount) : money(existingExtra.dealAmount);
+    const paid = patch.amountPaid !== undefined ? money(patch.amountPaid) : money(existingExtra.amountPaid);
+    const pr = patch.paymentReceived !== undefined ? yes(patch.paymentReceived) : yes(existingExtra.paymentReceived);
+    const br = patch.balanceReceived !== undefined ? yes(patch.balanceReceived) : yes(existingExtra.balanceReceived);
+    const st = paymentStatusFor(patch.paymentStatus !== undefined ? t(patch.paymentStatus, 40) : String(existingExtra.paymentStatus || ""), deal, paid, pr, br);
+    return normalizePayment(st, deal, paid, pr, br);
+  })();
+  const finalDeal = pay.deal;
+  const finalPaid = pay.paid;
+  const finalPayStatus = pay.status;
 
   const extras = [
     finalWebsite ? `Website: ${finalWebsite}` : "",
@@ -1016,7 +1044,7 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
     effectiveProjectStatus === "Delivered" ? `Delivered on: ${extra.delivered_at || now}` : "",
     effectiveProjectStatus === "Delivered" ? `Delivered by: ${finalDeliveredBy || ctx.user.name}` : "",
     effectiveProjectStatus === "Delivered" ? `Delivered by ID: ${finalDeliveredById || ctx.user.id}` : "",
-    ...paymentLines(finalPayStatus, finalDeal, finalPaid),
+    ...paymentLines(finalPayStatus, finalDeal, finalPaid, pay.payRecv, pay.balRecv),
   ].filter(Boolean);
 
   const allAdditional = [rest, ...extras].filter(Boolean).join("\n");
@@ -1025,9 +1053,25 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
   await dbUpdateWithOptional(LEADS_TABLE, byId(id), update, extra);
   const changes: string[] = [];
   {
-    const before = paymentStatusFor(String(existingExtra.paymentStatus || ""), money(existingExtra.dealAmount), money(existingExtra.amountPaid));
-    if (finalPayStatus !== before || finalPaid !== money(existingExtra.amountPaid) || finalDeal !== money(existingExtra.dealAmount))
-      changes.push(`Payment: ${finalPayStatus || "not set"}${finalPaid ? ` (₹${finalPaid.toLocaleString("en-IN")} paid${finalDeal ? ` of ₹${finalDeal.toLocaleString("en-IN")}` : ""})` : ""}`);
+    const oldPr = yes(existingExtra.paymentReceived);
+    const oldBr = yes(existingExtra.balanceReceived);
+    const before = paymentStatusFor(String(existingExtra.paymentStatus || ""), money(existingExtra.dealAmount), money(existingExtra.amountPaid), oldPr, oldBr);
+    const recv =
+      finalPayStatus === "Full Paid"
+        ? pay.payRecv || pay.balRecv
+          ? finalDeal
+          : 0
+        : (pay.payRecv ? finalPaid : 0) + (pay.balRecv ? Math.max(0, finalDeal - finalPaid) : 0);
+    if (
+      finalPayStatus !== before ||
+      finalPaid !== money(existingExtra.amountPaid) ||
+      finalDeal !== money(existingExtra.dealAmount) ||
+      pay.payRecv !== oldPr ||
+      pay.balRecv !== oldBr
+    )
+      changes.push(
+        `Payment: ${finalPayStatus || "not set"}${finalDeal ? ` (₹${recv.toLocaleString("en-IN")} received of ₹${finalDeal.toLocaleString("en-IN")})` : ""}`,
+      );
   }
   if (update.status && update.status !== row.status)
     changes.push(`Lead status ${row.status || "New"} → ${update.status}${update.status === "Closed" ? ` (closed by ${extra.closed_by})` : ""}`);
