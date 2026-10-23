@@ -310,10 +310,15 @@ const PAYMENT_BADGE: Record<string, string> = {
   "Partially Paid": "bg-orange-50 text-orange-700 border-orange-300",
   "Full Paid": "bg-emerald-50 text-emerald-700 border-emerald-400",
 };
+const cleanMoney = (v: unknown) => {
+  const n = Math.round(Number(String(v ?? "").replace(/[^0-9.]/g, "")) * 100) / 100;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
 /** Same checks as the server, so problems show before anything is sent. */
 function paymentFormProblem(f: { paymentStatus: string; dealAmount: string; amountPaid: string; balanceReceived: boolean }) {
-  const deal = Number(f.dealAmount) || 0;
-  const paid = Number(f.amountPaid) || 0;
+  const deal = cleanMoney(f.dealAmount);
+  const paid = cleanMoney(f.amountPaid);
   if ((f.paymentStatus === "Partially Paid" || f.paymentStatus === "Full Paid") && !deal) return "Enter the total deal amount for the payment.";
   if (f.paymentStatus === "Partially Paid") {
     if (!paid) return "Enter the amount paid for a Partially Paid lead.";
@@ -324,8 +329,8 @@ function paymentFormProblem(f: { paymentStatus: string; dealAmount: string; amou
 
 /** Money actually received on a lead, and what is still due. */
 function leadReceived(l: { paymentStatus?: string; dealAmount?: number | string; amountPaid?: number | string; paymentReceived?: boolean | string; balanceReceived?: boolean | string }) {
-  const deal = Number(String(l.dealAmount ?? "").replace(/[^0-9.]/g, "")) || 0;
-  const paid = Number(String(l.amountPaid ?? "").replace(/[^0-9.]/g, "")) || 0;
+  const deal = cleanMoney(l.dealAmount);
+  const paid = cleanMoney(l.amountPaid);
   const pr = l.paymentReceived === true || /^(yes|true|1)$/i.test(String(l.paymentReceived ?? ""));
   const br = l.balanceReceived === true || /^(yes|true|1)$/i.test(String(l.balanceReceived ?? ""));
   const got =
@@ -1117,8 +1122,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       closedAt: f.leadStatus === "Closed" ? (editingLead.closedAt || nowIso) : null,
       deliveredAt: f.projectStatus === "Delivered" ? (editingLead.deliveredAt || nowIso) : null,
       paymentStatus: f.paymentStatus,
-      dealAmount: Number(f.dealAmount) || 0,
-      amountPaid: Number(f.amountPaid) || 0,
+      dealAmount: cleanMoney(f.dealAmount),
+      amountPaid: cleanMoney(f.amountPaid),
       paymentReceived: f.paymentReceived,
       balanceReceived: f.balanceReceived,
     };
@@ -1218,6 +1223,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     const r = await call(crmRestoreLeadFn({ data: { token: tok(), id: lead.id } }));
     if (!r) return;
     setRecycleBin((prev) => prev.filter((l) => l.id !== lead.id));
+    setLeads((prev) => [{ ...lead, deletedAt: null, deletedBy: null }, ...prev]);
     toast(`${lead.clientName} restored.`);
     doSync();
   };
@@ -1369,7 +1375,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     if (!ids.length) return;
     const r = await call(crmRestoreLeadsFn({ data: { token: tok(), ids } }));
     if (!r) return doSync();
+    const restored = recycleBin.filter((l) => ids.includes(l.id)).map((l) => ({ ...l, deletedAt: null, deletedBy: null }));
     setRecycleBin((prev) => prev.filter((l) => !ids.includes(l.id)));
+    setLeads((prev) => [...restored, ...prev]);
     setSelectedIds([]);
     toast(`${r.restored} lead(s) restored.`);
     doSync();
@@ -5281,8 +5289,8 @@ function ReceivedButton({ on, onClick, disabled, title }: { on: boolean; onClick
  */
 function PaymentFields<T extends PaymentForm>({ form, setForm }: { form: T; setForm: (f: T) => void }) {
   const status = LEAD_PAYMENT_STATUSES.includes(form.paymentStatus) ? form.paymentStatus : form.paymentStatus ? "Partially Paid" : "Not Paid";
-  const deal = Number(form.dealAmount) || 0;
-  const paid = Number(form.amountPaid) || 0;
+  const deal = cleanMoney(form.dealAmount);
+  const paid = cleanMoney(form.amountPaid);
   const balance = Math.max(0, deal - paid);
   const set = (patch: Partial<PaymentForm>) => setForm({ ...form, ...patch });
   const num = (v: string) => v.replace(/[^0-9.]/g, "");
