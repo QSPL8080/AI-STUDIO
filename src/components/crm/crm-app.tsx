@@ -2926,13 +2926,63 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </BulkBar>
             )}
 
+            {/* Lead vs Website Orders explanatory banner */}
+            <div className="rounded-lg border border-purple-200/80 bg-purple-50/70 p-3 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[13px] text-purple-900 shadow-2xs">
+              <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                <Globe className="w-4 h-4 text-purple-600 shrink-0 mt-0.5 sm:mt-0" />
+                <span className="leading-snug">
+                  Checkout orders will appear in this table when customers pay directly from the website. To view and track lead payments, visit the{" "}
+                  {perms.leads && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("leads")}
+                      className="font-semibold text-purple-700 underline underline-offset-2 hover:text-purple-900 cursor-pointer"
+                    >
+                      Leads Management
+                    </button>
+                  )}
+                  {perms.leads && perms.meta && " or "}
+                  {perms.meta && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("meta")}
+                      className="font-semibold text-purple-700 underline underline-offset-2 hover:text-purple-900 cursor-pointer"
+                    >
+                      Meta Leads
+                    </button>
+                  )}
+                  {" "}tab.
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {perms.leads && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("leads")}
+                    className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-white border border-purple-300 text-xs font-semibold text-purple-700 hover:bg-purple-100/70 hover:border-purple-400 transition-colors shadow-2xs cursor-pointer"
+                  >
+                    <Users className="w-3.5 h-3.5" /> Visit Leads Tab
+                  </button>
+                )}
+                {perms.meta && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("meta")}
+                    className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-white border border-purple-300 text-xs font-semibold text-purple-700 hover:bg-purple-100/70 hover:border-purple-400 transition-colors shadow-2xs cursor-pointer"
+                  >
+                    <Layers className="w-3.5 h-3.5" /> Meta Leads
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
               {shownOrders.length === 0 ? (
                 <Empty
                   icon={<Package className="w-8 h-8" />}
                   title={
                     !orders.length
-                      ? "No payment transactions yet"
+                      ? "No website checkout orders yet"
                       : ordersStatus === "All"
                         ? "No orders match your search"
                         : ordersStatus === "BALANCE"
@@ -2943,7 +2993,13 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               ? "No fully paid orders"
                               : "No refunded orders"
                   }
-                  text={isSuperAdmin ? "Orders and checkout attempts are tracked here." : "Only real payments appear here. Unfinished checkouts are not listed."}
+                  text={
+                    !orders.length
+                      ? "Orders and checkout payments made directly by customers on the website will be tracked here. To view payments recorded on leads, please check the Leads Management tab."
+                      : isSuperAdmin
+                        ? "Orders and checkout attempts are tracked here."
+                        : "Only real payments appear here. Unfinished checkouts are not listed."
+                  }
                 />
               ) : (
                 <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
