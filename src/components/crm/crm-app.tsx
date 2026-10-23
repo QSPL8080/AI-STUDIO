@@ -323,16 +323,18 @@ function paymentFormProblem(f: { paymentStatus: string; dealAmount: string; amou
 }
 
 /** Money actually received on a lead, and what is still due. */
-function leadReceived(l: { paymentStatus?: string; dealAmount?: number; amountPaid?: number; paymentReceived?: boolean; balanceReceived?: boolean }) {
-  const deal = l.dealAmount || 0;
-  const paid = l.amountPaid || 0;
+function leadReceived(l: { paymentStatus?: string; dealAmount?: number | string; amountPaid?: number | string; paymentReceived?: boolean | string; balanceReceived?: boolean | string }) {
+  const deal = Number(String(l.dealAmount ?? "").replace(/[^0-9.]/g, "")) || 0;
+  const paid = Number(String(l.amountPaid ?? "").replace(/[^0-9.]/g, "")) || 0;
+  const pr = l.paymentReceived === true || /^(yes|true|1)$/i.test(String(l.paymentReceived ?? ""));
+  const br = l.balanceReceived === true || /^(yes|true|1)$/i.test(String(l.balanceReceived ?? ""));
   const got =
     l.paymentStatus === "Full Paid"
-      ? l.paymentReceived || l.balanceReceived
+      ? pr || br
         ? deal || paid
         : 0
       : l.paymentStatus === "Partially Paid"
-        ? (l.paymentReceived ? paid : 0) + (l.balanceReceived ? Math.max(0, deal - paid) : 0)
+        ? (pr ? paid : 0) + (br ? Math.max(0, deal - paid) : 0)
         : 0;
   return { received: got, due: Math.max(0, deal - got) };
 }
@@ -787,6 +789,28 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   // -------------------------------------------------------------------------
   const websiteLeads = useMemo(() => leads.filter((l) => l.kind === "website"), [leads]);
   const metaLeads = useMemo(() => leads.filter((l) => l.kind === "meta"), [leads]);
+  // Payments recorded on leads (manual entry / edit): received amounts count as revenue,
+  // amounts still due count towards Balance Pending.
+  const leadPay = useMemo(
+    () =>
+      leads.reduce(
+        (t, l) => {
+          if (l.deletedAt || (l.paymentStatus !== "Partially Paid" && l.paymentStatus !== "Full Paid")) return t;
+          const r = leadReceived(l);
+          const isFull = l.paymentStatus === "Full Paid" || (r.due <= 0 && r.received > 0);
+          return {
+            received: t.received + r.received,
+            due: t.due + r.due,
+            count: t.count + 1,
+            full: t.full + (isFull ? 1 : 0),
+            partial: t.partial + (!isFull ? 1 : 0),
+          };
+        },
+        { received: 0, due: 0, count: 0, full: 0, partial: 0 },
+      ),
+    [leads],
+  );
+  const effectiveOrdersCount = (orders ? orders.length : ordersCount) + leadPay.count;
 
   // -------------------------------------------------------------------------
   // Notifications: only new leads, and new orders / payments. Read state is saved per user on the server, so
@@ -920,7 +944,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     if (perms.leads) list.push({ id: "leads", label: "Leads Management", icon: Users, count: websiteLeads.length });
     if (perms.meta) list.push({ id: "meta", label: "Meta Leads", icon: Layers, count: metaLeads.length });
     if (perms.coupons) list.push({ id: "coupons", label: "Coupon Generator", icon: Tag, count: coupons.filter((c) => c.active).length });
-    if (perms.orders) list.push({ id: "orders", label: "Orders & Payments", icon: Package, count: ordersCount });
+    if (perms.orders) list.push({ id: "orders", label: "Orders & Payments", icon: Package, count: effectiveOrdersCount });
     if (isSuperAdmin) {
       list.push(
         { id: "activity", label: "Activity History", icon: Clock, count: null },
@@ -930,7 +954,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     }
     if (perms.recycle_bin) list.push({ id: "recycle-bin", label: "Recycle Bin", icon: Trash2, count: recycleBin.length });
     return list;
-  }, [perms, isSuperAdmin, websiteLeads.length, metaLeads.length, coupons, ordersCount, users.length, recycleBin.length]);
+  }, [perms, isSuperAdmin, websiteLeads.length, metaLeads.length, coupons, effectiveOrdersCount, users.length, recycleBin.length]);
 
   useEffect(() => setSelectedIds([]), [activeTab]);
 
@@ -1019,6 +1043,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     const r = await call(crmCreateLeadFn({ data: { token: tok(), lead: { kind: isMetaLead ? "meta" : "website", ...f } } }));
     setBusy(null);
     if (!r) return;
+    if (r.lead) {
+      setLeads((prev) => [r.lead, ...prev.filter((l) => l.id !== r.lead.id)]);
+    }
     // Your own manual entry doesn't need to notify you.
     knownNotifIds.current?.add(r.lead.id);
     setNotif((st) => (st ? { ...st, readIds: [r.lead.id, ...st.readIds] } : st));
@@ -1629,26 +1656,6 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const manualCount = websiteLeads.filter((l) => l.source === "Manual Entry").length;
   const websiteInbound = websiteLeads.length - manualCount;
   const completedOrders = (orders || []).filter((o) => o.paymentStatus === "COMPLETED");
-  // Payments recorded on leads (manual entry / edit): received amounts count as revenue,
-  // amounts still due count towards Balance Pending.
-  const leadPay = useMemo(
-    () =>
-      leads.reduce(
-        (t, l) => {
-          if (l.deletedAt || (l.paymentStatus !== "Partially Paid" && l.paymentStatus !== "Full Paid")) return t;
-          const r = leadReceived(l);
-          return {
-            received: t.received + r.received,
-            due: t.due + r.due,
-            count: t.count + 1,
-            full: t.full + (r.due <= 0 && r.received > 0 ? 1 : 0),
-            partial: t.partial + (r.due > 0 ? 1 : 0),
-          };
-        },
-        { received: 0, due: 0, count: 0, full: 0, partial: 0 },
-      ),
-    [leads],
-  );
   const revenueByCur = completedOrders.reduce<Record<string, number>>(
     (acc, o) => {
       acc[o.currency] = (acc[o.currency] || 0) + (o.paidTotal || o.amount);
@@ -2806,7 +2813,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {/* ---------------- ORDERS ---------------- */}
         {activeTab === "orders" && perms.orders && orders && (
           <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
-            <PageHeader icon={<Package className="w-5 h-5 text-purple-600" />} title="Orders & Payments" badge={`${orders.length} orders`} subtitle="Website checkout orders recorded in the database.">
+            <PageHeader icon={<Package className="w-5 h-5 text-purple-600" />} title="Orders & Payments" badge={`${orders.length + leadPay.count} orders`} subtitle="Website checkout orders and lead payments recorded in the database.">
               <div className="flex items-center gap-2">
                 {isSuperAdmin && (
                   <button

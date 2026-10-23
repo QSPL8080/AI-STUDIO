@@ -657,7 +657,9 @@ export async function sync(token: string, ordersPin?: string) {
       pendingOrders:
         orderRows.filter((o) => o.payment_status === "COMPLETED" && paymentSummary(o).plan === "advance" && paymentSummary(o).balanceDue > 0).length +
         leadPays.filter((x) => x.due > 0).length,
-      completedOrders: completed.length + leadPays.length,
+      completedOrders:
+        completed.filter((o) => paymentSummary(o).balanceDue <= 0).length +
+        leadPays.filter((x) => x.due <= 0).length,
       failedOrders: orderRows.filter((o) => o.payment_status === "FAILED" || o.payment_status === "CANCELLED").length,
       revenueByCurrency,
       userAccounts: userRows.length,
