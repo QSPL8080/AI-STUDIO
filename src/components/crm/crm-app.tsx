@@ -42,12 +42,22 @@ import {
   Percent,
   Filter,
   Pencil,
+  Paperclip,
+  FileText,
+  Upload,
+  Wallet,
 } from "lucide-react";
 import { CrmUser, clearStoredCrmUser, setStoredCrmUser } from "@/lib/crm-auth";
 import {
   crmClearActivityFn,
   crmClearLeadsFn,
   crmCreateLeadFn,
+  crmListLeadFilesFn,
+  crmBeginLeadFileFn,
+  crmLeadFileChunkFn,
+  crmFinishLeadFileFn,
+  crmDownloadLeadFileFn,
+  crmDeleteLeadFileFn,
   crmCreateUserFn,
   crmCreateCouponFn,
   crmDeleteCouponFn,
@@ -292,6 +302,60 @@ const LEAD_VIDEO_TYPES = [
   "Custom / Not decided",
 ];
 const LEAD_QUANTITIES = ["1 Video", "1 - 3 Videos", "5 Videos", "10 Videos", "15 Videos", "15 - 30 Videos / month", "30+ Videos / month", "Not decided"];
+// Payment recorded on a lead (manual entry / edit).
+const LEAD_PAYMENT_STATUSES = ["Not Paid", "Advance Paid (50%)", "Partially Paid", "Full Paid"];
+const PAYMENT_BADGE: Record<string, string> = {
+  "Not Paid": "bg-slate-100 text-slate-600 border-slate-300",
+  "Advance Paid (50%)": "bg-amber-50 text-amber-700 border-amber-300",
+  "Partially Paid": "bg-orange-50 text-orange-700 border-orange-300",
+  "Full Paid": "bg-emerald-50 text-emerald-700 border-emerald-400",
+};
+const inr = (n: number) => `₹${Math.round(n * 100) / 100 >= 0 ? (Math.round(n * 100) / 100).toLocaleString("en-IN") : "0"}`;
+
+// Lead attachments: PNG, JPG, PDF, DOC/DOCX, CSV up to 10 MB each (uploaded in 512 KB pieces).
+const LEAD_FILE_EXTS = ["png", "jpg", "jpeg", "pdf", "doc", "docx", "csv"];
+const LEAD_FILE_ACCEPT = ".png,.jpg,.jpeg,.pdf,.doc,.docx,.csv";
+const LEAD_FILE_MAX = 10 * 1024 * 1024;
+const LEAD_FILE_CHUNK = 512 * 1024;
+const fileSizeLabel = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+/** Returns an error message, or "" when the file can be attached. */
+function leadFileProblem(f: File) {
+  const ext = (f.name.split(".").pop() || "").toLowerCase();
+  if (!LEAD_FILE_EXTS.includes(ext)) return `"${f.name}": only PNG, JPG, PDF, DOC, DOCX and CSV files can be attached.`;
+  if (f.size > LEAD_FILE_MAX) return `"${f.name}" is larger than 10 MB.`;
+  if (!f.size) return `"${f.name}" is empty.`;
+  return "";
+}
+function bytesToBase64(bytes: Uint8Array) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
+  return btoa(bin);
+}
+/** Uploads one file to a lead. Returns "" on success or the error message. */
+async function uploadLeadFile(token: string, leadId: string, file: File, onProgress?: (pct: number) => void): Promise<string> {
+  try {
+    const chunks = Math.ceil(file.size / LEAD_FILE_CHUNK);
+    const begin: any = await crmBeginLeadFileFn({ data: { token, leadId, name: file.name, size: file.size, chunks } });
+    if (!begin?.ok) return begin?.error || "Upload failed.";
+    const buf = new Uint8Array(await file.arrayBuffer());
+    for (let i = 0; i < chunks; i++) {
+      const data = bytesToBase64(buf.subarray(i * LEAD_FILE_CHUNK, (i + 1) * LEAD_FILE_CHUNK));
+      let r: any = null;
+      for (let attempt = 0; attempt < 3 && !r?.ok; attempt++) {
+        r = await crmLeadFileChunkFn({ data: { token, fileId: begin.fileId, idx: i, data } }).catch(() => null);
+        if (r && r.ok === false) return r.error || "Upload failed.";
+      }
+      if (!r?.ok) return "Upload interrupted. Please check your connection and try again.";
+      onProgress?.(Math.round(((i + 1) / chunks) * 100));
+    }
+    const fin: any = await crmFinishLeadFileFn({ data: { token, fileId: begin.fileId } });
+    return fin?.ok ? "" : fin?.error || "Upload failed.";
+  } catch (e) {
+    console.error(e);
+    return "Upload failed. Please try again.";
+  }
+}
+
 const blankLeadForm = (source: string) => ({
   source,
   clientName: "",
@@ -313,6 +377,9 @@ const blankLeadForm = (source: string) => ({
   campaign: "",
   adSet: "",
   formName: "",
+  paymentStatus: "Not Paid",
+  dealAmount: "",
+  amountPaid: "",
 });
 
 // Status dropdown colours: Closed / Delivered are green, the rest blue (lead) / amber (project).
@@ -461,8 +528,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
 
   const [leadForm, setLeadForm] = useState(() => blankLeadForm("Manual"));
+  const [addLeadFiles, setAddLeadFiles] = useState<File[]>([]);
+  const [uploadNote, setUploadNote] = useState("");
   const openAddLead = (source: string) => {
     setLeadForm(blankLeadForm(source));
+    setAddLeadFiles([]);
+    setUploadNote("");
     setShowAddLeadModal(true);
   };
   const [editingLead, setEditingLead] = useState<LeadItem | null>(null);
@@ -490,6 +561,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       campaign: l.campaign || "",
       adSet: l.adSet || "",
       formName: l.formName || "",
+      paymentStatus: l.paymentStatus || "Not Paid",
+      dealAmount: l.dealAmount ? String(l.dealAmount) : "",
+      amountPaid: l.amountPaid ? String(l.amountPaid) : "",
     });
   };
   const [newUserForm, setNewUserForm] = useState({ name: "", email: "", password: "", role: "ADMIN" as ManagedRole });
@@ -909,7 +983,27 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     knownNotifIds.current?.add(r.lead.id);
     setNotif((st) => (st ? { ...st, readIds: [r.lead.id, ...st.readIds] } : st));
     crmMarkNotificationsFn({ data: { token: tok(), ids: [r.lead.id] } }).catch(() => null);
-    toast(isMetaLead ? "Meta lead saved to database." : "Lead saved to database.");
+    // Attach the chosen files to the new lead.
+    let failed: string[] = [];
+    if (addLeadFiles.length) {
+      setBusy("add-lead");
+      for (let i = 0; i < addLeadFiles.length; i++) {
+        const file = addLeadFiles[i]!;
+        setUploadNote(`Uploading ${i + 1}/${addLeadFiles.length}: ${file.name}`);
+        const err = await uploadLeadFile(tok(), r.lead.id, file, (pct) =>
+          setUploadNote(`Uploading ${i + 1}/${addLeadFiles.length}: ${file.name} (${pct}%)`),
+        );
+        if (err) failed.push(err);
+      }
+      setUploadNote("");
+      setBusy(null);
+    }
+    if (failed.length) toast(`Lead saved, but ${failed.length} file(s) could not be attached: ${failed[0]}`, "error");
+    else
+      toast(
+        `${isMetaLead ? "Meta lead" : "Lead"} saved to database${addLeadFiles.length ? ` with ${addLeadFiles.length} file${addLeadFiles.length > 1 ? "s" : ""}` : ""}.`,
+      );
+    setAddLeadFiles([]);
     setShowAddLeadModal(false);
     doSync();
   };
@@ -950,6 +1044,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       closedBy: finalClosedBy,
       closedAt: f.leadStatus === "Closed" ? (editingLead.closedAt || nowIso) : null,
       deliveredAt: f.projectStatus === "Delivered" ? (editingLead.deliveredAt || nowIso) : null,
+      paymentStatus: f.paymentStatus,
+      dealAmount: Number(f.dealAmount) || 0,
+      amountPaid: Number(f.amountPaid) || 0,
     };
     setLeads((prev) => prev.map((l) => (l.id === editingLead.id ? { ...l, ...optimisticLead } : l)));
     setSelectedLead((prev) => (prev && prev.id === editingLead.id ? { ...prev, ...optimisticLead } : null));
@@ -1513,8 +1610,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const exportLeads = (kind: "website" | "meta") => {
     const list = kind === "meta" ? shownMeta : shownWebsite;
     downloadCsv(`quickupp_${kind}_leads.csv`, [
-      ["ID", "Source", "Channel", "Created (IST)", "Client", "Email", "Phone", "Business", "Video Scope", "Lead Status", "Project Status", "Campaign", "Ad Set", "Form", "Notes"],
-      ...list.map((l) => [l.id, l.source, l.channel, fmtIst(l.createdAt), l.clientName, l.email, l.phone, l.companyName, l.videoScope, l.leadStatus, l.projectStatus, l.campaign, l.adSet, l.formName, l.notes]),
+      ["ID", "Source", "Channel", "Created (IST)", "Client", "Email", "Phone", "Business", "Video Scope", "Video Quantity", "Lead Status", "Project Status", "Payment Status", "Deal Amount (INR)", "Amount Paid (INR)", "Balance (INR)", "Campaign", "Ad Set", "Form", "Notes"],
+      ...list.map((l) => [l.id, l.source, l.channel, fmtIst(l.createdAt), l.clientName, l.email, l.phone, l.companyName, l.videoScope, l.videoQuantity || "", l.leadStatus, l.projectStatus, l.paymentStatus, l.dealAmount || "", l.amountPaid || "", l.dealAmount ? Math.max(0, l.dealAmount - l.amountPaid) : "", l.campaign, l.adSet, l.formName, l.notes]),
     ]);
   };
 
@@ -1979,6 +2076,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           const filter = isMeta ? metaFilter : leadsFilter;
           const setFilter = isMeta ? setMetaFilter : setLeadsFilter;
           const draft = isMeta ? metaDraft : leadsDraft;
+          const setDraft = isMeta ? setMetaDraft : setLeadsDraft;
           const closers = Array.from(
             new Set([
               ...all.map((l) => resolveUser(l.closedBy, l.closedById)).filter(Boolean),
@@ -2246,6 +2344,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                   <div className="text-[11px] text-emerald-700 font-medium mt-1 leading-tight">
                                     Delivered by {resolveUser(l.deliveredBy, l.deliveredById) || resolveUser(l.handledBy, l.handledById) || "Admin"}
                                     {l.deliveredAt && <div className="text-slate-500 font-normal">{fmtIstDate(l.deliveredAt)}</div>}
+                                  </div>
+                                )}
+                                {l.paymentStatus && (l.paymentStatus !== "Not Paid" || l.dealAmount > 0) && (
+                                  <div
+                                    className={`mt-1.5 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${PAYMENT_BADGE[l.paymentStatus] || PAYMENT_BADGE["Not Paid"]}`}
+                                    title={l.dealAmount ? `${inr(l.amountPaid)} paid of ${inr(l.dealAmount)}` : undefined}
+                                  >
+                                    <Wallet className="h-3 w-3" /> {l.paymentStatus}
+                                    {l.amountPaid > 0 && <span className="font-normal">· {inr(l.amountPaid)}</span>}
                                   </div>
                                 )}
                               </td>
@@ -3526,12 +3633,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   ))}
                 </select>
               </Field>
-              <Field label="Video Quantity / Monthly Volume">
-                <select value={leadForm.quantity} onChange={(e) => setLeadForm({ ...leadForm, quantity: e.target.value })} className={inputCls}>
-                  {LEAD_QUANTITIES.map((o) => (
-                    <option key={o}>{o}</option>
-                  ))}
-                </select>
+              <Field label="Video Quantity / Monthly Volume" hint="Pick one or choose Custom to type">
+                <ComboField value={leadForm.quantity} onChange={(v) => setLeadForm({ ...leadForm, quantity: v })} options={LEAD_QUANTITIES} placeholder="e.g. 8 Videos / month" />
               </Field>
             </div>
 
@@ -3575,6 +3678,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </Field>
             </div>
 
+            <PaymentFields form={leadForm} setForm={setLeadForm} />
+
+            <AttachmentPicker files={addLeadFiles} setFiles={setAddLeadFiles} onError={(m) => toast(m, "error")} note={uploadNote} />
+
             <Field label="Internal Notes & Scope">
               <textarea
                 rows={3}
@@ -3585,7 +3692,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               />
             </Field>
             <div className="border-t border-slate-200 pt-4">
-              <ModalActions onCancel={() => setShowAddLeadModal(false)} submitLabel={busy === "add-lead" ? "Saving..." : "Save Lead"} disabled={busy === "add-lead"} />
+              <ModalActions onCancel={() => setShowAddLeadModal(false)} submitLabel={busy === "add-lead" ? (uploadNote ? "Uploading files..." : "Saving...") : "Save Lead"} disabled={busy === "add-lead"} />
             </div>
           </form>
         </Modal>
@@ -3646,12 +3753,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   ))}
                 </select>
               </Field>
-              <Field label="Video Quantity / Monthly Volume">
-                <select value={editLeadForm.quantity} onChange={(e) => setEditLeadForm({ ...editLeadForm, quantity: e.target.value })} className={inputCls}>
-                  {LEAD_QUANTITIES.map((o) => (
-                    <option key={o}>{o}</option>
-                  ))}
-                </select>
+              <Field label="Video Quantity / Monthly Volume" hint="Pick one or choose Custom to type">
+                <ComboField value={editLeadForm.quantity} onChange={(v) => setEditLeadForm({ ...editLeadForm, quantity: v })} options={LEAD_QUANTITIES} placeholder="e.g. 8 Videos / month" />
               </Field>
             </div>
 
@@ -3694,6 +3797,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 <input type="date" value={editLeadForm.deliveryDate} onChange={(e) => setEditLeadForm({ ...editLeadForm, deliveryDate: e.target.value })} className={`${inputCls} [color-scheme:light]`} />
               </Field>
             </div>
+
+            <PaymentFields form={editLeadForm} setForm={setEditLeadForm} />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <Field label="Handled By / Assigned To" hint="Select an admin or type a name">
@@ -4084,6 +4189,12 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       }
                     />
                   </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-emerald-50/60 border border-emerald-100">
+                    <MiniStat label="Payment status" value={l.paymentStatus || "Not recorded"} />
+                    <MiniStat label="Deal amount" value={l.dealAmount ? inr(l.dealAmount) : "—"} />
+                    <MiniStat label="Amount paid" value={l.amountPaid ? inr(l.amountPaid) : "₹0"} />
+                    <MiniStat label="Balance" value={l.dealAmount ? (l.dealAmount - l.amountPaid > 0 ? inr(l.dealAmount - l.amountPaid) : "Nil (fully paid)") : "—"} />
+                  </div>
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Project details / campaign goals</div>
                     <div className="px-4 py-3 rounded-md bg-slate-50 border border-slate-200 text-sm leading-relaxed text-slate-800 whitespace-pre-wrap break-words">
@@ -4091,6 +4202,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </div>
                   </div>
                 </DetailCard>
+
+                <LeadAttachments
+                  leadId={l.id}
+                  token={tok}
+                  canEdit={editable}
+                  canDeleteAll={isSuperAdmin || perms.delete_leads}
+                  myName={me.name}
+                  notify={toast}
+                />
 
                 <DetailCard icon={<Calendar className="w-4 h-4" />} title="Meeting Information" right={<StatusPill text="Not scheduled" tone="slate" />}>
                   <p className="text-sm text-slate-600">No meeting has been scheduled for this lead yet. Call or WhatsApp the client using the buttons at the top to set one up.</p>
@@ -4984,5 +5104,278 @@ function ModalActions({ onCancel, submitLabel, disabled }: { onCancel: () => voi
         {submitLabel}
       </button>
     </div>
+  );
+}
+
+/** Pick a value from the list, or choose "Custom…" and type any value. */
+function ComboField({ value, onChange, options, placeholder }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) {
+  const [custom, setCustom] = useState(() => !!value && !options.includes(value));
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row">
+      <select
+        value={custom ? "__custom" : value}
+        onChange={(e) => {
+          if (e.target.value === "__custom") {
+            setCustom(true);
+            onChange("");
+          } else {
+            setCustom(false);
+            onChange(e.target.value);
+          }
+        }}
+        className={`${inputCls} ${custom ? "sm:w-[46%] sm:shrink-0" : ""}`}
+      >
+        {options.map((o) => (
+          <option key={o}>{o}</option>
+        ))}
+        <option value="__custom">Custom (type your own)…</option>
+      </select>
+      {custom && <input autoFocus value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "Type here"} className={inputCls} />}
+    </div>
+  );
+}
+
+type PaymentForm = { paymentStatus: string; dealAmount: string; amountPaid: string };
+/** Payment status + deal amount + amount paid (balance worked out). Choosing a status fills
+ *  the amount; typing an amount sets the matching status. */
+function PaymentFields<T extends PaymentForm>({ form, setForm }: { form: T; setForm: (f: T) => void }) {
+  const deal = Number(form.dealAmount) || 0;
+  const paid = Number(form.amountPaid) || 0;
+  const statusFor = (d: number, p: number) =>
+    d > 0 && p >= d ? "Full Paid" : d > 0 && p === Math.ceil(d / 2) ? "Advance Paid (50%)" : p > 0 ? "Partially Paid" : "Not Paid";
+  const balance = Math.max(0, deal - paid);
+  return (
+    <div className="rounded-md border border-emerald-200 bg-emerald-500/[0.04] p-3">
+      <div className="mb-2.5 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-emerald-700">
+        <Wallet className="h-3.5 w-3.5" /> Payment
+      </div>
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+        <Field label="Payment Status">
+          <select
+            value={form.paymentStatus || "Not Paid"}
+            onChange={(e) => {
+              const st = e.target.value;
+              const auto =
+                deal > 0 ? (st === "Full Paid" ? deal : st === "Advance Paid (50%)" ? Math.ceil(deal / 2) : st === "Not Paid" ? 0 : paid) : paid;
+              setForm({ ...form, paymentStatus: st, amountPaid: auto ? String(auto) : "" });
+            }}
+            className={inputCls}
+          >
+            {LEAD_PAYMENT_STATUSES.map((o) => (
+              <option key={o}>{o}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Total Deal Amount (₹)">
+          <input
+            inputMode="decimal"
+            value={form.dealAmount}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9.]/g, "");
+              const d = Number(v) || 0;
+              setForm({ ...form, dealAmount: v, paymentStatus: d > 0 || paid > 0 ? statusFor(d, paid) : form.paymentStatus });
+            }}
+            placeholder="e.g. 8999"
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Amount Paid (₹)" {...(deal > 0 ? { hint: balance > 0 ? `Balance: ${inr(balance)}` : "Fully paid" } : {})}>
+          <input
+            inputMode="decimal"
+            value={form.amountPaid}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9.]/g, "");
+              setForm({ ...form, amountPaid: v, paymentStatus: statusFor(deal, Number(v) || 0) });
+            }}
+            placeholder="e.g. 4500"
+            className={inputCls}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+/** File picker used in "Add New Lead" (files upload right after the lead is saved). */
+function AttachmentPicker({ files, setFiles, onError, note }: { files: File[]; setFiles: (f: File[]) => void; onError: (msg: string) => void; note?: string }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50/60 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-slate-600">
+          <Paperclip className="h-3.5 w-3.5" /> Attach Files <span className="font-normal normal-case tracking-normal text-slate-500">(PNG, JPG, PDF, DOC, CSV · max 10 MB each)</span>
+        </div>
+        <button type="button" onClick={() => ref.current?.click()} className={btnGhost}>
+          <Upload className="h-4 w-4" /> Choose files
+        </button>
+        <input
+          ref={ref}
+          type="file"
+          multiple
+          accept={LEAD_FILE_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            const picked = Array.from(e.target.files || []);
+            e.target.value = "";
+            const ok: File[] = [];
+            for (const f of picked) {
+              const p = leadFileProblem(f);
+              if (p) onError(p);
+              else ok.push(f);
+            }
+            if (ok.length) setFiles([...files, ...ok].slice(0, 10));
+          }}
+        />
+      </div>
+      {files.length > 0 && (
+        <ul className="mt-2.5 space-y-1.5">
+          {files.map((f, i) => (
+            <li key={`${f.name}-${i}`} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[13px]">
+              <FileText className="h-4 w-4 shrink-0 text-purple-600" />
+              <span className="min-w-0 flex-1 truncate text-slate-800">{f.name}</span>
+              <span className="shrink-0 text-[11px] text-slate-500">{fileSizeLabel(f.size)}</span>
+              <button type="button" onClick={() => setFiles(files.filter((_, j) => j !== i))} className="shrink-0 text-slate-400 hover:text-red-600" aria-label={`Remove ${f.name}`}>
+                <X className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {note && <p className="mt-2 text-[12px] font-medium text-purple-700">{note}</p>}
+    </div>
+  );
+}
+
+/** Attachments on a lead: list, download, add more, remove. */
+function LeadAttachments({ leadId, token, canEdit, canDeleteAll, myName, notify }: {
+  leadId: string;
+  token: () => string;
+  canEdit: boolean;
+  canDeleteAll: boolean;
+  myName: string;
+  notify: (msg: string, kind?: "success" | "error" | "info") => void;
+}) {
+  const [files, setFiles] = useState<{ id: string; name: string; type: string; size: number; uploadedBy: string; createdAt: string }[] | null>(null);
+  const [setupNeeded, setSetupNeeded] = useState(false);
+  const [note, setNote] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const ref = useRef<HTMLInputElement>(null);
+  const load = useCallback(async () => {
+    const r: any = await crmListLeadFilesFn({ data: { token: token(), leadId } }).catch(() => null);
+    if (r?.ok) {
+      setFiles(r.files);
+      setSetupNeeded(!!r.setupNeeded);
+    } else setFiles([]);
+  }, [leadId, token]);
+  useEffect(() => {
+    setFiles(null);
+    load();
+  }, [load]);
+
+  const addFiles = async (picked: File[]) => {
+    for (let i = 0; i < picked.length; i++) {
+      const f = picked[i]!;
+      const p = leadFileProblem(f);
+      if (p) {
+        notify(p, "error");
+        continue;
+      }
+      setNote(`Uploading ${f.name}…`);
+      const err = await uploadLeadFile(token(), leadId, f, (pct) => setNote(`Uploading ${f.name} (${pct}%)`));
+      if (err) notify(err, "error");
+      else notify(`${f.name} attached.`);
+    }
+    setNote("");
+    load();
+  };
+  const download = async (id: string) => {
+    setBusyId(id);
+    const r: any = await crmDownloadLeadFileFn({ data: { token: token(), fileId: id } }).catch(() => null);
+    setBusyId("");
+    if (!r?.ok) return notify(r?.error || "Could not download the file.", "error");
+    const parts = (r.parts as string[]).map((b64) => {
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    });
+    const url = URL.createObjectURL(new Blob(parts, { type: r.type || "application/octet-stream" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = r.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+  const remove = async (f: { id: string; name: string }) => {
+    if (!window.confirm(`Remove "${f.name}" from this lead?`)) return;
+    setBusyId(f.id);
+    const r: any = await crmDeleteLeadFileFn({ data: { token: token(), fileId: f.id } }).catch(() => null);
+    setBusyId("");
+    if (!r?.ok) return notify(r?.error || "Could not remove the file.", "error");
+    notify(`${f.name} removed.`);
+    load();
+  };
+
+  return (
+    <DetailCard
+      icon={<Paperclip className="w-4 h-4" />}
+      title="Attachments"
+      right={
+        canEdit && !setupNeeded ? (
+          <>
+            <button type="button" onClick={() => ref.current?.click()} className={btnGhost} disabled={!!note}>
+              <Upload className="h-4 w-4" /> Add files
+            </button>
+            <input
+              ref={ref}
+              type="file"
+              multiple
+              accept={LEAD_FILE_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                const picked = Array.from(e.target.files || []);
+                e.target.value = "";
+                if (picked.length) addFiles(picked);
+              }}
+            />
+          </>
+        ) : undefined
+      }
+    >
+      {setupNeeded ? (
+        <p className="text-sm text-amber-700">
+          File attachments need a one-time database update: run the “Lead attachments” SQL (supabase-schema.sql, section 9) in Supabase → SQL Editor.
+        </p>
+      ) : files === null ? (
+        <p className="text-sm text-slate-500">Loading files…</p>
+      ) : files.length === 0 && !note ? (
+        <p className="text-sm text-slate-500">No files attached yet. PNG, JPG, PDF, DOC and CSV files up to 10 MB can be added.</p>
+      ) : (
+        <ul className="space-y-2">
+          {files.map((f) => (
+            <li key={f.id} className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2">
+              <FileText className="h-4 w-4 shrink-0 text-purple-600" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium text-slate-900">{f.name}</div>
+                <div className="text-[11px] text-slate-500">
+                  {fileSizeLabel(f.size)} · {f.uploadedBy || "Admin"} · {fmtIst(f.createdAt)}
+                </div>
+              </div>
+              <button type="button" onClick={() => download(f.id)} disabled={busyId === f.id} className={btnGhost}>
+                <Download className="h-4 w-4" /> {busyId === f.id ? "…" : "Download"}
+              </button>
+              {(canDeleteAll || f.uploadedBy === myName) && (
+                <button type="button" onClick={() => remove(f)} disabled={busyId === f.id} className={btnDanger} aria-label={`Remove ${f.name}`}>
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {note && <p className="mt-2 text-[12px] font-medium text-purple-700">{note}</p>}
+    </DetailCard>
   );
 }

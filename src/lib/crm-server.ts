@@ -73,7 +73,33 @@ const EXTRA_FIELDS = {
   deliveredAt: "Delivered on",
   deliveredBy: "Delivered by",
   deliveredById: "Delivered by ID",
+  paymentStatus: "Payment status",
+  dealAmount: "Deal amount",
+  amountPaid: "Amount paid",
 } as const;
+
+/** Payment recorded on a lead (manual / Meta / website), kept in `additional`. */
+export const LEAD_PAYMENT_STATUSES = ["Not Paid", "Advance Paid (50%)", "Partially Paid", "Full Paid"] as const;
+const money = (v: unknown) => {
+  const n = Math.round(Number(String(v ?? "").replace(/[^0-9.]/g, "")) * 100) / 100;
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 1_000_000_000) : 0;
+};
+/** Status from the amounts when none was chosen (or the amounts say otherwise). */
+function paymentStatusFor(status: string, deal: number, paid: number) {
+  if ((LEAD_PAYMENT_STATUSES as readonly string[]).includes(status)) return status;
+  if (deal > 0 && paid >= deal) return "Full Paid";
+  if (deal > 0 && paid === Math.ceil(deal / 2)) return "Advance Paid (50%)";
+  if (paid > 0) return "Partially Paid";
+  return deal > 0 ? "Not Paid" : "";
+}
+function paymentLines(status: string, deal: number, paid: number) {
+  if (!status && !deal && !paid) return [];
+  return [
+    status ? `Payment status: ${status}` : "",
+    deal ? `Deal amount: ${deal}` : "",
+    paid ? `Amount paid: ${paid}` : "",
+  ].filter(Boolean);
+}
 function splitAdditional(additional: string) {
   const extra: Record<string, string> = {
     website: "",
@@ -85,10 +111,13 @@ function splitAdditional(additional: string) {
     deliveredAt: "",
     deliveredBy: "",
     deliveredById: "",
+    paymentStatus: "",
+    dealAmount: "",
+    amountPaid: "",
   };
   const rest: string[] = [];
   for (const line of String(additional || "").split("\n")) {
-    const m = /^(Website|Video quantity|Delivery target|Closed by ID|Closed by|Closed at|Delivered on|Delivered by ID|Delivered by): (.*)$/.exec(line.trim());
+    const m = /^(Website|Video quantity|Delivery target|Closed by ID|Closed by|Closed at|Delivered on|Delivered by ID|Delivered by|Payment status|Deal amount|Amount paid): (.*)$/.exec(line.trim());
     if (m) {
       const key = (Object.keys(EXTRA_FIELDS) as (keyof typeof EXTRA_FIELDS)[]).find((k) => EXTRA_FIELDS[k] === m[1])!;
       extra[key] = m[2]!.trim();
@@ -195,6 +224,9 @@ function mapLead(r: any, userResolver?: UserResolver) {
     website: extra.website,
     videoQuantity: extra.quantity,
     deliveryTarget: extra.deliveryTarget,
+    paymentStatus: (extra.paymentStatus || "") as string,
+    dealAmount: money(extra.dealAmount),
+    amountPaid: money(extra.amountPaid),
     handledBy,
     handledById: (r.handled_by_id || null) as string | null,
     closedBy,
@@ -700,6 +732,9 @@ export async function createLead(
     campaign?: string;
     adSet?: string;
     formName?: string;
+    paymentStatus?: string;
+    dealAmount?: string | number;
+    amountPaid?: string | number;
   },
 ) {
   const t = (v: unknown, max = 255) => String(v ?? "").trim().slice(0, max);
@@ -724,6 +759,11 @@ export async function createLead(
     isDelivered ? `Delivered on: ${now}` : "",
     isDelivered ? `Delivered by: ${ctx.user.name}` : "",
     isDelivered ? `Delivered by ID: ${ctx.user.id}` : "",
+    ...(() => {
+      const deal = money(data.dealAmount);
+      const paid = money(data.amountPaid);
+      return paymentLines(paymentStatusFor(t(data.paymentStatus, 40), deal, paid), deal, paid);
+    })(),
   ].filter(Boolean);
   const row = await dbInsertWithOptional(LEADS_TABLE, {
     id: newId("lead"),
@@ -834,6 +874,9 @@ export type UpdateLeadPatch = {
   campaign?: string;
   adSet?: string;
   formName?: string;
+  paymentStatus?: string;
+  dealAmount?: string | number;
+  amountPaid?: string | number;
 };
 
 export async function updateLead(token: string, id: string, patch: UpdateLeadPatch) {
@@ -955,6 +998,13 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
   const finalWebsite = patch.website !== undefined ? t(patch.website) : existingExtra.website;
   const finalQty = patch.quantity !== undefined ? t(patch.quantity) : existingExtra.quantity;
   const finalDelivery = patch.deliveryDate !== undefined ? t(patch.deliveryDate) : existingExtra.deliveryTarget;
+  const finalDeal = patch.dealAmount !== undefined ? money(patch.dealAmount) : money(existingExtra.dealAmount);
+  const finalPaid = patch.amountPaid !== undefined ? money(patch.amountPaid) : money(existingExtra.amountPaid);
+  const finalPayStatus = paymentStatusFor(
+    patch.paymentStatus !== undefined ? t(patch.paymentStatus, 40) : String(existingExtra.paymentStatus || ""),
+    finalDeal,
+    finalPaid,
+  );
 
   const extras = [
     finalWebsite ? `Website: ${finalWebsite}` : "",
@@ -966,6 +1016,7 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
     effectiveProjectStatus === "Delivered" ? `Delivered on: ${extra.delivered_at || now}` : "",
     effectiveProjectStatus === "Delivered" ? `Delivered by: ${finalDeliveredBy || ctx.user.name}` : "",
     effectiveProjectStatus === "Delivered" ? `Delivered by ID: ${finalDeliveredById || ctx.user.id}` : "",
+    ...paymentLines(finalPayStatus, finalDeal, finalPaid),
   ].filter(Boolean);
 
   const allAdditional = [rest, ...extras].filter(Boolean).join("\n");
@@ -973,6 +1024,11 @@ export async function updateLead(token: string, id: string, patch: UpdateLeadPat
   if (!Object.keys(update).length) throw new Error("Nothing to update.");
   await dbUpdateWithOptional(LEADS_TABLE, byId(id), update, extra);
   const changes: string[] = [];
+  {
+    const before = paymentStatusFor(String(existingExtra.paymentStatus || ""), money(existingExtra.dealAmount), money(existingExtra.amountPaid));
+    if (finalPayStatus !== before || finalPaid !== money(existingExtra.amountPaid) || finalDeal !== money(existingExtra.dealAmount))
+      changes.push(`Payment: ${finalPayStatus || "not set"}${finalPaid ? ` (₹${finalPaid.toLocaleString("en-IN")} paid${finalDeal ? ` of ₹${finalDeal.toLocaleString("en-IN")}` : ""})` : ""}`);
+  }
   if (update.status && update.status !== row.status)
     changes.push(`Lead status ${row.status || "New"} → ${update.status}${update.status === "Closed" ? ` (closed by ${extra.closed_by})` : ""}`);
   if (update.project_status && update.project_status !== (row.project_status || "Not Started"))
@@ -1019,6 +1075,7 @@ export async function deleteLead(token: string, id: string) {
   if (ctx.isSuperAdmin) {
     const n = await dbDelete(LEADS_TABLE, byId(id));
     if (!n) throw new Error("Lead could not be deleted from the database.");
+    await removeFilesOfLeads([id]);
     await logActivity({ title: "Lead permanently deleted", category: "LEADS", actorEmail: ctx.user.email, description: `${row.name} (${row.phone}) removed from the database.` });
     return { ok: true as const, mode: "permanent" as const };
   }
@@ -1056,13 +1113,16 @@ export async function purgeLead(token: string, id: string) {
   const row = await getLeadRow(id);
   const n = await dbDelete(LEADS_TABLE, byId(id));
   if (!n) throw new Error("Lead could not be deleted from the database.");
+  await removeFilesOfLeads([id]);
   await logActivity({ title: "Lead permanently deleted", category: "LEADS", actorEmail: ctx.user.email, description: `${row.name} purged from the Recycle Bin.` });
   return { ok: true as const };
 }
 
 export async function emptyRecycleBin(token: string) {
   const ctx = await requireSuperAdmin(token);
+  const binRows = await dbSelect(LEADS_TABLE, { columns: ["id"], filters: [{ col: "deleted_at", op: "not_null" }] });
   const n = await dbDelete(LEADS_TABLE, [{ col: "deleted_at", op: "not_null" }]);
+  await removeFilesOfLeads(binRows.map((r: any) => String(r.id)));
   await logActivity({ title: "Recycle Bin emptied", category: "LEADS", actorEmail: ctx.user.email, description: `${n} lead(s) permanently deleted.` });
   return { ok: true as const, deleted: n };
 }
@@ -1075,6 +1135,7 @@ export async function clearLeads(token: string, kind: "website" | "meta") {
   for (let i = 0; i < ids.length; i += 100) {
     n += await dbDelete(LEADS_TABLE, [{ col: "id", op: "in", value: ids.slice(i, i + 100) }]);
   }
+  await removeFilesOfLeads(ids);
   await logActivity({
     title: kind === "meta" ? "All Meta leads deleted" : "All website leads deleted",
     category: "LEADS",
@@ -1540,6 +1601,7 @@ export async function purgeLeads(token: string, ids: string[]) {
     binIds.push(...rows.map((r: any) => r.id as string));
   }
   const n = binIds.length ? await deleteByIds(LEADS_TABLE, binIds) : 0;
+  if (binIds.length) await removeFilesOfLeads(binIds);
   await logActivity({ title: "Leads permanently deleted", category: "LEADS", actorEmail: ctx.user.email, description: `${n} lead(s) purged from the Recycle Bin.` });
   return { ok: true as const, deleted: n };
 }
@@ -1876,3 +1938,187 @@ export async function markOrderPaid(token: string, orderId: string, notes?: stri
 }
 
 
+
+// ---------------------------------------------------------------------------
+// Lead attachments (PNG, JPG, PDF, DOC/DOCX, CSV)
+// Kept in the database: crm_lead_files (one row per file) + crm_lead_file_chunks (the file
+// content in ~512 KB pieces), so big files upload fine even behind a proxy size limit.
+// ---------------------------------------------------------------------------
+const LEAD_FILES = "crm_lead_files";
+const LEAD_FILE_CHUNKS = "crm_lead_file_chunks";
+export const LEAD_FILE_MAX_BYTES = 10 * 1024 * 1024;
+export const LEAD_FILE_CHUNK_BYTES = 512 * 1024;
+const LEAD_FILE_TYPES: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  csv: "text/csv",
+};
+
+function isMissingFilesTable(e: unknown) {
+  return /crm_lead_file|does not exist|PGRST205|PGRST204|schema cache|42P01/i.test(String((e as Error)?.message || e));
+}
+function filesNotSetUp(): never {
+  throw new Error(
+    "File attachments are not set up in the database yet. Run the \"Lead attachments\" SQL (supabase-schema.sql, section 9) once in Supabase → SQL Editor, then try again.",
+  );
+}
+
+function mapLeadFile(r: any) {
+  return {
+    id: String(r.id),
+    leadId: String(r.lead_id),
+    name: String(r.file_name),
+    type: String(r.mime_type || ""),
+    size: Number(r.size_bytes) || 0,
+    uploadedBy: String(r.uploaded_by || ""),
+    createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+  };
+}
+export type CrmLeadFile = ReturnType<typeof mapLeadFile>;
+
+async function leadFileWithAccess(ctx: SessionContext, fileId: string) {
+  let rows: any[] = [];
+  try {
+    rows = await dbSelect(LEAD_FILES, { filters: byId(String(fileId)) });
+  } catch (e) {
+    if (isMissingFilesTable(e)) filesNotSetUp();
+    throw e;
+  }
+  const f = rows[0];
+  if (!f) throw new Error("File not found — it may have been deleted.");
+  assertLeadAccess(ctx, await getLeadRow(String(f.lead_id)));
+  return f;
+}
+
+/** Files attached to a lead (finished uploads only). */
+export async function listLeadFiles(token: string, leadId: string) {
+  const ctx = await requireSession(token);
+  assertLeadAccess(ctx, await getLeadRow(leadId));
+  try {
+    const rows = await dbSelect(LEAD_FILES, {
+      columns: ["id", "lead_id", "file_name", "mime_type", "size_bytes", "uploaded_by", "created_at", "complete"],
+      filters: [{ col: "lead_id", op: "eq", value: leadId }],
+      order: { col: "created_at", desc: true },
+    });
+    return { ok: true as const, files: rows.filter((r: any) => r.complete === true || r.complete === "true").map(mapLeadFile), setupNeeded: false };
+  } catch (e) {
+    if (isMissingFilesTable(e)) return { ok: true as const, files: [] as CrmLeadFile[], setupNeeded: true };
+    throw e;
+  }
+}
+
+/** Step 1 of an upload: checks the file and creates its record. */
+export async function beginLeadFile(token: string, leadId: string, input: { name: string; size: number; chunks: number }) {
+  const ctx = await requireSession(token);
+  const lead = await getLeadRow(leadId);
+  assertLeadAccess(ctx, lead);
+  if (lead.deleted_at) throw new Error("Restore this lead from the Recycle Bin before adding files.");
+  const name = String(input.name || "").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").trim().slice(0, 180) || "file";
+  const ext = name.split(".").pop()!.toLowerCase();
+  const mime = LEAD_FILE_TYPES[ext];
+  if (!mime) throw new Error("Only PNG, JPG, PDF, DOC, DOCX and CSV files can be attached.");
+  const size = Math.floor(Number(input.size));
+  if (!(size > 0)) throw new Error(`"${name}" is empty.`);
+  if (size > LEAD_FILE_MAX_BYTES) throw new Error(`"${name}" is larger than 10 MB.`);
+  const chunks = Math.ceil(size / LEAD_FILE_CHUNK_BYTES);
+  if (Number(input.chunks) !== chunks) throw new Error("Upload size mismatch. Please try again.");
+  const id = newId("file");
+  try {
+    await dbInsert(LEAD_FILES, {
+      id,
+      lead_id: leadId,
+      file_name: name,
+      mime_type: mime,
+      size_bytes: size,
+      chunk_count: chunks,
+      complete: false,
+      uploaded_by: ctx.user.name,
+      created_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    if (isMissingFilesTable(e)) filesNotSetUp();
+    throw e;
+  }
+  return { ok: true as const, fileId: id };
+}
+
+/** Step 2: one piece of the file (base64). */
+export async function uploadLeadFileChunk(token: string, fileId: string, idx: number, data: string) {
+  const ctx = await requireSession(token);
+  const f = await leadFileWithAccess(ctx, fileId);
+  if (f.complete === true || f.complete === "true") throw new Error("This file is already uploaded.");
+  const i = Math.floor(Number(idx));
+  if (!(i >= 0 && i < Number(f.chunk_count))) throw new Error("Invalid file piece.");
+  const b64 = String(data || "");
+  if (!b64 || b64.length > Math.ceil(LEAD_FILE_CHUNK_BYTES / 3) * 4 + 8 || !/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) throw new Error("Invalid file data.");
+  // A retried piece replaces the earlier one.
+  await dbDelete(LEAD_FILE_CHUNKS, [{ col: "file_id", op: "eq", value: f.id }, { col: "idx", op: "eq", value: i }]);
+  await dbInsert(LEAD_FILE_CHUNKS, { file_id: f.id, idx: i, data: b64 });
+  return { ok: true as const };
+}
+
+/** Step 3: all pieces received → the file appears on the lead. */
+export async function finishLeadFile(token: string, fileId: string) {
+  const ctx = await requireSession(token);
+  const f = await leadFileWithAccess(ctx, fileId);
+  const got = await dbSelect(LEAD_FILE_CHUNKS, { columns: ["idx"], filters: [{ col: "file_id", op: "eq", value: f.id }] });
+  if (new Set(got.map((r: any) => Number(r.idx))).size !== Number(f.chunk_count)) throw new Error("Upload incomplete. Please try again.");
+  await dbUpdate(LEAD_FILES, byId(f.id), { complete: true });
+  const lead = await getLeadRow(String(f.lead_id));
+  await logActivity({
+    title: "File attached",
+    category: "LEADS",
+    actorEmail: ctx.user.email,
+    description: `${f.file_name} (${Math.max(1, Math.round(Number(f.size_bytes) / 1024))} KB) attached to ${lead.name} by ${ctx.user.name}.`,
+    leadId: String(f.lead_id),
+  });
+  return { ok: true as const, file: mapLeadFile({ ...f, complete: true }) };
+}
+
+/** Whole file as base64, for downloading in the CRM. */
+export async function downloadLeadFile(token: string, fileId: string) {
+  const ctx = await requireSession(token);
+  const f = await leadFileWithAccess(ctx, fileId);
+  const parts = await dbSelect(LEAD_FILE_CHUNKS, { filters: [{ col: "file_id", op: "eq", value: f.id }], order: { col: "idx" } });
+  if (parts.length !== Number(f.chunk_count)) throw new Error("This file is incomplete and can't be downloaded.");
+  // Each piece is padded base64 on its own, so they are returned as a list.
+  return { ok: true as const, name: String(f.file_name), type: String(f.mime_type), parts: parts.map((p: any) => String(p.data)) };
+}
+
+/** Removes a file. Super Admin, anyone who can delete leads, or the person who uploaded it. */
+export async function deleteLeadFile(token: string, fileId: string) {
+  const ctx = await requireSession(token);
+  const f = await leadFileWithAccess(ctx, fileId);
+  if (!ctx.isSuperAdmin && !ctx.perms.delete_leads && f.uploaded_by !== ctx.user.name)
+    throw new CrmAuthError("FORBIDDEN", "You don't have permission to delete this file.");
+  await dbDelete(LEAD_FILE_CHUNKS, [{ col: "file_id", op: "eq", value: f.id }]);
+  await dbDelete(LEAD_FILES, byId(f.id));
+  await logActivity({
+    title: "File removed",
+    category: "LEADS",
+    actorEmail: ctx.user.email,
+    description: `${f.file_name} removed by ${ctx.user.name}.`,
+    leadId: String(f.lead_id),
+  });
+  return { ok: true as const };
+}
+
+/** Clean-up when leads are permanently deleted (best effort). */
+async function removeFilesOfLeads(leadIds: string[]) {
+  try {
+    for (let i = 0; i < leadIds.length; i += 100) {
+      const files = await dbSelect(LEAD_FILES, { columns: ["id"], filters: [{ col: "lead_id", op: "in", value: leadIds.slice(i, i + 100) }] });
+      const ids = files.map((r: any) => String(r.id));
+      for (let j = 0; j < ids.length; j += 100) {
+        await dbDelete(LEAD_FILE_CHUNKS, [{ col: "file_id", op: "in", value: ids.slice(j, j + 100) }]);
+        await dbDelete(LEAD_FILES, [{ col: "id", op: "in", value: ids.slice(j, j + 100) }]);
+      }
+    }
+  } catch (e) {
+    if (!isMissingFilesTable(e)) console.error("Could not remove the deleted leads' files", e);
+  }
+}

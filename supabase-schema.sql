@@ -126,6 +126,28 @@ ALTER TABLE public.crm_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_activity_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_settings ENABLE ROW LEVEL SECURITY;
 
+-- 9. LEAD ATTACHMENTS (PNG, JPG, PDF, DOC/DOCX, CSV attached to CRM leads, max 10 MB each)
+CREATE TABLE IF NOT EXISTS public.crm_lead_files (
+    id VARCHAR(64) PRIMARY KEY,
+    lead_id VARCHAR(64) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(128) NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    chunk_count INTEGER NOT NULL,
+    complete BOOLEAN NOT NULL DEFAULT FALSE,
+    uploaded_by VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_crm_lead_files_lead ON public.crm_lead_files (lead_id);
+CREATE TABLE IF NOT EXISTS public.crm_lead_file_chunks (
+    file_id VARCHAR(64) NOT NULL,
+    idx INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    PRIMARY KEY (file_id, idx)
+);
+ALTER TABLE public.crm_lead_files ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crm_lead_file_chunks ENABLE ROW LEVEL SECURITY;
+
 -- 8. Make the Supabase REST API see the new tables immediately
 NOTIFY pgrst, 'reload schema';
 

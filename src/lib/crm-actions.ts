@@ -58,6 +58,9 @@ export const crmCreateLeadFn = createServerFn({ method: "POST" })
         campaign?: string;
         adSet?: string;
         formName?: string;
+        paymentStatus?: string;
+        dealAmount?: string | number;
+        amountPaid?: string | number;
       };
     }) => d,
   )
@@ -282,3 +285,46 @@ export const crmMarkOrderPaidFn = createServerFn({ method: "POST" })
   });
 
 
+
+// ---- Lead attachments ----
+export const crmListLeadFilesFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { leadId: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.listLeadFiles(data.token, data.leadId));
+  });
+
+export const crmBeginLeadFileFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { leadId: string; name: string; size: number; chunks: number }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.beginLeadFile(data.token, data.leadId, { name: data.name, size: data.size, chunks: data.chunks }));
+  });
+
+export const crmLeadFileChunkFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { fileId: string; idx: number; data: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.uploadLeadFileChunk(data.token, data.fileId, data.idx, data.data));
+  });
+
+export const crmFinishLeadFileFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { fileId: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.finishLeadFile(data.token, data.fileId));
+  });
+
+export const crmDownloadLeadFileFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { fileId: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.downloadLeadFile(data.token, data.fileId));
+  });
+
+export const crmDeleteLeadFileFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { fileId: string }) => d)
+  .handler(async ({ data }) => {
+    const s = await srv();
+    return s.guard(() => s.deleteLeadFile(data.token, data.fileId));
+  });
