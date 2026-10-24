@@ -46,6 +46,9 @@ import {
   FileText,
   Upload,
   Wallet,
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays,
 } from "lucide-react";
 import { CrmUser, clearStoredCrmUser, setStoredCrmUser } from "@/lib/crm-auth";
 import {
@@ -250,6 +253,59 @@ function istDay(value?: string | null) {
   const d = new Date(value);
   return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
+// ---- Orders & Payments period (All time / one month / From → To), India time ----
+type OrdersPeriod = { mode: "all" | "month" | "range"; month: string; from: string; to: string };
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const thisIstMonth = () => istDay(new Date().toISOString()).slice(0, 7);
+function shiftMonth(month: string, by: number) {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(Date.UTC(y!, m! - 1 + by, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+function monthLabel(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  return `${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][m! - 1]} ${y}`;
+}
+function dayLabel(day: string) {
+  const [y, m, d] = day.split("-").map(Number);
+  return `${d} ${MONTH_NAMES[m! - 1]} ${y}`;
+}
+function periodMatch(p: OrdersPeriod, iso?: string | null) {
+  if (p.mode === "all") return true;
+  const d = istDay(iso);
+  if (!d) return false;
+  if (p.mode === "month") return d.slice(0, 7) === p.month;
+  if (p.from && d < p.from) return false;
+  if (p.to && d > p.to) return false;
+  return true;
+}
+function periodLabel(p: OrdersPeriod) {
+  if (p.mode === "month") return monthLabel(p.month);
+  if (p.mode === "range" && (p.from || p.to)) {
+    if (p.from && p.to) return `${dayLabel(p.from)} – ${dayLabel(p.to)}`;
+    return p.from ? `From ${dayLabel(p.from)}` : `Until ${dayLabel(p.to)}`;
+  }
+  return "All time";
+}
+type LeadOrderRow = { lead: LeadItem; deal: number; received: number; due: number; cat: "COMPLETED" | "BALANCE" | "NOT_PAID" };
+function sumLeadOrders(list: LeadOrderRow[]) {
+  return list.reduce(
+    (t, o) => ({
+      received: t.received + o.received,
+      due: t.due + o.due,
+      count: t.count + 1,
+      full: t.full + (o.cat === "COMPLETED" ? 1 : 0),
+      fullAmount: t.fullAmount + (o.cat === "COMPLETED" ? o.received : 0),
+      partial: t.partial + (o.cat === "BALANCE" ? 1 : 0),
+      partialDue: t.partialDue + (o.cat === "BALANCE" ? o.due : 0),
+      partialReceived: t.partialReceived + (o.cat === "BALANCE" ? o.received : 0),
+      notPaid: t.notPaid + (o.cat === "NOT_PAID" ? 1 : 0),
+      notPaidDue: t.notPaidDue + (o.cat === "NOT_PAID" ? o.due : 0),
+    }),
+    { received: 0, due: 0, count: 0, full: 0, fullAmount: 0, partial: 0, partialDue: 0, partialReceived: 0, notPaid: 0, notPaidDue: 0 },
+  );
+}
+
 function applyLeadFilter(list: LeadItem[], q: string, f: LeadFilter, resolveName?: (name?: string | null, id?: string | null) => string) {
   const s = q.trim().toLowerCase();
   return list.filter((l) => {
@@ -557,6 +613,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [metaDraft, setMetaDraft] = useState<LeadFilter>(blankLeadFilter);
   const [ordersSearch, setOrdersSearch] = useState("");
   const [ordersStatus, setOrdersStatus] = useState("All");
+  const [ordersPeriod, setOrdersPeriod] = useState<OrdersPeriod>(() => ({ mode: "all", month: thisIstMonth(), from: "", to: "" }));
   const [activityFilter, setActivityFilter] = useState("All");
 
   // Modals
@@ -797,7 +854,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   // Lead orders: every lead with a payment status or an amount written (Not Paid included).
   // Grouped by the money actually received: none → Not Paid, part → Partially Paid, all → Full Paid.
   const leadOrders = useMemo(() => {
-    const out: { lead: LeadItem; deal: number; received: number; due: number; cat: "COMPLETED" | "BALANCE" | "NOT_PAID" }[] = [];
+    const out: LeadOrderRow[] = [];
     for (const l of leads) {
       if (l.deletedAt) continue;
       const deal = cleanMoney(l.dealAmount);
@@ -808,25 +865,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     }
     return out.sort((x, y) => (y.lead.createdAt || "").localeCompare(x.lead.createdAt || ""));
   }, [leads]);
-  const leadPay = useMemo(
-    () =>
-      leadOrders.reduce(
-        (t, o) => ({
-          received: t.received + o.received,
-          due: t.due + o.due,
-          count: t.count + 1,
-          full: t.full + (o.cat === "COMPLETED" ? 1 : 0),
-          fullAmount: t.fullAmount + (o.cat === "COMPLETED" ? o.received : 0),
-          partial: t.partial + (o.cat === "BALANCE" ? 1 : 0),
-          partialDue: t.partialDue + (o.cat === "BALANCE" ? o.due : 0),
-          partialReceived: t.partialReceived + (o.cat === "BALANCE" ? o.received : 0),
-          notPaid: t.notPaid + (o.cat === "NOT_PAID" ? 1 : 0),
-          notPaidDue: t.notPaidDue + (o.cat === "NOT_PAID" ? o.due : 0),
-        }),
-        { received: 0, due: 0, count: 0, full: 0, fullAmount: 0, partial: 0, partialDue: 0, partialReceived: 0, notPaid: 0, notPaidDue: 0 },
-      ),
-    [leadOrders],
-  );
+  const leadPay = useMemo(() => sumLeadOrders(leadOrders), [leadOrders]);
   const effectiveOrdersCount = (orders ? orders.length : ordersCount) + leadPay.count;
 
   // -------------------------------------------------------------------------
@@ -1699,18 +1738,33 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         : o.paymentStatus === "REFUNDED"
           ? "REFUNDED"
           : "COMPLETED";
-  const shownOrders = (orders || []).filter((o) => {
+  // Everything on Orders & Payments follows the chosen period (All time / month / From → To).
+  const pOrders = (orders || []).filter((o) => periodMatch(ordersPeriod, o.createdAt));
+  const pLeadOrders = leadOrders.filter((o) => periodMatch(ordersPeriod, o.lead.createdAt));
+  const pLeadPay = sumLeadOrders(pLeadOrders);
+  // How many orders each month has (for the month calendar).
+  const ordersByMonth: Record<string, number> = {};
+  for (const o of orders || []) {
+    const k = istDay(o.createdAt).slice(0, 7);
+    if (k) ordersByMonth[k] = (ordersByMonth[k] || 0) + 1;
+  }
+  for (const o of leadOrders) {
+    const k = istDay(o.lead.createdAt).slice(0, 7);
+    if (k) ordersByMonth[k] = (ordersByMonth[k] || 0) + 1;
+  }
+  const shownOrders = pOrders.filter((o) => {
     const s = ordersSearch.trim().toLowerCase();
     const statusOk = ordersStatus === "All" || orderTab(o) === ordersStatus;
     return statusOk && (!s || [o.customerName, o.customerEmail, o.paypalOrderId, o.itemName, o.id].some((v) => (v || "").toLowerCase().includes(s)));
   });
   // Website orders grouped the same way as lead orders (only real payments; refunds excluded).
-  const webFull = completedOrders.filter((o) => !isPartlyPaid(o));
-  const webPartial = (orders || []).filter(isPartlyPaid);
+  const webFull = pOrders.filter((o) => o.paymentStatus === "COMPLETED" && !isPartlyPaid(o));
+  const webPartial = pOrders.filter(isPartlyPaid);
   const webFullAmount = webFull.reduce((t, o) => t + (o.paidTotal || o.amount), 0);
   const webPartialDue = webPartial.reduce((t, o) => t + (o.balanceDue || 0), 0);
   const webPartialReceived = webPartial.reduce((t, o) => t + (o.paidTotal || o.amount), 0);
-  const shownLeadOrders = leadOrders.filter((o) => {
+  const pReceivedTotal = webFullAmount + webPartialReceived + pLeadPay.received;
+  const shownLeadOrders = pLeadOrders.filter((o) => {
     const q = ordersSearch.trim().toLowerCase();
     const statusOk = ordersStatus === "All" || o.cat === ordersStatus;
     return statusOk && (!q || [o.lead.clientName, o.lead.companyName, o.lead.phone, o.lead.email].some((v) => (v || "").toLowerCase().includes(q)));
@@ -2844,7 +2898,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         {/* ---------------- ORDERS ---------------- */}
         {activeTab === "orders" && perms.orders && orders && (
           <div className="flex flex-col gap-4">
-            <PageHeader icon={<Package className="w-5 h-5 text-purple-600" />} title="Orders & Payments" badge={`${orders.length + leadPay.count} orders`} subtitle="Website checkout orders and lead payments recorded in the database.">
+            <PageHeader icon={<Package className="w-5 h-5 text-purple-600" />} title="Orders & Payments" badge={`${pOrders.length + pLeadPay.count} orders`} subtitle={`Website checkout orders and lead payments · ${periodLabel(ordersPeriod)}`}>
               <div className="flex items-center gap-2">
                 {isSuperAdmin && (
                   <button
@@ -2871,52 +2925,55 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </div>
             </PageHeader>
 
+            {/* Period: All time / month calendar / From → To — the cards and both tables follow it */}
+            <PeriodBar value={ordersPeriod} onChange={(v) => { setOrdersPeriod(v); setSelectedIds([]); }} counts={ordersByMonth} />
+
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7 gap-3 sm:gap-4">
               <Kpi
                 label="Orders"
-                value={orders.length + leadPay.count}
-                sub={`${orders.length} website · ${leadPay.count} lead${leadPay.count === 1 ? "" : "s"}`}
+                value={pOrders.length + pLeadPay.count}
+                sub={`${pOrders.length} website · ${pLeadPay.count} lead${pLeadPay.count === 1 ? "" : "s"}`}
                 icon={<Package className="w-4 h-4 text-purple-600" />}
                 className="col-span-2 sm:col-span-1 border-purple-200 bg-purple-50/40"
               />
               <Kpi
                 label="Balance Pending (Not Paid)"
-                value={fmtMoney(leadPay.notPaidDue, "INR")}
-                sub={`${leadPay.notPaid} order${leadPay.notPaid === 1 ? "" : "s"} not paid yet`}
+                value={fmtMoney(pLeadPay.notPaidDue, "INR")}
+                sub={`${pLeadPay.notPaid} order${pLeadPay.notPaid === 1 ? "" : "s"} not paid yet`}
                 icon={<Clock className="w-4 h-4 text-red-600" />}
                 valueClass="text-red-600"
               />
               <Kpi
                 label="Balance Pending (Partially Paid)"
-                value={fmtMoney(leadPay.partialDue + webPartialDue, "INR")}
-                sub={`${fmtMoney(leadPay.partialReceived + webPartialReceived, "INR")} received so far`}
+                value={fmtMoney(pLeadPay.partialDue + webPartialDue, "INR")}
+                sub={`${fmtMoney(pLeadPay.partialReceived + webPartialReceived, "INR")} received so far`}
                 icon={<Clock className="w-4 h-4 text-orange-600" />}
                 valueClass="text-orange-600"
               />
               <Kpi
                 label="Full Paid Amount"
-                value={fmtMoney(leadPay.fullAmount + webFullAmount, "INR")}
-                sub={`Total received ${revenueText(revenueByCur)}`}
+                value={fmtMoney(pLeadPay.fullAmount + webFullAmount, "INR")}
+                sub={`Total received ${fmtMoney(pReceivedTotal, "INR")}`}
                 icon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
                 valueClass="text-emerald-600"
               />
               <Kpi
                 label="Full Paid"
-                value={webFull.length + leadPay.full}
-                sub={`${webFull.length} website · ${leadPay.full} lead${leadPay.full === 1 ? "" : "s"}`}
+                value={webFull.length + pLeadPay.full}
+                sub={`${webFull.length} website · ${pLeadPay.full} lead${pLeadPay.full === 1 ? "" : "s"}`}
                 icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
                 valueClass="text-emerald-600"
               />
               <Kpi
                 label="Partially Paid"
-                value={webPartial.length + leadPay.partial}
-                sub={`${webPartial.length} website · ${leadPay.partial} lead${leadPay.partial === 1 ? "" : "s"}`}
+                value={webPartial.length + pLeadPay.partial}
+                sub={`${webPartial.length} website · ${pLeadPay.partial} lead${pLeadPay.partial === 1 ? "" : "s"}`}
                 icon={<Clock className="w-4 h-4 text-amber-600" />}
                 valueClass="text-amber-600"
               />
               <Kpi
                 label="Not Paid"
-                value={leadPay.notPaid}
+                value={pLeadPay.notPaid}
                 sub="Amount written, nothing received"
                 icon={<Wallet className="w-4 h-4 text-red-600" />}
                 valueClass="text-red-600"
@@ -2940,8 +2997,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 { id: "REFUNDED", label: "Refunded" },
               ].map((f) => {
                 const n =
-                  (f.id === "All" ? orders.length : orders.filter((o) => orderTab(o) === f.id).length) +
-                  (f.id === "All" ? leadOrders.length : leadOrders.filter((o) => o.cat === f.id).length);
+                  (f.id === "All" ? pOrders.length : pOrders.filter((o) => orderTab(o) === f.id).length) +
+                  (f.id === "All" ? pLeadOrders.length : pLeadOrders.filter((o) => o.cat === f.id).length);
                 return (
                   <button
                     key={f.id}
@@ -2968,7 +3025,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             )}
 
             {/* Website orders and lead orders side by side (stacked on smaller screens) */}
-            <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-start">
+            <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
               <div className={`${card} overflow-hidden flex flex-col min-w-0`}>
                 <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
                   <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-slate-800">
@@ -2982,6 +3039,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   title={
                     !orders.length
                       ? "No website checkout orders yet"
+                      : ordersPeriod.mode !== "all" && !pOrders.length
+                        ? `No website orders in ${periodLabel(ordersPeriod)}`
                       : ordersStatus === "All"
                         ? "No orders match your search"
                         : ordersStatus === "BALANCE"
@@ -3159,16 +3218,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 {shownLeadOrders.length === 0 ? (
                   <Empty
                     icon={<Wallet className="w-8 h-8" />}
-                    title={leadOrders.length ? "No lead orders match this filter" : "No lead payments yet"}
+                    title={leadOrders.length ? (ordersPeriod.mode !== "all" && !pLeadOrders.length ? `No lead orders in ${periodLabel(ordersPeriod)}` : "No lead orders match this filter") : "No lead payments yet"}
                     text="Write an amount in a lead's Payment section (Add / Edit lead) and it appears here."
                   />
                 ) : (
                   <div className="overflow-auto max-h-[70vh]">
-                    <table className="w-full min-w-[470px] text-left text-[13px]">
+                    <table className="w-full min-w-[540px] text-left text-[13px]">
                       <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                         <tr>
                           <th className="px-2.5 py-3 w-14 whitespace-nowrap">Sr No</th>
                           <th className="px-2.5 py-3">Full Name</th>
+                          <th className="px-2.5 py-3 whitespace-nowrap">Date</th>
                           <th className="px-2.5 py-3 text-right">Amount</th>
                           <th className="px-2.5 py-3 text-right">Paid</th>
                           <th className="px-2.5 py-3 text-right">Remaining</th>
@@ -3183,6 +3243,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               <div className="font-medium text-slate-900">{o.lead.clientName}</div>
                               {o.lead.companyName && <div className="text-[11px] text-slate-500">{o.lead.companyName}</div>}
                             </td>
+                            <td className="px-2.5 py-3 whitespace-nowrap text-[12px] text-slate-600">{istDay(o.lead.createdAt) ? dayLabel(istDay(o.lead.createdAt)) : "—"}</td>
                             <td className="px-2.5 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">{o.deal ? inr(o.deal) : "—"}</td>
                             <td className="px-2.5 py-3 text-right font-semibold text-emerald-700 whitespace-nowrap">{inr(o.received)}</td>
                             <td className={`p-3 text-right font-semibold whitespace-nowrap ${o.due > 0 ? "text-orange-600" : "text-slate-400"}`}>{o.due > 0 ? inr(o.due) : "Nil"}</td>
@@ -3204,7 +3265,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       </tbody>
                       <tfoot className="sticky bottom-0 bg-slate-50 border-t border-slate-200 text-[13px] font-bold">
                         <tr>
-                          <td className="px-2.5 py-3" colSpan={2}>
+                          <td className="px-2.5 py-3" colSpan={3}>
                             Total ({shownLeadOrders.length})
                           </td>
                           <td className="px-2.5 py-3 text-right whitespace-nowrap">{inr(shownLeadOrders.reduce((t, o) => t + o.deal, 0))}</td>
@@ -5686,5 +5747,142 @@ function LeadAttachments({ leadId, token, canEdit, canDeleteAll, myName, notify 
       )}
       {note && <p className="mt-2 text-[12px] font-medium text-purple-700">{note}</p>}
     </DetailCard>
+  );
+}
+
+/** Orders & Payments period: All time · month calendar (◀ month ▶) · From → To dates. */
+function PeriodBar({ value, onChange, counts }: { value: OrdersPeriod; onChange: (v: OrdersPeriod) => void; counts: Record<string, number> }) {
+  const cur = value.month || thisIstMonth();
+  const [open, setOpen] = useState(false);
+  const [year, setYear] = useState(() => Number(cur.slice(0, 4)));
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  const pickMonth = (m: string) => {
+    onChange({ mode: "month", month: m, from: "", to: "" });
+    setYear(Number(m.slice(0, 4)));
+  };
+  const today = thisIstMonth();
+  const chip = (active: boolean) =>
+    `inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors ${
+      active ? "bg-purple-600 text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+    }`;
+  return (
+    <div className={`${card} flex flex-col gap-3 p-3 sm:p-4 xl:flex-row xl:items-center`}>
+      <div className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-slate-600">
+        <CalendarDays className="h-4 w-4 text-purple-600" /> Period
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => onChange({ ...value, mode: "all", from: "", to: "" })} className={chip(value.mode === "all")}>
+          All time
+        </button>
+        <div ref={boxRef} className="relative flex items-center">
+          <button type="button" aria-label="Previous month" onClick={() => pickMonth(shiftMonth(cur, -1))} className="inline-flex h-9 w-9 items-center justify-center rounded-l-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setYear(Number(cur.slice(0, 4)));
+              setOpen((o) => !o);
+            }}
+            className={`inline-flex h-9 min-w-[150px] items-center justify-center gap-1.5 border-y px-3 text-[13px] font-semibold ${
+              value.mode === "month" ? "border-purple-600 bg-purple-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <CalendarDays className="h-4 w-4" /> {value.mode === "month" ? monthLabel(value.month) : "Select month"}
+          </button>
+          <button type="button" aria-label="Next month" onClick={() => pickMonth(shiftMonth(cur, 1))} className="inline-flex h-9 w-9 items-center justify-center rounded-r-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          {open && (
+            <div className="absolute right-0 top-full z-30 mt-2 w-[290px] max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 bg-white p-3 shadow-xl sm:left-0 sm:right-auto">
+              <div className="mb-2 flex items-center justify-between">
+                <button type="button" aria-label="Previous year" onClick={() => setYear((y) => y - 1)} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="text-sm font-bold text-slate-900">{year}</div>
+                <button type="button" aria-label="Next year" onClick={() => setYear((y) => y + 1)} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {MONTH_NAMES.map((name, i) => {
+                  const key = `${year}-${String(i + 1).padStart(2, "0")}`;
+                  const n = counts[key] || 0;
+                  const selected = value.mode === "month" && value.month === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        pickMonth(key);
+                        setOpen(false);
+                      }}
+                      className={`flex flex-col items-center rounded-md border px-1 py-1.5 text-[13px] transition-colors ${
+                        selected
+                          ? "border-purple-600 bg-purple-600 text-white"
+                          : key === today
+                            ? "border-purple-300 bg-purple-50 text-purple-800 hover:bg-purple-100"
+                            : "border-slate-200 text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span className="font-semibold">{name}</span>
+                      <span className={`text-[10px] ${selected ? "text-purple-100" : n ? "text-emerald-700 font-semibold" : "text-slate-400"}`}>
+                        {n ? `${n} order${n === 1 ? "" : "s"}` : "—"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  pickMonth(today);
+                  setOpen(false);
+                }}
+                className="mt-2 w-full rounded-md border border-slate-200 py-1.5 text-[12px] font-medium text-slate-700 hover:bg-slate-100"
+              >
+                This month
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 xl:ml-auto">
+        <span className="text-[12px] text-slate-500">From</span>
+        <input
+          type="date"
+          value={value.mode === "range" ? value.from : ""}
+          max={value.mode === "range" && value.to ? value.to : undefined}
+          onChange={(e) => onChange({ ...value, mode: "range", from: e.target.value, to: value.mode === "range" ? value.to : "" })}
+          className="h-9 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2.5 text-[13px] text-slate-900 [color-scheme:light] focus:border-purple-500 focus:outline-none sm:w-40 sm:flex-none"
+        />
+        <span className="text-[12px] text-slate-500">to</span>
+        <input
+          type="date"
+          value={value.mode === "range" ? value.to : ""}
+          min={value.mode === "range" && value.from ? value.from : undefined}
+          onChange={(e) => onChange({ ...value, mode: "range", to: e.target.value, from: value.mode === "range" ? value.from : "" })}
+          className="h-9 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2.5 text-[13px] text-slate-900 [color-scheme:light] focus:border-purple-500 focus:outline-none sm:w-40 sm:flex-none"
+        />
+        {value.mode !== "all" && (
+          <button type="button" onClick={() => onChange({ ...value, mode: "all", from: "", to: "" })} className={btnGhost}>
+            <RotateCcw className="h-4 w-4" /> Clear
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
