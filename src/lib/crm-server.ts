@@ -117,7 +117,8 @@ function leadPaymentTotals(r: any) {
   const status = paymentStatusFor(String(extra.paymentStatus || ""), deal, paid, pr, br);
   const received =
     status === "Full Paid" ? (pr || br ? deal || paid : 0) : status === "Partially Paid" ? (pr ? paid : 0) + (br ? Math.max(0, deal - paid) : 0) : 0;
-  const counted = status === "Partially Paid" || status === "Full Paid";
+  // A lead is an order once it has a payment status or an amount written (Not Paid included).
+  const counted = status === "Partially Paid" || status === "Full Paid" || deal > 0;
   const due = counted ? Math.max(0, deal - received) : 0;
   return { received, due, counted };
 }

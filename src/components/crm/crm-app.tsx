@@ -794,26 +794,38 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   // -------------------------------------------------------------------------
   const websiteLeads = useMemo(() => leads.filter((l) => l.kind === "website"), [leads]);
   const metaLeads = useMemo(() => leads.filter((l) => l.kind === "meta"), [leads]);
-  // Payments recorded on leads (manual entry / edit): received amounts count as revenue,
-  // amounts still due count towards Balance Pending.
+  // Lead orders: every lead with a payment status or an amount written (Not Paid included).
+  // Grouped by the money actually received: none → Not Paid, part → Partially Paid, all → Full Paid.
+  const leadOrders = useMemo(() => {
+    const out: { lead: LeadItem; deal: number; received: number; due: number; cat: "COMPLETED" | "BALANCE" | "NOT_PAID" }[] = [];
+    for (const l of leads) {
+      if (l.deletedAt) continue;
+      const deal = cleanMoney(l.dealAmount);
+      if (!deal && l.paymentStatus !== "Partially Paid" && l.paymentStatus !== "Full Paid") continue;
+      const r = leadReceived(l);
+      const due = Math.max(0, deal - r.received);
+      out.push({ lead: l, deal, received: r.received, due, cat: r.received <= 0 ? "NOT_PAID" : due > 0 ? "BALANCE" : "COMPLETED" });
+    }
+    return out.sort((x, y) => (y.lead.createdAt || "").localeCompare(x.lead.createdAt || ""));
+  }, [leads]);
   const leadPay = useMemo(
     () =>
-      leads.reduce(
-        (t, l) => {
-          if (l.deletedAt || (l.paymentStatus !== "Partially Paid" && l.paymentStatus !== "Full Paid")) return t;
-          const r = leadReceived(l);
-          const isFull = l.paymentStatus === "Full Paid" || (r.due <= 0 && r.received > 0);
-          return {
-            received: t.received + r.received,
-            due: t.due + r.due,
-            count: t.count + 1,
-            full: t.full + (isFull ? 1 : 0),
-            partial: t.partial + (!isFull ? 1 : 0),
-          };
-        },
-        { received: 0, due: 0, count: 0, full: 0, partial: 0 },
+      leadOrders.reduce(
+        (t, o) => ({
+          received: t.received + o.received,
+          due: t.due + o.due,
+          count: t.count + 1,
+          full: t.full + (o.cat === "COMPLETED" ? 1 : 0),
+          fullAmount: t.fullAmount + (o.cat === "COMPLETED" ? o.received : 0),
+          partial: t.partial + (o.cat === "BALANCE" ? 1 : 0),
+          partialDue: t.partialDue + (o.cat === "BALANCE" ? o.due : 0),
+          partialReceived: t.partialReceived + (o.cat === "BALANCE" ? o.received : 0),
+          notPaid: t.notPaid + (o.cat === "NOT_PAID" ? 1 : 0),
+          notPaidDue: t.notPaidDue + (o.cat === "NOT_PAID" ? o.due : 0),
+        }),
+        { received: 0, due: 0, count: 0, full: 0, fullAmount: 0, partial: 0, partialDue: 0, partialReceived: 0, notPaid: 0, notPaidDue: 0 },
       ),
-    [leads],
+    [leadOrders],
   );
   const effectiveOrdersCount = (orders ? orders.length : ordersCount) + leadPay.count;
 
@@ -1691,6 +1703,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     const s = ordersSearch.trim().toLowerCase();
     const statusOk = ordersStatus === "All" || orderTab(o) === ordersStatus;
     return statusOk && (!s || [o.customerName, o.customerEmail, o.paypalOrderId, o.itemName, o.id].some((v) => (v || "").toLowerCase().includes(s)));
+  });
+  // Website orders grouped the same way as lead orders (only real payments; refunds excluded).
+  const webFull = completedOrders.filter((o) => !isPartlyPaid(o));
+  const webPartial = (orders || []).filter(isPartlyPaid);
+  const webFullAmount = webFull.reduce((t, o) => t + (o.paidTotal || o.amount), 0);
+  const webPartialDue = webPartial.reduce((t, o) => t + (o.balanceDue || 0), 0);
+  const webPartialReceived = webPartial.reduce((t, o) => t + (o.paidTotal || o.amount), 0);
+  const shownLeadOrders = leadOrders.filter((o) => {
+    const q = ordersSearch.trim().toLowerCase();
+    const statusOk = ordersStatus === "All" || o.cat === ordersStatus;
+    return statusOk && (!q || [o.lead.clientName, o.lead.companyName, o.lead.phone, o.lead.email].some((v) => (v || "").toLowerCase().includes(q)));
   });
   const activityCats = ["All", "LEADS", "ORDERS", "USER_ACTIVITY", "SETTINGS"];
   const shownActivity = activity.filter((a) => activityFilter === "All" || a.category === activityFilter);
@@ -2820,7 +2843,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 
         {/* ---------------- ORDERS ---------------- */}
         {activeTab === "orders" && perms.orders && orders && (
-          <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
+          <div className="flex flex-col gap-4">
             <PageHeader icon={<Package className="w-5 h-5 text-purple-600" />} title="Orders & Payments" badge={`${orders.length + leadPay.count} orders`} subtitle="Website checkout orders and lead payments recorded in the database.">
               <div className="flex items-center gap-2">
                 {isSuperAdmin && (
@@ -2848,40 +2871,55 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </div>
             </PageHeader>
 
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7 gap-3 sm:gap-4">
               <Kpi
-                label="Total Orders"
+                label="Orders"
                 value={orders.length + leadPay.count}
-                {...(leadPay.count ? { sub: `incl. ${leadPay.count} from leads` } : {})}
+                sub={`${orders.length} website · ${leadPay.count} lead${leadPay.count === 1 ? "" : "s"}`}
                 icon={<Package className="w-4 h-4 text-purple-600" />}
+                className="col-span-2 sm:col-span-1 border-purple-200 bg-purple-50/40"
               />
               <Kpi
-                label="Balance Pending"
-                value={fmtMoney(ordersBalanceDue + leadPay.due, "INR")}
-                {...(leadPay.due > 0 ? { sub: `incl. ${fmtMoney(leadPay.due, "INR")} from leads` } : {})}
+                label="Balance Pending (Not Paid)"
+                value={fmtMoney(leadPay.notPaidDue, "INR")}
+                sub={`${leadPay.notPaid} order${leadPay.notPaid === 1 ? "" : "s"} not paid yet`}
+                icon={<Clock className="w-4 h-4 text-red-600" />}
+                valueClass="text-red-600"
+              />
+              <Kpi
+                label="Balance Pending (Partially Paid)"
+                value={fmtMoney(leadPay.partialDue + webPartialDue, "INR")}
+                sub={`${fmtMoney(leadPay.partialReceived + webPartialReceived, "INR")} received so far`}
                 icon={<Clock className="w-4 h-4 text-orange-600" />}
                 valueClass="text-orange-600"
               />
               <Kpi
-                label="Revenue (paid)"
-                value={revenueText(revenueByCur)}
-                {...(leadPay.received > 0 ? { sub: `incl. ${fmtMoney(leadPay.received, "INR")} from leads` } : {})}
+                label="Full Paid Amount"
+                value={fmtMoney(leadPay.fullAmount + webFullAmount, "INR")}
+                sub={`Total received ${revenueText(revenueByCur)}`}
                 icon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
                 valueClass="text-emerald-600"
               />
               <Kpi
-                label="Fully Paid"
-                value={completedOrders.filter((o) => !isPartlyPaid(o)).length + leadPay.full}
-                {...(leadPay.full ? { sub: `incl. ${leadPay.full} from leads` } : {})}
-                icon={<CheckCircle2 className="w-4 h-4 text-cyan-600" />}
-                valueClass="text-cyan-600"
+                label="Full Paid"
+                value={webFull.length + leadPay.full}
+                sub={`${webFull.length} website · ${leadPay.full} lead${leadPay.full === 1 ? "" : "s"}`}
+                icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                valueClass="text-emerald-600"
               />
               <Kpi
                 label="Partially Paid"
-                value={orders.filter(isPartlyPaid).length + leadPay.partial}
-                {...(leadPay.partial ? { sub: `incl. ${leadPay.partial} from leads` } : {})}
+                value={webPartial.length + leadPay.partial}
+                sub={`${webPartial.length} website · ${leadPay.partial} lead${leadPay.partial === 1 ? "" : "s"}`}
                 icon={<Clock className="w-4 h-4 text-amber-600" />}
                 valueClass="text-amber-600"
+              />
+              <Kpi
+                label="Not Paid"
+                value={leadPay.notPaid}
+                sub="Amount written, nothing received"
+                icon={<Wallet className="w-4 h-4 text-red-600" />}
+                valueClass="text-red-600"
               />
             </div>
 
@@ -2895,12 +2933,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { id: "All", label: "All" },
-                { id: "COMPLETED", label: "Fully Paid" },
-                { id: "BALANCE", label: "Balance Pending" },
+                { id: "COMPLETED", label: "Full Paid" },
+                { id: "BALANCE", label: "Partially Paid" },
+                { id: "NOT_PAID", label: "Not Paid" },
                 ...(isSuperAdmin ? [{ id: "PENDING_FAILED", label: "Pending & Failed" }] : []),
                 { id: "REFUNDED", label: "Refunded" },
               ].map((f) => {
-                const n = f.id === "All" ? orders.length : orders.filter((o) => orderTab(o) === f.id).length;
+                const n =
+                  (f.id === "All" ? orders.length : orders.filter((o) => orderTab(o) === f.id).length) +
+                  (f.id === "All" ? leadOrders.length : leadOrders.filter((o) => o.cat === f.id).length);
                 return (
                   <button
                     key={f.id}
@@ -2926,57 +2967,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </BulkBar>
             )}
 
-            {/* Lead vs Website Orders explanatory banner */}
-            <div className="rounded-lg border border-purple-200/80 bg-purple-50/70 p-3 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[13px] text-purple-900 shadow-2xs">
-              <div className="flex items-start sm:items-center gap-2.5 min-w-0">
-                <Globe className="w-4 h-4 text-purple-600 shrink-0 mt-0.5 sm:mt-0" />
-                <span className="leading-snug">
-                  Checkout orders will appear in this table when customers pay directly from the website. To view and track lead payments, visit the{" "}
-                  {perms.leads && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("leads")}
-                      className="font-semibold text-purple-700 underline underline-offset-2 hover:text-purple-900 cursor-pointer"
-                    >
-                      Leads Management
-                    </button>
-                  )}
-                  {perms.leads && perms.meta && " or "}
-                  {perms.meta && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("meta")}
-                      className="font-semibold text-purple-700 underline underline-offset-2 hover:text-purple-900 cursor-pointer"
-                    >
-                      Meta Leads
-                    </button>
-                  )}
-                  {" "}tab.
-                </span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {perms.leads && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("leads")}
-                    className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-white border border-purple-300 text-xs font-semibold text-purple-700 hover:bg-purple-100/70 hover:border-purple-400 transition-colors shadow-2xs cursor-pointer"
-                  >
-                    <Users className="w-3.5 h-3.5" /> Visit Leads Tab
-                  </button>
-                )}
-                {perms.meta && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("meta")}
-                    className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-white border border-purple-300 text-xs font-semibold text-purple-700 hover:bg-purple-100/70 hover:border-purple-400 transition-colors shadow-2xs cursor-pointer"
-                  >
-                    <Layers className="w-3.5 h-3.5" /> Meta Leads
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
+            {/* Website orders and lead orders side by side (stacked on smaller screens) */}
+            <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-start">
+              <div className={`${card} overflow-hidden flex flex-col min-w-0`}>
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
+                  <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-slate-800">
+                    <Globe className="h-4 w-4 text-purple-600" /> Website Orders
+                  </div>
+                  <span className="text-[12px] text-slate-500">{shownOrders.length} shown</span>
+                </div>
               {shownOrders.length === 0 ? (
                 <Empty
                   icon={<Package className="w-8 h-8" />}
@@ -3002,7 +3001,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   }
                 />
               ) : (
-                <div className="overflow-auto max-h-[70vh] lg:max-h-none lg:min-h-0">
+                <div className="overflow-auto max-h-[70vh]">
                   <table className="w-full min-w-[960px] text-left text-[13px]">
                     <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                       <tr>
@@ -3147,6 +3146,77 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   </table>
                 </div>
               )}
+              </div>
+
+              {/* Lead orders: payments recorded on leads (manual / Meta / website leads) */}
+              <div className={`${card} overflow-hidden flex flex-col min-w-0`}>
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
+                  <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-slate-800">
+                    <Users className="h-4 w-4 text-purple-600" /> Lead Orders
+                  </div>
+                  <span className="text-[12px] text-slate-500">{shownLeadOrders.length} shown</span>
+                </div>
+                {shownLeadOrders.length === 0 ? (
+                  <Empty
+                    icon={<Wallet className="w-8 h-8" />}
+                    title={leadOrders.length ? "No lead orders match this filter" : "No lead payments yet"}
+                    text="Write an amount in a lead's Payment section (Add / Edit lead) and it appears here."
+                  />
+                ) : (
+                  <div className="overflow-auto max-h-[70vh]">
+                    <table className="w-full min-w-[470px] text-left text-[13px]">
+                      <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
+                        <tr>
+                          <th className="px-2.5 py-3 w-14 whitespace-nowrap">Sr No</th>
+                          <th className="px-2.5 py-3">Full Name</th>
+                          <th className="px-2.5 py-3 text-right">Amount</th>
+                          <th className="px-2.5 py-3 text-right">Paid</th>
+                          <th className="px-2.5 py-3 text-right">Remaining</th>
+                          <th className="px-2.5 py-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {shownLeadOrders.map((o, i) => (
+                          <tr key={o.lead.id} onClick={() => setSelectedLead(o.lead)} className="cursor-pointer hover:bg-slate-50" title="Open lead details">
+                            <td className="px-2.5 py-3 text-slate-500">{i + 1}</td>
+                            <td className="px-2.5 py-3">
+                              <div className="font-medium text-slate-900">{o.lead.clientName}</div>
+                              {o.lead.companyName && <div className="text-[11px] text-slate-500">{o.lead.companyName}</div>}
+                            </td>
+                            <td className="px-2.5 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">{o.deal ? inr(o.deal) : "—"}</td>
+                            <td className="px-2.5 py-3 text-right font-semibold text-emerald-700 whitespace-nowrap">{inr(o.received)}</td>
+                            <td className={`p-3 text-right font-semibold whitespace-nowrap ${o.due > 0 ? "text-orange-600" : "text-slate-400"}`}>{o.due > 0 ? inr(o.due) : "Nil"}</td>
+                            <td className="px-2.5 py-3">
+                              <span
+                                className={`inline-flex whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${
+                                  o.cat === "COMPLETED"
+                                    ? PAYMENT_BADGE["Full Paid"]
+                                    : o.cat === "BALANCE"
+                                      ? PAYMENT_BADGE["Partially Paid"]
+                                      : "bg-red-50 text-red-700 border-red-300"
+                                }`}
+                              >
+                                {o.cat === "COMPLETED" ? "Full Paid" : o.cat === "BALANCE" ? "Partially Paid" : "Not Paid"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="sticky bottom-0 bg-slate-50 border-t border-slate-200 text-[13px] font-bold">
+                        <tr>
+                          <td className="px-2.5 py-3" colSpan={2}>
+                            Total ({shownLeadOrders.length})
+                          </td>
+                          <td className="px-2.5 py-3 text-right whitespace-nowrap">{inr(shownLeadOrders.reduce((t, o) => t + o.deal, 0))}</td>
+                          <td className="px-2.5 py-3 text-right whitespace-nowrap text-emerald-700">{inr(shownLeadOrders.reduce((t, o) => t + o.received, 0))}</td>
+                          <td className="px-2.5 py-3 text-right whitespace-nowrap text-orange-600">{inr(shownLeadOrders.reduce((t, o) => t + o.due, 0))}</td>
+                          <td className="px-2.5 py-3" />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
