@@ -613,7 +613,21 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [metaDraft, setMetaDraft] = useState<LeadFilter>(blankLeadFilter);
   const [ordersSearch, setOrdersSearch] = useState("");
   const [ordersStatus, setOrdersStatus] = useState("All");
-  const [ordersPeriod, setOrdersPeriod] = useState<OrdersPeriod>(() => ({ mode: "all", month: thisIstMonth(), from: "", to: "" }));
+  // Opens on the current month (India time): October in October, November in November…
+  const [ordersPeriod, setOrdersPeriod] = useState<OrdersPeriod>(() => ({ mode: "month", month: thisIstMonth(), from: "", to: "" }));
+  // When a new month starts while the CRM is open, move along with it — unless someone has
+  // chosen a different month / range / All time themselves.
+  const periodMonthRef = useRef(thisIstMonth());
+  useEffect(() => {
+    const check = setInterval(() => {
+      const now = thisIstMonth();
+      if (now === periodMonthRef.current) return;
+      const prev = periodMonthRef.current;
+      periodMonthRef.current = now;
+      setOrdersPeriod((p) => (p.mode === "month" && p.month === prev ? { ...p, month: now } : p));
+    }, 60 * 1000);
+    return () => clearInterval(check);
+  }, []);
   const [activityFilter, setActivityFilter] = useState("All");
 
   // Modals
