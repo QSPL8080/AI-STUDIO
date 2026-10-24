@@ -253,7 +253,7 @@ function istDay(value?: string | null) {
   const d = new Date(value);
   return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
-// ---- Orders & Payments period (All time / one month / From → To), India time ----
+// ---- Period filter (one month / From → To), India time ----
 type OrdersPeriod = { mode: "all" | "month" | "range"; month: string; from: string; to: string };
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const thisIstMonth = () => istDay(new Date().toISOString()).slice(0, 7);
@@ -615,8 +615,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [ordersStatus, setOrdersStatus] = useState("All");
   // Opens on the current month (India time): October in October, November in November…
   const [ordersPeriod, setOrdersPeriod] = useState<OrdersPeriod>(() => ({ mode: "month", month: thisIstMonth(), from: "", to: "" }));
+  const [leadsPeriod, setLeadsPeriod] = useState<OrdersPeriod>(() => ({ mode: "month", month: thisIstMonth(), from: "", to: "" }));
+  const [metaPeriod, setMetaPeriod] = useState<OrdersPeriod>(() => ({ mode: "month", month: thisIstMonth(), from: "", to: "" }));
   // When a new month starts while the CRM is open, move along with it — unless someone has
-  // chosen a different month / range / All time themselves.
+  // chosen a different month / range themselves.
   const periodMonthRef = useRef(thisIstMonth());
   useEffect(() => {
     const check = setInterval(() => {
@@ -624,7 +626,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       if (now === periodMonthRef.current) return;
       const prev = periodMonthRef.current;
       periodMonthRef.current = now;
-      setOrdersPeriod((p) => (p.mode === "month" && p.month === prev ? { ...p, month: now } : p));
+      const roll = (p: OrdersPeriod) => (p.mode === "month" && p.month === prev ? { ...p, month: now } : p);
+      setOrdersPeriod(roll);
+      setLeadsPeriod(roll);
+      setMetaPeriod(roll);
     }, 60 * 1000);
     return () => clearInterval(check);
   }, []);
@@ -1740,8 +1745,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     .filter((o) => o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED")
     .reduce((t, o) => t + (o.balanceDue || 0), 0);
 
-  const shownWebsite = applyLeadFilter(websiteLeads, leadsSearch, leadsFilter, resolveUser);
-  const shownMeta = applyLeadFilter(metaLeads, metaSearch, metaFilter, resolveUser);
+  // Leads / Meta Leads follow their own period (month calendar / From → To), by created date.
+  const periodWebsiteLeads = websiteLeads.filter((l) => periodMatch(leadsPeriod, l.createdAt));
+  const periodMetaLeads = metaLeads.filter((l) => periodMatch(metaPeriod, l.createdAt));
+  const shownWebsite = applyLeadFilter(periodWebsiteLeads, leadsSearch, leadsFilter, resolveUser);
+  const shownMeta = applyLeadFilter(periodMetaLeads, metaSearch, metaFilter, resolveUser);
   // 50% advance paid, balance still due ("Balance Pending").
   const isPartlyPaid = (o: OrderItem) => o.paymentPlan === "advance" && o.paymentStatus === "COMPLETED" && o.balanceDue > 0;
   const orderTab = (o: OrderItem) =>
@@ -1752,7 +1760,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
         : o.paymentStatus === "REFUNDED"
           ? "REFUNDED"
           : "COMPLETED";
-  // Everything on Orders & Payments follows the chosen period (All time / month / From → To).
+  // Everything on Orders & Payments follows the chosen period (month / From → To).
   const pOrders = (orders || []).filter((o) => periodMatch(ordersPeriod, o.createdAt));
   const pLeadOrders = leadOrders.filter((o) => periodMatch(ordersPeriod, o.lead.createdAt));
   const pLeadPay = sumLeadOrders(pLeadOrders);
@@ -2254,8 +2262,16 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           if (activeTab !== tabKey) return null;
           const isMeta = tabKey === "meta";
           if (isMeta ? !perms.meta : !perms.leads) return null;
-          const all = isMeta ? metaLeads : websiteLeads;
+          const tabLeads = isMeta ? metaLeads : websiteLeads; // every lead of this tab
+          const period = isMeta ? metaPeriod : leadsPeriod;
+          const setPeriod = isMeta ? setMetaPeriod : setLeadsPeriod;
+          const all = isMeta ? periodMetaLeads : periodWebsiteLeads; // leads in the chosen period
           const shown = isMeta ? shownMeta : shownWebsite;
+          const leadsByMonth: Record<string, number> = {};
+          for (const l of tabLeads) {
+            const k = istDay(l.createdAt).slice(0, 7);
+            if (k) leadsByMonth[k] = (leadsByMonth[k] || 0) + 1;
+          }
           const search = isMeta ? metaSearch : leadsSearch;
           const setSearch = isMeta ? setMetaSearch : setLeadsSearch;
           const filter = isMeta ? metaFilter : leadsFilter;
@@ -2288,11 +2304,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 icon={isMeta ? <Layers className="w-5 h-5 text-purple-600" /> : <Globe className="w-5 h-5 text-blue-600" />}
                 title={isMeta ? "Meta Ads Leads" : "Website & Inbound Leads"}
                 badge={`${all.length} leads`}
-                subtitle={
-                  isMeta
-                    ? "Leads from Facebook & Instagram lead forms."
-                    : "Inquiries from the website contact form, popup and manual entries."
-                }
+                subtitle={`${isMeta ? "Leads from Facebook & Instagram lead forms." : "Inquiries from the website contact form, popup and manual entries."} · ${periodLabel(period)}`}
               >
                 <button
                   onClick={() => openAddLead(isMeta ? "Meta Ads" : "Manual")}
@@ -2305,12 +2317,22 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     <Download className="w-4 h-4" /> Export CSV
                   </button>
                 )}
-                {isSuperAdmin && all.length > 0 && (
+                {isSuperAdmin && tabLeads.length > 0 && (
                   <button onClick={() => handleClearLeads(isMeta ? "meta" : "website")} className={btnDanger}>
                     <Trash2 className="w-4 h-4" /> Delete All
                   </button>
                 )}
               </PageHeader>
+
+              <PeriodBar
+                value={period}
+                onChange={(v) => {
+                  setPeriod(v);
+                  setSelectedIds([]);
+                }}
+                counts={leadsByMonth}
+                unit="lead"
+              />
 
               <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5">
                 {[
@@ -2400,7 +2422,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 {shown.length === 0 ? (
                   <Empty
                     icon={<Layers className="w-8 h-8" />}
-                    title={all.length ? "No leads match the current filter" : "No leads yet"}
+                    title={all.length ? "No leads match the current filter" : tabLeads.length ? `No leads in ${periodLabel(period)}` : "No leads yet"}
                     text={isMeta ? "Meta leads you add or receive will appear here." : "New website submissions appear here automatically."}
                   />
                 ) : (
@@ -2939,7 +2961,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </div>
             </PageHeader>
 
-            {/* Period: All time / month calendar / From → To — the cards and both tables follow it */}
+            {/* Period: month calendar / From → To — the cards and both tables follow it */}
             <PeriodBar value={ordersPeriod} onChange={(v) => { setOrdersPeriod(v); setSelectedIds([]); }} counts={ordersByMonth} />
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7 gap-3 sm:gap-4">
@@ -5764,8 +5786,8 @@ function LeadAttachments({ leadId, token, canEdit, canDeleteAll, myName, notify 
   );
 }
 
-/** Orders & Payments period: All time · month calendar (◀ month ▶) · From → To dates. */
-function PeriodBar({ value, onChange, counts }: { value: OrdersPeriod; onChange: (v: OrdersPeriod) => void; counts: Record<string, number> }) {
+/** Period: month calendar (◀ month ▶) · From → To dates. Clear goes back to the current month. */
+function PeriodBar({ value, onChange, counts, unit = "order" }: { value: OrdersPeriod; onChange: (v: OrdersPeriod) => void; counts: Record<string, number>; unit?: string }) {
   const cur = value.month || thisIstMonth();
   const [open, setOpen] = useState(false);
   const [year, setYear] = useState(() => Number(cur.slice(0, 4)));
@@ -5788,19 +5810,15 @@ function PeriodBar({ value, onChange, counts }: { value: OrdersPeriod; onChange:
     setYear(Number(m.slice(0, 4)));
   };
   const today = thisIstMonth();
-  const chip = (active: boolean) =>
-    `inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors ${
-      active ? "bg-purple-600 text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
-    }`;
+  // Both dates emptied → back to the current month (there is no "all time" view).
+  const setRange = (from: string, to: string) =>
+    from || to ? onChange({ ...value, mode: "range", from, to }) : pickMonth(today);
   return (
     <div className={`${card} flex flex-col gap-3 p-3 sm:p-4 xl:flex-row xl:items-center`}>
       <div className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-slate-600">
         <CalendarDays className="h-4 w-4 text-purple-600" /> Period
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => onChange({ ...value, mode: "all", from: "", to: "" })} className={chip(value.mode === "all")}>
-          All time
-        </button>
         <div ref={boxRef} className="relative flex items-center">
           <button type="button" aria-label="Previous month" onClick={() => pickMonth(shiftMonth(cur, -1))} className="inline-flex h-9 w-9 items-center justify-center rounded-l-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
             <ChevronLeft className="h-4 w-4" />
@@ -5854,7 +5872,7 @@ function PeriodBar({ value, onChange, counts }: { value: OrdersPeriod; onChange:
                     >
                       <span className="font-semibold">{name}</span>
                       <span className={`text-[10px] ${selected ? "text-purple-100" : n ? "text-emerald-700 font-semibold" : "text-slate-400"}`}>
-                        {n ? `${n} order${n === 1 ? "" : "s"}` : "—"}
+                        {n ? `${n} ${unit}${n === 1 ? "" : "s"}` : "—"}
                       </span>
                     </button>
                   );
@@ -5880,7 +5898,7 @@ function PeriodBar({ value, onChange, counts }: { value: OrdersPeriod; onChange:
           type="date"
           value={value.mode === "range" ? value.from : ""}
           max={value.mode === "range" && value.to ? value.to : undefined}
-          onChange={(e) => onChange({ ...value, mode: "range", from: e.target.value, to: value.mode === "range" ? value.to : "" })}
+          onChange={(e) => setRange(e.target.value, value.mode === "range" ? value.to : "")}
           className="h-9 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2.5 text-[13px] text-slate-900 [color-scheme:light] focus:border-purple-500 focus:outline-none sm:w-40 sm:flex-none"
         />
         <span className="text-[12px] text-slate-500">to</span>
@@ -5888,11 +5906,11 @@ function PeriodBar({ value, onChange, counts }: { value: OrdersPeriod; onChange:
           type="date"
           value={value.mode === "range" ? value.to : ""}
           min={value.mode === "range" && value.from ? value.from : undefined}
-          onChange={(e) => onChange({ ...value, mode: "range", to: e.target.value, from: value.mode === "range" ? value.from : "" })}
+          onChange={(e) => setRange(value.mode === "range" ? value.from : "", e.target.value)}
           className="h-9 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2.5 text-[13px] text-slate-900 [color-scheme:light] focus:border-purple-500 focus:outline-none sm:w-40 sm:flex-none"
         />
-        {value.mode !== "all" && (
-          <button type="button" onClick={() => onChange({ ...value, mode: "all", from: "", to: "" })} className={btnGhost}>
+        {(value.mode !== "month" || value.month !== today) && (
+          <button type="button" onClick={() => pickMonth(today)} className={btnGhost}>
             <RotateCcw className="h-4 w-4" /> Clear
           </button>
         )}
