@@ -308,6 +308,56 @@ export async function sweepExpiredPaymentLinks() {
   return n;
 }
 
+/** Payment-link money per lead (for the lead table, lead popup and Edit Lead). Read from the
+ *  real PayU orders, never copied into the lead's manual payment fields (no double counting). */
+export type LeadLinkPayment = {
+  count: number;
+  total: number;
+  paid: number;
+  due: number;
+  status: "Fully Paid" | "Partially Paid" | "Payment Pending" | "Not Paid";
+  orderIds: string[];
+};
+export function linkPaymentsByLead(orderRows: any[]) {
+  const out = new Map<string, LeadLinkPayment>();
+  const now = Date.now();
+  for (const r of orderRows) {
+    const d = details(r);
+    if (d.source !== "payment_link" || !d.leadId) continue; // balance rows are counted on their order
+    const paid = isPaid(r);
+    const busy = inProgress(r);
+    const stillOpen =
+      r.payment_status === "PENDING" ||
+      (r.payment_status === "FAILED" &&
+        (!d.linkExpiresAt || now < new Date(d.linkExpiresAt).getTime()));
+    if (!paid && !busy && !stillOpen) continue; // expired / cancelled / deleted unpaid links
+    const ps = paymentSummary(r);
+    const total = ps.orderTotal;
+    const got = paid ? ps.paidTotal : 0;
+    const cur = out.get(String(d.leadId)) || {
+      count: 0,
+      total: 0,
+      paid: 0,
+      due: 0,
+      status: "Not Paid" as LeadLinkPayment["status"],
+      orderIds: [] as string[],
+    };
+    cur.count++;
+    cur.total = round2(cur.total + total);
+    cur.paid = round2(cur.paid + got);
+    cur.due = round2(cur.due + Math.max(0, total - got));
+    cur.orderIds.push(String(r.id));
+    if (busy) cur.status = "Payment Pending";
+    out.set(String(d.leadId), cur);
+  }
+  for (const v of out.values()) {
+    if (v.paid > 0 && v.due <= 0) v.status = "Fully Paid";
+    else if (v.paid > 0) v.status = "Partially Paid";
+    else if (v.status !== "Payment Pending") v.status = "Not Paid";
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // CRM (Admin / Super Admin)
 // ---------------------------------------------------------------------------

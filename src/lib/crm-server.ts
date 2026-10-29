@@ -283,6 +283,8 @@ function mapLead(r: any, userResolver?: UserResolver) {
     deliveredById: (extra.deliveredById || null) as string | null,
     deletedAt: r.deleted_at ? new Date(r.deleted_at).toISOString() : null,
     deletedBy,
+    /** Money received through Admin-generated payment links (filled in by sync). */
+    linkPayment: null as import("./payment-links").LeadLinkPayment | null,
   };
 }
 export type CrmLead = ReturnType<typeof mapLead>;
@@ -321,7 +323,7 @@ function mapOrder(r: any) {
 
   return {
     paymentPlan: ps.plan,
-    planLabel: awaitingChoice ? "Payment Link (customer chooses)" : isLink ? `${ps.planLabel} · Payment Link` : ps.planLabel,
+    planLabel: awaitingChoice ? "Awaiting customer choice" : ps.planLabel,
     orderTotal: ps.orderTotal,
     paidTotal: ps.paidTotal,
     balanceDue: ps.paidTotal > 0 ? ps.balanceDue : 0,
@@ -583,6 +585,17 @@ export async function sync(token: string, ordersPin?: string) {
   const allLeadRows = await dbSelect(LEADS_TABLE, { order: { col: "created_at", desc: true } });
   const visible = allLeadRows.filter((r) => (isMetaRow(r) ? ctx.perms.meta : ctx.perms.leads));
   const leads = visible.filter((r) => !r.deleted_at).map((r) => mapLead(r, userResolver));
+  // Payment-link payments on each lead (read from the PayU orders; display only).
+  try {
+    const { linkPaymentsByLead } = await import("./payment-links");
+    const linkOrders = (
+      await dbSelect(ORDERS_TABLE, { columns: ["id", "payment_status", "paypal_status", "amount", "raw_details"] })
+    ).filter((r: any) => String(r.raw_details || "").includes('"payment_link"'));
+    const byLead = linkPaymentsByLead(linkOrders);
+    for (const l of leads) l.linkPayment = byLead.get(l.id) || null;
+  } catch (e) {
+    console.error("Payment-link summary for leads failed", e);
+  }
   const recycleBin = ctx.perms.recycle_bin
     ? visible
         .filter((r) => r.deleted_at)

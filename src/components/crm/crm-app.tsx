@@ -290,7 +290,17 @@ function periodLabel(p: OrdersPeriod) {
   }
   return "All time";
 }
-type LeadOrderRow = { lead: LeadItem; deal: number; received: number; due: number; cat: "COMPLETED" | "BALANCE" | "NOT_PAID" };
+type LeadOrderRow = {
+  lead: LeadItem;
+  deal: number;
+  received: number;
+  due: number;
+  cat: "COMPLETED" | "BALANCE" | "NOT_PAID";
+  /** Set for an Admin-generated payment-link order (paid through PayU). */
+  link?: OrderItem;
+  /** Order date (payment-link orders); lead rows use the lead's date. */
+  date?: string;
+};
 function sumLeadOrders(list: LeadOrderRow[]) {
   return list.reduce(
     (t, o) => ({
@@ -337,6 +347,22 @@ const LEAD_SOURCE_OPTIONS = [
   { value: "Manual", label: "Manual" },
   { value: "Meta Ads", label: "Meta Ads" },
 ];
+/** Lead Source dropdown value for a stored source: CRM leads are stored as "Manual Entry"
+ *  (shown as "Manual"); older website labels map to the India website options. */
+function editSourceValue(source?: string | null) {
+  const s = String(source || "").replace(/\s*\(CRM\)$/, "").trim();
+  if (!s || s === "Manual Entry" || s === "Manual") return "Manual";
+  return displayLeadSource(s);
+}
+/** Payment-link money on a lead, as one line (Paid ₹x · ₹y due). */
+const linkPayText = (p: { paid: number; due: number; total: number }) =>
+  p.paid > 0 ? `${inr(p.paid)} paid via payment link${p.due > 0 ? ` · ${inr(p.due)} due` : ""}` : `${inr(p.total)} payment link · not paid yet`;
+const LINK_PAY_BADGE: Record<string, string> = {
+  "Fully Paid": "bg-emerald-50 text-emerald-700 border-emerald-400",
+  "Partially Paid": "bg-orange-50 text-orange-700 border-orange-300",
+  "Payment Pending": "bg-amber-50 text-amber-700 border-amber-300",
+  "Not Paid": "bg-slate-100 text-slate-600 border-slate-300",
+};
 const LEAD_INDUSTRIES = [
   "E-commerce / D2C",
   "Real Estate",
@@ -632,6 +658,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [metaDraft, setMetaDraft] = useState<LeadFilter>(blankLeadFilter);
   const [ordersSearch, setOrdersSearch] = useState("");
   const [ordersStatus, setOrdersStatus] = useState("All");
+  // Orders & Payments: "Website Orders" or "Lead Orders" (manual / Meta leads incl. payment links)
+  const [ordersView, setOrdersView] = useState<"website" | "lead">("website");
   // Opens on the current month (India time): October in October, November in November…
   const [ordersPeriod, setOrdersPeriod] = useState<OrdersPeriod>(() => ({ mode: "month", month: thisIstMonth(), from: "", to: "" }));
   const [leadsPeriod, setLeadsPeriod] = useState<OrdersPeriod>(() => ({ mode: "month", month: thisIstMonth(), from: "", to: "" }));
@@ -676,7 +704,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const openEditLead = (l: LeadItem) => {
     setEditingLead(l);
     setEditLeadForm({
-      source: l.source || "Website",
+      source: editSourceValue(l.source),
       clientName: l.clientName || "",
       business: l.companyName || "",
       website: l.website || "",
@@ -1194,6 +1222,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     const finalHandledBy = f.handledBy?.trim() || editingLead.handledBy || currentUserName;
     const finalClosedBy = f.leadStatus === "Closed" ? (f.closedBy?.trim() || editingLead.closedBy || currentUserName) : "";
     const nowIso = new Date().toISOString();
+    // Unchanged in the dropdown → keep the stored source exactly ("Manual Entry" stays as is).
+    const savedSource =
+      f.source === editSourceValue(editingLead.source) ? editingLead.source || f.source : f.source === "Manual" ? "Manual Entry" : f.source;
     const optimisticLead: Partial<LeadItem> = {
       clientName: f.clientName,
       companyName: f.business,
@@ -1208,7 +1239,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       projectStatus: f.projectStatus,
       deliveryTarget: f.deliveryDate,
       notes: f.notes,
-      source: f.source,
+      source: savedSource,
       channel: f.channel,
       campaign: f.campaign,
       adSet: f.adSet,
@@ -1232,6 +1263,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           token: tok(),
           id: editingLead.id,
           ...f,
+          source: savedSource,
           handledBy: finalHandledBy,
           closedBy: finalClosedBy,
         },
@@ -1787,8 +1819,25 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           ? "REFUNDED"
           : "COMPLETED";
   // Everything on Orders & Payments follows the chosen period (month / From → To).
-  const pOrders = (orders || []).filter((o) => periodMatch(ordersPeriod, o.createdAt));
-  const pLeadOrders = leadOrders.filter((o) => periodMatch(ordersPeriod, o.lead.createdAt));
+  // Payment-link orders are generated for Manual / Meta leads: they are LEAD orders, not website
+  // orders. Each order is listed (and counted) once — in Lead Orders.
+  const isLinkOrder = (o: OrderItem) => o.source === "payment_link";
+  const linkLeadOrders: LeadOrderRow[] = (orders || [])
+    .filter((o) => isLinkOrder(o) && (o.paymentStatus === "COMPLETED" || o.paymentStatus === "PENDING" || o.paymentStatus === "REFUNDED"))
+    .map((o) => {
+      const lead =
+        leads.find((l) => l.id === o.leadId) ||
+        ({ id: `order:${o.id}`, clientName: o.customerName, companyName: o.customerCompany, phone: o.customerPhone, email: o.customerEmail, createdAt: o.createdAt } as unknown as LeadItem);
+      const deal = o.orderTotal || o.amount;
+      const received = o.paymentStatus === "COMPLETED" ? o.paidTotal || 0 : 0;
+      const due = Math.max(0, Math.round((deal - received) * 100) / 100);
+      return { lead, deal, received, due, cat: received <= 0 ? "NOT_PAID" : due > 0 ? "BALANCE" : "COMPLETED", link: o, date: o.createdAt } as LeadOrderRow;
+    });
+  const rowDate = (o: LeadOrderRow) => o.date || o.lead.createdAt || "";
+  const pOrders = (orders || []).filter((o) => !isLinkOrder(o) && periodMatch(ordersPeriod, o.createdAt));
+  const pLeadOrders = [...leadOrders, ...linkLeadOrders]
+    .filter((o) => periodMatch(ordersPeriod, rowDate(o)))
+    .sort((x, y) => rowDate(y).localeCompare(rowDate(x))); // newest on top
   const pLeadPay = sumLeadOrders(pLeadOrders);
   // How many orders each month has (for the month calendar).
   const ordersByMonth: Record<string, number> = {};
@@ -1815,7 +1864,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const shownLeadOrders = pLeadOrders.filter((o) => {
     const q = ordersSearch.trim().toLowerCase();
     const statusOk = ordersStatus === "All" || o.cat === ordersStatus;
-    return statusOk && (!q || [o.lead.clientName, o.lead.companyName, o.lead.phone, o.lead.email].some((v) => (v || "").toLowerCase().includes(q)));
+    return statusOk && (!q || [o.lead.clientName, o.lead.companyName, o.lead.phone, o.lead.email, o.link?.id, o.link?.paypalOrderId].some((v) => (v || "").toLowerCase().includes(q)));
   });
   const activityCats = ["All", "LEADS", "ORDERS", "USER_ACTIVITY", "SETTINGS"];
   const shownActivity = activity.filter((a) => activityFilter === "All" || a.category === activityFilter);
@@ -2597,6 +2646,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                     {l.deliveredAt && <div className="text-slate-500 font-normal">{fmtIstDate(l.deliveredAt)}</div>}
                                   </div>
                                 )}
+                                {l.linkPayment && (
+                                  <div className="mt-1.5" title={`Payment link: ${linkPayText(l.linkPayment)}`}>
+                                    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${LINK_PAY_BADGE[l.linkPayment.status]}`}>
+                                      <Link2 className="h-3 w-3" /> {l.linkPayment.status}
+                                    </span>
+                                    <div className="mt-0.5 whitespace-nowrap text-[11px] text-slate-500">{linkPayText(l.linkPayment)}</div>
+                                  </div>
+                                )}
                                 {l.paymentStatus && (l.paymentStatus !== "Not Paid" || l.dealAmount > 0) && (() => {
                                   const pr = leadReceived(l);
                                   const awaiting = l.paymentStatus === "Full Paid" && !pr.received;
@@ -2994,7 +3051,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     onClick={() =>
                       downloadCsv("quickupp_orders.csv", [
                         ["Order ID", "Transaction ID", "Payment ref", "Customer", "Email", "Phone", "Company", "Item", "Payment type", "Order total", "Discount %", "Discount Saved", "Coupon Code", "Amount (this payment)", "Paid so far", "Balance due", "Currency", "Status", "Created (IST)"],
-                        ...shownOrders.map((o) => [o.id, o.paypalOrderId, o.captureId, o.customerName, o.customerEmail, o.customerPhone, o.customerCompany, o.itemName, o.planLabel, o.orderTotal, `${o.discountPercent || 0}%`, o.discountAmount ? `₹${o.discountAmount}` : "-", o.couponCode || "-", o.amount, o.paidTotal, o.balanceDue, o.currency, o.paymentStatus, fmtIst(o.createdAt)]),
+                        ...[...shownOrders, ...shownLeadOrders.flatMap((x) => (x.link ? [x.link] : []))].map((o) => [o.id, o.paypalOrderId, o.captureId, o.customerName, o.customerEmail, o.customerPhone, o.customerCompany, o.itemName, o.planLabel, o.orderTotal, `${o.discountPercent || 0}%`, o.discountAmount ? `₹${o.discountAmount}` : "-", o.couponCode || "-", o.amount, o.paidTotal, o.balanceDue, o.currency, o.paymentStatus, fmtIst(o.createdAt)]),
                       ])
                     }
                     className={btnGhost}
@@ -3067,18 +3124,55 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </div>
             </div>
 
+            <div className={`${card} p-1.5 flex gap-1.5`} role="tablist" aria-label="Orders">
+              {(
+                [
+                  { id: "website", label: "Website Orders", n: pOrders.length, icon: Globe, note: "Customers who paid on the website" },
+                  { id: "lead", label: "Lead Orders", n: pLeadOrders.length, icon: Users, note: "Manual & Meta leads · payment links" },
+                ] as const
+              ).map((t) => {
+                const active = ordersView === t.id;
+                const Icon = t.icon;
+                return (
+                  <button
+                    key={t.id}
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => {
+                      setOrdersView(t.id);
+                      setOrdersStatus("All");
+                      setSelectedIds([]);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 h-12 px-4 rounded-md text-[14px] font-semibold transition-colors ${
+                      active ? "bg-purple-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {t.label}
+                    <span className={`text-[11px] min-w-[22px] px-1.5 py-0.5 rounded-md ${active ? "bg-white/20" : "bg-slate-100 text-slate-600"}`}>{t.n}</span>
+                    <span className={`hidden lg:inline text-[12px] font-normal ${active ? "text-white/75" : "text-slate-400"}`}>· {t.note}</span>
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { id: "All", label: "All" },
                 { id: "COMPLETED", label: "Full Paid" },
                 { id: "BALANCE", label: "Partially Paid" },
-                { id: "NOT_PAID", label: "Not Paid" },
-                ...(isSuperAdmin ? [{ id: "PENDING_FAILED", label: "Pending & Failed" }] : []),
-                { id: "REFUNDED", label: "Refunded" },
+                ...(ordersView === "lead" ? [{ id: "NOT_PAID", label: "Not Paid" }] : []),
+                ...(ordersView === "website" && isSuperAdmin ? [{ id: "PENDING_FAILED", label: "Pending & Failed" }] : []),
+                ...(ordersView === "website" ? [{ id: "REFUNDED", label: "Refunded" }] : []),
               ].map((f) => {
                 const n =
-                  (f.id === "All" ? pOrders.length : pOrders.filter((o) => orderTab(o) === f.id).length) +
-                  (f.id === "All" ? pLeadOrders.length : pLeadOrders.filter((o) => o.cat === f.id).length);
+                  ordersView === "website"
+                    ? f.id === "All"
+                      ? pOrders.length
+                      : pOrders.filter((o) => orderTab(o) === f.id).length
+                    : f.id === "All"
+                      ? pLeadOrders.length
+                      : pLeadOrders.filter((o) => o.cat === f.id).length;
                 return (
                   <button
                     key={f.id}
@@ -3096,7 +3190,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               })}
             </div>
 
-            {isSuperAdmin && (
+            {isSuperAdmin && ordersView === "website" && (
               <BulkBar count={selectedIds.filter((id) => shownOrders.some((o) => o.id === id)).length} onClear={() => setSelectedIds([])}>
                 <button onClick={handleBulkOrders} className={btnDanger}>
                   <Trash2 className="w-4 h-4" /> Delete permanently
@@ -3104,8 +3198,9 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </BulkBar>
             )}
 
-            {/* Website orders and lead orders side by side (stacked on smaller screens) */}
-            <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
+            {/* One table at a time: Website Orders | Lead Orders (tabs above) */}
+            <div className="grid grid-cols-1 gap-4 items-start">
+              {ordersView === "website" && (
               <div className={`${card} overflow-hidden flex flex-col min-w-0`}>
                 <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
                   <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-slate-800">
@@ -3140,7 +3235,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   }
                 />
               ) : (
-                <div className="overflow-auto max-h-[70vh]">
+                <div className="overflow-auto max-h-[560px]">
                   <table className="w-full min-w-[960px] text-left text-[13px]">
                     <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                       <tr>
@@ -3154,8 +3249,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <th className="p-3.5">Amount</th>
                         <th className="p-3.5">Discounted</th>
                         <th className="p-3.5">Status</th>
-                        <th className="p-3.5">Transaction ID</th>
-                        <th className="p-3.5">Date</th>
+                        <th className="p-3.5">Transaction ID · Date</th>
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -3174,12 +3268,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                           </td>
                           <td className="p-3.5">
                             <div className="font-semibold text-slate-900">{o.itemName}</div>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-50 text-purple-700 uppercase">{o.itemType}</span>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-50 text-purple-700 uppercase">{o.itemType}</span>
+                              {o.source === "payment_link" && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200 uppercase whitespace-nowrap">Payment link</span>
+                              )}
+                            </div>
                           </td>
-                          <td className="p-3.5">
+                          <td className="p-3.5 whitespace-nowrap">
                             <div className="font-bold text-emerald-600 font-mono">{fmtMoney(o.paidTotal || o.amount, o.currency)}</div>
                             <span
-                              className={`inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase ${
+                              className={`inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase whitespace-nowrap ${
                                 isPartlyPaid(o) ? "bg-amber-50 text-amber-700" : o.paymentPlan === "full" ? "bg-emerald-50 text-emerald-700" : "bg-sky-50 text-sky-700"
                               }`}
                             >
@@ -3217,18 +3316,20 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 ) : null}
                               </div>
                             ) : (
-                              <span className="text-xs text-slate-400">No discount (0%)</span>
+                              <span className="text-xs text-slate-400 whitespace-nowrap">No discount (0%)</span>
                             )}
                           </td>
-                          <td className="p-3.5">
-                            <span className={`px-2 py-0.5 rounded-md border text-[11px] font-semibold ${isPartlyPaid(o) ? "bg-orange-50 text-orange-700 border-orange-300" : ORDER_STATUS_STYLE[o.paymentStatus] || ORDER_STATUS_STYLE["REFUNDED"]}`}>
+                          <td className="p-3.5 whitespace-nowrap">
+                            <span className={`px-2 py-0.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${isPartlyPaid(o) ? "bg-orange-50 text-orange-700 border-orange-300" : ORDER_STATUS_STYLE[o.paymentStatus] || ORDER_STATUS_STYLE["REFUNDED"]}`}>
                               {isPartlyPaid(o) ? "PARTIALLY PAID" : o.paymentStatus === "COMPLETED" ? "PAID" : o.paymentStatus}
                             </span>
                           </td>
-                          <td className="p-3.5 font-mono text-xs text-slate-700">{o.paypalOrderId}</td>
-                          <td className="p-3.5 text-slate-600 font-mono whitespace-nowrap">{fmtIst(o.createdAt)}</td>
+                          <td className="p-3.5 whitespace-nowrap">
+                            <div className="font-mono text-xs text-slate-700">{o.paypalOrderId}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{fmtIst(o.createdAt)}</div>
+                          </td>
                           <td className="p-3.5">
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex flex-wrap items-center justify-end gap-1.5 ml-auto max-w-[260px]">
                               {o.paymentStatus === "PENDING" && o.payOrderUrl && (
                                 <>
                                   <button
@@ -3286,8 +3387,10 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 </div>
               )}
               </div>
+              )}
 
-              {/* Lead orders: payments recorded on leads (manual / Meta / website leads) */}
+              {/* Lead orders: payments recorded on leads (manual / Meta / website leads) + payment links */}
+              {ordersView === "lead" && (
               <div className={`${card} overflow-hidden flex flex-col min-w-0`}>
                 <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
                   <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-slate-800">
@@ -3298,11 +3401,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 {shownLeadOrders.length === 0 ? (
                   <Empty
                     icon={<Wallet className="w-8 h-8" />}
-                    title={leadOrders.length ? (ordersPeriod.mode !== "all" && !pLeadOrders.length ? `No lead orders in ${periodLabel(ordersPeriod)}` : "No lead orders match this filter") : "No lead payments yet"}
-                    text="Write an amount in a lead's Payment section (Add / Edit lead) and it appears here."
+                    title={leadOrders.length + linkLeadOrders.length ? (ordersPeriod.mode !== "all" && !pLeadOrders.length ? `No lead orders in ${periodLabel(ordersPeriod)}` : "No lead orders match this filter") : "No lead payments yet"}
+                    text="Write an amount in a lead's Payment section (Add / Edit lead), or send the lead a payment link, and it appears here."
                   />
                 ) : (
-                  <div className="overflow-auto max-h-[70vh]">
+                  <div className="overflow-auto max-h-[420px]">
                     <table className="w-full min-w-[540px] text-left text-[13px]">
                       <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                         <tr>
@@ -3317,13 +3420,26 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {shownLeadOrders.map((o, i) => (
-                          <tr key={o.lead.id} onClick={() => setSelectedLead(o.lead)} className="cursor-pointer hover:bg-slate-50" title="Open lead details">
+                          <tr
+                            key={o.link ? `link:${o.link.id}` : o.lead.id}
+                            onClick={() => (leads.some((l) => l.id === o.lead.id) ? setSelectedLead(o.lead) : o.link && setSelectedOrder(o.link))}
+                            className="cursor-pointer hover:bg-slate-50"
+                            title={o.link ? "Payment link order — open lead details" : "Open lead details"}
+                          >
                             <td className="px-2.5 py-3 text-slate-500">{i + 1}</td>
                             <td className="px-2.5 py-3">
                               <div className="font-medium text-slate-900">{o.lead.clientName}</div>
-                              {o.lead.companyName && <div className="text-[11px] text-slate-500">{o.lead.companyName}</div>}
+                              {o.link ? (
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200 uppercase whitespace-nowrap">Payment link</span>
+                                  <span className="text-[11px] text-slate-500 font-mono">{o.link.id}</span>
+                                  <span className="text-[11px] text-slate-500">{o.link.itemName}</span>
+                                </div>
+                              ) : (
+                                o.lead.companyName && <div className="text-[11px] text-slate-500">{o.lead.companyName}</div>
+                              )}
                             </td>
-                            <td className="px-2.5 py-3 whitespace-nowrap text-[12px] text-slate-600">{istDay(o.lead.createdAt) ? dayLabel(istDay(o.lead.createdAt)) : "—"}</td>
+                            <td className="px-2.5 py-3 whitespace-nowrap text-[12px] text-slate-600">{istDay(rowDate(o)) ? dayLabel(istDay(rowDate(o))) : "—"}</td>
                             <td className="px-2.5 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">{o.deal ? inr(o.deal) : "—"}</td>
                             <td className="px-2.5 py-3 text-right font-semibold text-emerald-700 whitespace-nowrap">{inr(o.received)}</td>
                             <td className={`p-3 text-right font-semibold whitespace-nowrap ${o.due > 0 ? "text-orange-600" : "text-slate-400"}`}>{o.due > 0 ? inr(o.due) : "Nil"}</td>
@@ -3358,6 +3474,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
         )}
@@ -4103,7 +4220,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               <Field label="Lead Source *">
                 <select value={editLeadForm.source} onChange={(e) => setEditLeadForm({ ...editLeadForm, source: e.target.value })} className={inputCls}>
-                  {LEAD_SOURCE_OPTIONS.map((o) => (
+                  {[...LEAD_SOURCE_OPTIONS, ...(editLeadForm.source && !LEAD_SOURCE_OPTIONS.some((o) => o.value === editLeadForm.source) ? [{ value: editLeadForm.source, label: editLeadForm.source }] : [])].map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
@@ -4191,6 +4308,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </Field>
             </div>
 
+            {editingLead?.linkPayment && (
+              <div className="rounded-md border border-fuchsia-200 bg-fuchsia-50/60 px-3.5 py-2.5 text-[12px] text-fuchsia-900">
+                <div className="font-bold">
+                  Payment link · {editingLead.linkPayment.status}
+                </div>
+                <div className="mt-0.5">
+                  {inr(editingLead.linkPayment.paid)} received of {inr(editingLead.linkPayment.total)} through PayU
+                  {editingLead.linkPayment.due > 0 ? ` · ${inr(editingLead.linkPayment.due)} still due` : " · fully paid"}. This is recorded automatically — don't enter it again below, or it would be counted twice.
+                </div>
+              </div>
+            )}
             <PaymentFields form={editLeadForm} setForm={setEditLeadForm} />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -4582,12 +4710,22 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       }
                     />
                   </div>
+                  {l.linkPayment && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-fuchsia-50/60 border border-fuchsia-100">
+                      <MiniStat label="Payment link status" value={l.linkPayment.status} />
+                      <MiniStat label="Order total" value={inr(l.linkPayment.total)} />
+                      <MiniStat label="Paid via payment link" value={inr(l.linkPayment.paid)} />
+                      <MiniStat label="Balance due" value={l.linkPayment.due > 0 ? inr(l.linkPayment.due) : "Nil (fully paid)"} />
+                    </div>
+                  )}
+                  {(!l.linkPayment || l.paymentStatus || l.dealAmount > 0) && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-emerald-50/60 border border-emerald-100">
-                    <MiniStat label="Payment status" value={l.paymentStatus || "Not recorded"} />
+                    <MiniStat label={l.linkPayment ? "Manual payment status" : "Payment status"} value={l.paymentStatus || "Not recorded"} />
                     <MiniStat label="Deal amount" value={l.dealAmount ? inr(l.dealAmount) : "—"} />
                     <MiniStat label="Received" value={inr(leadReceived(l).received)} />
                     <MiniStat label="Balance due" value={l.dealAmount ? (leadReceived(l).due > 0 ? inr(leadReceived(l).due) : "Nil (fully paid)") : "—"} />
                   </div>
+                  )}
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Project details / campaign goals</div>
                     <div className="px-4 py-3 rounded-md bg-slate-50 border border-slate-200 text-sm leading-relaxed text-slate-800 whitespace-pre-wrap break-words">
