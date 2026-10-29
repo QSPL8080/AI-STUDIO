@@ -394,7 +394,37 @@ export interface MailAttachment {
   cid?: string;
 }
 
-async function sendViaSmtp(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; fromName: string; attachments?: MailAttachment[] | undefined; preferWebsiteMailbox?: boolean }) {
+/**
+ * Branded emails (new lead, team order alerts, security alerts) show the logo from the website
+ * URL. Over SMTP the logo is embedded inside the email instead, so it always shows — even when
+ * the email app blocks web images or the site address is unreachable. Emails without the
+ * hosted logo are returned unchanged.
+ */
+const BRAND_LOGO_CID = "quickupp-ai-studio-logo-white";
+async function withEmbeddedBrandLogo<T extends { html: string; attachments?: MailAttachment[] | undefined }>(mail: T): Promise<T> {
+  const hosted = `src="${escapeHtml(LOGO_URL)}"`;
+  if (!mail.html.includes(hosted)) return mail;
+  try {
+    const { getCompanyLogoWhiteBuffer } = await import("./receipt-assets");
+    const logo: MailAttachment = {
+      filename: "quickupp-ai-studio-logo.png",
+      content: getCompanyLogoWhiteBuffer(),
+      contentType: "image/png",
+      cid: BRAND_LOGO_CID,
+    };
+    return {
+      ...mail,
+      html: mail.html.split(hosted).join(`src="cid:${BRAND_LOGO_CID}"`),
+      attachments: [...(mail.attachments || []), logo],
+    };
+  } catch (e) {
+    console.error("Email logo not available, using the hosted logo", e);
+    return mail;
+  }
+}
+
+async function sendViaSmtp(original: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; fromName: string; attachments?: MailAttachment[] | undefined; preferWebsiteMailbox?: boolean }) {
+  const mail = await withEmbeddedBrandLogo(original);
   const { accounts: all, missing } = smtpAccounts();
   // Always prioritize the official domain mailbox (info@quickuppaistudio.in via Hostinger SMTP)
   // so emails are sent reliably without personal Gmail security checkpoints.
