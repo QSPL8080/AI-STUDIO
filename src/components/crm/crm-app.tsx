@@ -660,6 +660,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [ordersStatus, setOrdersStatus] = useState("All");
   // Orders & Payments: "Website Orders" or "Lead Orders" (manual / Meta leads incl. payment links)
   const [ordersView, setOrdersView] = useState<"website" | "lead">("website");
+  // Orders tables show exactly 4 rows; the rest scroll inside the table (newest on top).
+  const webOrdersBoxRef = useRef<HTMLDivElement>(null);
+  const leadOrdersBoxRef = useRef<HTMLDivElement>(null);
+  useVisibleRows(webOrdersBoxRef, 4);
+  useVisibleRows(leadOrdersBoxRef, 4);
   // Opens on the current month (India time): October in October, November in November…
   const [ordersPeriod, setOrdersPeriod] = useState<OrdersPeriod>(() => ({ mode: "month", month: thisIstMonth(), from: "", to: "" }));
   const [leadsPeriod, setLeadsPeriod] = useState<OrdersPeriod>(() => ({ mode: "month", month: thisIstMonth(), from: "", to: "" }));
@@ -3235,7 +3240,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   }
                 />
               ) : (
-                <div className="overflow-auto max-h-[560px]">
+                <div ref={webOrdersBoxRef} className="overflow-auto overscroll-contain max-h-[560px]">
                   <table className="w-full min-w-[960px] text-left text-[13px]">
                     <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                       <tr>
@@ -3405,7 +3410,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     text="Write an amount in a lead's Payment section (Add / Edit lead), or send the lead a payment link, and it appears here."
                   />
                 ) : (
-                  <div className="overflow-auto max-h-[420px]">
+                  <div ref={leadOrdersBoxRef} className="overflow-auto overscroll-contain max-h-[420px]">
                     <table className="w-full min-w-[540px] text-left text-[13px]">
                       <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                         <tr>
@@ -5435,6 +5440,45 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
 // ---------------------------------------------------------------------------
 // Presentational pieces
 // ---------------------------------------------------------------------------
+/** Sizes a scrolling table box to its header + the first `rows` rows (+ footer), measured from the
+ *  real rows, so exactly that many rows show and the rest scroll inside the table. */
+function useVisibleRows(ref: React.RefObject<HTMLDivElement | null>, rows: number) {
+  useEffect(() => {
+    let observed: Element | null = null;
+    let ro: ResizeObserver | null = null;
+    const fit = () => {
+      const box = ref.current;
+      const t = box?.querySelector("table");
+      if (!box || !t) return;
+      const head = t.tHead?.offsetHeight || 0;
+      const foot = t.tFoot?.offsetHeight || 0;
+      const body = Array.from(t.tBodies[0]?.rows || [])
+        .slice(0, rows)
+        .reduce((sum, r) => sum + (r as HTMLElement).offsetHeight, 0);
+      box.style.maxHeight = `${head + body + foot + 2}px`;
+    };
+    // The table appears / changes as tabs, filters and data change: re-measure when it does.
+    const watch = () => {
+      const t = ref.current?.querySelector("table") || null;
+      if (t !== observed) {
+        ro?.disconnect();
+        observed = t;
+        if (t && typeof ResizeObserver !== "undefined") {
+          ro = new ResizeObserver(fit);
+          ro.observe(t);
+        }
+      }
+      fit();
+    };
+    watch();
+    const id = setInterval(watch, 500);
+    return () => {
+      clearInterval(id);
+      ro?.disconnect();
+    };
+  }, [ref, rows]);
+}
+
 function PageHeader({
   icon,
   title,
