@@ -4308,18 +4308,40 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </Field>
             </div>
 
-            {editingLead?.linkPayment && (
-              <div className="rounded-md border border-fuchsia-200 bg-fuchsia-50/60 px-3.5 py-2.5 text-[12px] text-fuchsia-900">
-                <div className="font-bold">
-                  Payment link · {editingLead.linkPayment.status}
+            {(() => {
+              const lp = editingLead?.linkPayment;
+              // Lead paid through a payment link and nothing was entered by hand: show ONE payment
+              // box with the real PayU figures (the manual fields would only cause double entries).
+              const manualRecorded = !!editingLead && (editingLead.dealAmount > 0 || (!!editingLead.paymentStatus && editingLead.paymentStatus !== "Not Paid"));
+              const linkBox = lp && (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wider text-emerald-800">
+                      <Wallet className="w-4 h-4" /> Payment
+                    </div>
+                    <span className="inline-flex items-center gap-1 rounded-md border border-fuchsia-200 bg-fuchsia-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-fuchsia-700">
+                      <Link2 className="w-3 h-3" /> Payment link · PayU
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <MiniStat label="Payment status" value={lp.status} />
+                    <MiniStat label="Total amount" value={inr(lp.total)} />
+                    <MiniStat label="Received" value={inr(lp.paid)} />
+                    <MiniStat label="Balance due" value={lp.due > 0 ? inr(lp.due) : "Nil (fully paid)"} />
+                  </div>
+                  <p className="mt-2.5 text-[11px] text-emerald-800/80">
+                    Updated automatically when the customer pays through the payment link. To change the amount, edit the link in Payment Links.
+                  </p>
                 </div>
-                <div className="mt-0.5">
-                  {inr(editingLead.linkPayment.paid)} received of {inr(editingLead.linkPayment.total)} through PayU
-                  {editingLead.linkPayment.due > 0 ? ` · ${inr(editingLead.linkPayment.due)} still due` : " · fully paid"}. This is recorded automatically — don't enter it again below, or it would be counted twice.
-                </div>
-              </div>
-            )}
-            <PaymentFields form={editLeadForm} setForm={setEditLeadForm} />
+              );
+              if (lp && !manualRecorded) return linkBox;
+              return (
+                <>
+                  {linkBox}
+                  <PaymentFields form={editLeadForm} setForm={setEditLeadForm} />
+                </>
+              );
+            })()}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <Field label="Handled By / Assigned To" hint="Select an admin or type a name">
@@ -4718,7 +4740,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       <MiniStat label="Balance due" value={l.linkPayment.due > 0 ? inr(l.linkPayment.due) : "Nil (fully paid)"} />
                     </div>
                   )}
-                  {(!l.linkPayment || l.paymentStatus || l.dealAmount > 0) && (
+                  {(!l.linkPayment || l.dealAmount > 0 || (!!l.paymentStatus && l.paymentStatus !== "Not Paid")) && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md bg-emerald-50/60 border border-emerald-100">
                     <MiniStat label={l.linkPayment ? "Manual payment status" : "Payment status"} value={l.paymentStatus || "Not recorded"} />
                     <MiniStat label="Deal amount" value={l.dealAmount ? inr(l.dealAmount) : "—"} />
