@@ -148,6 +148,38 @@ CREATE TABLE IF NOT EXISTS public.crm_lead_file_chunks (
 ALTER TABLE public.crm_lead_files ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_lead_file_chunks ENABLE ROW LEVEL SECURITY;
 
+-- 10. ADMIN-GENERATED CUSTOMER PAYMENT LINKS (24-hour links; orders/payments stay in ind_orders)
+CREATE TABLE IF NOT EXISTS public.crm_payment_links (
+    id VARCHAR(64) PRIMARY KEY,
+    lead_id VARCHAR(64) NOT NULL,
+    order_id VARCHAR(64) NOT NULL,
+    lead_source VARCHAR(16) NOT NULL,
+    service_id VARCHAR(64) NOT NULL,
+    qty INTEGER NOT NULL,
+    item_name VARCHAR(255) NOT NULL,
+    total_amount NUMERIC(10, 2) NOT NULL,
+    customer_name VARCHAR(255) NOT NULL,
+    customer_email VARCHAR(255) NOT NULL,
+    customer_phone VARCHAR(64) NOT NULL,
+    customer_company VARCHAR(255),
+    status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
+    paid_plan VARCHAR(16),
+    attempts TEXT,
+    created_by_id VARCHAR(64),
+    created_by_name VARCHAR(255),
+    created_by_email VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    used_at TIMESTAMP WITH TIME ZONE,
+    cancelled_at TIMESTAMP WITH TIME ZONE,
+    cancelled_by VARCHAR(255),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_crm_payment_links_lead ON public.crm_payment_links (lead_id);
+CREATE INDEX IF NOT EXISTS idx_crm_payment_links_order ON public.crm_payment_links (order_id);
+CREATE INDEX IF NOT EXISTS idx_crm_payment_links_created ON public.crm_payment_links (created_at DESC);
+ALTER TABLE public.crm_payment_links ENABLE ROW LEVEL SECURITY;
+
 -- 8. Make the Supabase REST API see the new tables immediately
 NOTIFY pgrst, 'reload schema';
 

@@ -49,6 +49,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
+  Link2,
 } from "lucide-react";
 import { CrmUser, clearStoredCrmUser, setStoredCrmUser } from "@/lib/crm-auth";
 import {
@@ -109,6 +110,7 @@ import {
 } from "@/lib/crm-permissions";
 import { displayLeadSource } from "@/lib/lead-source";
 import type { ActivityItem, LeadItem, OrderItem, RecordCounts, UserItem } from "./crm-types";
+import { GeneratePaymentLinkModal, LeadPaymentLinksCard, PaymentLinksTab, type PayLinkPrefill } from "./payment-links-panel";
 
 type NotifItem = { id: string; type: "lead" | "order"; createdAt: string; title: string; sub: string; lead?: LeadItem };
 
@@ -505,7 +507,7 @@ const inputCls =
 const filterCtl =
   "h-9 shrink-0 rounded-md border border-slate-200 bg-white px-2.5 text-[13px] text-slate-900 focus:outline-none focus:border-purple-500 [color-scheme:light]";
 
-type TabId = "dashboard" | "leads" | "meta" | "coupons" | "orders" | "activity" | "users" | "settings" | "recycle-bin";
+type TabId = "dashboard" | "leads" | "meta" | "coupons" | "orders" | "payment-links" | "activity" | "users" | "settings" | "recycle-bin";
 type Toast = { id: number; kind: "success" | "error" | "info"; text: string };
 
 // ---------------------------------------------------------------------------
@@ -516,6 +518,15 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const tokenRef = useRef(initialUser.token);
   const [me, setMe] = useState<CrmUser>(initialUser);
   const isSuperAdmin = me.role === "SUPER_ADMIN";
+  // Admin-generated customer payment links: Admin and Super Admin only (checked again on the server).
+  const canPayLinks = me.role === "SUPER_ADMIN" || me.role === "ADMIN";
+  const [payLinkPrefill, setPayLinkPrefill] = useState<PayLinkPrefill | null>(null);
+  const [showPayLinkModal, setShowPayLinkModal] = useState(false);
+  const [payLinksRefresh, setPayLinksRefresh] = useState(0);
+  const openPayLink = (p: PayLinkPrefill | null = null) => {
+    setPayLinkPrefill(p);
+    setShowPayLinkModal(true);
+  };
 
   // Server data
   const [loaded, setLoaded] = useState(false);
@@ -1020,6 +1031,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     if (perms.meta) list.push({ id: "meta", label: "Meta Leads", icon: Layers, count: metaLeads.length });
     if (perms.coupons) list.push({ id: "coupons", label: "Coupon Generator", icon: Tag, count: coupons.filter((c) => c.active).length });
     if (perms.orders) list.push({ id: "orders", label: "Orders & Payments", icon: Package, count: effectiveOrdersCount });
+    if (canPayLinks) list.push({ id: "payment-links", label: "Payment Links", icon: Link2, count: null });
     if (isSuperAdmin) {
       list.push(
         { id: "activity", label: "Activity History", icon: Clock, count: null },
@@ -1029,7 +1041,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     }
     if (perms.recycle_bin) list.push({ id: "recycle-bin", label: "Recycle Bin", icon: Trash2, count: recycleBin.length });
     return list;
-  }, [perms, isSuperAdmin, websiteLeads.length, metaLeads.length, coupons, effectiveOrdersCount, users.length, recycleBin.length]);
+  }, [perms, isSuperAdmin, canPayLinks, websiteLeads.length, metaLeads.length, coupons, effectiveOrdersCount, users.length, recycleBin.length]);
 
   useEffect(() => setSelectedIds([]), [activeTab]);
 
@@ -2013,7 +2025,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-3 py-4">
             {(
               [
-                { title: "Workspace", ids: ["dashboard", "leads", "meta", "coupons", "orders"] },
+                { title: "Workspace", ids: ["dashboard", "leads", "meta", "coupons", "orders", "payment-links"] },
                 { title: "Administration", ids: ["activity", "users", "settings"] },
                 { title: "Data", ids: ["recycle-bin"] },
               ] as { title: string; ids: TabId[] }[]
@@ -2257,6 +2269,23 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           </div>
         )}
 
+        {/* ---------------- PAYMENT LINKS (Admin / Super Admin) ---------------- */}
+        {activeTab === "payment-links" && canPayLinks && (
+          <PaymentLinksTab
+            token={tok}
+            call={call}
+            toast={toast}
+            canSeePayments={isSuperAdmin || !!perms.orders}
+            onGenerate={() => openPayLink(null)}
+            onOpenLead={(id) => {
+              const lead = leads.find((x) => x.id === id);
+              if (lead) setSelectedLead(lead);
+              else toast("This lead is not available to your account (it may have been deleted).", "info");
+            }}
+            refreshKey={payLinksRefresh}
+          />
+        )}
+
         {/* ---------------- WEBSITE LEADS / META LEADS ---------------- */}
         {(["leads", "meta"] as const).map((tabKey) => {
           if (activeTab !== tabKey) return null;
@@ -2418,7 +2447,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                 </BulkBar>
               )}
 
-              <div className={`${card} overflow-hidden flex flex-col lg:min-h-0 lg:shrink`}>
+              <div className={`${card} overflow-hidden flex flex-col lg:min-h-[420px] lg:shrink`}>
                 {shown.length === 0 ? (
                   <Empty
                     icon={<Layers className="w-8 h-8" />}
@@ -4552,6 +4581,18 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   </div>
                 </DetailCard>
 
+                {canPayLinks && (
+                  <LeadPaymentLinksCard
+                    lead={l}
+                    token={tok}
+                    call={call}
+                    toast={toast}
+                    canSeePayments={isSuperAdmin || !!perms.orders}
+                    onGenerate={(p) => openPayLink(p)}
+                    refreshKey={payLinksRefresh}
+                  />
+                )}
+
                 <LeadAttachments
                   leadId={l.id}
                   token={tok}
@@ -4743,6 +4784,21 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
       )}
 
       {/* ---------------- ON-CALL CLIENT ORDER MODAL ---------------- */}
+      {showPayLinkModal && canPayLinks && (
+        <GeneratePaymentLinkModal
+          token={tok}
+          toast={toast}
+          onAuthError={forceLogout}
+          leads={leads}
+          prefill={payLinkPrefill}
+          onClose={() => setShowPayLinkModal(false)}
+          onCreated={() => {
+            setPayLinksRefresh((n) => n + 1);
+            void doSync();
+          }}
+        />
+      )}
+
       {showOnCallModal && (
         <Modal
           size="xl"

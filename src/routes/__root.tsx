@@ -219,7 +219,10 @@ gtag('config', 'G-TGFHQZB6EP');`,
 
 function RootComponent() {
   // The decorative website cursor is not used inside the CRM (it sits over table text there).
-  const inCrm = useRouterState({ select: (st) => st.location.pathname.startsWith("/crm") });
+  // Also hidden on the customer payment-link page, which is kept as plain as possible.
+  const inCrm = useRouterState({
+    select: (st) => st.location.pathname.startsWith("/crm") || st.location.pathname.startsWith("/pay/"),
+  });
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {

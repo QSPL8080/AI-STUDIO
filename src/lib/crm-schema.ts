@@ -88,4 +88,34 @@ export const CRM_SCHEMA_SQL = `
     data TEXT NOT NULL,
     PRIMARY KEY (file_id, idx)
   );
+
+  CREATE TABLE IF NOT EXISTS crm_payment_links (
+      id VARCHAR(64) PRIMARY KEY,
+      lead_id VARCHAR(64) NOT NULL,
+      order_id VARCHAR(64) NOT NULL,
+      lead_source VARCHAR(16) NOT NULL,
+      service_id VARCHAR(64) NOT NULL,
+      qty INTEGER NOT NULL,
+      item_name VARCHAR(255) NOT NULL,
+      total_amount NUMERIC(10, 2) NOT NULL,
+      customer_name VARCHAR(255) NOT NULL,
+      customer_email VARCHAR(255) NOT NULL,
+      customer_phone VARCHAR(64) NOT NULL,
+      customer_company VARCHAR(255),
+      status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
+      paid_plan VARCHAR(16),
+      attempts TEXT,
+      created_by_id VARCHAR(64),
+      created_by_name VARCHAR(255),
+      created_by_email VARCHAR(255),
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+      used_at TIMESTAMP WITH TIME ZONE,
+      cancelled_at TIMESTAMP WITH TIME ZONE,
+      cancelled_by VARCHAR(255),
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_crm_payment_links_lead ON crm_payment_links (lead_id);
+  CREATE INDEX IF NOT EXISTS idx_crm_payment_links_order ON crm_payment_links (order_id);
+  CREATE INDEX IF NOT EXISTS idx_crm_payment_links_created ON crm_payment_links (created_at DESC);
 `;

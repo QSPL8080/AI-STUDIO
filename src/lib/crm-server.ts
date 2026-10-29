@@ -6,6 +6,7 @@
 import { paymentSummary } from "./payment-plan";
 import { payBalancePath, payOrderPath } from "./checkout-server";
 import { siteUrl } from "./payu";
+import { paymentLinkUrl } from "./payment-link-token";
 import {
   dbDelete,
   dbInsert,
@@ -314,10 +315,13 @@ function mapOrder(r: any) {
       : 0;
   const couponCode = coupon?.code || d.couponCode || "";
   const source = d.source || "website";
+  // Admin-generated payment link: the customer still has to choose Full / Partial.
+  const isLink = source === "payment_link" && !!d.paymentLinkId;
+  const awaitingChoice = isLink && r.payment_status === "PENDING" && r.paypal_status === "LINK_AWAITING_CUSTOMER";
 
   return {
     paymentPlan: ps.plan,
-    planLabel: ps.planLabel,
+    planLabel: awaitingChoice ? "Payment Link (customer chooses)" : isLink ? `${ps.planLabel} · Payment Link` : ps.planLabel,
     orderTotal: ps.orderTotal,
     paidTotal: ps.paidTotal,
     balanceDue: ps.paidTotal > 0 ? ps.balanceDue : 0,
@@ -332,8 +336,13 @@ function mapOrder(r: any) {
         : "",
     payOrderUrl:
       r.payment_status === "PENDING"
-        ? `${siteUrl()}${payOrderPath(String(r.paypal_order_id))}`
+        ? isLink
+          ? paymentLinkUrl(String(d.paymentLinkId))
+          : `${siteUrl()}${payOrderPath(String(r.paypal_order_id))}`
         : "",
+    paymentLinkId: isLink ? String(d.paymentLinkId) : "",
+    leadId: String(d.leadId || ""),
+    leadSource: String(d.leadSource || ""),
     id: r.id as string,
     paypalOrderId: r.paypal_order_id as string,
     captureId: (r.paypal_capture_id || "") as string,
@@ -752,6 +761,13 @@ export async function unlockOrders(token: string, pin: string) {
     await syncPendingPayUOrders();
   } catch (e) {
     console.error("PayU pending sync failed", e);
+  }
+  // Expired, never-paid payment links: close their orders so they stop showing as pending.
+  try {
+    const { sweepExpiredPaymentLinks } = await import("./payment-links");
+    await sweepExpiredPaymentLinks();
+  } catch (e) {
+    console.error("Payment link expiry sweep failed", e);
   }
   const rows = (await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } })).filter(isRealPayment);
   await logActivity({ title: "Opened Orders & Payments", category: "ORDERS", actorEmail: ctx.user.email, description: "Unlocked the payments tab with the security PIN." });

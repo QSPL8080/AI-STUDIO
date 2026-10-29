@@ -27,7 +27,7 @@ import {
 // ---------------------------------------------------------------------------
 // Order numbers: QAS-2026-000127 (year + running number). Stored as the order id.
 // ---------------------------------------------------------------------------
-async function nextOrderNumber() {
+export async function nextOrderNumber() {
   const year = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", year: "numeric" });
   const prefix = `QAS-${year}-`;
   const rows = await dbSelect<{ id: string }>(ORDERS_TABLE, { columns: ["id"] });
@@ -104,7 +104,7 @@ function parseDetails(o: any): Record<string, any> {
     return {};
   }
 }
-function orderView(o: any) {
+export function orderView(o: any) {
   const d = parseDetails(o);
   const svc = getIndiaService(d.serviceId);
   const qty = Number(d.qty) || 1;
@@ -205,7 +205,7 @@ export async function buildReceiptPdf(o: any) {
 }
 
 /** Customer receipt email (with PDF) — sent once, in the background, after a successful payment. */
-async function sendReceipt(orderId: string) {
+export async function sendReceipt(orderId: string) {
   const rows = await dbSelect(ORDERS_TABLE, { filters: [{ col: "id", op: "eq", value: orderId }] });
   const o: any = rows[0];
   if (!o || o.payment_status !== "COMPLETED") return;
@@ -493,7 +493,20 @@ export async function handlePayUCallback(p: Record<string, string>) {
       })
     : [];
   const order: any = rows[0];
-  if (!order) return { status: "failed" as const, txnid: "" };
+  if (!order) {
+    // Payment-link orders only: PayU may report on an earlier attempt that was replaced by a
+    // newer one (the customer retried). Never drop a genuine payment for it.
+    if (txnid) {
+      try {
+        const { recoverSupersededLinkTxn } = await import("./payment-links");
+        const recovered: { status: "success" | "pending" | "failed"; txnid: string } | null = await recoverSupersededLinkTxn(p);
+        if (recovered) return recovered;
+      } catch (e) {
+        console.error("Payment-link callback recovery failed", e);
+      }
+    }
+    return { status: "failed" as const, txnid: "" };
+  }
 
   const verified = verifyPayUResponse(p);
   const amountOk = Math.abs(Number(p.amount) - Number(order.amount)) < 0.01;
@@ -656,8 +669,39 @@ async function applyPayUResult(order: any, r: PayUTxnStatus) {
     } catch (e) {
       console.error("Order email failed", e);
     }
+    // Admin-generated payment links only: mark the link used / record it on the lead.
+    if (details["source"] === "payment_link" || (isBalance && details["parentSource"] === "payment_link")) {
+      try {
+        const { onPaymentLinkOrderPaid } = await import("./payment-links");
+        await onPaymentLinkOrderPaid(isBalance ? String(details["parentOrderId"]) : String(order.id), isBalance ? String(order.id) : "");
+      } catch (e) {
+        console.error("Payment-link update after payment failed", e);
+      }
+    }
   }
   return status;
+}
+
+/**
+ * Asks PayU for the status of an order's current transaction and records a verified result
+ * (same rules as the callback). Used by payment links before allowing another attempt, so a
+ * customer can never be charged twice. Returns what PayU knows about the attempt.
+ */
+export async function checkPayUAttempt(
+  order: any,
+): Promise<"COMPLETED" | "FAILED" | "PENDING" | "NOT_FOUND" | "UNKNOWN"> {
+  if (!order) return "UNKNOWN";
+  if (order.payment_status === "COMPLETED") return "COMPLETED";
+  if (!getPayUConfig()) return "UNKNOWN";
+  const r = await fetchPayUStatus(String(order.paypal_order_id));
+  if (!r) return "UNKNOWN";
+  if (r.status === "not found") return "NOT_FOUND";
+  if (Math.abs(Number(r.amount) - Number(order.amount)) >= 0.01) {
+    console.error(`PayU status check: amount mismatch for ${order.paypal_order_id}`);
+    return "UNKNOWN";
+  }
+  const st = await applyPayUResult(order, r);
+  return st === "COMPLETED" || st === "FAILED" || st === "PENDING" ? st : "UNKNOWN";
 }
 
 /**
@@ -767,6 +811,24 @@ export async function createBalancePayment(txnid: string, token: string) {
   const pd = parseDetails(parent);
   const existing = await dbSelect<any>(ORDERS_TABLE, { columns: ["id", "payment_status", "paypal_order_id", "customer_email", "customer_name", "amount", "raw_details"] });
   const earlier = existing.filter((r) => String(r.id).startsWith(`${parent.id}-B`));
+  // Payment-link orders only: before replacing an unfinished balance attempt, ask PayU about
+  // it, so a balance that was already paid (or is still confirming) is never charged twice.
+  const isLinkOrder = pd["source"] === "payment_link";
+  if (isLinkOrder) {
+    for (const old of earlier.filter((r) => r.payment_status === "PENDING")) {
+      // (the list above is read without paypal_status: load the full row)
+      const full = await findByTxn(String(old.paypal_order_id));
+      if (!full || full.payment_status !== "PENDING" || !String(full.paypal_status || "").startsWith("PAYU_")) continue;
+      const st = await checkPayUAttempt(full);
+      if (st === "COMPLETED")
+        return { ok: false as const, error: "This order is already fully paid. Thank you!", paid: true as const, txnid };
+      if (st === "PENDING")
+        return { ok: false as const, error: "Your previous balance payment is still being confirmed by the bank. Please check again in a few minutes." };
+      const ageSec = (Date.now() - new Date(full.created_at).getTime()) / 1000;
+      if ((st === "NOT_FOUND" || st === "UNKNOWN") && ageSec < 60)
+        return { ok: false as const, error: "We're still checking your previous payment attempt. Please try again in about a minute." };
+    }
+  }
   // A new click replaces any earlier unfinished balance attempt for this order.
   for (const old of earlier.filter((r) => r.payment_status === "PENDING"))
     await closeUnfinishedAttempt(old, "Replaced by a newer balance payment attempt.", "PAYU_SUPERSEDED");
@@ -798,6 +860,7 @@ export async function createBalancePayment(txnid: string, token: string) {
       parentTxn: parent.paypal_order_id,
       orderTotal: ps.orderTotal,
       paidBefore: ps.paidTotal,
+      ...(isLinkOrder ? { parentSource: "payment_link", paymentLinkId: pd["paymentLinkId"], leadId: pd["leadId"] } : {}),
     }),
     created_at: now,
     updated_at: now,
@@ -832,6 +895,11 @@ export async function createOrderPayment(txnid: string, token: string) {
   if (!order) return { ok: false as const, error: "We couldn't find this order." };
   if (order.payment_status === "COMPLETED") {
     return { ok: false as const, error: "This order is already paid. Thank you!", paid: true as const, orderId: order.id, txnid };
+  }
+  // Admin-generated payment-link orders are paid only through their own secure link
+  // (24-hour validity, customer chooses full / partial): never through this route.
+  if (parseDetails(order)["source"] === "payment_link") {
+    return { ok: false as const, error: "Please use the secure payment link our team sent you, or contact us for a new one." };
   }
   const payu = getPayUConfig();
   if (!payu) {
