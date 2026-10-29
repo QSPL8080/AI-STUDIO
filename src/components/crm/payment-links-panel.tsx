@@ -714,6 +714,11 @@ function CreatedLink({
 // ===========================================================================
 // Orders & Payments of payment links (used in the lead popup and the tab's Details)
 // ===========================================================================
+// Below md, table rows in the orders/payments views become stacked, labelled cards.
+const M_ROW = "max-md:grid max-md:grid-cols-2 max-md:gap-x-3 max-md:gap-y-2.5 max-md:p-3";
+const M_CELL =
+  "max-md:block max-md:p-0 max-md:whitespace-normal max-md:min-w-0 max-md:before:block max-md:before:content-[attr(data-label)] max-md:before:mb-0.5 max-md:before:text-[10px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wider max-md:before:text-slate-500";
+
 function LinkOrdersPayments({
   links,
   token,
@@ -772,8 +777,8 @@ function LinkOrdersPayments({
 
       {view === "orders" ? (
         <div className="overflow-x-auto rounded-md border border-slate-200">
-          <table className="w-full text-left text-[12px]">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-600">
+          <table className="w-full text-left text-[12px] max-md:block">
+            <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-600 max-md:hidden">
               <tr>
                 {["Order", "Customer", "Video", "Amount", "Payment status", "Link", ""].map((h) => (
                   <th key={h} className="px-3 py-2.5 whitespace-nowrap">
@@ -782,27 +787,27 @@ function LinkOrdersPayments({
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 max-md:block">
               {links.map((l) => (
-                <tr key={l.id} className="align-top">
-                  <td className="px-3 py-3">
+                <tr key={l.id} className={`align-top ${M_ROW}`}>
+                  <td data-label="Order" className={`px-3 py-3 ${M_CELL} max-md:col-span-2`}>
                     <div className="font-mono font-semibold text-slate-900 whitespace-nowrap">
                       {l.orderId}
                     </div>
                     <div className="text-slate-500 whitespace-nowrap">{fmtIst(l.createdAt)}</div>
                     <div className="mt-0.5 text-slate-500">Source: {l.leadSource}</div>
                   </td>
-                  <td className="px-3 py-3">
+                  <td data-label="Customer" className={`px-3 py-3 ${M_CELL}`}>
                     <div className="font-semibold text-slate-900">{l.customerName}</div>
                     <div className="text-slate-500 whitespace-nowrap">{l.customerPhone}</div>
                   </td>
-                  <td className="px-3 py-3">
+                  <td data-label="Video" className={`px-3 py-3 ${M_CELL}`}>
                     <div className="text-slate-900">{l.serviceName}</div>
                     <div className="text-slate-500">
                       {l.serviceId === TWIN_SETUP_ID ? "One-Time Setup" : `Qty ${l.qty}`}
                     </div>
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                  <td data-label="Amount" className={`px-3 py-3 whitespace-nowrap ${M_CELL}`}>
                     <div className="font-bold text-slate-900">Total {inr(l.totalAmount)}</div>
                     <div className="text-emerald-700 font-semibold">Paid {inr(l.paidTotal)}</div>
                     <div
@@ -813,7 +818,7 @@ function LinkOrdersPayments({
                       Remaining {inr(l.balanceDue)}
                     </div>
                   </td>
-                  <td className="px-3 py-3">
+                  <td data-label="Payment status" className={`px-3 py-3 ${M_CELL}`}>
                     <div
                       className={`font-semibold whitespace-nowrap ${PAY_STATUS_STYLE[l.paymentStatus] || ""}`}
                     >
@@ -823,11 +828,11 @@ function LinkOrdersPayments({
                       {ORDER_STATUS_LABEL[l.orderStatus] || l.orderStatus}
                     </div>
                   </td>
-                  <td className="px-3 py-3">
+                  <td data-label="Link" className={`px-3 py-3 ${M_CELL}`}>
                     <StatusChip status={l.status} />
                   </td>
-                  <td className="px-3 py-3">
-                    <div className="flex flex-col gap-1 items-end">
+                  <td data-label="" className={`px-3 py-3 ${M_CELL} max-md:col-span-2`}>
+                    <div className="flex flex-col gap-1 items-end max-md:flex-row max-md:flex-wrap max-md:items-start">
                       {l.url && (
                         <button className={btnSm} onClick={() => copyText(l.url, toast)}>
                           <Copy className="w-3.5 h-3.5" /> Copy link
@@ -889,8 +894,8 @@ function LinkOrdersPayments({
             </p>
           ) : (
             <div className="overflow-x-auto rounded-md border border-slate-200">
-              <table className="w-full text-left text-[12px]">
-                <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-600">
+              <table className="w-full text-left text-[12px] max-md:block">
+                <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-600 max-md:hidden">
                   <tr>
                     {[
                       "Transaction",
@@ -908,13 +913,16 @@ function LinkOrdersPayments({
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 max-md:block">
                   {txns.map(({ t, l }, i) => {
                     const lastPaidOfOrder =
                       t.status === "Paid" && !txns.slice(i + 1).some((x) => x.l.id === l.id);
                     return (
-                      <tr key={t.rowId + t.txnid} className="align-top">
-                        <td className="px-3 py-3">
+                      <tr key={t.rowId + t.txnid} className={`align-top ${M_ROW}`}>
+                        <td
+                          data-label="Transaction"
+                          className={`px-3 py-3 ${M_CELL} max-md:col-span-2`}
+                        >
                           <div className="font-mono font-semibold text-slate-900 whitespace-nowrap">
                             {t.txnid}
                           </div>
@@ -922,15 +930,18 @@ function LinkOrdersPayments({
                             Order {t.orderId}
                           </div>
                         </td>
-                        <td className="px-3 py-3">
+                        <td data-label="Type" className={`px-3 py-3 ${M_CELL}`}>
                           <div className="text-slate-900">{t.planLabel}</div>
                           <div className="text-slate-500">{t.method} · Payment link</div>
                         </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
+                        <td data-label="Amount" className={`px-3 py-3 whitespace-nowrap ${M_CELL}`}>
                           <div className="font-bold text-slate-900">{inr(t.amount)}</div>
                           <div className="text-slate-500">of {inr(t.orderTotal)}</div>
                         </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
+                        <td
+                          data-label="Paid so far"
+                          className={`px-3 py-3 whitespace-nowrap ${M_CELL}`}
+                        >
                           <div>{t.cumulativePaid === null ? "—" : inr(t.cumulativePaid)}</div>
                           {t.remaining !== null && (
                             <div
@@ -943,7 +954,8 @@ function LinkOrdersPayments({
                           )}
                         </td>
                         <td
-                          className={`px-3 py-3 font-semibold whitespace-nowrap ${t.status === "Paid" ? (t.remaining ? "text-orange-600" : "text-emerald-700") : "text-amber-600"}`}
+                          data-label="Status"
+                          className={`px-3 py-3 font-semibold whitespace-nowrap ${t.status === "Paid" ? (t.remaining ? "text-orange-600" : "text-emerald-700") : "text-amber-600"} ${M_CELL}`}
                         >
                           {t.status === "Paid"
                             ? t.remaining
@@ -951,7 +963,10 @@ function LinkOrdersPayments({
                               : "Fully Paid"
                             : t.status}
                         </td>
-                        <td className="px-3 py-3">
+                        <td
+                          data-label="Date · PayU ref"
+                          className={`px-3 py-3 ${M_CELL} max-md:col-span-2`}
+                        >
                           <div className="whitespace-nowrap">{fmtIst(t.paidAt)}</div>
                           <div className="font-mono text-slate-500 whitespace-nowrap">
                             PayU {t.payuRef || "—"}
@@ -962,7 +977,10 @@ function LinkOrdersPayments({
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
+                        <td
+                          data-label="Receipt"
+                          className={`px-3 py-3 whitespace-nowrap ${M_CELL} max-md:col-span-2`}
+                        >
                           {t.receiptUrl ? (
                             <div className="flex flex-col gap-1">
                               <a
@@ -994,7 +1012,10 @@ function LinkOrdersPayments({
                             "—"
                           )}
                         </td>
-                        <td className="px-3 py-3">
+                        <td
+                          data-label="Outstanding"
+                          className={`px-3 py-3 ${M_CELL} max-md:col-span-2`}
+                        >
                           {lastPaidOfOrder && l.payBalanceUrl ? (
                             <button
                               className={`${btnSm} border-orange-200 text-orange-700 bg-orange-50 whitespace-nowrap`}
@@ -1296,6 +1317,77 @@ export function PaymentLinksTab({
           ].some((v) => String(v).toLowerCase().includes(s))),
     );
   }, [links, filter, q]);
+  const linkActions = (l: PaymentLinkView) => (
+    <>
+      {l.url && (
+        <>
+          <button
+            className={`${btnSm} border-purple-200 bg-purple-50 text-purple-700`}
+            onClick={() => copyText(l.url, toast)}
+          >
+            <Copy className="w-3.5 h-3.5" /> Copy Link
+          </button>
+          <a
+            className={`${btnSm} border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700`}
+            href={`https://wa.me/${waNumber(l.customerPhone)}?text=${encodeURIComponent(shareMessage(l, l.url))}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Share2 className="w-3.5 h-3.5" /> WhatsApp
+          </a>
+        </>
+      )}
+      {l.payBalanceUrl && (
+        <>
+          <button
+            className={`${btnSm} border-orange-200 bg-orange-50 text-orange-700`}
+            onClick={() => copyText(l.payBalanceUrl, toast, "Balance link")}
+          >
+            <Copy className="w-3.5 h-3.5" /> Balance Link
+          </button>
+          <a
+            className={`${btnSm} border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700`}
+            href={`https://wa.me/${waNumber(l.customerPhone)}?text=${encodeURIComponent(balanceMessage(l, l.payBalanceUrl))}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Share2 className="w-3.5 h-3.5" /> WhatsApp
+          </a>
+        </>
+      )}
+      <button className={btnSm} onClick={() => setDetails(l)}>
+        Details
+      </button>
+      {l.editable && (
+        <button className={btnSm} onClick={() => onEdit(l)} title="Edit this link">
+          <Pencil className="w-3.5 h-3.5" /> Edit
+        </button>
+      )}
+      {l.status === "ACTIVE" && (
+        <button
+          className={`${btnSm} border-amber-200 text-amber-700 hover:bg-amber-50`}
+          disabled={busy === l.id}
+          onClick={() => cancel(l)}
+          title="Stop this link (kept in the list as Cancelled)"
+        >
+          <Ban className="w-3.5 h-3.5" /> Cancel
+        </button>
+      )}
+      <button
+        className={`${btnSm} border-red-200 text-red-600 hover:bg-red-50`}
+        disabled={busy === `del-${l.id}`}
+        onClick={async () => {
+          setBusy(`del-${l.id}`);
+          if (await deleteLinkFlow(l, call, token, toast)) void silent();
+          setBusy("");
+        }}
+        title="Delete this link"
+      >
+        <Trash2 className="w-3.5 h-3.5" /> Delete
+      </button>
+    </>
+  );
+
   const cancel = async (l: PaymentLinkView) => {
     if (
       !window.confirm(
@@ -1407,50 +1499,36 @@ export function PaymentLinksTab({
             </div>
           </div>
         ) : (
-          <div className="overflow-auto max-h-[70vh]">
-            <table className="w-full min-w-[1020px] text-left text-[13px]">
-              <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
-                <tr>
-                  <th className="p-3 w-10">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all shown links"
-                      className="w-4 h-4 accent-purple-600 cursor-pointer"
-                      checked={shown.length > 0 && shown.every((l) => selected.includes(l.id))}
-                      onChange={(e) =>
-                        setSelected((sel) =>
-                          e.target.checked
-                            ? [...new Set([...sel, ...shown.map((l) => l.id)])]
-                            : sel.filter((id) => !shown.some((l) => l.id === id)),
-                        )
-                      }
-                    />
-                  </th>
-                  {[
-                    "Customer & lead",
-                    "Video / Total",
-                    "Payment",
-                    "Link status",
-                    "Generated · Expires",
-                    "",
-                  ].map((h) => (
-                    <th key={h} className="p-3 whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+          <>
+            <div className="xl:hidden">
+              <label className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  aria-label="Select all shown links"
+                  className="w-4 h-4 accent-purple-600 cursor-pointer"
+                  checked={shown.length > 0 && shown.every((l) => selected.includes(l.id))}
+                  onChange={(e) =>
+                    setSelected((sel) =>
+                      e.target.checked
+                        ? [...new Set([...sel, ...shown.map((l) => l.id)])]
+                        : sel.filter((id) => !shown.some((l) => l.id === id)),
+                    )
+                  }
+                />
+                Select all ({shown.length})
+              </label>
+              <div className="divide-y divide-slate-100 max-h-[75vh] overflow-auto overscroll-contain">
                 {shown.map((l) => (
-                  <tr
+                  <div
                     key={l.id}
-                    className={`align-top ${selected.includes(l.id) ? "bg-purple-500/[0.06]" : "hover:bg-slate-50"}`}
+                    data-row
+                    className={`p-4 ${selected.includes(l.id) ? "bg-purple-500/[0.06]" : ""}`}
                   >
-                    <td className="p-3">
+                    <div className="flex items-start gap-3">
                       <input
                         type="checkbox"
                         aria-label={`Select ${l.customerName}`}
-                        className="w-4 h-4 accent-purple-600 cursor-pointer"
+                        className="mt-1 w-4 h-4 shrink-0 accent-purple-600 cursor-pointer"
                         checked={selected.includes(l.id)}
                         onChange={(e) =>
                           setSelected((sel) =>
@@ -1458,144 +1536,216 @@ export function PaymentLinksTab({
                           )
                         }
                       />
-                    </td>
-                    <td className="p-3 max-w-[260px]">
-                      <div className="font-bold text-slate-900">{l.customerName}</div>
-                      <div className="text-xs text-slate-600">{l.customerPhone}</div>
-                      <div className="text-xs text-slate-500 truncate" title={l.customerEmail}>
-                        {l.customerEmail}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <span
-                          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${l.leadSource === "Meta" ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-700"}`}
-                        >
-                          {l.leadSource}
-                        </span>
-                        <button
-                          onClick={() => onOpenLead(l.leadId)}
-                          className="text-xs font-semibold text-purple-700 hover:underline"
-                        >
-                          Open lead
-                        </button>
-                        <span className="text-[11px] text-slate-500 font-mono">{l.orderId}</span>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="font-semibold text-slate-900">{l.serviceName}</div>
-                      <div className="text-xs text-slate-600">
-                        {l.serviceId === TWIN_SETUP_ID
-                          ? "One-Time Setup"
-                          : `${l.qty} reel${l.qty === 1 ? "" : "s"}`}
-                      </div>
-                      <div className="mt-0.5 font-bold whitespace-nowrap">{inr(l.totalAmount)}</div>
-                    </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <div className={`font-semibold ${PAY_STATUS_STYLE[l.paymentStatus] || ""}`}>
-                        {l.paymentStatus}
-                      </div>
-                      {l.paidTotal > 0 && (
-                        <div className="text-xs text-slate-600">Paid {inr(l.paidTotal)}</div>
-                      )}
-                      {l.paidTotal > 0 && l.balanceDue > 0 && (
-                        <div className="text-xs font-semibold text-orange-600">
-                          Due {inr(l.balanceDue)}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-900 break-words">
+                              {l.customerName}
+                            </div>
+                            <div className="text-xs text-slate-600">{l.customerPhone}</div>
+                            <div className="text-xs text-slate-500 break-all">
+                              {l.customerEmail}
+                            </div>
+                          </div>
+                          <StatusChip status={l.status} />
                         </div>
-                      )}
-                    </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <StatusChip status={l.status} />
-                      {l.usedAt && l.status === "USED" && (
-                        <div className="text-[11px] text-slate-500 mt-1">
-                          Paid {fmtIst(l.usedAt)}
+                        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${l.leadSource === "Meta" ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-700"}`}
+                          >
+                            {l.leadSource}
+                          </span>
+                          <button
+                            onClick={() => onOpenLead(l.leadId)}
+                            className="text-xs font-semibold text-purple-700 hover:underline"
+                          >
+                            Open lead
+                          </button>
+                          <span className="text-[11px] text-slate-500 font-mono break-all">
+                            {l.orderId}
+                          </span>
                         </div>
-                      )}
-                    </td>
-                    <td className="p-3 text-xs whitespace-nowrap">
-                      <div className="font-semibold text-slate-800" title={l.createdByEmail}>
-                        {l.createdByName || "—"}
+                        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-[13px]">
+                          <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                              Video / Total
+                            </div>
+                            <div className="font-semibold text-slate-900">{l.serviceName}</div>
+                            <div className="text-xs text-slate-600">
+                              {l.serviceId === TWIN_SETUP_ID
+                                ? "One-Time Setup"
+                                : `${l.qty} reel${l.qty === 1 ? "" : "s"}`}
+                              {" · "}
+                              <span className="font-bold text-slate-900">{inr(l.totalAmount)}</span>
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                              Payment
+                            </div>
+                            <div
+                              className={`font-semibold ${PAY_STATUS_STYLE[l.paymentStatus] || ""}`}
+                            >
+                              {l.paymentStatus}
+                            </div>
+                            {l.paidTotal > 0 && (
+                              <div className="text-xs text-slate-600">
+                                Paid {inr(l.paidTotal)}
+                                {l.balanceDue > 0 && (
+                                  <span className="font-semibold text-orange-600">
+                                    {" "}
+                                    · Due {inr(l.balanceDue)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {l.usedAt && l.status === "USED" && (
+                              <div className="text-[11px] text-slate-500">
+                                Paid {fmtIst(l.usedAt)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="col-span-2 sm:col-span-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs">
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                              Generated · Expires
+                            </div>
+                            <div className="font-semibold text-slate-800">
+                              {l.createdByName || "—"}
+                            </div>
+                            <div className="text-slate-500">{fmtIst(l.createdAt)}</div>
+                            <div className="text-slate-500">Expires {fmtIst(l.expiresAt)}</div>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-1.5">{linkActions(l)}</div>
                       </div>
-                      <div className="text-slate-500">{fmtIst(l.createdAt)}</div>
-                      <div className="text-slate-500">Expires {fmtIst(l.expiresAt)}</div>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex flex-wrap justify-end gap-1.5 min-w-[200px]">
-                        {l.url && (
-                          <>
-                            <button
-                              className={`${btnSm} border-purple-200 bg-purple-50 text-purple-700`}
-                              onClick={() => copyText(l.url, toast)}
-                            >
-                              <Copy className="w-3.5 h-3.5" /> Copy Link
-                            </button>
-                            <a
-                              className={`${btnSm} border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700`}
-                              href={`https://wa.me/${waNumber(l.customerPhone)}?text=${encodeURIComponent(shareMessage(l, l.url))}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <Share2 className="w-3.5 h-3.5" /> WhatsApp
-                            </a>
-                          </>
-                        )}
-                        {l.payBalanceUrl && (
-                          <>
-                            <button
-                              className={`${btnSm} border-orange-200 bg-orange-50 text-orange-700`}
-                              onClick={() => copyText(l.payBalanceUrl, toast, "Balance link")}
-                            >
-                              <Copy className="w-3.5 h-3.5" /> Balance Link
-                            </button>
-                            <a
-                              className={`${btnSm} border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700`}
-                              href={`https://wa.me/${waNumber(l.customerPhone)}?text=${encodeURIComponent(balanceMessage(l, l.payBalanceUrl))}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <Share2 className="w-3.5 h-3.5" /> WhatsApp
-                            </a>
-                          </>
-                        )}
-                        <button className={btnSm} onClick={() => setDetails(l)}>
-                          Details
-                        </button>
-                        {l.editable && (
-                          <button
-                            className={btnSm}
-                            onClick={() => onEdit(l)}
-                            title="Edit this link"
-                          >
-                            <Pencil className="w-3.5 h-3.5" /> Edit
-                          </button>
-                        )}
-                        {l.status === "ACTIVE" && (
-                          <button
-                            className={`${btnSm} border-amber-200 text-amber-700 hover:bg-amber-50`}
-                            disabled={busy === l.id}
-                            onClick={() => cancel(l)}
-                            title="Stop this link (kept in the list as Cancelled)"
-                          >
-                            <Ban className="w-3.5 h-3.5" /> Cancel
-                          </button>
-                        )}
-                        <button
-                          className={`${btnSm} border-red-200 text-red-600 hover:bg-red-50`}
-                          disabled={busy === `del-${l.id}`}
-                          onClick={async () => {
-                            setBusy(`del-${l.id}`);
-                            if (await deleteLinkFlow(l, call, token, toast)) void silent();
-                            setBusy("");
-                          }}
-                          title="Delete this link"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </div>
+            <div className="hidden xl:block overflow-auto max-h-[70vh]">
+              <table className="w-full min-w-[1020px] text-left text-[13px]">
+                <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
+                  <tr>
+                    <th className="p-3 w-10">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all shown links"
+                        className="w-4 h-4 accent-purple-600 cursor-pointer"
+                        checked={shown.length > 0 && shown.every((l) => selected.includes(l.id))}
+                        onChange={(e) =>
+                          setSelected((sel) =>
+                            e.target.checked
+                              ? [...new Set([...sel, ...shown.map((l) => l.id)])]
+                              : sel.filter((id) => !shown.some((l) => l.id === id)),
+                          )
+                        }
+                      />
+                    </th>
+                    {[
+                      "Customer & lead",
+                      "Video / Total",
+                      "Payment",
+                      "Link status",
+                      "Generated · Expires",
+                      "",
+                    ].map((h) => (
+                      <th key={h} className="p-3 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {shown.map((l) => (
+                    <tr
+                      key={l.id}
+                      className={`align-top ${selected.includes(l.id) ? "bg-purple-500/[0.06]" : "hover:bg-slate-50"}`}
+                    >
+                      <td className="p-3">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${l.customerName}`}
+                          className="w-4 h-4 accent-purple-600 cursor-pointer"
+                          checked={selected.includes(l.id)}
+                          onChange={(e) =>
+                            setSelected((sel) =>
+                              e.target.checked ? [...sel, l.id] : sel.filter((id) => id !== l.id),
+                            )
+                          }
+                        />
+                      </td>
+                      <td className="p-3 max-w-[260px]">
+                        <div className="font-bold text-slate-900">{l.customerName}</div>
+                        <div className="text-xs text-slate-600">{l.customerPhone}</div>
+                        <div className="text-xs text-slate-500 truncate" title={l.customerEmail}>
+                          {l.customerEmail}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${l.leadSource === "Meta" ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-700"}`}
+                          >
+                            {l.leadSource}
+                          </span>
+                          <button
+                            onClick={() => onOpenLead(l.leadId)}
+                            className="text-xs font-semibold text-purple-700 hover:underline"
+                          >
+                            Open lead
+                          </button>
+                          <span className="text-[11px] text-slate-500 font-mono">{l.orderId}</span>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="font-semibold text-slate-900">{l.serviceName}</div>
+                        <div className="text-xs text-slate-600">
+                          {l.serviceId === TWIN_SETUP_ID
+                            ? "One-Time Setup"
+                            : `${l.qty} reel${l.qty === 1 ? "" : "s"}`}
+                        </div>
+                        <div className="mt-0.5 font-bold whitespace-nowrap">
+                          {inr(l.totalAmount)}
+                        </div>
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        <div className={`font-semibold ${PAY_STATUS_STYLE[l.paymentStatus] || ""}`}>
+                          {l.paymentStatus}
+                        </div>
+                        {l.paidTotal > 0 && (
+                          <div className="text-xs text-slate-600">Paid {inr(l.paidTotal)}</div>
+                        )}
+                        {l.paidTotal > 0 && l.balanceDue > 0 && (
+                          <div className="text-xs font-semibold text-orange-600">
+                            Due {inr(l.balanceDue)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        <StatusChip status={l.status} />
+                        {l.usedAt && l.status === "USED" && (
+                          <div className="text-[11px] text-slate-500 mt-1">
+                            Paid {fmtIst(l.usedAt)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3 text-xs whitespace-nowrap">
+                        <div className="font-semibold text-slate-800" title={l.createdByEmail}>
+                          {l.createdByName || "—"}
+                        </div>
+                        <div className="text-slate-500">{fmtIst(l.createdAt)}</div>
+                        <div className="text-slate-500">Expires {fmtIst(l.expiresAt)}</div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex flex-wrap justify-end gap-1.5 min-w-[200px]">
+                          {linkActions(l)}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

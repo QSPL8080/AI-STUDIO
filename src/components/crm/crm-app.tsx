@@ -112,6 +112,7 @@ import { displayLeadSource } from "@/lib/lead-source";
 import type { ActivityItem, LeadItem, OrderItem, RecordCounts, UserItem } from "./crm-types";
 import { GeneratePaymentLinkModal, LeadPaymentLinksCard, PaymentLinksTab, type PayLinkPrefill } from "./payment-links-panel";
 import type { PaymentLinkView } from "@/lib/payment-links";
+import { crmDeleteLeadOrdersFn } from "@/lib/payment-link-actions";
 
 type NotifItem = { id: string; type: "lead" | "order"; createdAt: string; title: string; sub: string; lead?: LeadItem };
 
@@ -301,6 +302,8 @@ type LeadOrderRow = {
   /** Order date (payment-link orders); lead rows use the lead's date. */
   date?: string;
 };
+/** Stable key of a Lead Orders row (selection / React key). */
+const leadOrderKey = (o: LeadOrderRow) => (o.link ? `link:${o.link.id}` : `lead:${o.lead.id}`);
 function sumLeadOrders(list: LeadOrderRow[]) {
   return list.reduce(
     (t, o) => ({
@@ -660,6 +663,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   const [ordersStatus, setOrdersStatus] = useState("All");
   // Orders & Payments: "Website Orders" or "Lead Orders" (manual / Meta leads incl. payment links)
   const [ordersView, setOrdersView] = useState<"website" | "lead">("website");
+  const [leadOrderSel, setLeadOrderSel] = useState<string[]>([]);
   // Orders tables show exactly 4 rows; the rest scroll inside the table (newest on top).
   const webOrdersBoxRef = useRef<HTMLDivElement>(null);
   const leadOrdersBoxRef = useRef<HTMLDivElement>(null);
@@ -1490,6 +1494,41 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     setOrders((prev) => (prev ? prev.filter((o) => !ids.includes(o.id)) : prev));
     setSelectedIds([]);
     toast(`${r.deleted} order(s) permanently deleted.`);
+    doSync();
+  };
+
+  // Lead Orders: delete one or many (Super Admin). Manual lead orders → the lead's payment is
+  // cleared (lead kept); payment-link orders → order, balance payments and link are deleted.
+  // The rows leave the lists at once, so every card total drops by their amounts.
+  const deleteLeadOrderRows = async (rows: LeadOrderRow[]) => {
+    if (!rows.length) return;
+    const orderIds = rows.filter((o) => o.link).map((o) => o.link!.id);
+    const leadIds = rows.filter((o) => !o.link).map((o) => o.lead.id);
+    const received = rows.reduce((t, o) => t + o.received, 0);
+    const total = rows.reduce((t, o) => t + o.deal, 0);
+    const what = rows.length === 1 ? `this lead order (${rows[0]?.lead.clientName})` : `${rows.length} lead orders`;
+    const msg =
+      `Delete ${what}?\n\nTotal ${inr(total)} · received ${inr(received)} will be removed from Orders & Payments and from every total.` +
+      (leadIds.length ? `\n\n• ${leadIds.length} manual lead payment(s): the payment details are cleared; the lead stays in Leads.` : "") +
+      (orderIds.length ? `\n• ${orderIds.length} payment-link order(s): the order, its payments and its link are deleted permanently.` : "") +
+      `\n\nThis cannot be undone.`;
+    if (!window.confirm(msg)) return;
+    setBusy("del-lead-orders");
+    const r = await call(crmDeleteLeadOrdersFn({ data: { token: tok(), leadIds, orderIds } }));
+    setBusy(null);
+    if (!r) return doSync();
+    const skippedText = r.skipped.join("\n");
+    const gone = (id: string) => !skippedText.includes(id);
+    const doneOrders = orderIds.filter(gone);
+    const doneLeads = leadIds.filter(gone);
+    setOrders((prev) => (prev ? prev.filter((o) => !doneOrders.includes(o.id) && !doneOrders.includes(o.parentOrderId || "")) : prev));
+    setLeads((prev) =>
+      prev.map((l) => (doneLeads.includes(l.id) ? { ...l, paymentStatus: "", dealAmount: 0, amountPaid: 0, paymentReceived: false, balanceReceived: false } : l)),
+    );
+    setLeadOrderSel([]);
+    const n = r.leadsCleared + r.ordersDeleted;
+    if (n) toast(`${n} lead order${n === 1 ? "" : "s"} deleted.`);
+    if (r.skipped.length) toast(`Not deleted:\n${skippedText}`, "error");
     doSync();
   };
 
@@ -3147,15 +3186,16 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       setOrdersView(t.id);
                       setOrdersStatus("All");
                       setSelectedIds([]);
+                      setLeadOrderSel([]);
                     }}
-                    className={`flex-1 flex items-center justify-center gap-2 h-11 px-4 rounded-md text-[14px] font-semibold transition-colors ${
+                    className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 h-11 px-2 sm:px-4 rounded-md text-[13px] sm:text-[14px] font-semibold whitespace-nowrap transition-colors ${
                       active ? "bg-white text-purple-700 shadow-sm border border-slate-200" : "text-slate-500 border border-transparent hover:text-slate-800"
                     }`}
                   >
                     <Icon className="w-4 h-4" />
                     {t.label}
                     <span className={`text-[11px] min-w-[22px] px-1.5 py-0.5 rounded-md ${active ? "bg-purple-50 text-purple-700" : "bg-white text-slate-500"}`}>{t.n}</span>
-                    <span className="hidden lg:inline text-[12px] font-normal text-slate-400">· {t.note}</span>
+                    <span className="hidden xl:inline text-[12px] font-normal text-slate-400 truncate">· {t.note}</span>
                   </button>
                 );
               })}
@@ -3203,6 +3243,18 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </BulkBar>
             )}
 
+            {isSuperAdmin && ordersView === "lead" && (
+              <BulkBar count={shownLeadOrders.filter((o) => leadOrderSel.includes(leadOrderKey(o))).length} onClear={() => setLeadOrderSel([])}>
+                <button
+                  onClick={() => deleteLeadOrderRows(shownLeadOrders.filter((o) => leadOrderSel.includes(leadOrderKey(o))))}
+                  disabled={busy === "del-lead-orders"}
+                  className={btnDanger}
+                >
+                  <Trash2 className="w-4 h-4" /> Delete selected
+                </button>
+              </BulkBar>
+            )}
+
             {/* One table at a time: Website Orders | Lead Orders (tabs above) */}
             <div className="grid grid-cols-1 gap-4 items-start">
               {ordersView === "website" && (
@@ -3240,9 +3292,16 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                   }
                 />
               ) : (
+                <>
+                {isSuperAdmin && (
+                  <label className="xl:hidden flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    <SelectAll ids={shownOrders.map((o) => o.id)} selected={selectedIds} setSelected={setSelectedIds} />
+                    Select all ({shownOrders.length})
+                  </label>
+                )}
                 <div ref={webOrdersBoxRef} className="overflow-auto overscroll-contain max-h-[560px]">
-                  <table className="w-full min-w-[960px] text-left text-[13px]">
-                    <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
+                  <table className="w-full xl:min-w-[960px] text-left text-[13px] max-xl:block">
+                    <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600 max-xl:hidden">
                       <tr>
                         {isSuperAdmin && (
                           <th className="p-3.5 w-10">
@@ -3258,20 +3317,20 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100 max-xl:block">
                       {shownOrders.map((o) => (
-                        <tr key={o.id} className={selectedIds.includes(o.id) ? "bg-purple-500/[0.06]" : "hover:bg-slate-50"}>
+                        <tr key={o.id} className={`${WEB_ROW} ${selectedIds.includes(o.id) ? "bg-purple-500/[0.06]" : "hover:bg-slate-50"}`}>
                           {isSuperAdmin && (
-                            <td className="p-3.5">
+                            <td className="p-3.5 max-xl:absolute max-xl:right-3 max-xl:top-3 max-xl:p-0">
                               <SelectOne id={o.id} selected={selectedIds} setSelected={setSelectedIds} />
                             </td>
                           )}
-                          <td className="p-3.5">
+                          <td data-label="Customer" className={`p-3.5 ${XL_CELL} max-xl:col-span-full max-xl:pr-8`}>
                             <div className="font-bold text-slate-900">{o.customerName}</div>
                             <div className="text-xs text-slate-600">{o.customerEmail}</div>
                             {o.customerPhone && <div className="text-[11px] text-slate-500 font-mono">{o.customerPhone}</div>}
                           </td>
-                          <td className="p-3.5">
+                          <td data-label="Package / Item" className={`p-3.5 ${XL_CELL}`}>
                             <div className="font-semibold text-slate-900">{o.itemName}</div>
                             <div className="mt-1 flex flex-wrap gap-1">
                               <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-50 text-purple-700 uppercase">{o.itemType}</span>
@@ -3280,7 +3339,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               )}
                             </div>
                           </td>
-                          <td className="p-3.5 whitespace-nowrap">
+                          <td data-label="Amount" className={`p-3.5 whitespace-nowrap ${XL_CELL}`}>
                             <div className="font-bold text-emerald-600 font-mono">{fmtMoney(o.paidTotal || o.amount, o.currency)}</div>
                             <span
                               className={`inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase whitespace-nowrap ${
@@ -3302,7 +3361,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               <div className="text-[11px] text-slate-500">for {o.parentOrderId}</div>
                             )}
                           </td>
-                          <td className="p-3.5">
+                          <td data-label="Discounted" className={`p-3.5 ${XL_CELL}`}>
                             {o.discountPercent && o.discountPercent > 0 ? (
                               <div className="flex flex-col items-start gap-1">
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
@@ -3324,17 +3383,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                               <span className="text-xs text-slate-400 whitespace-nowrap">No discount (0%)</span>
                             )}
                           </td>
-                          <td className="p-3.5 whitespace-nowrap">
+                          <td data-label="Status" className={`p-3.5 whitespace-nowrap ${XL_CELL}`}>
                             <span className={`px-2 py-0.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${isPartlyPaid(o) ? "bg-orange-50 text-orange-700 border-orange-300" : ORDER_STATUS_STYLE[o.paymentStatus] || ORDER_STATUS_STYLE["REFUNDED"]}`}>
                               {isPartlyPaid(o) ? "PARTIALLY PAID" : o.paymentStatus === "COMPLETED" ? "PAID" : o.paymentStatus}
                             </span>
                           </td>
-                          <td className="p-3.5 whitespace-nowrap">
+                          <td data-label="Transaction ID · Date" className={`p-3.5 whitespace-nowrap ${XL_CELL}`}>
                             <div className="font-mono text-xs text-slate-700">{o.paypalOrderId}</div>
                             <div className="text-xs text-slate-500 mt-0.5">{fmtIst(o.createdAt)}</div>
                           </td>
-                          <td className="p-3.5">
-                            <div className="flex flex-wrap items-center justify-end gap-1.5 ml-auto max-w-[260px]">
+                          <td data-label="" className={`p-3.5 ${XL_CELL} max-xl:col-span-full`}>
+                            <div className="flex flex-wrap items-center justify-end gap-1.5 ml-auto max-w-[260px] max-xl:justify-start max-xl:ml-0 max-xl:max-w-none">
                               {o.paymentStatus === "PENDING" && o.payOrderUrl && (
                                 <>
                                   <button
@@ -3390,6 +3449,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
               </div>
               )}
@@ -3410,10 +3470,22 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     text="Write an amount in a lead's Payment section (Add / Edit lead), or send the lead a payment link, and it appears here."
                   />
                 ) : (
+                  <>
+                  {isSuperAdmin && (
+                    <label className="md:hidden flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600">
+                      <SelectAll ids={shownLeadOrders.map(leadOrderKey)} selected={leadOrderSel} setSelected={setLeadOrderSel} />
+                      Select all ({shownLeadOrders.length})
+                    </label>
+                  )}
                   <div ref={leadOrdersBoxRef} className="overflow-auto overscroll-contain max-h-[420px]">
-                    <table className="w-full min-w-[540px] text-left text-[13px]">
-                      <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
+                    <table className="w-full md:min-w-[540px] text-left text-[13px] max-md:block">
+                      <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600 max-md:hidden">
                         <tr>
+                          {isSuperAdmin && (
+                            <th className="pl-3.5 pr-1 py-3 w-8">
+                              <SelectAll ids={shownLeadOrders.map(leadOrderKey)} selected={leadOrderSel} setSelected={setLeadOrderSel} />
+                            </th>
+                          )}
                           <th className="px-2.5 py-3 w-14 whitespace-nowrap">Sr No</th>
                           <th className="px-2.5 py-3">Full Name</th>
                           <th className="px-2.5 py-3 whitespace-nowrap">Date</th>
@@ -3421,18 +3493,24 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                           <th className="px-2.5 py-3 text-right">Paid</th>
                           <th className="px-2.5 py-3 text-right">Remaining</th>
                           <th className="px-2.5 py-3">Status</th>
+                          {isSuperAdmin && <th className="px-2.5 py-3 w-10" />}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 max-md:block">
                         {shownLeadOrders.map((o, i) => (
                           <tr
                             key={o.link ? `link:${o.link.id}` : o.lead.id}
                             onClick={() => (leads.some((l) => l.id === o.lead.id) ? setSelectedLead(o.lead) : o.link && setSelectedOrder(o.link))}
-                            className="cursor-pointer hover:bg-slate-50"
+                            className={`cursor-pointer ${leadOrderSel.includes(leadOrderKey(o)) ? "bg-purple-500/[0.06]" : "hover:bg-slate-50"} ${LEAD_ROW} max-md:relative`}
                             title={o.link ? "Payment link order — open lead details" : "Open lead details"}
                           >
-                            <td className="px-2.5 py-3 text-slate-500">{i + 1}</td>
-                            <td className="px-2.5 py-3">
+                            {isSuperAdmin && (
+                              <td className="pl-3.5 pr-1 py-3 max-md:absolute max-md:right-4 max-md:top-4 max-md:p-0" onClick={(e) => e.stopPropagation()}>
+                                <SelectOne id={leadOrderKey(o)} selected={leadOrderSel} setSelected={setLeadOrderSel} />
+                              </td>
+                            )}
+                            <td className="px-2.5 py-3 text-slate-500 max-md:hidden">{i + 1}</td>
+                            <td className={`px-2.5 py-3 ${MD_CELL} max-md:col-span-full max-md:before:hidden max-md:pr-8`}>
                               <div className="font-medium text-slate-900">{o.lead.clientName}</div>
                               {o.link ? (
                                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
@@ -3444,11 +3522,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 o.lead.companyName && <div className="text-[11px] text-slate-500">{o.lead.companyName}</div>
                               )}
                             </td>
-                            <td className="px-2.5 py-3 whitespace-nowrap text-[12px] text-slate-600">{istDay(rowDate(o)) ? dayLabel(istDay(rowDate(o))) : "—"}</td>
-                            <td className="px-2.5 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">{o.deal ? inr(o.deal) : "—"}</td>
-                            <td className="px-2.5 py-3 text-right font-semibold text-emerald-700 whitespace-nowrap">{inr(o.received)}</td>
-                            <td className={`p-3 text-right font-semibold whitespace-nowrap ${o.due > 0 ? "text-orange-600" : "text-slate-400"}`}>{o.due > 0 ? inr(o.due) : "Nil"}</td>
-                            <td className="px-2.5 py-3">
+                            <td data-label="Date" className={`px-2.5 py-3 whitespace-nowrap text-[12px] text-slate-600 ${MD_CELL}`}>{istDay(rowDate(o)) ? dayLabel(istDay(rowDate(o))) : "—"}</td>
+                            <td data-label="Amount" className={`px-2.5 py-3 text-right font-semibold text-slate-900 whitespace-nowrap ${MD_CELL}`}>{o.deal ? inr(o.deal) : "—"}</td>
+                            <td data-label="Paid" className={`px-2.5 py-3 text-right font-semibold text-emerald-700 whitespace-nowrap ${MD_CELL}`}>{inr(o.received)}</td>
+                            <td data-label="Remaining" className={`p-3 text-right font-semibold whitespace-nowrap ${MD_CELL} ${o.due > 0 ? "text-orange-600" : "text-slate-400"}`}>{o.due > 0 ? inr(o.due) : "Nil"}</td>
+                            <td data-label="Status" className={`px-2.5 py-3 ${MD_CELL}`}>
                               <span
                                 className={`inline-flex whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${
                                   o.cat === "COMPLETED"
@@ -3461,22 +3539,36 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                                 {o.cat === "COMPLETED" ? "Full Paid" : o.cat === "BALANCE" ? "Partially Paid" : "Not Paid"}
                               </span>
                             </td>
+                            {isSuperAdmin && (
+                              <td className="px-2.5 py-3 text-right max-md:block max-md:p-0 max-md:text-right max-md:self-end" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() => deleteLeadOrderRows([o])}
+                                  disabled={busy === "del-lead-orders"}
+                                  className="p-1.5 rounded hover:bg-red-500/10 text-red-600"
+                                  title={o.link ? "Delete this payment-link order" : "Remove this payment from Lead Orders (the lead is kept)"}
+                                  aria-label="Delete lead order"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot className="sticky bottom-0 bg-slate-50 border-t border-slate-200 text-[13px] font-bold">
-                        <tr>
-                          <td className="px-2.5 py-3" colSpan={3}>
+                      <tfoot className="sticky bottom-0 bg-slate-50 border-t border-slate-200 text-[13px] font-bold max-md:block">
+                        <tr className={LEAD_FOOT}>
+                          <td className={`px-2.5 py-3 ${MD_CELL} max-md:col-span-full`} colSpan={isSuperAdmin ? 4 : 3}>
                             Total ({shownLeadOrders.length})
                           </td>
-                          <td className="px-2.5 py-3 text-right whitespace-nowrap">{inr(shownLeadOrders.reduce((t, o) => t + o.deal, 0))}</td>
-                          <td className="px-2.5 py-3 text-right whitespace-nowrap text-emerald-700">{inr(shownLeadOrders.reduce((t, o) => t + o.received, 0))}</td>
-                          <td className="px-2.5 py-3 text-right whitespace-nowrap text-orange-600">{inr(shownLeadOrders.reduce((t, o) => t + o.due, 0))}</td>
-                          <td className="px-2.5 py-3" />
+                          <td data-label="Amount" className={`px-2.5 py-3 text-right whitespace-nowrap ${MD_CELL}`}>{inr(shownLeadOrders.reduce((t, o) => t + o.deal, 0))}</td>
+                          <td data-label="Paid" className={`px-2.5 py-3 text-right whitespace-nowrap text-emerald-700 ${MD_CELL}`}>{inr(shownLeadOrders.reduce((t, o) => t + o.received, 0))}</td>
+                          <td data-label="Remaining" className={`px-2.5 py-3 text-right whitespace-nowrap text-orange-600 ${MD_CELL}`}>{inr(shownLeadOrders.reduce((t, o) => t + o.due, 0))}</td>
+                          <td className="px-2.5 py-3 max-md:hidden" colSpan={isSuperAdmin ? 2 : 1} />
                         </tr>
                       </tfoot>
                     </table>
                   </div>
+                  </>
                 )}
               </div>
               )}
@@ -5437,6 +5529,16 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   );
 }
 
+// Orders tables on smaller screens: each row becomes a stacked, labelled card
+// (Website Orders below xl, Lead Orders below md). Rows stay <tr>, so useVisibleRows still applies.
+const WEB_ROW = "max-xl:relative max-xl:grid max-xl:grid-cols-2 sm:max-xl:grid-cols-3 max-xl:gap-x-4 max-xl:gap-y-3 max-xl:p-4";
+const XL_CELL =
+  "max-xl:block max-xl:p-0 max-xl:min-w-0 max-xl:whitespace-normal max-xl:before:content-[attr(data-label)] max-xl:before:block max-xl:before:mb-0.5 max-xl:before:text-[10px] max-xl:before:font-semibold max-xl:before:uppercase max-xl:before:tracking-wider max-xl:before:text-slate-500";
+const LEAD_ROW = "max-md:grid max-md:grid-cols-2 sm:max-md:grid-cols-4 max-md:gap-x-4 max-md:gap-y-2.5 max-md:p-4";
+const LEAD_FOOT = "max-md:grid max-md:grid-cols-3 max-md:gap-x-4 max-md:gap-y-1 max-md:px-4 max-md:py-3";
+const MD_CELL =
+  "max-md:block max-md:p-0 max-md:min-w-0 max-md:text-left max-md:whitespace-normal max-md:before:content-[attr(data-label)] max-md:before:block max-md:before:mb-0.5 max-md:before:text-[10px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wider max-md:before:text-slate-500";
+
 // ---------------------------------------------------------------------------
 // Presentational pieces
 // ---------------------------------------------------------------------------
@@ -5455,7 +5557,9 @@ function useVisibleRows(ref: React.RefObject<HTMLDivElement | null>, rows: numbe
       const body = Array.from(t.tBodies[0]?.rows || [])
         .slice(0, rows)
         .reduce((sum, r) => sum + (r as HTMLElement).offsetHeight, 0);
-      box.style.maxHeight = `${head + body + foot + 2}px`;
+      // On phones 4 stacked cards can be taller than the screen: keep the box within the viewport.
+      const cap = typeof window !== "undefined" ? Math.round(window.innerHeight * 0.8) : Infinity;
+      box.style.maxHeight = `${Math.min(head + body + foot + 2, cap)}px`;
     };
     // The table appears / changes as tabs, filters and data change: re-measure when it does.
     const watch = () => {

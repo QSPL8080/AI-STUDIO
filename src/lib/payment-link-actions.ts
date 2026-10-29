@@ -92,3 +92,14 @@ export const startPaymentLinkFn = createServerFn({ method: "POST" })
       };
     }
   });
+
+export const crmDeleteLeadOrdersFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { leadIds?: string[]; orderIds?: string[] }) => d)
+  .handler(async ({ data }) =>
+    guarded(async () =>
+      (await srv()).deleteLeadOrders(data.token, {
+        leadIds: Array.isArray(data.leadIds) ? data.leadIds : [],
+        orderIds: Array.isArray(data.orderIds) ? data.orderIds : [],
+      }),
+    ),
+  );

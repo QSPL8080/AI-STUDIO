@@ -1356,3 +1356,113 @@ export async function recoverSupersededLinkTxn(
   if (!now) return { status: "failed" as const, txnid: "" };
   return (await handlePayUCallback(p)) as CallbackResult;
 }
+
+// ---------------------------------------------------------------------------
+// Orders & Payments → Lead Orders: delete (single or bulk). Super Admin only, like website orders.
+// ---------------------------------------------------------------------------
+export type DeleteLeadOrdersInput = { leadIds?: string[]; orderIds?: string[] };
+
+/**
+ * Removes lead orders so they no longer count anywhere in Orders & Payments:
+ *  - a manual lead order is the payment written on the lead → the lead's payment fields are
+ *    cleared (the lead itself stays in Leads);
+ *  - a payment-link order → the order, its balance payments and its payment link are deleted.
+ * An order with a payment still in progress at PayU is skipped, so a payment that succeeds
+ * afterwards always has its order to land on.
+ */
+export async function deleteLeadOrders(token: string, input: DeleteLeadOrdersInput) {
+  const { requireSuperAdmin } = await import("./crm-server-auth");
+  const ctx = await requireSuperAdmin(token);
+  const clean = (v: unknown) =>
+    [
+      ...new Set((Array.isArray(v) ? v : []).map((x) => String(x || "").trim()).filter(Boolean)),
+    ].slice(0, 500);
+  const leadIds = clean(input?.leadIds);
+  const orderIds = clean(input?.orderIds);
+  if (!leadIds.length && !orderIds.length) throw new Error("Select at least one lead order.");
+
+  const { updateLead } = await import("./crm-server");
+  let leadsCleared = 0;
+  let ordersDeleted = 0;
+  let removedAmount = 0;
+  const skipped: string[] = [];
+
+  for (const id of leadIds) {
+    try {
+      await updateLead(token, id, {
+        paymentStatus: "",
+        dealAmount: "",
+        amountPaid: "",
+        paymentReceived: false,
+        balanceReceived: false,
+      });
+      leadsCleared++;
+    } catch (e) {
+      skipped.push(`lead ${id}: ${e instanceof Error ? e.message : "could not be updated"}`);
+    }
+  }
+
+  const allOrders = orderIds.length ? await dbSelect<any>(ORDERS_TABLE) : [];
+  for (const id of orderIds) {
+    const order = allOrders.find((r) => String(r.id) === id);
+    if (!order) continue; // already gone
+    const d = details(order);
+    if (d.source !== "payment_link") {
+      skipped.push(`${id}: not a payment-link order`);
+      continue;
+    }
+    // Balance payments of this order (<id>-B1, -B2, …).
+    const children = allOrders.filter((r) => String(r.id).startsWith(`${id}-B`));
+    // An unfinished PayU attempt: ask PayU first. Delete only when PayU says it failed / never
+    // happened — never while the customer may still be paying.
+    let blocked = "";
+    for (const row of [order, ...children].filter(inProgress)) {
+      const st = await checkPayUAttempt(row);
+      if (st === "COMPLETED")
+        blocked =
+          "a payment on it has just been confirmed by PayU — refresh and check before deleting";
+      else if (st !== "FAILED" && st !== "NOT_FOUND")
+        blocked = "a payment is in progress at PayU — try again in a few minutes";
+      if (blocked) break;
+    }
+    if (blocked) {
+      skipped.push(`${order.customer_name} (${id}): ${blocked}`);
+      continue;
+    }
+    const fresh = await dbSelect<any>(ORDERS_TABLE, {
+      filters: [{ col: "id", op: "in", value: [id, ...children.map((c) => String(c.id))] }],
+    });
+    const freshOrder = fresh.find((r) => String(r.id) === id) || order;
+    const freshChildren = fresh.filter((r) => String(r.id) !== id);
+    const received =
+      (freshOrder.payment_status === "COMPLETED" ? num(freshOrder.amount) : 0) +
+      freshChildren
+        .filter((c) => c.payment_status === "COMPLETED")
+        .reduce((t, c) => t + num(c.amount), 0);
+    const ids = [id, ...freshChildren.map((c) => String(c.id))];
+    await dbDelete(LINKS, [{ col: "order_id", op: "eq", value: id }]).catch(() => 0);
+    const n = await dbDelete(ORDERS_TABLE, [{ col: "id", op: "in", value: ids }]);
+    if (!n) {
+      skipped.push(`${id}: could not be deleted`);
+      continue;
+    }
+    ordersDeleted++;
+    removedAmount += received;
+    await logActivity({
+      title: "Lead order deleted",
+      category: "ORDERS",
+      actorEmail: ctx.user.email,
+      description: `${ctx.user.name} deleted payment-link order ${id} (${order.customer_name}, total ${formatInr(num(d.orderTotal ?? order.amount))}, received ${formatInr(received)}) with its payment link${freshChildren.length ? ` and ${freshChildren.length} balance payment record(s)` : ""}.`,
+      ...(d.leadId ? { leadId: String(d.leadId) } : {}),
+    });
+  }
+
+  if (leadsCleared)
+    await logActivity({
+      title: "Lead orders deleted",
+      category: "ORDERS",
+      actorEmail: ctx.user.email,
+      description: `${ctx.user.name} cleared the payment on ${leadsCleared} lead(s) (removed from Lead Orders; the leads are kept).`,
+    });
+  return { ok: true as const, leadsCleared, ordersDeleted, removedAmount, skipped };
+}
