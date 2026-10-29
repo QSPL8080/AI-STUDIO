@@ -543,7 +543,11 @@ export async function createPaymentLink(token: string, input: CreatePaymentLinkI
 
 export async function listPaymentLinks(token: string) {
   await requireLinkAdmin(token);
-  await ensureLinksTable();
+  try {
+    await ensureLinksTable();
+  } catch {
+    return { ok: true as const, links: [] as PaymentLinkView[], setupNeeded: true };
+  }
   await sweepExpiredPaymentLinks();
   let links = await dbSelect<any>(LINKS, { order: { col: "created_at", desc: true } });
   let { byId, children } = await loadOrdersFor(links);
@@ -562,6 +566,7 @@ export async function listPaymentLinks(token: string) {
     links: links.map((l) =>
       mapLink(l, byId.get(String(l.order_id)), children.get(String(l.order_id)) || []),
     ),
+    setupNeeded: false,
   };
 }
 

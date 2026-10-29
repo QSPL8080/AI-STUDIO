@@ -3,7 +3,7 @@
 //   • GeneratePaymentLinkModal — the form (customer, video type, quantity, custom total, source)
 //   • LeadPaymentLinksCard     — lead details popup: the lead's Orders and Payments
 // All rules (roles, amounts, expiry, single use) are enforced on the server (lib/payment-links.ts).
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Ban,
@@ -938,11 +938,19 @@ export function LeadPaymentLinksCard({
 }) {
   const [links, setLinks] = useState<PaymentLinkView[] | null>(null);
   const [setupNeeded, setSetupNeeded] = useState(false);
+  // The CRM re-renders every second (sync countdown) and passes new token/call functions each
+  // time: keep them in refs so the data loads only when the lead or refreshKey changes.
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const callRef = useRef(call);
+  callRef.current = call;
   const load = useCallback(async () => {
-    const r = await call(crmLeadPaymentLinksFn({ data: { token: token(), leadId: lead.id } }));
+    const r = await callRef.current(
+      crmLeadPaymentLinksFn({ data: { token: tokenRef.current(), leadId: lead.id } }),
+    );
     setLinks(r?.ok ? r.links : []);
     setSetupNeeded(!!r?.setupNeeded);
-  }, [call, token, lead.id]);
+  }, [lead.id]);
   useEffect(() => {
     setLinks(null);
     void load();
@@ -1039,13 +1047,19 @@ export function PaymentLinksTab({
   const [q, setQ] = useState("");
   const [details, setDetails] = useState<PaymentLinkView | null>(null);
   const [busy, setBusy] = useState("");
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const callRef = useRef(call);
+  callRef.current = call;
+  const [setupNeeded, setSetupNeeded] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
-    const r = await call(crmListPaymentLinksFn({ data: { token: token() } }));
+    const r = await callRef.current(crmListPaymentLinksFn({ data: { token: tokenRef.current() } }));
     setLoading(false);
+    setSetupNeeded(!!r?.setupNeeded);
     if (r?.ok) setLinks(r.links);
     else setLinks((x) => x || []);
-  }, [call, token]);
+  }, []);
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
@@ -1143,7 +1157,12 @@ export function PaymentLinksTab({
       </div>
 
       <div className={`${card} overflow-hidden`}>
-        {links === null ? (
+        {setupNeeded ? (
+          <div className="p-8 text-center text-[13px] text-amber-700">
+            Payment links are not set up in the database yet. Run the payment-links part of
+            supabase-update.sql in Supabase → SQL Editor, then press Refresh.
+          </div>
+        ) : links === null ? (
           <div className="p-8 text-center text-[13px] text-slate-500">Loading payment links…</div>
         ) : shown.length === 0 ? (
           <div className="p-10 text-center">
