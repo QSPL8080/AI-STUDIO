@@ -767,10 +767,18 @@ export async function syncPendingPayUOrders() {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const recent = (rows as any[]).filter((o) => new Date(o.created_at).getTime() >= cutoff);
   let changed = 0;
-  for (const o of recent) {
-    const after = await refreshPendingOrder(o);
-    if (after?.payment_status !== o.payment_status) changed++;
-  }
+  // Ask PayU about several orders at once (5 in parallel) instead of one after another.
+  const queue = [...recent];
+  const worker = async () => {
+    for (let o = queue.shift(); o; o = queue.shift()) {
+      const after = await refreshPendingOrder(o).catch((e) => {
+        console.error("PayU status check failed", e);
+        return o;
+      });
+      if (after?.payment_status !== o.payment_status) changed++;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(5, queue.length) }, worker));
   return { checked: recent.length, changed };
 }
 

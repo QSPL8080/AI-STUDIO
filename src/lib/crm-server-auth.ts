@@ -176,12 +176,12 @@ export class CrmAuthError extends Error {
 export async function requireSession(token: string, perm?: PermKey): Promise<SessionContext> {
   const data = readToken(token);
   if (!data) throw new CrmAuthError("UNAUTHENTICATED", "Your session has expired. Please sign in again.");
-  const user = await findUserById(data.uid);
+  // User and permissions are independent reads: fetch them together.
+  const [user, matrix] = await Promise.all([findUserById(data.uid), loadMatrix()]);
   if (!user) throw new CrmAuthError("UNAUTHENTICATED", "This account no longer exists.");
   if (user.status !== "ACTIVE") throw new CrmAuthError("UNAUTHENTICATED", "This account has been deactivated by the Super Admin.");
   if (Number(user.token_version) !== Number(data.tv))
     throw new CrmAuthError("UNAUTHENTICATED", "Your password was changed. Please sign in again.");
-  const matrix = await loadMatrix();
   const perms = permSetFor(user.role, matrix);
   if (perm && !perms[perm]) throw new CrmAuthError("FORBIDDEN", "You don't have permission for this action.");
   return { user, matrix, perms, isSuperAdmin: user.role === "SUPER_ADMIN" };

@@ -97,9 +97,12 @@ async function requireLinkAdmin(token: string): Promise<SessionContext> {
   return ctx;
 }
 
+let linksTableReady = false; // once the table is there it stays there: no need to ask again
 async function ensureLinksTable() {
+  if (linksTableReady) return;
   try {
     await dbSelect(LINKS, { columns: ["id"], limit: 1 });
+    linksTableReady = true;
   } catch (e) {
     console.error("crm_payment_links not available", e);
     throw new Error(
@@ -240,11 +243,24 @@ function mapLink(link: any, order: any, children: any[] = []) {
 }
 export type PaymentLinkView = ReturnType<typeof mapLink>;
 
-async function loadOrdersFor(links: any[]) {
+async function loadOrdersFor(links: any[], orderIdRows?: any[]) {
   const ids = new Set(links.map((l) => String(l.order_id)));
   if (!ids.size) return { byId: new Map<string, any>(), children: new Map<string, any[]>() };
-  // Balance payments are separate rows named <order>-B<n>, so the order list is read once.
-  const rows = await dbSelect<any>(ORDERS_TABLE, {});
+  // Balance payments are separate rows named <order>-B<n>. Read only the order ids first (small),
+  // then the full rows of just these orders and their balance rows, in parallel batches.
+  const parentOf = (id: string) => (ids.has(id) ? id : /^(.*)-B\d+$/.exec(id)?.[1] || "");
+  const wanted = (orderIdRows || (await dbSelect<any>(ORDERS_TABLE, { columns: ["id"] })))
+    .map((r) => String(r.id))
+    .filter((id) => ids.has(parentOf(id)));
+  const batches: string[][] = [];
+  for (let i = 0; i < wanted.length; i += 100) batches.push(wanted.slice(i, i + 100));
+  const rows = (
+    await Promise.all(
+      batches.map((b) =>
+        dbSelect<any>(ORDERS_TABLE, { filters: [{ col: "id", op: "in", value: b }] }),
+      ),
+    )
+  ).flat();
   const byId = new Map<string, any>();
   const children = new Map<string, any[]>();
   for (const r of rows) {
@@ -256,8 +272,13 @@ async function loadOrdersFor(links: any[]) {
   return { byId, children };
 }
 
-/** Closes expired links (and their never-started orders) so they stop showing as pending. */
-export async function sweepExpiredPaymentLinks() {
+/** Closes expired links (and their never-started orders) so they stop showing as pending.
+ *  Link status is always worked out live from the expiry time (effectiveLinkStatus), so this
+ *  housekeeping runs at most every 30 s per server (pass `force` to run it now). */
+let lastSweepAt = 0;
+export async function sweepExpiredPaymentLinks(force = false) {
+  if (!force && Date.now() - lastSweepAt < 30_000) return 0;
+  lastSweepAt = Date.now();
   let rows: any[] = [];
   try {
     rows = await dbSelect(LINKS, {
@@ -268,8 +289,19 @@ export async function sweepExpiredPaymentLinks() {
   }
   let n = 0;
   const now = Date.now();
-  for (const link of rows.filter((l) => new Date(l.expires_at).getTime() <= now)) {
-    const order = await orderById(String(link.order_id));
+  const expired = rows.filter((l) => new Date(l.expires_at).getTime() <= now);
+  if (!expired.length) return 0;
+  // Their orders in one read (not one per link).
+  const orderMap = new Map<string, any>();
+  for (let i = 0; i < expired.length; i += 100) {
+    const part = expired.slice(i, i + 100).map((l) => String(l.order_id));
+    for (const o of await dbSelect<any>(ORDERS_TABLE, {
+      filters: [{ col: "id", op: "in", value: part }],
+    }))
+      orderMap.set(String(o.id), o);
+  }
+  for (const link of expired) {
+    const order = orderMap.get(String(link.order_id)) || null;
     if (isPaid(order) || inProgress(order)) continue; // paid, or a payment started before expiry
     if (order && order.payment_status === "PENDING" && order.paypal_status === AWAITING) {
       await dbUpdate(
@@ -613,6 +645,9 @@ export async function createPaymentLink(token: string, input: CreatePaymentLinkI
   return { ok: true as const, link: mapLink(link, order) };
 }
 
+/** When each unfinished PayU attempt was last checked from the links list (per server). */
+const payuCheckedAt = new Map<string, number>();
+
 export async function listPaymentLinks(token: string) {
   await requireLinkAdmin(token);
   try {
@@ -621,15 +656,30 @@ export async function listPaymentLinks(token: string) {
     return { ok: true as const, links: [] as PaymentLinkView[], setupNeeded: true };
   }
   await sweepExpiredPaymentLinks();
-  let links = await dbSelect<any>(LINKS, { order: { col: "created_at", desc: true } });
-  let { byId, children } = await loadOrdersFor(links);
-  // Re-check unfinished PayU attempts so "Payment Pending" is current (a few at a time).
+  // The links and the list of order ids are independent reads: fetch them together.
+  const [linkRows, orderIdRows] = await Promise.all([
+    dbSelect<any>(LINKS, { order: { col: "created_at", desc: true } }),
+    dbSelect<any>(ORDERS_TABLE, { columns: ["id"] }),
+  ]);
+  let links = linkRows;
+  let { byId, children } = await loadOrdersFor(links, orderIdRows);
+  // Re-check unfinished PayU attempts so "Payment Pending" is current. PayU also tells us by
+  // callback/webhook, so this is only a safety net: each attempt is asked about at most once a
+  // minute, only for 2 days, all at once, and the list never waits more than ~4 s for PayU.
+  const now = Date.now();
   const pending = links
     .map((l) => byId.get(String(l.order_id)))
     .filter(inProgress)
+    .filter((o) => now - new Date(o.updated_at || o.created_at).getTime() < 48 * 3600_000)
+    .filter((o) => now - (payuCheckedAt.get(String(o.id)) || 0) > 60_000)
     .slice(0, 10);
   if (pending.length) {
-    for (const o of pending) await checkPayUAttempt(o).catch(() => null);
+    for (const o of pending) payuCheckedAt.set(String(o.id), now);
+    if (payuCheckedAt.size > 2000) payuCheckedAt.clear();
+    await Promise.race([
+      Promise.all(pending.map((o) => checkPayUAttempt(o).catch(() => null))),
+      new Promise((r) => setTimeout(r, 4000)),
+    ]);
     links = await dbSelect<any>(LINKS, { order: { col: "created_at", desc: true } });
     ({ byId, children } = await loadOrdersFor(links));
   }
@@ -1002,7 +1052,7 @@ export async function getPaymentLinkForCustomer(token: string) {
       "This payment link is no longer active. Please contact our team for a new payment link.",
     );
   if (Date.now() >= new Date(link.expires_at).getTime()) {
-    await sweepExpiredPaymentLinks().catch(() => null);
+    void sweepExpiredPaymentLinks().catch(() => null); // housekeeping: don't make the customer wait
     return customerView(
       link,
       order,

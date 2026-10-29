@@ -579,18 +579,45 @@ export async function logout(token: string) {
 // ---------------------------------------------------------------------------
 export async function sync(token: string, ordersPin?: string) {
   const ctx = await requireSession(token);
-  const config = await loadConfig();
-  const userResolver = await getDynamicUserResolver();
-
-  const allLeadRows = await dbSelect(LEADS_TABLE, { order: { col: "created_at", desc: true } });
+  // Every read below is independent: run them together (one network wait instead of ~10 in a row).
+  const ORDER_COLS_LIGHT = ["id", "payment_status", "paypal_status", "amount", "raw_details"];
+  const [config, userResolver, allLeadRows, ordersRead, eventsRead, couponsRead, usersRead, actRead, actCountRead, notif] =
+    await Promise.all([
+      loadConfig(),
+      getDynamicUserResolver(),
+      dbSelect(LEADS_TABLE, { order: { col: "created_at", desc: true } }),
+      // All orders (Orders & Payments) — or, without that permission, just what the lead
+      // payment-link summary needs.
+      ctx.perms.orders
+        ? dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } })
+        : dbSelect(ORDERS_TABLE, { columns: ORDER_COLS_LIGHT }).catch((e) => {
+            console.error("Payment-link summary for leads failed", e);
+            return null;
+          }),
+      ctx.perms.orders
+        ? dbSelect("crm_activity_logs", {
+            filters: [{ col: "title", op: "eq", value: "Payment received" }],
+            order: { col: "created_at", desc: true },
+            limit: 60,
+          })
+        : Promise.resolve([] as any[]),
+      ctx.perms.coupons
+        ? dbSelect(COUPONS_TABLE, { order: { col: "created_at", desc: true } }).catch((e) => {
+            console.error("Could not fetch coupons:", e);
+            return null;
+          })
+        : Promise.resolve(null),
+      ctx.isSuperAdmin ? dbSelect<CrmUserRow>("crm_users", { order: { col: "created_at", desc: false } }) : Promise.resolve([] as CrmUserRow[]),
+      ctx.isSuperAdmin ? dbSelect("crm_activity_logs", { order: { col: "created_at", desc: true }, limit: 500 }) : Promise.resolve([] as any[]),
+      ctx.isSuperAdmin ? dbSelect("crm_activity_logs", { columns: ["id"] }) : Promise.resolve([] as any[]),
+      loadNotifState(ctx.user.id),
+    ]);
   const visible = allLeadRows.filter((r) => (isMetaRow(r) ? ctx.perms.meta : ctx.perms.leads));
   const leads = visible.filter((r) => !r.deleted_at).map((r) => mapLead(r, userResolver));
   // Payment-link payments on each lead (read from the PayU orders; display only).
   try {
     const { linkPaymentsByLead } = await import("./payment-links");
-    const linkOrders = (
-      await dbSelect(ORDERS_TABLE, { columns: ["id", "payment_status", "paypal_status", "amount", "raw_details"] })
-    ).filter((r: any) => String(r.raw_details || "").includes('"payment_link"'));
+    const linkOrders = (ordersRead || []).filter((r: any) => String(r.raw_details || "").includes('"payment_link"'));
     const byLead = linkPaymentsByLead(linkOrders);
     for (const l of leads) l.linkPayment = byLead.get(l.id) || null;
   } catch (e) {
@@ -610,13 +637,8 @@ export async function sync(token: string, ordersPin?: string) {
   // New (unpaid) orders are not shown here: only "Payment received".
   let orderEvents: ReturnType<typeof mapActivity>[] = [];
   if (ctx.perms.orders) {
-    const ev = await dbSelect("crm_activity_logs", {
-      filters: [{ col: "title", op: "eq", value: "Payment received" }],
-      order: { col: "created_at", desc: true },
-      limit: 60,
-    });
-    orderEvents = ev.map((r) => mapActivity(r, userResolver));
-    orderRows = (await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } })).filter(
+    orderEvents = eventsRead.map((r) => mapActivity(r, userResolver));
+    orderRows = (ordersRead || []).filter(
       (r) => {
         if (paymentSummary(r).plan === "balance") return false;
         if (ctx.isSuperAdmin) {
@@ -639,12 +661,7 @@ export async function sync(token: string, ordersPin?: string) {
 
   let coupons: CrmCoupon[] = [];
   if (ctx.perms.coupons) {
-    try {
-      const couponRows = await dbSelect(COUPONS_TABLE, { order: { col: "created_at", desc: true } });
-      coupons = couponRows.map(mapCoupon);
-    } catch (e) {
-      console.error("Could not fetch coupons:", e);
-    }
+    if (couponsRead) coupons = couponsRead.map(mapCoupon);
   }
 
   let users = null;
@@ -652,10 +669,9 @@ export async function sync(token: string, ordersPin?: string) {
   let counts = null;
   let matrix = null;
   if (ctx.isSuperAdmin) {
-    const userRows = await dbSelect<CrmUserRow>("crm_users", { order: { col: "created_at", desc: false } });
+    const userRows = usersRead;
     users = userRows.map(publicUser);
-    const actRows = await dbSelect("crm_activity_logs", { order: { col: "created_at", desc: true } });
-    activity = actRows.slice(0, 500).map((r) => mapActivity(r, userResolver));
+    activity = actRead.map((r) => mapActivity(r, userResolver));
     matrix = ctx.matrix;
     const completed = orderRows.filter((o) => o.payment_status === "COMPLETED");
     const revenueByCurrency: Record<string, number> = {};
@@ -688,7 +704,7 @@ export async function sync(token: string, ordersPin?: string) {
       userAccounts: userRows.length,
       activeUsers: userRows.filter((u) => u.status === "ACTIVE").length,
       inactiveUsers: userRows.filter((u) => u.status !== "ACTIVE").length,
-      activityLogs: actRows.length,
+      activityLogs: actCountRead.length,
       database: getSupabaseConfig() ? "India Supabase (PostgreSQL)" : "PostgreSQL",
       countedAt: new Date().toISOString(),
     };
@@ -698,7 +714,7 @@ export async function sync(token: string, ordersPin?: string) {
     ok: true as const,
     user: publicUser(ctx.user),
     perms: ctx.perms,
-    notif: await loadNotifState(ctx.user.id),
+    notif,
     orderEvents,
     config,
     leads,
@@ -769,19 +785,20 @@ export async function unlockOrders(token: string, pin: string) {
   const ctx = await requireSession(token, "orders");
   if ((pin || "").trim() !== paymentsPin()) return { ok: false as const, code: "ERROR" as const, error: "Invalid security PIN." };
   // Re-check recent PENDING PayU orders with PayU, so the list shows the latest status.
-  try {
-    const { syncPendingPayUOrders } = await import("./checkout-server");
-    await syncPendingPayUOrders();
-  } catch (e) {
-    console.error("PayU pending sync failed", e);
-  }
-  // Expired, never-paid payment links: close their orders so they stop showing as pending.
-  try {
-    const { sweepExpiredPaymentLinks } = await import("./payment-links");
-    await sweepExpiredPaymentLinks();
-  } catch (e) {
-    console.error("Payment link expiry sweep failed", e);
-  }
+  // Both run together; the tab waits at most ~5 s for PayU (anything slower finishes in the
+  // background and shows on the next refresh).
+  await Promise.race([
+    Promise.all([
+      import("./checkout-server")
+        .then((m) => m.syncPendingPayUOrders())
+        .catch((e) => console.error("PayU pending sync failed", e)),
+      // Expired, never-paid payment links: close their orders so they stop showing as pending.
+      import("./payment-links")
+        .then((m) => m.sweepExpiredPaymentLinks())
+        .catch((e) => console.error("Payment link expiry sweep failed", e)),
+    ]),
+    new Promise((r) => setTimeout(r, 5000)),
+  ]);
   const rows = (await dbSelect(ORDERS_TABLE, { order: { col: "created_at", desc: true } })).filter(isRealPayment);
   await logActivity({ title: "Opened Orders & Payments", category: "ORDERS", actorEmail: ctx.user.email, description: "Unlocked the payments tab with the security PIN." });
   return { ok: true as const, orders: rows.map(mapOrder) };
