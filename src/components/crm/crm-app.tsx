@@ -111,6 +111,7 @@ import {
 import { displayLeadSource } from "@/lib/lead-source";
 import type { ActivityItem, LeadItem, OrderItem, RecordCounts, UserItem } from "./crm-types";
 import { GeneratePaymentLinkModal, LeadPaymentLinksCard, PaymentLinksTab, type PayLinkPrefill } from "./payment-links-panel";
+import type { PaymentLinkView } from "@/lib/payment-links";
 
 type NotifItem = { id: string; type: "lead" | "order"; createdAt: string; title: string; sub: string; lead?: LeadItem };
 
@@ -521,10 +522,17 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   // Admin-generated customer payment links: Admin and Super Admin only (checked again on the server).
   const canPayLinks = me.role === "SUPER_ADMIN" || me.role === "ADMIN";
   const [payLinkPrefill, setPayLinkPrefill] = useState<PayLinkPrefill | null>(null);
+  const [payLinkEditing, setPayLinkEditing] = useState<PaymentLinkView | null>(null);
   const [showPayLinkModal, setShowPayLinkModal] = useState(false);
   const [payLinksRefresh, setPayLinksRefresh] = useState(0);
   const openPayLink = (p: PayLinkPrefill | null = null) => {
+    setPayLinkEditing(null);
     setPayLinkPrefill(p);
+    setShowPayLinkModal(true);
+  };
+  const editPayLink = (l: PaymentLinkView) => {
+    setPayLinkPrefill(null);
+    setPayLinkEditing(l);
     setShowPayLinkModal(true);
   };
 
@@ -896,6 +904,11 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
     return out.sort((x, y) => (y.lead.createdAt || "").localeCompare(x.lead.createdAt || ""));
   }, [leads]);
   const leadPay = useMemo(() => sumLeadOrders(leadOrders), [leadOrders]);
+  // A new "Payment received" event (synced every few seconds): refresh payment-link views now.
+  const latestPaymentEvent = orderEvents[0]?.id || "";
+  useEffect(() => {
+    if (latestPaymentEvent) setPayLinksRefresh((n) => n + 1);
+  }, [latestPaymentEvent]);
   const effectiveOrdersCount = (orders ? orders.length : ordersCount) + leadPay.count;
 
   // -------------------------------------------------------------------------
@@ -1091,7 +1104,8 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
   // -------------------------------------------------------------------------
   // Actions
   // -------------------------------------------------------------------------
-  const tok = () => tokenRef.current;
+  // Stable (same function every render) so panels that load data don't reload each second.
+  const tok = useCallback(() => tokenRef.current, []);
 
   const handleLogout = async () => {
     await crmLogoutFn({ data: { token: tok() } }).catch(() => null);
@@ -2277,6 +2291,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
             toast={toast}
             canSeePayments={isSuperAdmin || !!perms.orders}
             onGenerate={() => openPayLink(null)}
+            onEdit={editPayLink}
             onOpenLead={(id) => {
               const lead = leads.find((x) => x.id === id);
               if (lead) setSelectedLead(lead);
@@ -4589,6 +4604,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                     toast={toast}
                     canSeePayments={isSuperAdmin || !!perms.orders}
                     onGenerate={(p) => openPayLink(p)}
+                    onEdit={editPayLink}
                     refreshKey={payLinksRefresh}
                   />
                 )}
@@ -4791,6 +4807,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
           onAuthError={forceLogout}
           leads={leads}
           prefill={payLinkPrefill}
+          editing={payLinkEditing}
           onClose={() => setShowPayLinkModal(false)}
           onCreated={() => {
             setPayLinksRefresh((n) => n + 1);

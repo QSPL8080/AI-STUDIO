@@ -52,17 +52,6 @@ type View = {
 };
 
 const inr = (n: number) => formatInr(Math.round(n * 100) / 100);
-const istTime = (iso: string) =>
-  iso
-    ? new Date(iso).toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        day: "numeric",
-        month: "short",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }) + " IST"
-    : "";
 
 function PayLinkPage() {
   const { token } = Route.useParams();
@@ -135,8 +124,8 @@ function PayLinkPage() {
   return (
     <div className="min-h-screen w-full bg-[#07050f] text-white [font-family:-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,Arial,sans-serif]">
       <div className="h-1.5 w-full bg-gradient-to-r from-[#4f46e5] via-[#a832e6] to-[#e11d74]" />
-      <main className="mx-auto w-full max-w-lg px-4 pb-14 pt-6 sm:pt-10">
-        <header className="mb-5 flex items-center justify-between gap-3">
+      <main className="mx-auto flex min-h-[calc(100vh-6px)] w-full max-w-lg flex-col justify-center px-4 py-6 sm:py-10 lg:max-w-5xl lg:px-8 lg:py-5">
+        <header className="mb-5 flex items-center justify-between gap-3 lg:mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <img src="/images/logo.png" alt="Quickupp AI Studio" className="h-9 w-auto shrink-0" />
           </div>
@@ -150,7 +139,7 @@ function PayLinkPage() {
         </h1>
 
         {!view && !error && (
-          <Card>
+          <Card narrow>
             <div className="flex flex-col items-center py-10 text-white/70">
               <Loader2 className="mb-3 h-8 w-8 animate-spin text-[#c084fc]" />
               <p className="text-base">Loading your payment details…</p>
@@ -159,7 +148,7 @@ function PayLinkPage() {
         )}
 
         {error && (
-          <Card>
+          <Card narrow>
             <StateBox
               icon={<AlertCircle className="h-10 w-10 text-rose-400" />}
               title="We couldn't open this payment"
@@ -170,173 +159,188 @@ function PayLinkPage() {
         )}
 
         {view && (
-          <Card>
-            <p className="text-base text-white/80">
-              Hello <span className="font-semibold text-white">{view.customerName}</span>,
-            </p>
-            <p className="mt-1 text-[15px] text-white/60">
-              {view.state === "active"
-                ? "Please check your order and choose how you would like to pay."
-                : "Here are your order details."}
-            </p>
+          <div className="grid gap-x-6 lg:grid-cols-2 lg:items-stretch">
+            <Card>
+              <p className="text-base text-white/80">
+                Hello <span className="font-semibold text-white">{view.customerName}</span>,
+              </p>
+              <p className="mt-1 text-[15px] text-white/60">
+                {view.state === "active"
+                  ? "Please check your order and choose how you would like to pay."
+                  : "Here are your order details."}
+              </p>
 
-            <dl className="mt-5 divide-y divide-white/10 rounded-2xl border border-white/10 bg-white/[0.03]">
-              <Row label="Customer Name" value={view.customerName} />
-              <Row label="Service" value={view.service} />
-              <Row label="Quantity" value={view.quantity} />
-              <Row
-                label="Order ID"
-                value={<span className="font-mono text-[14px]">{view.orderId}</span>}
-              />
-              <div className="flex items-center justify-between gap-3 px-4 py-4">
-                <dt className="text-[15px] font-semibold text-white/80">Total Amount</dt>
-                <dd className="text-2xl font-extrabold tracking-tight">{inr(view.total)}</dd>
-              </div>
-            </dl>
-
-            {view.state === "active" && (
-              <>
-                <h2 className="mt-7 text-[13px] font-bold uppercase tracking-wider text-white/50">
-                  Payment Options
-                </h2>
-                <div className="mt-3 grid gap-3" role="radiogroup" aria-label="Payment option">
-                  <Option
-                    active={choice === "full"}
-                    onClick={() => setChoice("full")}
-                    title="Pay Full Amount"
-                    amount={view.options.full.payNow}
-                    note="Pay the whole amount now. Nothing left to pay later."
-                  />
-                  {view.options.partial ? (
-                    <Option
-                      active={choice === "partial"}
-                      onClick={() => setChoice("partial")}
-                      title="Pay Partial Amount"
-                      amount={view.options.partial.payNow}
-                      note={`Pay 50% now. The remaining ${inr(view.options.partial.balance)} can be paid later using a secure link we email you.`}
-                    />
-                  ) : (
-                    <p className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-[14px] text-white/50">
-                      Partial payment isn't available for this amount.
-                    </p>
-                  )}
+              <dl className="mt-5 divide-y divide-white/10 rounded-2xl border border-white/10 bg-white/[0.03]">
+                <Row label="Customer Name" value={view.customerName} />
+                <Row label="Service" value={view.service} />
+                <Row label="Quantity" value={view.quantity} />
+                <Row
+                  label="Order ID"
+                  value={<span className="font-mono text-[14px]">{view.orderId}</span>}
+                />
+                <div className="flex items-center justify-between gap-3 px-4 py-4">
+                  <dt className="text-[15px] font-semibold text-white/80">Total Amount</dt>
+                  <dd className="text-2xl font-extrabold tracking-tight">{inr(view.total)}</dd>
                 </div>
+              </dl>
+              <div className="mt-auto hidden pt-5 lg:block">
+                <p className="flex items-center gap-2 text-[13px] text-white/45">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-300" /> Your payment is
+                  processed securely by PayU. We never see your card or UPI details.
+                </p>
+                {view.state === "active" && <Help subtle />}
+              </div>
+            </Card>
 
-                {selected && (
-                  <div className="mt-5 rounded-2xl border border-[#a832e6]/40 bg-[#a832e6]/[0.08] px-4 py-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[15px] text-white/80">Amount payable now</span>
-                      <span className="text-xl font-extrabold">{inr(selected.payNow)}</span>
-                    </div>
-                    {selected.balance > 0 && (
-                      <div className="mt-2 flex items-center justify-between gap-3">
-                        <span className="text-[15px] text-white/60">
-                          Remaining balance (pay later)
-                        </span>
-                        <span className="text-[17px] font-bold text-amber-300">
-                          {inr(selected.balance)}
-                        </span>
-                      </div>
+            <Card>
+              {view.state === "active" && (
+                <>
+                  <h2 className="text-[13px] font-bold uppercase tracking-wider text-white/50">
+                    Payment Options
+                  </h2>
+                  <div className="mt-3 grid gap-3" role="radiogroup" aria-label="Payment option">
+                    <Option
+                      active={choice === "full"}
+                      onClick={() => setChoice("full")}
+                      title="Pay Full Amount"
+                      amount={view.options.full.payNow}
+                      note="Pay the whole amount now. Nothing left to pay later."
+                    />
+                    {view.options.partial ? (
+                      <Option
+                        active={choice === "partial"}
+                        onClick={() => setChoice("partial")}
+                        title="Pay Partial Amount"
+                        amount={view.options.partial.payNow}
+                        note={`Pay 50% now. The remaining ${inr(view.options.partial.balance)} can be paid later using a secure link we email you.`}
+                      />
+                    ) : (
+                      <p className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-[14px] text-white/50">
+                        Partial payment isn't available for this amount.
+                      </p>
                     )}
                   </div>
-                )}
 
-                {notice && (
-                  <div
-                    role="alert"
-                    className="mt-4 flex gap-2.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-[15px] leading-snug text-amber-100"
-                  >
-                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" /> {notice}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={proceed}
-                  disabled={!choice || busy || redirecting}
-                  className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#4f46e5] via-[#9333ea] to-[#db2777] text-[17px] font-bold text-white shadow-lg shadow-purple-900/40 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {busy || redirecting ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />{" "}
-                      {redirecting ? "Opening secure payment page…" : "Please wait…"}
-                    </>
-                  ) : choice ? (
-                    <>
-                      <ShieldCheck className="h-5 w-5" /> Proceed to Secure Payment
-                    </>
-                  ) : (
-                    "Choose a payment option above"
+                  {selected && (
+                    <div
+                      className={`mt-4 grid divide-x divide-white/10 rounded-2xl border border-[#a832e6]/40 bg-[#a832e6]/[0.08] ${selected.balance > 0 ? "grid-cols-2" : "grid-cols-1"}`}
+                    >
+                      <div className="px-4 py-3">
+                        <div className="text-[13px] text-white/70">Amount payable now</div>
+                        <div className="text-xl font-extrabold">{inr(selected.payNow)}</div>
+                      </div>
+                      {selected.balance > 0 && (
+                        <div className="px-4 py-3">
+                          <div className="text-[13px] text-white/60">Remaining (pay later)</div>
+                          <div className="text-xl font-bold text-amber-300">
+                            {inr(selected.balance)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
-                </button>
-                <p className="mt-3 text-center text-[13px] leading-relaxed text-white/45">
-                  Pay with UPI, card, net banking or wallet — processed securely by PayU.
-                  {view.expiresAt && <> This link is valid until {istTime(view.expiresAt)}.</>}
-                </p>
-              </>
-            )}
 
-            {view.state === "processing" && (
-              <StateBox
-                icon={<Clock className="h-10 w-10 text-amber-300" />}
-                title="Payment being confirmed"
-                text={view.message}
-              />
-            )}
+                  {notice && (
+                    <div
+                      role="alert"
+                      className="mt-4 flex gap-2.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-[15px] leading-snug text-amber-100"
+                    >
+                      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" /> {notice}
+                    </div>
+                  )}
 
-            {view.state === "used" && (
-              <>
+                  {/* pushes the button to the bottom so both boxes line up */}
+                  <div className="min-h-5 flex-1" />
+                  <button
+                    type="button"
+                    onClick={proceed}
+                    disabled={!choice || busy || redirecting}
+                    className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#4f46e5] via-[#9333ea] to-[#db2777] text-[17px] font-bold text-white shadow-lg shadow-purple-900/40 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {busy || redirecting ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />{" "}
+                        {redirecting ? "Opening secure payment page…" : "Please wait…"}
+                      </>
+                    ) : choice ? (
+                      <>
+                        <ShieldCheck className="h-5 w-5" /> Proceed to Secure Payment
+                      </>
+                    ) : (
+                      "Choose a payment option above"
+                    )}
+                  </button>
+                  <p className="mt-2.5 text-center text-[13px] leading-relaxed text-white/45">
+                    UPI, cards, net banking &amp; wallets · secured by PayU
+                  </p>
+                </>
+              )}
+
+              {view.state === "processing" && (
                 <StateBox
-                  icon={<CheckCircle2 className="h-10 w-10 text-emerald-400" />}
-                  title="Payment received"
+                  icon={<Clock className="h-10 w-10 text-amber-300" />}
+                  title="Payment being confirmed"
                   text={view.message}
                 />
-                <dl className="mt-1 divide-y divide-white/10 rounded-2xl border border-white/10 bg-white/[0.03]">
-                  <Row label="Total paid" value={inr(view.paidTotal)} />
-                  <Row
-                    label="Remaining balance"
-                    value={
-                      view.balanceDue > 0 ? (
-                        <span className="text-amber-300">{inr(view.balanceDue)}</span>
-                      ) : (
-                        "₹0 — fully paid"
-                      )
-                    }
+              )}
+
+              {view.state === "used" && (
+                <>
+                  <StateBox
+                    icon={<CheckCircle2 className="h-10 w-10 text-emerald-400" />}
+                    title="Payment received"
+                    text={view.message}
                   />
-                </dl>
-                {view.payBalanceUrl && (
-                  <a
-                    href={view.payBalanceUrl}
-                    className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#4f46e5] via-[#9333ea] to-[#db2777] text-[17px] font-bold text-white"
-                  >
-                    <ShieldCheck className="h-5 w-5" /> Pay remaining {inr(view.balanceDue)}
-                  </a>
-                )}
-                {view.confirmationUrl && (
-                  <a
-                    href={view.confirmationUrl}
-                    className="mt-3 block text-center text-[15px] font-semibold text-[#d8a8ff] underline underline-offset-4"
-                  >
-                    View order confirmation &amp; receipt
-                  </a>
-                )}
-              </>
-            )}
+                  <dl className="mt-1 divide-y divide-white/10 rounded-2xl border border-white/10 bg-white/[0.03]">
+                    <Row label="Total paid" value={inr(view.paidTotal)} />
+                    <Row
+                      label="Remaining balance"
+                      value={
+                        view.balanceDue > 0 ? (
+                          <span className="text-amber-300">{inr(view.balanceDue)}</span>
+                        ) : (
+                          "₹0 — fully paid"
+                        )
+                      }
+                    />
+                  </dl>
+                  {view.payBalanceUrl && (
+                    <a
+                      href={view.payBalanceUrl}
+                      className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#4f46e5] via-[#9333ea] to-[#db2777] text-[17px] font-bold text-white"
+                    >
+                      <ShieldCheck className="h-5 w-5" /> Pay remaining {inr(view.balanceDue)}
+                    </a>
+                  )}
+                  {view.confirmationUrl && (
+                    <a
+                      href={view.confirmationUrl}
+                      className="mt-3 block text-center text-[15px] font-semibold text-[#d8a8ff] underline underline-offset-4"
+                    >
+                      View order confirmation &amp; receipt
+                    </a>
+                  )}
+                </>
+              )}
 
-            {(view.state === "expired" || view.state === "cancelled") && (
-              <>
-                <StateBox
-                  icon={<Clock className="h-10 w-10 text-rose-400" />}
-                  title={view.state === "expired" ? "Link expired" : "Link not active"}
-                  text={view.message}
-                />
-                <Help />
-              </>
-            )}
-          </Card>
+              {(view.state === "expired" || view.state === "cancelled") && (
+                <>
+                  <StateBox
+                    icon={<Clock className="h-10 w-10 text-rose-400" />}
+                    title={view.state === "expired" ? "Link expired" : "Link not active"}
+                    text={view.message}
+                  />
+                  <Help />
+                </>
+              )}
+              {view.state === "active" && (
+                <div className="lg:hidden">
+                  <Help subtle />
+                </div>
+              )}
+            </Card>
+          </div>
         )}
-
-        {view?.state === "active" && <Help subtle />}
 
         {payu && (
           <form ref={formRef} method="POST" action={payu.action} className="hidden">
@@ -350,9 +354,11 @@ function PayLinkPage() {
   );
 }
 
-function Card({ children }: { children: ReactNode }) {
+function Card({ children, narrow }: { children: ReactNode; narrow?: boolean }) {
   return (
-    <section className="mt-4 rounded-3xl border border-white/10 bg-[#0d091a] p-5 shadow-2xl sm:p-6">
+    <section
+      className={`mt-4 flex w-full flex-col rounded-3xl border border-white/10 bg-[#0d091a] p-5 shadow-2xl sm:p-6 lg:mt-4 ${narrow ? "lg:mx-auto lg:max-w-lg" : ""}`}
+    >
       {children}
     </section>
   );
@@ -360,7 +366,7 @@ function Card({ children }: { children: ReactNode }) {
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-4 py-3">
+    <div className="flex items-start justify-between gap-4 px-4 py-3 lg:py-2.5">
       <dt className="shrink-0 text-[15px] text-white/55">{label}</dt>
       <dd className="text-right text-[16px] font-semibold text-white">{value}</dd>
     </div>
@@ -386,7 +392,7 @@ function Option({
       role="radio"
       aria-checked={active}
       onClick={onClick}
-      className={`flex w-full items-start gap-3.5 rounded-2xl border p-4 text-left transition-colors ${
+      className={`flex w-full items-start gap-3.5 rounded-2xl border p-4 text-left transition-colors lg:py-3.5 ${
         active
           ? "border-[#a832e6] bg-[#a832e6]/[0.14] shadow-[0_0_0_1px_rgba(168,50,230,0.5)]"
           : "border-white/15 bg-white/[0.03] hover:border-white/30"

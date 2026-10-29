@@ -11,6 +11,8 @@ import {
   Copy,
   ExternalLink,
   Link2,
+  Pencil,
+  Trash2,
   Mail,
   Plus,
   RefreshCw,
@@ -29,6 +31,8 @@ import {
 import {
   crmCancelPaymentLinkFn,
   crmCreatePaymentLinkFn,
+  crmDeletePaymentLinkFn,
+  crmEditPaymentLinkFn,
   crmLeadPaymentLinksFn,
   crmListPaymentLinksFn,
   crmResendLinkReceiptFn,
@@ -151,6 +155,7 @@ export function GeneratePaymentLinkModal({
   onAuthError,
   leads,
   prefill,
+  editing,
   onClose,
   onCreated,
 }: {
@@ -159,22 +164,37 @@ export function GeneratePaymentLinkModal({
   onAuthError: (msg?: string) => void;
   leads: LeadItem[];
   prefill: PayLinkPrefill | null;
+  /** Set to edit an existing link instead of generating a new one. */
+  editing?: PaymentLinkView | null;
   onClose: () => void;
   onCreated: (link: PaymentLinkView) => void;
 }) {
   const blank = useCallback(
-    () => ({
-      leadSource: (prefill?.leadSource || "") as "" | "Manual" | "Meta",
-      name: prefill?.name || "",
-      email: prefill?.email || "",
-      phone: prefill?.phone || "",
-      company: prefill?.company || "",
-      serviceId: INDIA_SERVICES[0]!.id as string,
-      qty: 1,
-      totalAmount: "",
-      notes: "",
-    }),
-    [prefill],
+    () =>
+      editing
+        ? {
+            leadSource: editing.leadSource as "" | "Manual" | "Meta",
+            name: editing.customerName,
+            email: editing.customerEmail,
+            phone: editing.customerPhone,
+            company: editing.customerCompany,
+            serviceId: editing.serviceId,
+            qty: editing.qty,
+            totalAmount: String(editing.totalAmount),
+            notes: "",
+          }
+        : {
+            leadSource: (prefill?.leadSource || "") as "" | "Manual" | "Meta",
+            name: prefill?.name || "",
+            email: prefill?.email || "",
+            phone: prefill?.phone || "",
+            company: prefill?.company || "",
+            serviceId: INDIA_SERVICES[0]!.id as string,
+            qty: 1,
+            totalAmount: "",
+            notes: "",
+          },
+    [prefill, editing],
   );
   const [f, setF] = useState(blank);
   // "" = not chosen yet, "new" = create a new lead, otherwise an existing lead id
@@ -202,7 +222,7 @@ export function GeneratePaymentLinkModal({
 
   // Existing leads for the same customer (same mobile or email), from the leads already loaded.
   const localMatches = useMemo(() => {
-    if (prefill?.leadId) return [];
+    if (prefill?.leadId || editing) return [];
     const p = last10(f.phone);
     const em = f.email.trim().toLowerCase();
     if (p.length < 10 && !/@.+\./.test(em)) return [];
@@ -222,7 +242,7 @@ export function GeneratePaymentLinkModal({
         source: l.source,
         createdAt: l.createdAt,
       }));
-  }, [leads, f.phone, f.email, prefill?.leadId]);
+  }, [leads, f.phone, f.email, prefill?.leadId, editing]);
   const matches = serverMatches || localMatches;
   const prefillLead = prefill?.leadId ? leads.find((l) => l.id === prefill.leadId) : null;
   useEffect(() => {
@@ -241,12 +261,12 @@ export function GeneratePaymentLinkModal({
     Number(f.totalAmount.replace(/[,\s₹]/g, "")) >= 1;
   const total = amountOk ? Number(f.totalAmount.replace(/[,\s₹]/g, "")) : 0;
   const preview = amountOk ? splitPayment(total, "advance") : null;
-  const needsLeadChoice = !prefill?.leadId && matches.length > 0 && !leadChoice;
+  const needsLeadChoice = !editing && !prefill?.leadId && matches.length > 0 && !leadChoice;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!f.leadSource) return setError("Choose the lead source: Manual or Meta.");
+    if (!editing && !f.leadSource) return setError("Choose the lead source: Manual or Meta.");
     if (f.name.trim().length < 2) return setError("Enter the customer's full name.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.trim()))
       return setError("Enter a valid customer email address.");
@@ -259,12 +279,43 @@ export function GeneratePaymentLinkModal({
         "This customer already has a lead: choose which lead to use, or create a new one.",
       );
     setBusy(true);
+    if (editing) {
+      try {
+        const r: any = await crmEditPaymentLinkFn({
+          data: {
+            token: token(),
+            id: editing.id,
+            link: {
+              name: f.name,
+              email: f.email,
+              phone: f.phone,
+              company: f.company,
+              notes: f.notes,
+              serviceId: f.serviceId,
+              qty: isSetup ? 1 : f.qty,
+              totalAmount: f.totalAmount,
+            },
+          },
+        });
+        if (r?.ok) {
+          onCreated(r.link);
+          toast("Payment link updated. The same link now shows the new details.");
+          onClose();
+        } else if (r?.code === "UNAUTHENTICATED") onAuthError(r.error);
+        else setError(r?.error || "Could not update the link.");
+      } catch {
+        setError("Could not reach the server. Please try again.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     try {
       const r: any = await crmCreatePaymentLinkFn({
         data: {
           token: token(),
           link: {
-            leadSource: f.leadSource,
+            leadSource: f.leadSource as "Manual" | "Meta", // checked above
             name: f.name,
             email: f.email,
             phone: f.phone,
@@ -318,12 +369,18 @@ export function GeneratePaymentLinkModal({
           </div>
           <div className="min-w-0">
             <h3 className="text-base font-bold text-slate-900">
-              {created ? "Payment link ready" : "Generate Payment Link"}
+              {created
+                ? "Payment link ready"
+                : editing
+                  ? "Edit Payment Link"
+                  : "Generate Payment Link"}
             </h3>
             <p className="text-[13px] text-slate-600">
               {created
                 ? "Share it with the customer. They choose Full or Partial payment themselves."
-                : "The customer pays this custom total through PayU. Valid for 24 hours, single use, no coupons."}
+                : editing
+                  ? `Order ${editing.orderId} · the link URL and its expiry (${fmtIst(editing.expiresAt)}) stay the same.`
+                  : "The customer pays this custom total through PayU. Valid for 24 hours, single use, no coupons."}
             </p>
           </div>
         </div>
@@ -342,29 +399,31 @@ export function GeneratePaymentLinkModal({
           />
         ) : (
           <form onSubmit={submit} className="space-y-4">
-            <div>
-              <span className={labelCls}>Lead source *</span>
-              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Lead source">
-                {(["Manual", "Meta"] as const).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    role="radio"
-                    aria-checked={f.leadSource === s}
-                    onClick={() => setF((x) => ({ ...x, leadSource: s }))}
-                    className={`h-10 rounded-md border text-[13px] font-semibold ${f.leadSource === s ? "border-purple-500 bg-purple-50 text-purple-800" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}
-                  >
-                    {s === "Manual" ? "Manual" : "Meta (Facebook / Instagram)"}
-                  </button>
-                ))}
+            {!editing && (
+              <div>
+                <span className={labelCls}>Lead source *</span>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Lead source">
+                  {(["Manual", "Meta"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      role="radio"
+                      aria-checked={f.leadSource === s}
+                      onClick={() => setF((x) => ({ ...x, leadSource: s }))}
+                      className={`h-10 rounded-md border text-[13px] font-semibold ${f.leadSource === s ? "border-purple-500 bg-purple-50 text-purple-800" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+                    >
+                      {s === "Manual" ? "Manual" : "Meta (Facebook / Instagram)"}
+                    </button>
+                  ))}
+                </div>
+                {(prefill?.leadId || (leadChoice && leadChoice !== "new")) && (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    The existing lead keeps its original source; this choice is recorded on the
+                    payment link.
+                  </p>
+                )}
               </div>
-              {(prefill?.leadId || (leadChoice && leadChoice !== "new")) && (
-                <p className="mt-1 text-[11px] text-slate-500">
-                  The existing lead keeps its original source; this choice is recorded on the
-                  payment link.
-                </p>
-              )}
-            </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="block">
@@ -417,12 +476,12 @@ export function GeneratePaymentLinkModal({
               </label>
             </div>
 
-            {prefillLead && (
+            {!editing && prefillLead && (
               <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] text-sky-800">
                 Attached to lead <b>{prefillLead.clientName}</b> ({prefillLead.source}).
               </div>
             )}
-            {!prefill?.leadId && matches.length > 0 && (
+            {!editing && !prefill?.leadId && matches.length > 0 && (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
                 <div className="flex items-center gap-1.5 text-[12px] font-bold text-amber-800">
                   <AlertTriangle className="w-4 h-4" /> This customer already has{" "}
@@ -547,10 +606,14 @@ export function GeneratePaymentLinkModal({
               </button>
               <button type="submit" disabled={busy} className={btnPrimary}>
                 {busy
-                  ? "Generating…"
-                  : needsLeadChoice
-                    ? "Choose a lead option"
-                    : "Generate Payment Link"}
+                  ? editing
+                    ? "Saving…"
+                    : "Generating…"
+                  : editing
+                    ? "Save changes"
+                    : needsLeadChoice
+                      ? "Choose a lead option"
+                      : "Generate Payment Link"}
               </button>
             </div>
           </form>
@@ -657,6 +720,7 @@ function LinkOrdersPayments({
   toast,
   canSeePayments,
   onChanged,
+  onEdit,
 }: {
   links: PaymentLinkView[];
   token: () => string;
@@ -664,10 +728,15 @@ function LinkOrdersPayments({
   toast: Toast;
   canSeePayments: boolean;
   onChanged: () => void;
+  onEdit?: ((l: PaymentLinkView) => void) | undefined;
 }) {
   const [view, setView] = useState<"orders" | "payments">("orders");
   const [busy, setBusy] = useState("");
-  const txns = links.flatMap((l) => l.transactions.map((t) => ({ t, l })));
+  const all = links.flatMap((l) => l.transactions.map((t) => ({ t, l })));
+  // Only verified, successful PayU payments are payments. An attempt the customer has only
+  // started (chosen an option / opened PayU) is shown separately as "not paid yet".
+  const txns = all.filter((x) => x.t.status !== "Pending");
+  const inProgress = all.filter((x) => x.t.status === "Pending");
   const resend = async (rowId: string) => {
     setBusy(rowId);
     const r = await call(crmResendLinkReceiptFn({ data: { token: token(), rowId } }));
@@ -695,34 +764,18 @@ function LinkOrdersPayments({
             onClick={() => setView(v)}
             className={`h-8 px-3.5 rounded text-[12px] font-semibold ${view === v ? "bg-purple-600 text-white" : "text-slate-600 hover:text-slate-900"}`}
           >
-            {v === "orders"
-              ? `Orders (${links.length})`
-              : `Payments (${txns.filter((x) => x.t.status !== "Pending").length})`}
+            {v === "orders" ? `Orders (${links.length})` : `Payments (${txns.length})`}
           </button>
         ))}
       </div>
 
       {view === "orders" ? (
         <div className="overflow-x-auto rounded-md border border-slate-200">
-          <table className="w-full min-w-[1100px] text-left text-[12px]">
+          <table className="w-full text-left text-[12px]">
             <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-600">
               <tr>
-                {[
-                  "Order ID",
-                  "Customer",
-                  "Video type",
-                  "Qty",
-                  "Total",
-                  "Paid",
-                  "Remaining",
-                  "Payment status",
-                  "Order status",
-                  "Link",
-                  "Created",
-                  "Source",
-                  "",
-                ].map((h) => (
-                  <th key={h} className="px-2.5 py-2.5 whitespace-nowrap">
+                {["Order", "Customer", "Video", "Amount", "Payment status", "Link", ""].map((h) => (
+                  <th key={h} className="px-3 py-2.5 whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -731,51 +784,73 @@ function LinkOrdersPayments({
             <tbody className="divide-y divide-slate-100">
               {links.map((l) => (
                 <tr key={l.id} className="align-top">
-                  <td className="px-2.5 py-2.5 font-mono whitespace-nowrap">{l.orderId}</td>
-                  <td className="px-2.5 py-2.5">
+                  <td className="px-3 py-3">
+                    <div className="font-mono font-semibold text-slate-900 whitespace-nowrap">
+                      {l.orderId}
+                    </div>
+                    <div className="text-slate-500 whitespace-nowrap">{fmtIst(l.createdAt)}</div>
+                    <div className="mt-0.5 text-slate-500">Source: {l.leadSource}</div>
+                  </td>
+                  <td className="px-3 py-3">
                     <div className="font-semibold text-slate-900">{l.customerName}</div>
-                    <div className="text-slate-500">{l.customerPhone}</div>
+                    <div className="text-slate-500 whitespace-nowrap">{l.customerPhone}</div>
                   </td>
-                  <td className="px-2.5 py-2.5">{l.serviceName}</td>
-                  <td className="px-2.5 py-2.5">
-                    {l.serviceId === TWIN_SETUP_ID ? "Setup" : l.qty}
+                  <td className="px-3 py-3">
+                    <div className="text-slate-900">{l.serviceName}</div>
+                    <div className="text-slate-500">
+                      {l.serviceId === TWIN_SETUP_ID ? "One-Time Setup" : `Qty ${l.qty}`}
+                    </div>
                   </td>
-                  <td className="px-2.5 py-2.5 font-bold whitespace-nowrap">
-                    {inr(l.totalAmount)}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <div className="font-bold text-slate-900">Total {inr(l.totalAmount)}</div>
+                    <div className="text-emerald-700 font-semibold">Paid {inr(l.paidTotal)}</div>
+                    <div
+                      className={
+                        l.balanceDue > 0 ? "text-orange-600 font-semibold" : "text-slate-500"
+                      }
+                    >
+                      Remaining {inr(l.balanceDue)}
+                    </div>
                   </td>
-                  <td className="px-2.5 py-2.5 text-emerald-700 font-semibold whitespace-nowrap">
-                    {inr(l.paidTotal)}
+                  <td className="px-3 py-3">
+                    <div
+                      className={`font-semibold whitespace-nowrap ${PAY_STATUS_STYLE[l.paymentStatus] || ""}`}
+                    >
+                      {l.paymentStatus}
+                    </div>
+                    <div className="text-slate-500">
+                      {ORDER_STATUS_LABEL[l.orderStatus] || l.orderStatus}
+                    </div>
                   </td>
-                  <td className="px-2.5 py-2.5 font-semibold whitespace-nowrap">
-                    {l.balanceDue > 0 ? (
-                      <span className="text-orange-600">{inr(l.balanceDue)}</span>
-                    ) : (
-                      "₹0"
-                    )}
-                  </td>
-                  <td
-                    className={`px-2.5 py-2.5 font-semibold whitespace-nowrap ${PAY_STATUS_STYLE[l.paymentStatus] || ""}`}
-                  >
-                    {l.paymentStatus}
-                  </td>
-                  <td className="px-2.5 py-2.5 whitespace-nowrap">
-                    {ORDER_STATUS_LABEL[l.orderStatus] || l.orderStatus}
-                  </td>
-                  <td className="px-2.5 py-2.5">
+                  <td className="px-3 py-3">
                     <StatusChip status={l.status} />
                   </td>
-                  <td className="px-2.5 py-2.5 whitespace-nowrap">{fmtIst(l.createdAt)}</td>
-                  <td className="px-2.5 py-2.5">{l.leadSource}</td>
-                  <td className="px-2.5 py-2.5">
+                  <td className="px-3 py-3">
                     <div className="flex flex-col gap-1 items-end">
                       {l.url && (
                         <button className={btnSm} onClick={() => copyText(l.url, toast)}>
-                          <Copy className="w-3.5 h-3.5" /> Link
+                          <Copy className="w-3.5 h-3.5" /> Copy link
                         </button>
                       )}
+                      {l.editable && onEdit && (
+                        <button className={btnSm} onClick={() => onEdit(l)}>
+                          <Pencil className="w-3.5 h-3.5" /> Edit
+                        </button>
+                      )}
+                      <button
+                        className={`${btnSm} border-red-200 text-red-600 hover:bg-red-50`}
+                        disabled={busy === `del-${l.id}`}
+                        onClick={async () => {
+                          setBusy(`del-${l.id}`);
+                          if (await deleteLinkFlow(l, call, token, toast)) onChanged();
+                          setBusy("");
+                        }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
                       {l.payBalanceUrl && (
                         <button
-                          className={`${btnSm} border-orange-200 text-orange-700 bg-orange-50`}
+                          className={`${btnSm} border-orange-200 text-orange-700 bg-orange-50 whitespace-nowrap`}
                           onClick={() => copyText(l.payBalanceUrl, toast, "Balance link")}
                         >
                           <Copy className="w-3.5 h-3.5" /> Balance link
@@ -792,128 +867,186 @@ function LinkOrdersPayments({
         <p className="text-[12px] text-slate-500">
           Transaction details need the Orders &amp; Payments permission.
         </p>
-      ) : txns.length === 0 ? (
-        <p className="text-[12px] text-slate-500">
-          No payments yet. Successful PayU payments appear here automatically.
-        </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-slate-200">
-          <table className="w-full min-w-[1250px] text-left text-[12px]">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-600">
-              <tr>
-                {[
-                  "Transaction ID",
-                  "Order ID",
-                  "Type",
-                  "Method",
-                  "Order total",
-                  "Paid (this txn)",
-                  "Paid so far",
-                  "Remaining",
-                  "Status",
-                  "Date / time",
-                  "PayU ref",
-                  "Receipt",
-                  "Outstanding link",
-                ].map((h) => (
-                  <th key={h} className="px-2.5 py-2.5 whitespace-nowrap">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {txns.map(({ t, l }, i) => {
-                const lastPaidOfOrder =
-                  t.status === "Paid" &&
-                  !txns.slice(i + 1).some((x) => x.l.id === l.id && x.t.status === "Paid");
-                return (
-                  <tr key={t.rowId + t.txnid} className="align-top">
-                    <td className="px-2.5 py-2.5 font-mono whitespace-nowrap">{t.txnid}</td>
-                    <td className="px-2.5 py-2.5 font-mono whitespace-nowrap">{t.orderId}</td>
-                    <td className="px-2.5 py-2.5 whitespace-nowrap">{t.planLabel}</td>
-                    <td className="px-2.5 py-2.5 whitespace-nowrap">{t.method} · Payment link</td>
-                    <td className="px-2.5 py-2.5 whitespace-nowrap">{inr(t.orderTotal)}</td>
-                    <td className="px-2.5 py-2.5 font-bold whitespace-nowrap">{inr(t.amount)}</td>
-                    <td className="px-2.5 py-2.5 whitespace-nowrap">
-                      {t.cumulativePaid === null ? "—" : inr(t.cumulativePaid)}
-                    </td>
-                    <td className="px-2.5 py-2.5 whitespace-nowrap">
-                      {t.remaining === null ? (
-                        "—"
-                      ) : t.remaining > 0 ? (
-                        <span className="text-orange-600 font-semibold">{inr(t.remaining)}</span>
-                      ) : (
-                        "₹0"
-                      )}
-                    </td>
-                    <td
-                      className={`px-2.5 py-2.5 font-semibold whitespace-nowrap ${t.status === "Paid" ? (t.remaining ? "text-orange-600" : "text-emerald-700") : "text-amber-600"}`}
-                    >
-                      {t.status === "Paid"
-                        ? t.remaining
-                          ? "Partially Paid"
-                          : "Fully Paid"
-                        : t.status}
-                    </td>
-                    <td className="px-2.5 py-2.5 whitespace-nowrap">{fmtIst(t.paidAt)}</td>
-                    <td className="px-2.5 py-2.5 font-mono whitespace-nowrap">
-                      {t.payuRef || "—"}
-                      {t.bankRef && <div className="text-slate-500">Bank {t.bankRef}</div>}
-                    </td>
-                    <td className="px-2.5 py-2.5 whitespace-nowrap">
-                      {t.receiptUrl ? (
-                        <div className="flex flex-col gap-1">
-                          <a
-                            href={t.receiptUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 font-semibold text-purple-700 hover:underline"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" /> PDF
-                          </a>
-                          <span
-                            className={
-                              t.receiptEmail === "sent" ? "text-emerald-700" : "text-red-600"
-                            }
-                          >
-                            Email: {t.receiptEmail}
-                          </span>
-                          {t.receiptEmail !== "sent" && (
-                            <button
-                              className={btnSm}
-                              disabled={busy === t.rowId}
-                              onClick={() => resend(t.rowId)}
-                            >
-                              <RefreshCw className="w-3.5 h-3.5" /> Retry email
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-2.5 py-2.5">
-                      {lastPaidOfOrder && l.payBalanceUrl ? (
-                        <button
-                          className={`${btnSm} border-orange-200 text-orange-700 bg-orange-50`}
-                          onClick={() => copyText(l.payBalanceUrl, toast, "Balance link")}
-                        >
-                          <Copy className="w-3.5 h-3.5" /> Copy {inr(l.balanceDue)} link
-                        </button>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
+        <div className="space-y-3">
+          {inProgress.map(({ t, l }) => (
+            <div
+              key={`ip-${t.txnid}`}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900"
+            >
+              <span className="font-bold">Payment attempt in progress — not paid yet</span>
+              <span>
+                {l.customerName} chose {t.planLabel.toLowerCase()} of {inr(t.amount)} and was sent
+                to PayU. It is added here only after PayU confirms the payment.
+              </span>
+              <span className="font-mono text-amber-800">{t.txnid}</span>
+            </div>
+          ))}
+          {txns.length === 0 ? (
+            <p className="text-[12px] text-slate-500">
+              No payments received yet. Verified PayU payments appear here automatically.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border border-slate-200">
+              <table className="w-full text-left text-[12px]">
+                <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-600">
+                  <tr>
+                    {[
+                      "Transaction",
+                      "Type",
+                      "Amount",
+                      "Paid so far",
+                      "Status",
+                      "Date · PayU ref",
+                      "Receipt",
+                      "Outstanding",
+                    ].map((h) => (
+                      <th key={h} className="px-3 py-2.5 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {txns.map(({ t, l }, i) => {
+                    const lastPaidOfOrder =
+                      t.status === "Paid" && !txns.slice(i + 1).some((x) => x.l.id === l.id);
+                    return (
+                      <tr key={t.rowId + t.txnid} className="align-top">
+                        <td className="px-3 py-3">
+                          <div className="font-mono font-semibold text-slate-900 whitespace-nowrap">
+                            {t.txnid}
+                          </div>
+                          <div className="font-mono text-slate-500 whitespace-nowrap">
+                            Order {t.orderId}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="text-slate-900">{t.planLabel}</div>
+                          <div className="text-slate-500">{t.method} · Payment link</div>
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <div className="font-bold text-slate-900">{inr(t.amount)}</div>
+                          <div className="text-slate-500">of {inr(t.orderTotal)}</div>
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <div>{t.cumulativePaid === null ? "—" : inr(t.cumulativePaid)}</div>
+                          {t.remaining !== null && (
+                            <div
+                              className={
+                                t.remaining > 0 ? "text-orange-600 font-semibold" : "text-slate-500"
+                              }
+                            >
+                              Remaining {inr(t.remaining)}
+                            </div>
+                          )}
+                        </td>
+                        <td
+                          className={`px-3 py-3 font-semibold whitespace-nowrap ${t.status === "Paid" ? (t.remaining ? "text-orange-600" : "text-emerald-700") : "text-amber-600"}`}
+                        >
+                          {t.status === "Paid"
+                            ? t.remaining
+                              ? "Partially Paid"
+                              : "Fully Paid"
+                            : t.status}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="whitespace-nowrap">{fmtIst(t.paidAt)}</div>
+                          <div className="font-mono text-slate-500 whitespace-nowrap">
+                            PayU {t.payuRef || "—"}
+                          </div>
+                          {t.bankRef && (
+                            <div className="font-mono text-slate-500 whitespace-nowrap">
+                              Bank {t.bankRef}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          {t.receiptUrl ? (
+                            <div className="flex flex-col gap-1">
+                              <a
+                                href={t.receiptUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 font-semibold text-purple-700 hover:underline"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" /> PDF
+                              </a>
+                              <span
+                                className={
+                                  t.receiptEmail === "sent" ? "text-emerald-700" : "text-red-600"
+                                }
+                              >
+                                Email: {t.receiptEmail}
+                              </span>
+                              {t.receiptEmail !== "sent" && (
+                                <button
+                                  className={btnSm}
+                                  disabled={busy === t.rowId}
+                                  onClick={() => resend(t.rowId)}
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" /> Retry email
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-3">
+                          {lastPaidOfOrder && l.payBalanceUrl ? (
+                            <button
+                              className={`${btnSm} border-orange-200 text-orange-700 bg-orange-50 whitespace-nowrap`}
+                              onClick={() => copyText(l.payBalanceUrl, toast, "Balance link")}
+                            >
+                              <Copy className="w-3.5 h-3.5" /> Copy {inr(l.balanceDue)} link
+                            </button>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+/** Re-runs `fn` every `ms` while the browser tab is visible (silent background refresh). */
+function usePoll(fn: () => void, ms: number) {
+  const ref = useRef(fn);
+  ref.current = fn;
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (typeof document === "undefined" || document.visibilityState === "visible") ref.current();
+    }, ms);
+    return () => clearInterval(id);
+  }, [ms]);
+}
+
+/** Asks for confirmation, deletes the link and reports what happened. True when deleted. */
+async function deleteLinkFlow(l: PaymentLinkView, call: Call, token: () => string, toast: Toast) {
+  const paid = l.paidTotal > 0;
+  const msg = paid
+    ? `Delete the payment link for ${l.customerName}?\n\nThis order is already paid (${inr(l.paidTotal)}). Its order and payment records stay in Orders & Payments; only the link is removed.`
+    : l.status === "PAYMENT_PENDING"
+      ? `Delete the payment link for ${l.customerName}?\n\nA payment is in progress. If it succeeds it will still be recorded on order ${l.orderId}.`
+      : `Delete the payment link for ${l.customerName} (${inr(l.totalAmount)})?\n\nThe customer will no longer be able to pay with it, and the unpaid order ${l.orderId} will be closed.`;
+  if (!window.confirm(msg)) return false;
+  const r = await call(crmDeletePaymentLinkFn({ data: { token: token(), id: l.id } }));
+  if (!r?.ok) return false;
+  toast(
+    r.keptOrder
+      ? "Payment link deleted. Order and payment records were kept."
+      : "Payment link deleted.",
+  );
+  return true;
 }
 
 // ===========================================================================
@@ -926,6 +1059,7 @@ export function LeadPaymentLinksCard({
   toast,
   canSeePayments,
   onGenerate,
+  onEdit,
   refreshKey,
 }: {
   lead: LeadItem;
@@ -934,6 +1068,7 @@ export function LeadPaymentLinksCard({
   toast: Toast;
   canSeePayments: boolean;
   onGenerate: (p: PayLinkPrefill) => void;
+  onEdit: (l: PaymentLinkView) => void;
   refreshKey: number;
 }) {
   const [links, setLinks] = useState<PaymentLinkView[] | null>(null);
@@ -951,10 +1086,28 @@ export function LeadPaymentLinksCard({
     setLinks(r?.ok ? r.links : []);
     setSetupNeeded(!!r?.setupNeeded);
   }, [lead.id]);
+  // Silent refresh (no error pop-ups): keeps payments current while the popup is open.
+  const silent = useCallback(async () => {
+    try {
+      const r: any = await crmLeadPaymentLinksFn({
+        data: { token: tokenRef.current(), leadId: lead.id },
+      });
+      if (r?.ok) {
+        setLinks(r.links);
+        setSetupNeeded(!!r.setupNeeded);
+      }
+    } catch {
+      /* next poll */
+    }
+  }, [lead.id]);
   useEffect(() => {
     setLinks(null);
     void load();
-  }, [load, refreshKey]);
+  }, [load]);
+  useEffect(() => {
+    if (refreshKey) void silent();
+  }, [refreshKey, silent]);
+  usePoll(() => void silent(), 15000);
   return (
     <div className={`${card} overflow-hidden`}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
@@ -1004,7 +1157,8 @@ export function LeadPaymentLinksCard({
             call={call}
             toast={toast}
             canSeePayments={canSeePayments}
-            onChanged={load}
+            onChanged={silent}
+            onEdit={onEdit}
           />
         )}
       </div>
@@ -1031,6 +1185,7 @@ export function PaymentLinksTab({
   canSeePayments,
   onGenerate,
   onOpenLead,
+  onEdit,
   refreshKey,
 }: {
   token: () => string;
@@ -1039,6 +1194,7 @@ export function PaymentLinksTab({
   canSeePayments: boolean;
   onGenerate: () => void;
   onOpenLead: (leadId: string) => void;
+  onEdit: (l: PaymentLinkView) => void;
   refreshKey: number;
 }) {
   const [links, setLinks] = useState<PaymentLinkView[] | null>(null);
@@ -1060,9 +1216,25 @@ export function PaymentLinksTab({
     if (r?.ok) setLinks(r.links);
     else setLinks((x) => x || []);
   }, []);
+  // Silent refresh (no pop-ups): payments, expiries and new links show up on their own.
+  const silent = useCallback(async () => {
+    try {
+      const r: any = await crmListPaymentLinksFn({ data: { token: tokenRef.current() } });
+      if (r?.ok) {
+        setLinks(r.links);
+        setSetupNeeded(!!r.setupNeeded);
+      }
+    } catch {
+      /* next poll */
+    }
+  }, []);
   useEffect(() => {
     void load();
-  }, [load, refreshKey]);
+  }, [load]);
+  useEffect(() => {
+    if (refreshKey) void silent();
+  }, [refreshKey, silent]);
+  usePoll(() => void silent(), 15000);
   useEffect(() => {
     if (details && links) setDetails(links.find((l) => l.id === details.id) || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1295,16 +1467,37 @@ export function PaymentLinksTab({
                         <button className={btnSm} onClick={() => setDetails(l)}>
                           Details
                         </button>
+                        {l.editable && (
+                          <button
+                            className={btnSm}
+                            onClick={() => onEdit(l)}
+                            title="Edit this link"
+                          >
+                            <Pencil className="w-3.5 h-3.5" /> Edit
+                          </button>
+                        )}
                         {l.status === "ACTIVE" && (
                           <button
-                            className={`${btnSm} border-red-200 text-red-600 hover:bg-red-50`}
+                            className={`${btnSm} border-amber-200 text-amber-700 hover:bg-amber-50`}
                             disabled={busy === l.id}
                             onClick={() => cancel(l)}
-                            title="Cancel this link"
+                            title="Stop this link (kept in the list as Cancelled)"
                           >
                             <Ban className="w-3.5 h-3.5" /> Cancel
                           </button>
                         )}
+                        <button
+                          className={`${btnSm} border-red-200 text-red-600 hover:bg-red-50`}
+                          disabled={busy === `del-${l.id}`}
+                          onClick={async () => {
+                            setBusy(`del-${l.id}`);
+                            if (await deleteLinkFlow(l, call, token, toast)) void silent();
+                            setBusy("");
+                          }}
+                          title="Delete this link"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1320,7 +1513,7 @@ export function PaymentLinksTab({
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-3 sm:p-6"
           onMouseDown={(e) => e.target === e.currentTarget && setDetails(null)}
         >
-          <div className="w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 shadow-2xl relative">
+          <div className="w-full max-w-[1200px] max-h-[90vh] overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl relative">
             <button
               onClick={() => setDetails(null)}
               className="absolute top-4 right-4 text-slate-600 hover:text-slate-900"
@@ -1344,7 +1537,13 @@ export function PaymentLinksTab({
               call={call}
               toast={toast}
               canSeePayments={canSeePayments}
-              onChanged={load}
+              onChanged={() => {
+                void silent();
+              }}
+              onEdit={(l) => {
+                setDetails(null);
+                onEdit(l);
+              }}
             />
           </div>
         </div>

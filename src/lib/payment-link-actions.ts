@@ -1,7 +1,7 @@
 // Server functions for Admin / Super Admin generated payment links. Thin wrappers — all logic,
 // role checks and amount calculations live in ./payment-links.ts (loaded on the server only).
 import { createServerFn } from "@tanstack/react-start";
-import type { CreatePaymentLinkInput } from "./payment-links";
+import type { CreatePaymentLinkInput, EditPaymentLinkInput } from "./payment-links";
 
 const srv = () => import("./payment-links");
 const guarded = async <T>(fn: () => Promise<T>) => (await import("./crm-server")).guard(fn);
@@ -29,6 +29,20 @@ export const crmCancelPaymentLinkFn = createServerFn({ method: "POST" })
   .validator((d: Tok & { id: string }) => d)
   .handler(async ({ data }) =>
     guarded(async () => (await srv()).cancelPaymentLink(data.token, String(data.id || ""))),
+  );
+
+export const crmEditPaymentLinkFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { id: string; link: EditPaymentLinkInput }) => d)
+  .handler(async ({ data }) =>
+    guarded(async () =>
+      (await srv()).editPaymentLink(data.token, String(data.id || ""), data.link),
+    ),
+  );
+
+export const crmDeletePaymentLinkFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { id: string }) => d)
+  .handler(async ({ data }) =>
+    guarded(async () => (await srv()).deletePaymentLink(data.token, String(data.id || ""))),
   );
 
 export const crmResendLinkReceiptFn = createServerFn({ method: "POST" })

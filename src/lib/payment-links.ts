@@ -21,7 +21,7 @@
 //   • The order row only moves to COMPLETED through the existing verified PayU path, whose
 //     conditional update makes that happen exactly once — that is what "uses up" the link.
 import { CrmAuthError, requireSession, type SessionContext } from "./crm-server-auth";
-import { dbInsert, dbSelect, dbUpdate, logActivity } from "./crm-db";
+import { dbDelete, dbInsert, dbSelect, dbUpdate, logActivity } from "./crm-db";
 import { LEADS_TABLE, ORDERS_TABLE } from "./db-tables";
 import {
   formatInr,
@@ -220,6 +220,13 @@ function mapLink(link: any, order: any, children: any[] = []) {
     cancelledAt: iso(link.cancelled_at),
     cancelledBy: String(link.cancelled_by || ""),
     status,
+    /** Can still be edited: active and the customer hasn't started paying. */
+    editable:
+      status === "ACTIVE" &&
+      !!order &&
+      order.payment_status === "PENDING" &&
+      order.paypal_status === AWAITING &&
+      !(Array.isArray(d.previousAttempts) && d.previousAttempts.length),
     paymentStatus: paymentStatusLabel(order),
     paidPlan: paid ? (ps!.plan === "advance" ? "advance" : "full") : "",
     paidTotal: paid ? ps!.paidTotal : 0,
@@ -360,13 +367,17 @@ function parseAmount(v: unknown) {
   return n >= 1 && n <= MAX_AMOUNT ? n : null;
 }
 
-export async function createPaymentLink(token: string, input: CreatePaymentLinkInput) {
-  const ctx = await requireLinkAdmin(token);
-
-  // ---- Validate everything before anything is saved ----
-  const leadSource: LinkLeadSource | null =
-    input.leadSource === "Manual" || input.leadSource === "Meta" ? input.leadSource : null;
-  if (!leadSource) throw new Error("Choose the lead source: Manual or Meta.");
+/** Customer + order fields shared by "generate" and "edit" (same rules as the website checkout). */
+function validateLinkFields(input: {
+  name: string;
+  email: string;
+  phone: string;
+  company?: string | undefined;
+  notes?: string | undefined;
+  serviceId: string;
+  qty: number;
+  totalAmount: string | number;
+}) {
   const isSetup = input.serviceId === TWIN_SETUP_ID;
   const qty = isSetup ? 1 : Number(input.qty);
   if ((!isSetup && !getIndiaService(input.serviceId)) || !isPackQty(qty))
@@ -390,6 +401,17 @@ export async function createPaymentLink(token: string, input: CreatePaymentLinkI
       `Enter the total amount in rupees (₹1 to ${formatInr(MAX_AMOUNT)}, up to 2 decimals).`,
     );
   const q = quoteItem(isSetup ? TWIN_SETUP_ID : input.serviceId, qty);
+  return { name, email, phone, company, notes, total, q, qty };
+}
+
+export async function createPaymentLink(token: string, input: CreatePaymentLinkInput) {
+  const ctx = await requireLinkAdmin(token);
+
+  // ---- Validate everything before anything is saved ----
+  const leadSource: LinkLeadSource | null =
+    input.leadSource === "Manual" || input.leadSource === "Meta" ? input.leadSource : null;
+  if (!leadSource) throw new Error("Choose the lead source: Manual or Meta.");
+  const { name, email, phone, company, notes, total, q, qty } = validateLinkFields(input);
 
   await ensureLinksTable();
 
@@ -637,6 +659,147 @@ export async function cancelPaymentLink(token: string, linkId: string) {
     leadId: String(link.lead_id),
   });
   return { ok: true as const };
+}
+
+export interface EditPaymentLinkInput {
+  name: string;
+  email: string;
+  phone: string;
+  company?: string | undefined;
+  notes?: string | undefined;
+  serviceId: string;
+  qty: number;
+  totalAmount: string | number;
+}
+
+/**
+ * Edit a link (customer details, video type, quantity, custom total) while the customer has not
+ * started paying yet. The 24-hour expiry is not extended. The lead itself is not changed.
+ */
+export async function editPaymentLink(token: string, linkId: string, input: EditPaymentLinkInput) {
+  const ctx = await requireLinkAdmin(token);
+  const link = await linkById(String(linkId));
+  if (!link) throw new Error("Payment link not found.");
+  const order = await orderById(String(link.order_id));
+  const st = effectiveLinkStatus(link, order);
+  const d = details(order);
+  if (
+    st !== "ACTIVE" ||
+    !order ||
+    order.payment_status !== "PENDING" ||
+    order.paypal_status !== AWAITING ||
+    (Array.isArray(d.previousAttempts) && d.previousAttempts.length)
+  )
+    throw new Error(
+      st === "ACTIVE"
+        ? "The customer has already started paying with this link, so it can't be edited. Cancel or delete it and generate a new link."
+        : `This link is ${st.toLowerCase().replace("_", " ")} and can't be edited. Generate a new link instead.`,
+    );
+  const v = validateLinkFields(input);
+  const now = new Date().toISOString();
+  // Only while the order is still untouched by PayU (atomic check).
+  const done = await dbUpdate(
+    ORDERS_TABLE,
+    [
+      { col: "id", op: "eq", value: order.id },
+      { col: "payment_status", op: "eq", value: "PENDING" },
+      { col: "paypal_status", op: "eq", value: AWAITING },
+    ],
+    {
+      customer_name: v.name,
+      customer_email: v.email,
+      customer_phone: v.phone,
+      customer_company: v.company || null,
+      item_type: v.q.kind === "setup" ? "setup" : v.q.qty === 1 ? "individual" : "package",
+      item_id: v.q.kind === "setup" ? v.q.id : `${v.q.id}-${v.q.qty}`,
+      item_name: v.q.itemName,
+      amount: v.total,
+      raw_details: JSON.stringify({
+        ...d,
+        serviceId: v.q.id,
+        qty: v.q.qty,
+        perReel: round2(v.total / v.q.qty),
+        notes: v.notes,
+        orderTotal: v.total,
+        balanceAfterPayment: 0,
+        paymentPlan: "full",
+        editedBy: ctx.user.email,
+        editedAt: now,
+      }),
+      updated_at: now,
+    },
+  );
+  if (!done.length)
+    throw new Error("The customer has just started paying, so the link can't be edited now.");
+  await dbUpdate(LINKS, [{ col: "id", op: "eq", value: link.id }], {
+    service_id: v.q.id,
+    qty: v.q.qty,
+    item_name: v.q.itemName,
+    total_amount: v.total,
+    customer_name: v.name,
+    customer_email: v.email,
+    customer_phone: v.phone,
+    customer_company: v.company || null,
+    updated_at: now,
+  });
+  const changes = [
+    num(link.total_amount) !== v.total
+      ? `amount ${formatInr(num(link.total_amount))} → ${formatInr(v.total)}`
+      : "",
+    link.item_name !== v.q.itemName ? `item ${link.item_name} → ${v.q.itemName}` : "",
+    link.customer_name !== v.name ? `name → ${v.name}` : "",
+    link.customer_email !== v.email ? `email → ${v.email}` : "",
+    link.customer_phone !== v.phone ? `phone → ${v.phone}` : "",
+  ].filter(Boolean);
+  await logActivity({
+    title: "Payment link edited",
+    category: "ORDERS",
+    actorEmail: ctx.user.email,
+    description: `${ctx.user.name} edited the payment link for order ${order.id}${changes.length ? `: ${changes.join("; ")}` : " (no changes)"}.`,
+    leadId: String(link.lead_id),
+  });
+  const fresh = await linkById(String(link.id));
+  return { ok: true as const, link: mapLink(fresh, await orderById(String(order.id))) };
+}
+
+/**
+ * Delete a payment link (Admin / Super Admin). Money is never deleted: a paid order and its
+ * payments stay in Orders & Payments, and a payment already in progress at PayU is still
+ * recorded if it succeeds. A never-paid order is closed so it no longer shows as pending.
+ */
+export async function deletePaymentLink(token: string, linkId: string) {
+  const ctx = await requireLinkAdmin(token);
+  const link = await linkById(String(linkId));
+  if (!link) return { ok: true as const, keptOrder: false };
+  const order = await orderById(String(link.order_id));
+  const paid = isPaid(order);
+  const busy = inProgress(order);
+  const now = new Date().toISOString();
+  if (order && !paid && !busy) {
+    await dbUpdate(
+      ORDERS_TABLE,
+      [
+        { col: "id", op: "eq", value: order.id },
+        { col: "payment_status", op: "eq", value: String(order.payment_status) },
+      ],
+      { payment_status: "CANCELLED", paypal_status: "LINK_DELETED", updated_at: now },
+    );
+  }
+  await dbDelete(LINKS, [{ col: "id", op: "eq", value: link.id }]);
+  await logActivity({
+    title: "Payment link deleted",
+    category: "ORDERS",
+    actorEmail: ctx.user.email,
+    description: `${ctx.user.name} deleted the payment link for ${link.customer_name} (${formatInr(num(link.total_amount))}, order ${link.order_id}). ${
+      paid
+        ? "The order was already paid: its order and payment records are kept."
+        : busy
+          ? "A payment was in progress: it will still be recorded on the order if it succeeds."
+          : "The unpaid order was closed."
+    }`,
+    leadId: String(link.lead_id),
+  });
+  return { ok: true as const, keptOrder: paid || busy };
 }
 
 /** Safe retry of a receipt email that failed (never sends a second copy of one that went out). */
