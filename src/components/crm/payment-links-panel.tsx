@@ -32,6 +32,7 @@ import {
   crmCancelPaymentLinkFn,
   crmCreatePaymentLinkFn,
   crmDeletePaymentLinkFn,
+  crmDeletePaymentLinksFn,
   crmEditPaymentLinkFn,
   crmLeadPaymentLinksFn,
   crmListPaymentLinksFn,
@@ -1203,6 +1204,7 @@ export function PaymentLinksTab({
   const [q, setQ] = useState("");
   const [details, setDetails] = useState<PaymentLinkView | null>(null);
   const [busy, setBusy] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
   const tokenRef = useRef(token);
   tokenRef.current = token;
   const callRef = useRef(call);
@@ -1239,6 +1241,44 @@ export function PaymentLinksTab({
     if (details && links) setDetails(links.find((l) => l.id === details.id) || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [links]);
+
+  useEffect(() => {
+    // Forget selections that are no longer in the list (deleted / filtered out).
+    if (links) setSelected((sel) => sel.filter((id) => links.some((l) => l.id === id)));
+  }, [links]);
+  const bulkDelete = async (ids: string[]) => {
+    const picked = (links || []).filter((l) => ids.includes(l.id));
+    if (!picked.length) return;
+    const paid = picked.filter((l) => l.paidTotal > 0).length;
+    const pending = picked.filter((l) => l.status === "PAYMENT_PENDING").length;
+    const msg = [
+      `Delete ${picked.length} payment link${picked.length === 1 ? "" : "s"}?`,
+      "",
+      "Customers will no longer be able to pay with them. Unpaid orders are closed.",
+      paid
+        ? `${paid} paid link${paid === 1 ? " keeps its" : "s keep their"} order and payment records in Orders & Payments.`
+        : "",
+      pending
+        ? `${pending} link${pending === 1 ? " has a payment" : "s have payments"} in progress: if PayU confirms, the payment is still recorded.`
+        : "",
+    ]
+      .filter((x, i) => x || i === 1)
+      .join("\n");
+    if (!window.confirm(msg)) return;
+    setBusy("bulk");
+    const r = await callRef.current(
+      crmDeletePaymentLinksFn({ data: { token: tokenRef.current(), ids } }),
+    );
+    setBusy("");
+    if (r?.ok) {
+      toast(
+        `${r.deleted} payment link${r.deleted === 1 ? "" : "s"} deleted${r.keptOrders ? ` · ${r.keptOrders} paid order${r.keptOrders === 1 ? "" : "s"} kept` : ""}${r.failed?.length ? ` · ${r.failed.length} could not be deleted` : ""}.`,
+        r.failed?.length ? "error" : "success",
+      );
+      setSelected([]);
+      void silent();
+    }
+  };
 
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -1328,6 +1368,26 @@ export function PaymentLinksTab({
         </div>
       </div>
 
+      {selected.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5">
+          <span className="text-[13px] font-semibold text-red-800">
+            {selected.length} link{selected.length === 1 ? "" : "s"} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button className={btnGhost} onClick={() => setSelected([])}>
+              Clear
+            </button>
+            <button
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-md bg-red-600 hover:bg-red-500 text-white text-[13px] font-semibold disabled:opacity-50"
+              disabled={busy === "bulk"}
+              onClick={() => void bulkDelete(selected)}
+            >
+              <Trash2 className="w-4 h-4" /> {busy === "bulk" ? "Deleting…" : "Delete selected"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className={`${card} overflow-hidden`}>
         {setupNeeded ? (
           <div className="p-8 text-center text-[13px] text-amber-700">
@@ -1351,6 +1411,21 @@ export function PaymentLinksTab({
             <table className="w-full min-w-[1020px] text-left text-[13px]">
               <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-600">
                 <tr>
+                  <th className="p-3 w-10">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all shown links"
+                      className="w-4 h-4 accent-purple-600 cursor-pointer"
+                      checked={shown.length > 0 && shown.every((l) => selected.includes(l.id))}
+                      onChange={(e) =>
+                        setSelected((sel) =>
+                          e.target.checked
+                            ? [...new Set([...sel, ...shown.map((l) => l.id)])]
+                            : sel.filter((id) => !shown.some((l) => l.id === id)),
+                        )
+                      }
+                    />
+                  </th>
                   {[
                     "Customer & lead",
                     "Video / Total",
@@ -1367,7 +1442,23 @@ export function PaymentLinksTab({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {shown.map((l) => (
-                  <tr key={l.id} className="align-top hover:bg-slate-50">
+                  <tr
+                    key={l.id}
+                    className={`align-top ${selected.includes(l.id) ? "bg-purple-500/[0.06]" : "hover:bg-slate-50"}`}
+                  >
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${l.customerName}`}
+                        className="w-4 h-4 accent-purple-600 cursor-pointer"
+                        checked={selected.includes(l.id)}
+                        onChange={(e) =>
+                          setSelected((sel) =>
+                            e.target.checked ? [...sel, l.id] : sel.filter((id) => id !== l.id),
+                          )
+                        }
+                      />
+                    </td>
                     <td className="p-3 max-w-[260px]">
                       <div className="font-bold text-slate-900">{l.customerName}</div>
                       <div className="text-xs text-slate-600">{l.customerPhone}</div>

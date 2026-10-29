@@ -769,6 +769,32 @@ export async function editPaymentLink(token: string, linkId: string, input: Edit
  */
 export async function deletePaymentLink(token: string, linkId: string) {
   const ctx = await requireLinkAdmin(token);
+  return deleteOneLink(ctx, linkId);
+}
+
+/** Bulk delete (Admin / Super Admin): same rules as a single delete, link by link. */
+export async function deletePaymentLinks(token: string, linkIds: string[]) {
+  const ctx = await requireLinkAdmin(token);
+  const ids = [
+    ...new Set((Array.isArray(linkIds) ? linkIds : []).map(String).filter(Boolean)),
+  ].slice(0, 500);
+  let deleted = 0;
+  let keptOrders = 0;
+  const failed: string[] = [];
+  for (const id of ids) {
+    try {
+      const r = await deleteOneLink(ctx, id);
+      deleted++;
+      if (r.keptOrder) keptOrders++;
+    } catch (e) {
+      console.error("Bulk delete: payment link failed", id, e);
+      failed.push(id);
+    }
+  }
+  return { ok: true as const, deleted, keptOrders, failed };
+}
+
+async function deleteOneLink(ctx: SessionContext, linkId: string) {
   const link = await linkById(String(linkId));
   if (!link) return { ok: true as const, keptOrder: false };
   const order = await orderById(String(link.order_id));

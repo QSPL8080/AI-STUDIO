@@ -45,6 +45,14 @@ export const crmDeletePaymentLinkFn = createServerFn({ method: "POST" })
     guarded(async () => (await srv()).deletePaymentLink(data.token, String(data.id || ""))),
   );
 
+export const crmDeletePaymentLinksFn = createServerFn({ method: "POST" })
+  .validator((d: Tok & { ids: string[] }) => d)
+  .handler(async ({ data }) =>
+    guarded(async () =>
+      (await srv()).deletePaymentLinks(data.token, Array.isArray(data.ids) ? data.ids : []),
+    ),
+  );
+
 export const crmResendLinkReceiptFn = createServerFn({ method: "POST" })
   .validator((d: Tok & { rowId: string }) => d)
   .handler(async ({ data }) =>
