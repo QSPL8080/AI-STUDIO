@@ -3124,7 +3124,7 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
               </div>
             </div>
 
-            <div className={`${card} p-1.5 flex gap-1.5`} role="tablist" aria-label="Orders">
+            <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1" role="tablist" aria-label="Orders">
               {(
                 [
                   { id: "website", label: "Website Orders", n: pOrders.length, icon: Globe, note: "Customers who paid on the website" },
@@ -3143,14 +3143,14 @@ export function CrmApp({ user: initialUser }: { user: CrmUser }) {
                       setOrdersStatus("All");
                       setSelectedIds([]);
                     }}
-                    className={`flex-1 flex items-center justify-center gap-2 h-12 px-4 rounded-md text-[14px] font-semibold transition-colors ${
-                      active ? "bg-purple-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    className={`flex-1 flex items-center justify-center gap-2 h-11 px-4 rounded-md text-[14px] font-semibold transition-colors ${
+                      active ? "bg-white text-purple-700 shadow-sm border border-slate-200" : "text-slate-500 border border-transparent hover:text-slate-800"
                     }`}
                   >
                     <Icon className="w-4 h-4" />
                     {t.label}
-                    <span className={`text-[11px] min-w-[22px] px-1.5 py-0.5 rounded-md ${active ? "bg-white/20" : "bg-slate-100 text-slate-600"}`}>{t.n}</span>
-                    <span className={`hidden lg:inline text-[12px] font-normal ${active ? "text-white/75" : "text-slate-400"}`}>· {t.note}</span>
+                    <span className={`text-[11px] min-w-[22px] px-1.5 py-0.5 rounded-md ${active ? "bg-purple-50 text-purple-700" : "bg-white text-slate-500"}`}>{t.n}</span>
+                    <span className="hidden lg:inline text-[12px] font-normal text-slate-400">· {t.note}</span>
                   </button>
                 );
               })}
