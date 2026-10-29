@@ -30,10 +30,10 @@ export interface LeadWhatsAppPayload {
   leadId?: string | undefined;
 }
 
-const SITE_URL = (process.env.PUBLIC_SITE_URL || "https://quickuppaistudio.in").replace(/\/+$/, "");
+const SITE_URL = (process.env["PUBLIC_SITE_URL"] || "https://quickuppaistudio.in").replace(/\/+$/, "");
 
 function recipients() {
-  return (process.env.LEAD_WHATSAPP_TO || "918055679162")
+  return (process.env["LEAD_WHATSAPP_TO"] || "918055679162")
     .split(",")
     .map((n) => n.replace(/[^\d]/g, ""))
     .map((n) => (n.length === 10 ? `91${n}` : n))
@@ -106,11 +106,11 @@ export function buildLeadWhatsAppText(l: LeadWhatsAppPayload) {
 }
 
 async function sendViaMetaCloud(to: string, l: LeadWhatsAppPayload) {
-  const token = (process.env.WHATSAPP_TOKEN || "").trim();
-  const phoneId = (process.env.WHATSAPP_PHONE_NUMBER_ID || "").trim();
-  const version = (process.env.WHATSAPP_API_VERSION || "v21.0").trim();
-  const template = (process.env.WHATSAPP_TEMPLATE || "new_lead_alert").trim();
-  const lang = (process.env.WHATSAPP_TEMPLATE_LANG || "en").trim();
+  const token = (process.env["WHATSAPP_TOKEN"] || "").trim();
+  const phoneId = (process.env["WHATSAPP_PHONE_NUMBER_ID"] || "").trim();
+  const version = (process.env["WHATSAPP_API_VERSION"] || "v21.0").trim();
+  const template = (process.env["WHATSAPP_TEMPLATE"] || "new_lead_alert").trim();
+  const lang = (process.env["WHATSAPP_TEMPLATE_LANG"] || "en").trim();
   // Template variables {{1}}..{{7}} (WhatsApp does not allow line breaks inside a variable).
   const params = [
     one(l.name, 120) || "-",
@@ -123,7 +123,7 @@ async function sendViaMetaCloud(to: string, l: LeadWhatsAppPayload) {
   ].map((text) => ({ type: "text", text }));
   // Template layout (see the setup notes): IMAGE header (logo banner) + body {{1}}..{{7}}
   // + footer + 2 URL buttons: [0] "View Lead in CRM" (dynamic, ?lead={{1}}), [1] "Visit Website" (static).
-  const headerImage = (process.env.WHATSAPP_HEADER_IMAGE || `${SITE_URL}/images/whatsapp-lead-header.jpg`).trim();
+  const headerImage = (process.env["WHATSAPP_HEADER_IMAGE"] || `${SITE_URL}/images/whatsapp-lead-header.jpg`).trim();
   const components: any[] = [
     { type: "header", parameters: [{ type: "image", image: { link: headerImage } }] },
     { type: "body", parameters: params },
@@ -152,7 +152,7 @@ async function sendViaMetaCloud(to: string, l: LeadWhatsAppPayload) {
 }
 
 async function sendViaCallMeBot(to: string, text: string) {
-  const apikey = (process.env.CALLMEBOT_APIKEY || "").trim();
+  const apikey = (process.env["CALLMEBOT_APIKEY"] || "").trim();
   const url = `https://api.callmebot.com/whatsapp.php?${new URLSearchParams({ phone: `+${to}`, text, apikey }).toString()}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
   const body = await res.text().catch(() => "");
@@ -167,8 +167,8 @@ async function sendViaCallMeBot(to: string, text: string) {
 export async function sendLeadWhatsApp(
   l: LeadWhatsAppPayload,
 ): Promise<{ configured: boolean; success: boolean; via?: string; errors: string[] }> {
-  const hasMeta = !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
-  const hasCallMeBot = !!process.env.CALLMEBOT_APIKEY;
+  const hasMeta = !!(process.env["WHATSAPP_TOKEN"] && process.env["WHATSAPP_PHONE_NUMBER_ID"]);
+  const hasCallMeBot = !!process.env["CALLMEBOT_APIKEY"];
   if (!hasMeta && !hasCallMeBot) return { configured: false, success: false, errors: [] };
 
   const errors: string[] = [];

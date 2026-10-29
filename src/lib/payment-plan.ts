@@ -20,19 +20,19 @@ const money = (v: unknown) => {
 
 export function paymentSummary(row: any) {
   const d = details(row);
-  const plan: OrderPlan = d.paymentPlan === "advance" || d.paymentPlan === "balance" ? d.paymentPlan : "full";
+  const plan: OrderPlan = d["paymentPlan"] === "advance" || d["paymentPlan"] === "balance" ? d["paymentPlan"] : "full";
   const amount = money(row?.amount); // what THIS transaction charges
   const paid = row?.payment_status === "COMPLETED";
-  const orderTotal = money(d.orderTotal) || amount;
-  const paidBefore = plan === "balance" ? money(d.paidBefore) : 0;
-  const balanceLater = plan === "advance" && d.balancePaid ? money(d.balanceAmount) : 0;
+  const orderTotal = money(d["orderTotal"]) || amount;
+  const paidBefore = plan === "balance" ? money(d["paidBefore"]) : 0;
+  const balanceLater = plan === "advance" && d["balancePaid"] ? money(d["balanceAmount"]) : 0;
   const paidNow = paid ? amount : 0;
   const paidTotal = Math.min(orderTotal, paidBefore + paidNow + balanceLater);
   const balanceDue = Math.max(0, Math.round((orderTotal - paidTotal) * 100) / 100);
   const fullyPaid = paid && balanceDue <= 0;
   const planLabel =
     plan === "advance"
-      ? d.balancePaid
+      ? d["balancePaid"]
         ? "50% Advance + Balance"
         : "50% Advance"
       : plan === "balance"
@@ -47,9 +47,9 @@ export function paymentSummary(row: any) {
     paidTotal,
     balanceDue,
     fullyPaid,
-    balancePaid: !!d.balancePaid,
-    parentOrderId: plan === "balance" ? String(d.parentOrderId || "") : "",
-    balanceOrderId: plan === "advance" ? String(d.balanceOrderId || "") : "",
+    balancePaid: !!d["balancePaid"],
+    parentOrderId: plan === "balance" ? String(d["parentOrderId"] || "") : "",
+    balanceOrderId: plan === "advance" ? String(d["balanceOrderId"] || "") : "",
   };
 }
 export type PaymentSummary = ReturnType<typeof paymentSummary>;

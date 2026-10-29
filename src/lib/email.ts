@@ -16,14 +16,14 @@ export interface LeadEmailPayload {
 }
 
 // New-lead notification emails go here. (Failed sign-in alerts go to the CRM "Login alert email", info@quickuppaistudio.in by default.)
-const NOTIFICATION_EMAIL = process.env.LEAD_NOTIFICATION_EMAIL || "qsaistudio@gmail.com";
+const NOTIFICATION_EMAIL = process.env["LEAD_NOTIFICATION_EMAIL"] || "qsaistudio@gmail.com";
 
 // ---------------------------------------------------------------------------
 // Shared branded email layout (logo header, details table, buttons, footer).
 // Inline styles only, so it renders the same in Gmail, Outlook and mobile apps.
 // ---------------------------------------------------------------------------
-const SITE_URL = (process.env.PUBLIC_SITE_URL || "https://quickuppaistudio.in").replace(/\/+$/, "");
-const LOGO_URL = process.env.EMAIL_LOGO_URL || `${SITE_URL}/images/logo.png`;
+const SITE_URL = (process.env["PUBLIC_SITE_URL"] || "https://quickuppaistudio.in").replace(/\/+$/, "");
+const LOGO_URL = process.env["EMAIL_LOGO_URL"] || `${SITE_URL}/images/logo.png`;
 
 export function escapeHtml(v: unknown) {
   return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -88,7 +88,7 @@ export function renderBrandedEmail(opts: {
 // styles so it renders the same in Gmail, Outlook, Apple Mail and phones).
 // ---------------------------------------------------------------------------
 const EMAIL_LOGO_DARK_URL =
-  process.env.EMAIL_LOGO_DARK_URL || `${SITE_URL}/images/logo-email.png`;
+  process.env["EMAIL_LOGO_DARK_URL"] || `${SITE_URL}/images/logo-email.png`;
 const EMAIL_LOGO_CID = "quickupp-ai-studio-logo";
 
 function renderPaymentConfirmationEmail(o: {
@@ -365,19 +365,19 @@ function isHostingerAccount(a: SmtpAccount): boolean {
 function smtpAccounts(): { accounts: SmtpAccount[]; missing: string[] } {
   const accounts: SmtpAccount[] = [];
   const missing: string[] = [];
-  const user = (process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || "").trim();
-  const pass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+  const user = (process.env["SMTP_USER"] || process.env["EMAIL_USER"] || process.env["GMAIL_USER"] || "").trim();
+  const pass = (process.env["SMTP_PASS"] || process.env["EMAIL_PASS"] || process.env["GMAIL_APP_PASSWORD"] || "").replace(/\s+/g, "");
   if (user && pass) {
-    const host = (process.env.SMTP_HOST || "smtp.gmail.com").trim();
+    const host = (process.env["SMTP_HOST"] || "smtp.gmail.com").trim();
     const isH = host.toLowerCase().includes("hostinger") || user.toLowerCase().includes("quickuppaistudio.in");
     accounts.push({ label: isH ? "Hostinger SMTP" : "SMTP", host, user, pass });
   } else {
     missing.push("SMTP_USER / SMTP_PASS are not set in the Hostinger environment variables");
   }
-  const hUser = (process.env.HOSTINGER_SMTP_USER || "").trim();
-  const hPass = (process.env.HOSTINGER_SMTP_PASS || "").trim();
+  const hUser = (process.env["HOSTINGER_SMTP_USER"] || "").trim();
+  const hPass = (process.env["HOSTINGER_SMTP_PASS"] || "").trim();
   if (hUser && hPass) {
-    const hHost = (process.env.HOSTINGER_SMTP_HOST || "smtp.hostinger.com").trim();
+    const hHost = (process.env["HOSTINGER_SMTP_HOST"] || "smtp.hostinger.com").trim();
     if (!accounts.some((a) => a.user.toLowerCase() === hUser.toLowerCase())) {
       accounts.push({ label: "Hostinger SMTP", host: hHost, user: hUser, pass: hPass });
     }
@@ -457,14 +457,14 @@ async function sendViaSmtp(mail: { to: string; subject: string; html: string; te
 
 /** Optional HTTPS route (no SMTP ports needed): Resend, if RESEND_API_KEY is set. Sends the same branded HTML. */
 async function sendViaResend(mail: { to: string; subject: string; html: string; text: string; replyTo?: string | undefined; from: string; attachments?: MailAttachment[] | undefined }) {
-  const key = process.env.RESEND_API_KEY;
+  const key = process.env["RESEND_API_KEY"];
   if (!key) return null;
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || mail.from,
+        from: process.env["RESEND_FROM"] || mail.from,
         to: [mail.to],
         reply_to: mail.replyTo,
         subject: mail.subject,
@@ -785,7 +785,7 @@ export async function sendPaymentReceiptEmail(o: {
     "Operated by Quickupp Softech Private Limited",
   ].join("\n");
   const attachments = [...(logo ? [logo] : []), ...(o.receipt ? [o.receipt] : [])];
-  const replyTo = process.env.SUPPORT_EMAIL || "info@quickuppaistudio.in";
+  const replyTo = process.env["SUPPORT_EMAIL"] || "info@quickuppaistudio.in";
   const smtp = await sendViaSmtp({ to: o.to, subject, html, text, replyTo, fromName: "Quickupp AI Studio", attachments, preferWebsiteMailbox: true });
   if (smtp.success) return { success: true, via: smtp.via, errors: smtp.errors };
   const errors = [...smtp.errors];

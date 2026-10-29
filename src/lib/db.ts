@@ -6,16 +6,16 @@ export interface Lead {
   source: "Contact Form" | "Popup Modal" | "USA - Contact Form" | "USA - Popup Modal" | string;
   name: string;
   phone: string;
-  email?: string;
+  email?: string | undefined;
   video_type: string;
   business: string;
-  location?: string;
-  industry?: string;
-  requirement?: string;
-  additional?: string;
+  location?: string | undefined;
+  industry?: string | undefined;
+  requirement?: string | undefined;
+  additional?: string | undefined;
   created_at: string;
   status: "New" | "Contacted" | "In Progress" | "Closed";
-  project_status?: string;
+  project_status?: string | undefined;
 }
 
 let pgPool: any = null;
@@ -23,7 +23,7 @@ let pgPool: any = null;
 // The US site (quickuppaistudio.us) keeps the ORIGINAL Supabase project. The India
 // site must use its own, separate project. These refs are blocked so India data can
 // never be written to (or read from) the US database, even by a copy-pasted env var.
-const BLOCKED_US_PROJECT_REFS = ["oxydwcusxvlsvjkwexsz", ...(process.env.US_SUPABASE_PROJECT_REF ? [process.env.US_SUPABASE_PROJECT_REF] : [])];
+const BLOCKED_US_PROJECT_REFS = ["oxydwcusxvlsvjkwexsz", ...(process.env["US_SUPABASE_PROJECT_REF"] ? [process.env["US_SUPABASE_PROJECT_REF"]] : [])];
 
 export function assertNotUsDatabase(urlOrConn: string) {
   const v = (urlOrConn || "").toLowerCase();
@@ -37,13 +37,13 @@ export function assertNotUsDatabase(urlOrConn: string) {
 
 export function getSupabaseConfig() {
   // India-specific names take priority so the two sites can never share credentials by accident.
-  const rawUrl = process.env.IND_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const rawUrl = process.env["IND_SUPABASE_URL"] || process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
   const key =
-    process.env.IND_SUPABASE_SERVICE_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_API_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_API_KEY;
+    process.env["IND_SUPABASE_SERVICE_KEY"] ||
+    process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
+    process.env["SUPABASE_API_KEY"] ||
+    process.env["SUPABASE_ANON_KEY"] ||
+    process.env["VITE_SUPABASE_API_KEY"];
   if (rawUrl && key) {
     const url = rawUrl.trim().replace(/\/+$/, "");
     assertNotUsDatabase(url);
@@ -78,7 +78,7 @@ export async function getPool() {
   if (!pgPool) {
     const pg = await import("pg");
     const Pool = pg.default?.Pool || pg.Pool;
-    const connectionString = process.env.DATABASE_URL || process.env.VITE_DATABASE_URL;
+    const connectionString = process.env["DATABASE_URL"] || process.env["VITE_DATABASE_URL"];
     if (!connectionString) return null;
     assertNotUsDatabase(connectionString);
 

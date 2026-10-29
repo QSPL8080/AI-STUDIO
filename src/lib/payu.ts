@@ -13,10 +13,10 @@
 import { createHash } from "node:crypto";
 
 export function getPayUConfig() {
-  const key = (process.env.PAYU_KEY || process.env.PAYU_MERCHANT_KEY || "").trim();
-  const salt = (process.env.PAYU_SALT || process.env.PAYU_MERCHANT_SALT || "").trim();
+  const key = (process.env["PAYU_KEY"] || process.env["PAYU_MERCHANT_KEY"] || "").trim();
+  const salt = (process.env["PAYU_SALT"] || process.env["PAYU_MERCHANT_SALT"] || "").trim();
   if (!key || !salt) return null;
-  const live = (process.env.PAYU_MODE || "test").toLowerCase() === "live";
+  const live = (process.env["PAYU_MODE"] || "test").toLowerCase() === "live";
   return {
     key,
     salt,
@@ -26,7 +26,7 @@ export function getPayUConfig() {
 }
 
 export function siteUrl() {
-  return (process.env.PUBLIC_SITE_URL || "https://quickuppaistudio.in").replace(/\/+$/, "");
+  return (process.env["PUBLIC_SITE_URL"] || "https://quickuppaistudio.in").replace(/\/+$/, "");
 }
 
 const sha512 = (s: string) => createHash("sha512").update(s).digest("hex");
@@ -98,27 +98,27 @@ export function verifyPayUResponse(p: Record<string, string>) {
   // [additionalCharges|]SALT|status||||||udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key
   const parts = [
     cfg.salt,
-    p.status || "",
+    p["status"] || "",
     "",
     "",
     "",
     "",
     "",
-    p.udf5 || "",
-    p.udf4 || "",
-    p.udf3 || "",
-    p.udf2 || "",
-    p.udf1 || "",
-    p.email || "",
-    p.firstname || "",
-    p.productinfo || "",
-    p.amount || "",
-    p.txnid || "",
+    p["udf5"] || "",
+    p["udf4"] || "",
+    p["udf3"] || "",
+    p["udf2"] || "",
+    p["udf1"] || "",
+    p["email"] || "",
+    p["firstname"] || "",
+    p["productinfo"] || "",
+    p["amount"] || "",
+    p["txnid"] || "",
     cfg.key,
   ];
-  if (p.additionalCharges) parts.unshift(p.additionalCharges);
+  if (p["additionalCharges"]) parts.unshift(p["additionalCharges"]);
   const expected = sha512(parts.join("|"));
-  return !!p.hash && expected.toLowerCase() === String(p.hash).toLowerCase();
+  return !!p["hash"] && expected.toLowerCase() === String(p["hash"]).toLowerCase();
 }
 
 export interface PayUTxnStatus {
